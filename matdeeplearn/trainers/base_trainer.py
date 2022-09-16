@@ -1,0 +1,2 @@
+class BaseTrainer(ABC):
+    pass
