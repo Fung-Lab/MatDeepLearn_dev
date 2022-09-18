@@ -1,6 +1,10 @@
 import os
 import numpy as np
 from scipy.stats import rankdata
+import ase
+from ase import io
+import torch
+import itertools
 
 import torch
 import torch.nn.functional as F
@@ -107,3 +111,69 @@ def clean_up(data_list, attr_list):
                 delattr(data, attr)
             except:
                 continue
+
+def get_distances(
+    positions: np.ndarray,
+    offsets: torch.Tensor,
+    device: str = 'cpu',
+    mic: bool = True
+):
+    '''
+    Get pairwise atomic distances
+
+    Parameters
+        positions:  np.ndarray
+                    positions of atoms in a unit cell
+        
+        offsets:    torch.Tensor
+                    offsets for the unit cell
+        
+        device:     str
+                    torch device type
+        
+        mic:        bool
+                    minimum image convention
+    '''
+    
+    # convert numpy array to torch tensors
+    n_atoms = len(positions)
+    n_cells = len(offsets)
+
+    positions = torch.tensor(positions, device=device, dtype=torch.float)
+
+    pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
+    pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
+    offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
+    pos2 = pos2 + offsets
+
+    # calculate pairwise distances
+    atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
+    # get minimum
+    min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
+
+    atom_rij = pos1 - pos2
+    min_indices = min_indices[..., None, None].expand(-1, -1, 1, atom_rij.size(3))
+    atom_rij = torch.gather(atom_rij, dim=2, index=min_indices).squeeze()
+
+    return min_atomic_distances, atom_rij
+
+
+def get_pbc_offsets(cell: np.ndarray, offset_number: int, device: str = 'cpu'):
+    '''
+    Get the periodic boundary condition (PBC) offsets for a unit cell
+    
+    Parameters
+        cell:       np.ndarray
+                    unit cell vectors of ase.cell.Cell
+
+        offset_number:  int
+                    the number of offsets for the unit cell
+                    if == 0: no PBC
+                    if == 1: 27-cell offsets (3x3x3)
+    '''
+    cell = torch.tensor(cell, device=device, dtype=torch.float)
+
+    _range = np.arange(-offset_number, offset_number+1)
+    offsets = [list(x) for x in itertools.product(_range, _range, _range)]
+    offsets = torch.tensor(offsets, device=device, dtype=torch.float)
+    return offsets @ cell

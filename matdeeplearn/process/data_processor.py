@@ -148,7 +148,14 @@ class DataProcessor():
             ase_crystal: ase.atoms.Atoms
                 ase Atoms object of an input structure
         '''
-        distance_matrix = ase_crystal.get_all_distances(mic=True)
+        # ase_distance_matrix = torch.tensor(ase_crystal.get_all_distances(mic=True), dtype=torch.float)
+
+        # unit cell offset number
+        # TODO: need to tune this for elongated structures
+        offset_number = 1
+        offsets = get_pbc_offsets(np.array(ase_crystal.get_cell()), offset_number)
+        distance_matrix, _ = get_distances(ase_crystal.get_positions(), offsets)
+
         cutoff_distance_matrix = threshold_sort(distance_matrix, self.r, self.n_neighbors, adj=False)
 
         return torch.Tensor(cutoff_distance_matrix)
