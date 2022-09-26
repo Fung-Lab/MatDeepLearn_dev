@@ -1,3 +1,6 @@
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
-    pass
+
+    def train(self):
+        #TODO add in training functionality
+        pass
