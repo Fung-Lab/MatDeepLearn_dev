@@ -2,7 +2,14 @@ import torch, os
 from torch_geometric.data import InMemoryDataset
 
 class StructureDataset(InMemoryDataset):
-    def __init__(self, root, processed_data_path, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(
+        self,
+        root, 
+        processed_data_path, 
+        transform=None, 
+        pre_transform=None, 
+        pre_filter=None
+    ):
         self.root = root
         self.processed_data_path = processed_data_path
         super(StructureDataset, self).__init__(root, transform, pre_transform, pre_filter)
@@ -11,7 +18,8 @@ class StructureDataset(InMemoryDataset):
     @property
     def raw_file_names(self):
         '''
-        The name of the files in the self.raw_dir folder that must be present in order to skip downloading.
+        The name of the files in the self.raw_dir folder 
+        that must be present in order to skip downloading.
         '''
         return []
 
@@ -28,7 +36,8 @@ class StructureDataset(InMemoryDataset):
     @property
     def processed_file_names(self):
         '''
-        The name of the files in the self.processed_dir folder that must be present in order to skip processing.
+        The name of the files in the self.processed_dir 
+        folder that must be present in order to skip processing.
         '''
         return ["data.pt"]
 

@@ -1,11 +1,4 @@
-# datasets
-from .datasets import StructureDataset
-
-# transforms
-from .transforms import GetY
-
-# utils
-from .main import get_dataset
-
-# process
-from .data_processor import DataProcessor
+from .datasets import StructureDataset, LargeStructureDataset
+from .transforms import *
+from .utils import *
+from .processor import DataProcessor
