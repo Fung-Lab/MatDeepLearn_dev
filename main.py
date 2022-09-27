@@ -1,4 +1,5 @@
 from matdeeplearn.process import *
+from matdeeplearn.models import *
 
 root_path = './data/dup_test_data/'
 target_file_path = './data/dup_test_data/targets.csv'
@@ -14,7 +15,8 @@ processor = DataProcessor(
     edge_steps=edge_steps
 )
 
-processor.process()
+# processor.process()
 dataset = get_dataset(root_path, 0)
 
-print(dataset[0])
+model = BaseModel(edge_steps=edge_steps)
+d = model.generate_graph(dataset[0], r, n_neighbors, otf=True)

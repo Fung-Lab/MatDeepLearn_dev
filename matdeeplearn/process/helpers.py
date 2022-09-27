@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
+from torch_geometric.data.data import Data
 
 def threshold_sort(all_distances, r, n_neighbors):
     A = all_distances.clone().detach()
@@ -230,19 +231,27 @@ def load_node_representation(node_representation='onehot'):
 
     return loaded_rep
 
-def generate_node_features(data_list, n_neighbors):
+def generate_node_features(input_data, n_neighbors):
     node_reps = load_node_representation()
+    
+    if isinstance(input_data, Data):
+        input_data.x = torch.Tensor(node_reps[input_data.z-1])
+        return one_hot_degree(input_data, n_neighbors+1)
 
-    for i, data in enumerate(data_list):
+    for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
         data.x = torch.Tensor(node_reps[data.z-1])
 
-    for i, data in enumerate(data_list):
-        data_list[i] = one_hot_degree(data, n_neighbors+1)
+    for i, data in enumerate(input_data):
+        input_data[i] = one_hot_degree(data, n_neighbors+1)
 
-def generate_edge_features(data_list, edge_steps):
+def generate_edge_features(input_data, edge_steps):
     distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2)
-    normalize_edge(data_list, 'distance')
 
-    for i, data in enumerate(data_list):
-        data_list[i].edge_attr = distance_gaussian(data_list[i].edge_descriptor['distance'])
+    if isinstance(input_data, Data):
+        input_data.edge_attr = distance_gaussian(input_data.edge_descriptor['distance'])
+        return
+
+    normalize_edge(input_data, 'distance')
+    for i, data in enumerate(input_data):
+        input_data[i].edge_attr = distance_gaussian(input_data[i].edge_descriptor['distance'])

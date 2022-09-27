@@ -119,6 +119,7 @@ class DataProcessor():
                 self_loop=self.self_loop
             )
 
+            data.n_atoms = len(ase_crystal)
             data.ase = ase_crystal
             data.pos = pos
             data.cell = cell
@@ -139,6 +140,6 @@ class DataProcessor():
         generate_edge_features(data_list, self.edge_steps)
 
         # clean up
-        clean_up(data_list, ['ase', 'edge_descriptor'])
+        clean_up(data_list, ['ase'])
 
         return data_list
