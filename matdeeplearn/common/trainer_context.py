@@ -5,9 +5,11 @@
 
 import copy
 import time
+import importlib
 from argparse import Namespace
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 @contextmanager
@@ -44,10 +46,8 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         trainer = trainer_cls(
             task=config["task"],
             model=config["model"],
-            dataset=config["dataset"],
-            optimizer=config["optim"],
-            rank=config["rank"],
-            verbosity=config["verboxity"]
+            dataset_config=config["dataset"],
+            # optimizer=config["optim"],
         )
 
         task_cls = registry.get_task_class(config["run_mode"])
@@ -85,7 +85,7 @@ def _import_local_file(path: Path, *, project_root: Path):
         .with_suffix("")
         .parts
     )
-    logging.debug(f"Resolved module name of {path} to {module_name}")
+    # logging.debug(f"Resolved module name of {path} to {module_name}")
     importlib.import_module(module_name)
 
 
@@ -116,7 +116,7 @@ def _get_project_root():
     Gets the root folder of the project (the "ocp" folder)
     :return: The absolute path to the project root.
     """
-    from ocpmodels.common.registry import registry
+    from matdeeplearn.common.registry import registry
 
     # Automatically load all of the modules, so that
     # they register with registry
@@ -136,7 +136,7 @@ def _get_project_root():
 
 # Copied from https://github.com/facebookresearch/mmf/blob/master/mmf/utils/env.py#L89.
 def setup_imports(config: Optional[dict] = None):
-    from ocpmodels.common.registry import registry
+    from matdeeplearn.common.registry import registry
 
     skip_experimental_imports = (config or {}).get(
         "skip_experimental_imports", None
@@ -149,12 +149,12 @@ def setup_imports(config: Optional[dict] = None):
 
     try:
         project_root = _get_project_root()
-        logging.info(f"Project root: {project_root}")
-        importlib.import_module("ocpmodels.common.logger")
+        # logging.info(f"Project root: {project_root}")
+        # importlib.import_module("ocpmodels.common.logger")
 
         import_keys = ["trainers", "datasets", "models", "tasks"]
         for key in import_keys:
-            for f in (project_root / "ocpmodels" / key).rglob("*.py"):
+            for f in (project_root / "matdeeplearn" / key).rglob("*.py"):
                 _import_local_file(f, project_root=project_root)
 
         if not skip_experimental_imports:

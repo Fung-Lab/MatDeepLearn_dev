@@ -21,6 +21,10 @@ class Runner(): #submitit.helpers.Checkpointable):
             self.task = ctx.task
             self.trainer = ctx.trainer
 
+            print(self.trainer.dataset[0])
+
+            input()
+
             self.task.setup(self.trainer)
             # self.task.run()
 

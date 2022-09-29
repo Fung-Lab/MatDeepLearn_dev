@@ -1,6 +1,7 @@
 
 import logging
 import os
+from matdeeplearn.common.registry import registry
 
 class BaseTask:
     def __init__(self, config):
