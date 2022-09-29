@@ -1,0 +1,14 @@
+#VIRTUAL ENV REQUIREMENTS WITH PYTORCH 1.8.1 AND CUDA 10.2
+#COMPATIBLE WITH PYTHON==3.7
+
+#PyPi
+numpy==1.20.1
+scipy==1.6.1
+matplotlib==3.1.1
+pickle5==0.0.11
+joblib==0.13.2
+dscribe==0.3.5
+scikit_learn==0.24.0
+ase==3.20.1
+pymatgen==2020.9.14
+ray==1.0.1
