@@ -13,6 +13,13 @@ class BaseTrainer(ABC):
 
         }
 
+    def load(self):
+        self.load_dataset()
+
+    def load_dataset(self):
+        # TODO: call get_dataset() from process()
+        pass
+
 
     @abstractmethod
     def train(self):

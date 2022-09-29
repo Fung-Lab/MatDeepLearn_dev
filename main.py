@@ -1,15 +1,15 @@
 import copy
 import logging
 
-import submitit
+# import submitit
 
 from matdeeplearn.common.config.flags import flags
-from matdeeplearn.common.config import build_config
+from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.trainer_context import new_trainer_context
-from matdeeplearn.common.utils import setup_logging
+# from matdeeplearn.common.utils import setup_logging
 
 
-class Runner(submitit.helpers.Checkpointable):
+class Runner(): #submitit.helpers.Checkpointable):
     def __init__(self):
         self.config = None
 
@@ -20,7 +20,7 @@ class Runner(submitit.helpers.Checkpointable):
             self.trainer = ctx.trainer
 
             self.task.setup(self.trainer)
-            self.task.run()
+            # self.task.run()
 
     def checkpoint(self, *args, **kwargs):
         new_runner = Runner()
@@ -33,11 +33,18 @@ class Runner(submitit.helpers.Checkpointable):
 
 
 if __name__ == "__main__":
-    setup_logging()
+    # setup_logging()
 
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
+
+    if not config["processed"]:
+        # TODO: process data
+        # process()
+        pass
+
+    print(config)
 
     if args.submit:  # Run on cluster
         #TODO: add setup to submit to cluster

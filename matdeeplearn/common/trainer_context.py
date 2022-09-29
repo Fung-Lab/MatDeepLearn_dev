@@ -1,10 +1,11 @@
-from matdeeplearn.common.utils import (
-    setup_logging,
-    setup_imports
-)
+# from matdeeplearn.common.utils import (
+#     setup_logging,
+#     setup_imports
+# )
 
 import copy
 import time
+from argparse import Namespace
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
@@ -24,7 +25,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         task: "BaseTask"
         trainer: "BaseTrainer"
 
-    setup_logging()
+    # setup_logging()
     config = copy.deepcopy(config)
 
     # TODO: set up for distributed system
@@ -33,7 +34,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
     #     if config["gp_gpus"] is not None:
     #         gp_utils.setup_gp(config)
     try:
-        setup_imports(config)
+        # setup_imports(config)
         trainer_cls = registry.get_trainer_class(
             config.get("trainer", "property")
         )
@@ -60,6 +61,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         # distutils.synchronize()
         # if distutils.is_master():
         #     logging.info(f"Total time taken: {time.time() - start_time}")
-    # finally:
+    finally:
+        pass
     #     if args.distributed:
     #         distutils.cleanup()

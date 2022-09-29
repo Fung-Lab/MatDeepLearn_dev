@@ -84,69 +84,14 @@ def create_dict_from_args(args: list, sep: str = "."):
     return return_dict
 
 
-def load_config(path: str, previous_includes: list = []):
-    path = Path(path)
-    if path in previous_includes:
-        raise ValueError(
-            f"Cyclic config include detected. {path} included in sequence {previous_includes}."
-        )
-    previous_includes = previous_includes + [path]
-
-    direct_config = yaml.safe_load(open(path, "r"))
-
-    # Load config from included files.
-    if "includes" in direct_config:
-        includes = direct_config.pop("includes")
-    else:
-        includes = []
-    if not isinstance(includes, list):
-        raise AttributeError(
-            "Includes must be a list, '{}' provided".format(type(includes))
-        )
-
-    config = {}
-    duplicates_warning = []
-    duplicates_error = []
-
-    for include in includes:
-        include_config, inc_dup_warning, inc_dup_error = load_config(
-            include, previous_includes
-        )
-        duplicates_warning += inc_dup_warning
-        duplicates_error += inc_dup_error
-
-        # Duplicates between includes causes an error
-        config, merge_dup_error = merge_dicts(config, include_config)
-        duplicates_error += merge_dup_error
-
-    # Duplicates between included and main file causes warnings
-    config, merge_dup_warning = merge_dicts(config, direct_config)
-    duplicates_warning += merge_dup_warning
-
-    return config, duplicates_warning, duplicates_error
-
 
 def build_config(args, args_override):
-
-
     ##Open provided config file
     assert os.path.exists(args.config_path), (
         "Config file not found in " + args.config_path
     )
     with open(args.config_path, "r") as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
-
-    config, duplicates_warning, duplicates_error = load_config(args.config_yml)
-    if len(duplicates_warning) > 0:
-        logging.warning(
-            f"Overwritten config parameters from included configs "
-            f"(non-included parameters take precedence): {duplicates_warning}"
-        )
-    if len(duplicates_error) > 0:
-        raise ValueError(
-            f"Conflicting (duplicate) parameters in simultaneously "
-            f"included configs: {duplicates_error}"
-        )
 
     # Check for overridden parameters.
     if args_override != []:
@@ -156,14 +101,12 @@ def build_config(args, args_override):
     # Some other flags.
     config["run_mode"] = args.run_mode
     config["seed"] = args.seed
-
+    #
     # Submit
     config["submit"] = args.submit
-    config["summit"] = args.summit
+    # config["summit"] = args.summit
     # Distributed
     #TODO: add distributed flags
-
-    # TODO: add processed dataset to config
 
     # if run_mode != "Hyperparameter":
     #
