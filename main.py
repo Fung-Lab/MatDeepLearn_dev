@@ -41,10 +41,12 @@ if __name__ == "__main__":
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
 
-    if not config["processed"]:
+    if not config["dataset"]["processed"]:
         process_data(config["dataset"])
 
     print(config)
+
+    input()
 
     if args.submit:  # Run on cluster
         #TODO: add setup to submit to cluster

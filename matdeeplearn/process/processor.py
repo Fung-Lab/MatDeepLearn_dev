@@ -1,4 +1,5 @@
 from tabnanny import verbose
+from typing_extensions import dataclass_transform
 import numpy as np
 from pathlib import Path
 import warnings, yaml, ase, os, torch, json
@@ -12,16 +13,16 @@ from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
 
 def process_data(dataset_config):
     root_path = dataset_config['src']
-    target_path = datset_config['target_path']
+    target_path = dataset_config['target_path']
     cutoff_radius = dataset_config['cutoff_radius']
     n_neighbors = dataset_config['n_neighbors']
     edge_steps = dataset_config['edge_steps']
-    data_format = dataset_config.get("data_format", 'json')
+    data_format = dataset_config.get('data_format', 'json')
     self_loop = dataset_config.get("self_loop", True)
     node_representation = dataset_config.get('node_representation', 'onehot') ,
     verbose: bool = dataset_config.get('verbose', True)
 
-    processor = DataProcessor(root_path, target_path, cutoff_radius, n_neighbors, edge_steps, self_loop, node_representation, verbose)
+    processor = DataProcessor(root_path, target_path, cutoff_radius, n_neighbors, edge_steps, data_format, self_loop, node_representation, verbose)
     processor.process()
 
 class DataProcessor():
