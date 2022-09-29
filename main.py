@@ -7,6 +7,7 @@ from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.trainer_context import new_trainer_context
 # from matdeeplearn.common.utils import setup_logging
+from matdeeplearn.process.processor import DataProcessor
 
 
 class Runner(): #submitit.helpers.Checkpointable):
@@ -40,9 +41,7 @@ if __name__ == "__main__":
     config = build_config(args, override_args)
 
     if not config["processed"]:
-        # TODO: process data
-        # process()
-        pass
+        process_data(config["dataset"])
 
     print(config)
 

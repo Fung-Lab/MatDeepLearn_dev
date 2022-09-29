@@ -59,34 +59,24 @@ optim:
 
 dataset:
   processed: False # if False, need to process data and generate .pt file
-  #Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
-  dataset_type: "inmemory"
+  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
+  # dataset_type: "inmemory"
   #Path to data files
   src: "/data"
+  #Format of data files (limit to those supported by ASE)
+  data_format: "json"
   #Path to target file within data_path
   target_path: "targets.csv"
+  #Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  #Print out processing info
+  verbose: "True"
+
+  #Loading dataset params
   #Index of target column in targets.csv
   target_index: 0
 
-  #Method of obtaining atom idctionary: available:(provided, default, blank, generated)
-  dictionary_source: "default"
-  #Path to atom dictionary file within data_path
-  dictionary_path: "atom_dict.json"
-  #Format of data files (limit to those supported by ASE)
-  data_format: "json"
-  #Print out processing info
-  verbose: "True"
   #graph specific settings
-  graph_max_radius : 8.0
-  graph_max_neighbors : 12
-  voronoi: "False"
-  edge_features: "True"
-  graph_edge_length : 50
-  #SM specific settings
-  SM_descriptor: "False"
-  #SOAP specific settings
-  SOAP_descriptor: "False"
-  SOAP_rcut : 8.0
-  SOAP_nmax : 6
-  SOAP_lmax : 4
-  SOAP_sigma : 0.3
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
