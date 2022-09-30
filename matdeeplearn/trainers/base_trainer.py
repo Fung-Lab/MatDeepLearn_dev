@@ -26,9 +26,6 @@ class BaseTrainer(ABC):
         self.dataset = get_dataset(dataset_path, target_index)
 
 
-
-
-
     @abstractmethod
     def train(self):
         """Derived classes should implement this function."""
