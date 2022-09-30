@@ -107,7 +107,7 @@ class DataProcessor():
             save_path = os.path.join(self.root_path, "processed/data.pt")
             torch.save((data, slices), save_path)
             if self.verbose:
-                print('Dataset saved successfully to {save_path}')
+                print('Processed data saved successfully.')
 
         return data, slices
 

@@ -2,8 +2,6 @@ import copy
 import logging
 
 # import submitit
-import sys
-sys.path.append('./')
 
 from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.config.build_config import build_config
@@ -51,6 +49,7 @@ if __name__ == "__main__":
         process_data(config["dataset"])
 
     print(config)
+
 
 
     if args.submit:  # Run on cluster
