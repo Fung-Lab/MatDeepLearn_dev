@@ -39,7 +39,7 @@ class BaseModel(nn.Module):
             return
 
         # get cutoff distance matrix
-        cd_matrix = get_cutoff_distance_matrix(
+        cd_matrix, cell_offsets = get_cutoff_distance_matrix(
             data.pos, data.cell, r, n_neighbors
         )
 
@@ -50,6 +50,7 @@ class BaseModel(nn.Module):
         )
 
         data.edge_index, data.edge_weight = edge_indices, edge_weights
+        data.cell_offsets = cell_offsets
 
         # generate node features
         generate_node_features(data, n_neighbors)

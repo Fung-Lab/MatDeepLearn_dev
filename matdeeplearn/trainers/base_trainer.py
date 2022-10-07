@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.optim import Optimizer
 from torch_geometric.data import Dataset
 from torch_geometric.loader import DataLoader
 from torch.utils.data.distributed import DistributedSampler

@@ -1,6 +1,4 @@
-import os
 import numpy as np
-from scipy.stats import rankdata
 import ase
 from ase import io
 import torch
@@ -19,7 +17,7 @@ def threshold_sort(all_distances, r, n_neighbors):
     N = len(A) - n_neighbors - 1
     if N > 0:
         _, indices = torch.topk(A, N)
-        A.scatter_(1, indices, torch.zeros(len(A), len(A)))
+        A.scatter_(1, indices, torch.zeros(len(A), len(A), dtype=torch.float64))
 
     A[A > r] = 0
     return A
@@ -27,7 +25,7 @@ def threshold_sort(all_distances, r, n_neighbors):
 def one_hot_degree(data, max_degree, in_degree=False, cat=True):
     idx, x = data.edge_index[1 if in_degree else 0], data.x
     deg = degree(idx, data.num_nodes, dtype=torch.long)
-    deg = F.one_hot(deg, num_classes=max_degree + 1).to(torch.float)
+    deg = F.one_hot(deg, num_classes=max_degree + 1).to(torch.float64)
 
     if x is not None and cat:
         x = x.view(-1, 1) if x.dim() == 1 else x
@@ -118,7 +116,7 @@ def get_distances(
     n_atoms = len(positions)
     n_cells = len(offsets)
 
-    positions = torch.tensor(positions, device=device, dtype=torch.float)
+    positions = torch.tensor(positions, device=device, dtype=torch.float64)
 
     pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
     pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
@@ -129,15 +127,16 @@ def get_distances(
     atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
+    expanded_min_indices = min_indices.clone().detach()
 
     atom_rij = pos1 - pos2
-    min_indices = min_indices[..., None, None].expand(-1, -1, 1, atom_rij.size(3))
-    atom_rij = torch.gather(atom_rij, dim=2, index=min_indices).squeeze()
+    expanded_min_indices = expanded_min_indices[..., None, None].expand(-1, -1, 1, atom_rij.size(3))
+    atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices).squeeze()
 
-    return min_atomic_distances, atom_rij
+    return min_atomic_distances, min_indices
 
 
-def get_pbc_offsets(cell: np.ndarray, offset_number: int, device: str = 'cpu'):
+def get_pbc_cells(cell: np.ndarray, offset_number: int, device: str = 'cpu'):
     '''
     Get the periodic boundary condition (PBC) offsets for a unit cell
     
@@ -150,12 +149,12 @@ def get_pbc_offsets(cell: np.ndarray, offset_number: int, device: str = 'cpu'):
                     if == 0: no PBC
                     if == 1: 27-cell offsets (3x3x3)
     '''
-    cell = torch.tensor(cell, device=device, dtype=torch.float)
+    cell = torch.tensor(cell, device=device, dtype=torch.float64)
 
     _range = np.arange(-offset_number, offset_number+1)
     offsets = [list(x) for x in itertools.product(_range, _range, _range)]
-    offsets = torch.tensor(offsets, device=device, dtype=torch.float)
-    return offsets @ cell
+    offsets = torch.tensor(offsets, device=device, dtype=torch.float64)
+    return offsets @ cell, offsets
 
 def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, offset_number=1):
     '''
@@ -178,12 +177,24 @@ def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, offset_number=1):
             max number of neighbors to be considered
     '''
 
-    offsets = get_pbc_offsets(cell, offset_number)
-    distance_matrix, _ = get_distances(pos, offsets)
-
+    cells, cell_coors = get_pbc_cells(cell, offset_number)
+    distance_matrix, min_indices = get_distances(pos, cells)
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
 
-    return torch.Tensor(cutoff_distance_matrix)
+    all_cell_offsets = cell_coors[torch.flatten(min_indices)]
+    all_cell_offsets = all_cell_offsets.view(len(pos), -1, 3)
+    # cell_offsets = all_cell_offsets[cutoff_distance_matrix != 0]
+
+    # self loops will always have cell of (0,0,0)
+    # N: no of selfloops; M: no of non selfloop edges
+    # self loops are the last N edge_index pairs
+    # thus initialize a zero matrix of (M+N, 3) for cell offsets
+    n_edges = torch.count_nonzero(cutoff_distance_matrix).item()
+    cell_offsets = torch.zeros(n_edges + len(pos), 3, dtype=torch.float64)
+    # get cells for edges except for self loops 
+    cell_offsets[:n_edges, :] = all_cell_offsets[cutoff_distance_matrix != 0]
+
+    return cutoff_distance_matrix, cell_offsets
 
 def add_selfloop(num_nodes, edge_indices, edge_weights, cutoff_distance_matrix, self_loop=True):
     '''

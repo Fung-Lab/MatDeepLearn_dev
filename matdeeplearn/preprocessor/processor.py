@@ -132,7 +132,8 @@ class DataProcessor():
             # get cutoff_distance matrix
             pos = ase_crystal.get_positions()
             cell = np.array(ase_crystal.get_cell())
-            cd_matrix = get_cutoff_distance_matrix(pos, cell, self.r, self.n_neighbors)
+            cd_matrix, cell_offsets = get_cutoff_distance_matrix(pos, cell, self.r, self.n_neighbors)
+
             edge_indices, edge_weights, cd_matrix_masked = add_selfloop(
                 len(ase_crystal),
                 *dense_to_sparse(cd_matrix),
@@ -148,6 +149,7 @@ class DataProcessor():
             data.z = torch.LongTensor(ase_crystal.get_atomic_numbers())
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
+            data.cell_offsets = cell_offsets
 
             data.edge_descriptor= {}
             data.edge_descriptor['mask'] = cd_matrix_masked
