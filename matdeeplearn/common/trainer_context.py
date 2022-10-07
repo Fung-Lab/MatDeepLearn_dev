@@ -43,12 +43,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         assert trainer_cls is not None, "Trainer not found"
 
         #TODO: set up trainer to include different attributes from matedeeplearn
-        trainer = trainer_cls(
-            task=config["task"],
-            model=config["model"],
-            dataset_config=config["dataset"],
-            # optimizer=config["optim"],
-        )
+        trainer = trainer_cls.from_config(config)
 
         task_cls = registry.get_task_class(config["run_mode"])
         assert task_cls is not None, "Task not found"

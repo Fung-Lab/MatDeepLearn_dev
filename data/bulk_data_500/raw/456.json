@@ -1,0 +1,11 @@
+{"1": {
+ "cell": {"array": {"__ndarray__": [[3, 3], "float64", [3.858608, 0.0, 0.0, 0.0, 3.858608, 0.0, 0.0, 0.0, 3.858608]]}, "__ase_objtype__": "cell"},
+ "ctime": 20.834890198356785,
+ "mtime": 20.834890198356785,
+ "numbers": {"__ndarray__": [[2], "int64", [55, 1]]},
+ "pbc": {"__ndarray__": [[3], "bool", [true, true, true]]},
+ "positions": {"__ndarray__": [[2, 3], "float64", [0.0, 0.0, 0.0, 1.929304, 1.929304, 1.929304]]},
+ "unique_id": "f0d7ffb0b51b2616157b72c19d96b572",
+ "user": "vfung"},
+"ids": [1],
+"nextid": 2}

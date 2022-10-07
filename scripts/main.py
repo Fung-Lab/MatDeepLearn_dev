@@ -8,7 +8,7 @@ from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.trainer_context import new_trainer_context
 # from matdeeplearn.common.utils import setup_logging
 
-from matdeeplearn.process.processor import process_data
+from matdeeplearn.preprocessor.processor import process_data
 
 
 class Runner(): #submitit.helpers.Checkpointable):
@@ -21,12 +21,8 @@ class Runner(): #submitit.helpers.Checkpointable):
             self.task = ctx.task
             self.trainer = ctx.trainer
 
-            print(self.trainer.dataset[0])
-
-            input()
-
             self.task.setup(self.trainer)
-            # self.task.run()
+            self.task.run()
 
     def checkpoint(self, *args, **kwargs):
         new_runner = Runner()
@@ -47,10 +43,6 @@ if __name__ == "__main__":
 
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])
-
-    print(config)
-
-
 
     if args.submit:  # Run on cluster
         #TODO: add setup to submit to cluster
