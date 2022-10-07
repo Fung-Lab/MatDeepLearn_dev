@@ -3,25 +3,19 @@ import warnings
 import torch.nn as nn
 from torch_geometric.nn import radius_graph
 
-from matdeeplearn.process.helpers import *
+from matdeeplearn.preprocessor.helpers import *
 
 class BaseModel(nn.Module):
-    def __init__(
-        self,
-        edge_steps: int = 50,
-        self_loop: bool = True
-    ) -> None:
+    def __init__(self, edge_steps: int = 50, self_loop: bool = True) -> None:
         super(BaseModel, self).__init__()
         self.edge_steps = edge_steps
         self.self_loop = self_loop
 
-    def generate_graph(
-        self,
-        data,
-        r,
-        n_neighbors,
-        otf: bool = False
-    ):
+    @classmethod
+    def from_config():
+        pass
+
+    def generate_graph(self, data, r, n_neighbors, otf: bool = False):
         '''
         generates the graph on-the-fly.
 
@@ -38,7 +32,7 @@ class BaseModel(nn.Module):
 
             otf: bool
                 otf == on-the-fly
-                if True, this function will be called   
+                if True, this function will be called
         '''
         if not otf:
             warnings.warn('On-the-fly graph generation is called but otf is False')

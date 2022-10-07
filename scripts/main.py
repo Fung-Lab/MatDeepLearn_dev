@@ -8,7 +8,7 @@ from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.trainer_context import new_trainer_context
 # from matdeeplearn.common.utils import setup_logging
 
-from matdeeplearn.process.processor import process_data
+from matdeeplearn.preprocessor.processor import process_data
 
 
 class Runner(): #submitit.helpers.Checkpointable):

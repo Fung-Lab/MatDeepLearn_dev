@@ -112,7 +112,7 @@ def build_config(args, args_override):
     #
     #     process_start_time = time.time()
     #
-    #     dataset = process.get_dataset(
+    #     dataset = preprocessor.get_dataset(
     #         config["Processing"]["data_path"],
     #         config["Training"]["target_index"],
     #         config["Job"]["reprocess"],

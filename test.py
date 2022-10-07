@@ -1,4 +1,4 @@
-from matdeeplearn.process import DataProcessor
+from matdeeplearn.preprocessor import DataProcessor
 
 root_path = '/Users/shuyijia/Documents/GitHub/Fung-Lab/MatDeepLearn/data/dup_test_data/'
 targets_path = '/Users/shuyijia/Documents/GitHub/Fung-Lab/MatDeepLearn/data/dup_test_data/targets.csv'

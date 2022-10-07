@@ -45,7 +45,7 @@ optim:
   batch_track_stats: "True"
   act: "relu"
   dropout_rate: 0.0
-  epochs: 250
+  max_epochs: 250
   lr: 0.002
   #Loss functions (from pytorch) examples: l1_loss, mse_loss, binary_cross_entropy
   loss: "l1_loss"
@@ -56,7 +56,7 @@ optim:
   scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to process data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files
