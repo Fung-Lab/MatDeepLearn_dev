@@ -13,6 +13,9 @@ from torch_geometric.data.data import Data
 def threshold_sort(all_distances, r, n_neighbors):
     A = all_distances.clone().detach()
 
+    # set diagonal to zero to exclude self-loop distance
+    A.fill_diagonal_(0)
+
     # keep n_neighbors only
     N = len(A) - n_neighbors - 1
     if N > 0:
@@ -90,7 +93,7 @@ def clean_up(data_list, attr_list):
                 continue
 
 def get_distances(
-    positions: np.ndarray,
+    positions: torch.Tensor,
     offsets: torch.Tensor,
     device: str = 'cpu',
     mic: bool = True
@@ -99,7 +102,7 @@ def get_distances(
     Get pairwise atomic distances
 
     Parameters
-        positions:  np.ndarray
+        positions:  torch.Tensor
                     positions of atoms in a unit cell
         
         offsets:    torch.Tensor
@@ -116,8 +119,6 @@ def get_distances(
     n_atoms = len(positions)
     n_cells = len(offsets)
 
-    positions = torch.tensor(positions, device=device, dtype=torch.float64)
-
     pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
     pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
     offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
@@ -125,6 +126,13 @@ def get_distances(
 
     # calculate pairwise distances
     atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
+
+    # set diagonal of the (0,0,0) unit cell to infinity
+    # this allows us to get the minimum self-loop distance
+    # of an atom to itself in all other images
+    origin_unit_cell_idx = 13
+    atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float('inf'))
+
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
     expanded_min_indices = min_indices.clone().detach()
@@ -136,12 +144,12 @@ def get_distances(
     return min_atomic_distances, min_indices
 
 
-def get_pbc_cells(cell: np.ndarray, offset_number: int, device: str = 'cpu'):
+def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = 'cpu'):
     '''
     Get the periodic boundary condition (PBC) offsets for a unit cell
     
     Parameters
-        cell:       np.ndarray
+        cell:       torch.Tensor
                     unit cell vectors of ase.cell.Cell
 
         offset_number:  int
@@ -149,14 +157,13 @@ def get_pbc_cells(cell: np.ndarray, offset_number: int, device: str = 'cpu'):
                     if == 0: no PBC
                     if == 1: 27-cell offsets (3x3x3)
     '''
-    cell = torch.tensor(cell, device=device, dtype=torch.float64)
 
     _range = np.arange(-offset_number, offset_number+1)
     offsets = [list(x) for x in itertools.product(_range, _range, _range)]
     offsets = torch.tensor(offsets, device=device, dtype=torch.float64)
     return offsets @ cell, offsets
 
-def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, offset_number=1):
+def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, device, image_selfloop, offset_number=1):
     '''
     get the distance matrix
     TODO: need to tune this for elongated structures
@@ -177,9 +184,16 @@ def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, offset_number=1):
             max number of neighbors to be considered
     '''
 
-    cells, cell_coors = get_pbc_cells(cell, offset_number)
-    distance_matrix, min_indices = get_distances(pos, cells)
+    cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
+    distance_matrix, min_indices = get_distances(pos, cells, device=device)
+
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
+
+    if image_selfloop:
+        # output of threshold sort has diagonal == 0
+        # fill in the original values
+        self_loop_diag = distance_matrix.diagonal()
+        cutoff_distance_matrix.diagonal().copy_(self_loop_diag)
 
     all_cell_offsets = cell_coors[torch.flatten(min_indices)]
     all_cell_offsets = all_cell_offsets.view(len(pos), -1, 3)
@@ -198,7 +212,7 @@ def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, offset_number=1):
 
 def add_selfloop(num_nodes, edge_indices, edge_weights, cutoff_distance_matrix, self_loop=True):
     '''
-    add self loop to graph structure
+    add self loop (i, i) to graph structure
 
     Parameters
     ----------
@@ -208,7 +222,7 @@ def add_selfloop(num_nodes, edge_indices, edge_weights, cutoff_distance_matrix, 
 
     if not self_loop:
         return edge_indices, edge_weights, (cutoff_distance_matrix != 0).int()
-    
+
     edge_indices, edge_weights = add_self_loops(
         edge_indices, edge_weights, num_nodes=num_nodes, fill_value=0
     )

@@ -18,11 +18,23 @@ def process_data(dataset_config):
     n_neighbors = dataset_config['n_neighbors']
     edge_steps = dataset_config['edge_steps']
     data_format = dataset_config.get('data_format', 'json')
+    image_selfloop = dataset_config.get('image_selfloop', True)
     self_loop = dataset_config.get("self_loop", True)
     node_representation = dataset_config.get('node_representation', 'onehot') ,
     verbose: bool = dataset_config.get('verbose', True)
 
-    processor = DataProcessor(root_path, target_path, cutoff_radius, n_neighbors, edge_steps, data_format, self_loop, node_representation, verbose)
+    processor = DataProcessor(
+        root_path, 
+        target_path, 
+        cutoff_radius, 
+        n_neighbors, 
+        edge_steps, 
+        data_format, 
+        image_selfloop, 
+        self_loop, 
+        node_representation, 
+        verbose
+    )
     processor.process()
 
 class DataProcessor():
@@ -34,8 +46,10 @@ class DataProcessor():
         n_neighbors: int,
         edge_steps: int,
         data_format: str = 'json',
+        image_selfloop: bool = True,
         self_loop: bool = True,
         node_representation: str = 'onehot',
+        device: str = 'cpu',
         verbose: bool = True
     ) -> None:
         '''
@@ -63,14 +77,24 @@ class DataProcessor():
             data_format: str
                 format of the raw data file
 
+            image_selfloop: bool
+                if True, add self loop to node and set the distance to
+                the distance between node and its closest image
+
             self_loop: bool
                 if True, every node in a graph will have a self loop
 
             node_representation: str
-                a path to a JSON file containing vectorized representations of elements
-                of atomic numbers from 1 to 100 inclusive.
+                a path to a JSON file containing vectorized representations 
+                of elements of atomic numbers from 1 to 100 inclusive.
 
                 default: one-hot representation
+
+            device: str
+                torch tensor device
+            
+            verbose: bool
+                if True, certain messages will be printed
         '''
 
         self.root_path = root_path
@@ -79,8 +103,10 @@ class DataProcessor():
         self.n_neighbors = n_neighbors
         self.edge_steps = edge_steps
         self.data_format = data_format
+        self.image_selfloop = image_selfloop
         self.self_loop = self_loop
         self.node_representation = node_representation
+        self.device = device
         self.verbose = verbose
 
         self.y = self.load_target()
@@ -131,29 +157,42 @@ class DataProcessor():
 
             # get cutoff_distance matrix
             pos = ase_crystal.get_positions()
+            pos = torch.tensor(pos, device=self.device, dtype=torch.float64)
             cell = np.array(ase_crystal.get_cell())
-            cd_matrix, cell_offsets = get_cutoff_distance_matrix(pos, cell, self.r, self.n_neighbors)
+            cell = torch.tensor(cell, device=self.device, dtype=torch.float64)
 
-            edge_indices, edge_weights, cd_matrix_masked = add_selfloop(
-                len(ase_crystal),
-                *dense_to_sparse(cd_matrix),
-                cd_matrix,
-                self_loop=self.self_loop
+            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+                pos,
+                cell, 
+                self.r, 
+                self.n_neighbors,
+                image_selfloop=self.image_selfloop,
+                device=self.device
             )
+
+            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+
+            # edge_indices, edge_weights, cd_matrix_masked = add_selfloop(
+            #     len(ase_crystal),
+            #     *dense_to_sparse(cd_matrix),
+            #     cd_matrix,
+            #     self_loop=False
+            # )
 
             data.n_atoms = len(ase_crystal)
             data.ase = ase_crystal
             data.pos = pos
             data.cell = cell
-            data.y = torch.Tensor(np.array([target_val], dtype=np.float32))
+            data.y = torch.Tensor(np.array([target_val], dtype=np.float64))
             data.z = torch.LongTensor(ase_crystal.get_atomic_numbers())
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor= {}
-            data.edge_descriptor['mask'] = cd_matrix_masked
+            # data.edge_descriptor['mask'] = cd_matrix_masked
             data.edge_descriptor['distance'] = edge_weights
+            data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
 
         # add node features
@@ -163,6 +202,6 @@ class DataProcessor():
         generate_edge_features(data_list, self.edge_steps)
 
         # clean up
-        clean_up(data_list, ['ase'])
+        clean_up(data_list, ['ase', 'edge_descriptor'])
 
         return data_list
