@@ -1,5 +1,6 @@
 import copy
 import logging
+import pprint
 
 # import submitit
 
@@ -22,6 +23,11 @@ class Runner(): #submitit.helpers.Checkpointable):
             self.trainer = ctx.trainer
 
             self.task.setup(self.trainer)
+
+            # Print settings for job
+            logging.debug("Settings: ")
+            logging.debug(pprint.pformat(self.config))
+
             self.task.run()
 
     def checkpoint(self, *args, **kwargs):
@@ -36,6 +42,8 @@ class Runner(): #submitit.helpers.Checkpointable):
 
 if __name__ == "__main__":
     # setup_logging()
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
 
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()

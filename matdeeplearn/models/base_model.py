@@ -5,6 +5,7 @@ from torch_geometric.nn import radius_graph
 
 from matdeeplearn.preprocessor.helpers import *
 
+
 class BaseModel(nn.Module):
     def __init__(self, edge_steps: int = 50, self_loop: bool = True) -> None:
         super(BaseModel, self).__init__()
@@ -14,6 +15,31 @@ class BaseModel(nn.Module):
     @classmethod
     def from_config():
         pass
+
+    def __str__(self):
+        # Prints model summary
+        str_representation = '\n'
+        model_params_list = list(self.named_parameters())
+        separator = "--------------------------------------------------------------------------"
+        str_representation += separator + '\n'
+        line_new = "{:>30}  {:>20} {:>20}".format(
+            "Layer.Parameter", "Param Tensor Shape", "Param #"
+        )
+        str_representation += line_new + '\n' + separator + '\n'
+        for elem in model_params_list:
+            p_name = elem[0]
+            p_shape = list(elem[1].size())
+            p_count = torch.tensor(elem[1].size()).prod().item()
+            line_new = "{:>30}  {:>20} {:>20}".format(p_name, str(p_shape), str(p_count))
+            str_representation += line_new + '\n'
+        str_representation += separator + '\n'
+        total_params = sum([param.nelement() for param in self.parameters()])
+        str_representation += f"Total params: {total_params}" + '\n'
+        num_trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        str_representation += f"Trainable params: {num_trainable_params}" + '\n'
+        str_representation += f"Non-trainable params: {total_params - num_trainable_params}"
+
+        return str_representation
 
     def generate_graph(self, data, r, n_neighbors, otf: bool = False):
         '''

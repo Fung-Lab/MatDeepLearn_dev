@@ -1,25 +1,26 @@
 from abc import ABC, abstractmethod
-
-import torch
+import logging
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.optim import Optimizer
 from torch_geometric.data import Dataset
-from torch_geometric.loader import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
-from matdeeplearn.utils.data import *
+from matdeeplearn.common.data import *
+
 
 @registry.register_trainer("base")
 class BaseTrainer(ABC):
 
     def __init__(self, model: BaseModel, dataset: Dataset, optimizer: Optimizer, sampler: DistributedSampler,
-                 scheduler: LRScheduler, train_loader: DataLoader, val_loader: DataLoader, test_loader: DataLoader, loss: str, max_epochs: int):
-        self.model = model
+                 scheduler: LRScheduler, train_loader: DataLoader, val_loader: DataLoader, test_loader: DataLoader,
+                 loss: str, max_epochs: int, verbosity: int = None):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
         self.train_sampler = sampler
@@ -28,14 +29,22 @@ class BaseTrainer(ABC):
 
         self.loss_fn = self.load_loss(loss)
         self.max_epochs = max_epochs
+        self.train_verbosity = verbosity
 
         self.epoch = 0
         self.step = 0
         self.metrics = {}
+        self.epoch_time = None
 
         self.evaluator = Evaluator()
 
-        self.rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if self.train_verbosity:
+            logging.info(f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}")
+            logging.info(f"Dataset used: {self.dataset}")
+            logging.debug(self.dataset[0])
+            logging.debug(self.dataset[0].x[0])
+            logging.debug(self.dataset[0].x[-1])
+            logging.debug(self.model)
 
     @classmethod
     def from_config(cls, config):
@@ -50,7 +59,7 @@ class BaseTrainer(ABC):
         """
         # TODO: figure out what configs are passed in and how they're structured
         #  (one overall config, or individual components)
-        # print(f"config: {config['dataset']}")
+
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset)
         optimizer = cls._load_optimizer(config["optim"], model)
@@ -60,6 +69,7 @@ class BaseTrainer(ABC):
 
         loss = config["optim"]["loss_fn"]
         max_epochs = config["optim"]["max_epochs"]
+        verbosity = config["task"].get("verbosity", None)
 
         return cls(
             model=model,
@@ -71,14 +81,16 @@ class BaseTrainer(ABC):
             val_loader=val_loader,
             test_loader=test_loader,
             loss=loss,
-            max_epochs=max_epochs
+            max_epochs=max_epochs,
+            verbosity=verbosity
         )
 
     @staticmethod
     def _load_dataset(dataset_config):
         """ Loads the dataset if from a config file. """
-        dataset_path = dataset_config['src']
+        dataset_path = dataset_config['pt_path']
         target_index = dataset_config.get('target_index', 0)
+
         dataset = get_dataset(dataset_path, target_index)
 
         return dataset

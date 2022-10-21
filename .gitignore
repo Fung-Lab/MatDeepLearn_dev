@@ -162,5 +162,15 @@ dmypy.json
 # mac
 .DS_Store
 
-# self-defined
-questions.md
+# data
+./data/*
+
+# config
+./config/*
+
+server/
+
+main.py
+
+test*.py
+test*.ipynb

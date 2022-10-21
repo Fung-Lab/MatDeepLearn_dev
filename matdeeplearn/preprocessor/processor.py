@@ -1,19 +1,21 @@
-from tabnanny import verbose
-from typing_extensions import dataclass_transform
 import numpy as np
-from pathlib import Path
-import warnings, yaml, ase, os, torch, json
+import pandas as pd
+import ase, os, torch
+import json
+import logging
 from ase import io
+from tqdm import tqdm
 
 from .helpers import *
 
 from torch_geometric.data import Data, InMemoryDataset
-from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
+from torch_geometric.utils import dense_to_sparse
 
 
 def process_data(dataset_config):
     root_path = dataset_config['src']
     target_path = dataset_config['target_path']
+    pt_path = dataset_config.get('pt_path', None)
     cutoff_radius = dataset_config['cutoff_radius']
     n_neighbors = dataset_config['n_neighbors']
     edge_steps = dataset_config['edge_steps']
@@ -21,12 +23,13 @@ def process_data(dataset_config):
     image_selfloop = dataset_config.get('image_selfloop', True)
     self_loop = dataset_config.get("self_loop", True)
     node_representation = dataset_config.get('node_representation', 'onehot')
-    device = dataset_config.get('device', 'cpu')
+    additional_attributes = dataset_config.get('additional_attributes', [])
     verbose: bool = dataset_config.get('verbose', True)
 
     processor = DataProcessor(
         root_path=root_path, 
         target_file_path=target_path, 
+        pt_path=pt_path,
         r=cutoff_radius, 
         n_neighbors=n_neighbors, 
         edge_steps=edge_steps, 
@@ -34,7 +37,7 @@ def process_data(dataset_config):
         image_selfloop=image_selfloop, 
         self_loop=self_loop, 
         node_representation=node_representation,
-        device=device,
+        additional_attributes=additional_attributes,
         verbose=verbose
     )
     processor.process()
@@ -44,6 +47,7 @@ class DataProcessor():
         self,
         root_path: str,
         target_file_path: str,
+        pt_path: str,
         r: float,
         n_neighbors: int,
         edge_steps: int,
@@ -51,7 +55,7 @@ class DataProcessor():
         image_selfloop: bool = True,
         self_loop: bool = True,
         node_representation: str = 'onehot',
-        device: str = 'cpu',
+        additional_attributes: list = [],
         verbose: bool = True
     ) -> None:
         '''
@@ -92,8 +96,9 @@ class DataProcessor():
 
                 default: one-hot representation
 
-            device: str
-                torch tensor device
+            additional_attributes: list of str
+                additional user-specified attributes to be included in
+                a Data() object
             
             verbose: bool
                 if True, certain messages will be printed
@@ -101,6 +106,7 @@ class DataProcessor():
 
         self.root_path = root_path
         self.target_file_path = target_file_path
+        self.pt_path = pt_path
         self.r = r
         self.n_neighbors = n_neighbors
         self.edge_steps = edge_steps
@@ -108,60 +114,137 @@ class DataProcessor():
         self.image_selfloop = image_selfloop
         self.self_loop = self_loop
         self.node_representation = node_representation
-        self.device = device
+        self.additional_attributes = additional_attributes
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.verbose = verbose
+    
+    def src_check(self):
+        if self.target_file_path:
+            return self.ase_wrap()
+        else:
+            return self.json_wrap()
 
-        self.y = self.load_target()
-
-    def load_target(self):
+    def ase_wrap(self):
         '''
-        load target values as numpy.ndarray
+        raw files are ase readable and self.target_file_path is not None
         '''
-        y = np.genfromtxt(self.target_file_path, delimiter=',')
-        return y
+        logging.info('Reading individual structures using ASE.')
 
+        df = pd.read_csv(self.target_file_path, header=None)
+        file_names = df[0].to_list()
+        y = df.iloc[:, 1:].to_numpy()
+
+        dict_structures = []
+        ase_structures = []
+        
+        logging.info('Converting data to standardized form for downstream processing.')
+        for i, structure_id in enumerate(file_names):
+            p = os.path.join(self.root_path, str(structure_id) + '.' + self.data_format)
+            ase_structures.append(ase.io.read(p))
+        
+        for i, s in enumerate(tqdm(ase_structures)):
+            d = {}
+            pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
+            cell = torch.tensor(np.array(s.get_cell()), device=self.device, dtype=torch.float)
+            atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
+
+            d['positions'] = pos
+            d['cell'] = cell
+            d['atomic_numbers'] = atomic_numbers
+            d['structure_id'] = str(file_names[i])
+
+            # add additional attributes
+            if self.additional_attributes:
+                attributes = self.get_csv_additional_attributes(d['structure_id'])
+                for k, v in attributes.items():
+                    d[k] = v
+
+            dict_structures.append(d)
+        
+        return dict_structures, y
+    
+    def get_csv_additional_attributes(self, structure_id):
+        '''
+        load additional attributes specified by the user
+        '''
+
+        attributes = {}
+
+        for attr in self.additional_attributes:
+            p = os.path.join(self.root_path, structure_id + '_' + attr + '.csv')
+            values = np.genfromtxt(p, delimiter=',', dtype=float, encoding=None)
+            values = torch.tensor(values, device=self.device, dtype=torch.float)
+            attributes[attr] = values
+
+        return attributes
+
+    def json_wrap(self):
+        '''
+        all structures are saved to a single json file
+        '''
+        logging.info('Reading one JSON file for multiple structures.')
+
+        f = open(self.root_path)
+
+        logging.info("Loading json file as dict (this might take a while for large json file size).")
+        original_structures = json.load(f)
+        f.close()
+
+        dict_structures = []
+        y = []
+
+        logging.info('Converting data to standardized form for downstream processing.')
+        for i, s in enumerate(tqdm(original_structures)):
+            d = {}
+            pos = torch.tensor(s['positions'], device=self.device, dtype=torch.float)
+            cell = torch.tensor(s['cell'], device=self.device, dtype=torch.float)
+            atomic_numbers = torch.LongTensor(s['atomic_numbers'])
+
+            d['positions'] = pos
+            d['cell'] = cell
+            d['atomic_numbers'] = atomic_numbers
+            d['structure_id'] = s['structure_id']
+
+            # add additional attributes
+            if self.additional_attributes:
+                for attr in self.additional_attributes:
+                    d[attr] = torch.tensor(s[attr], device=self.device, dtype=torch.float)
+
+            dict_structures.append(d)
+            y.append(s['y'])
+        
+        return dict_structures, np.array(y)
+    
     def process(self, save=True):
-        n_samples = len(self.y)
+        logging.info("Data found at {}".format(self.root_path))
+        logging.info("Processing device: {}".format(self.device))
 
-        data_list = self.get_data_list()
-
-        # TODO: for future work, need to consider larger-than-memory dataset
-        # slices is a dictionary that stores a compressed index representation
-        # of each attribute and is needed to re-construct individual elements
-        # from mini-batches.
-
+        dict_structures, y = self.src_check()
+        data_list = self.get_data_list(dict_structures, y)
         data, slices = InMemoryDataset.collate(data_list)
+
         if save:
-            save_path = os.path.join(self.root_path, "processed/data.pt")
+            if self.pt_path:
+                save_path = os.path.join(self.pt_path, 'data.pt')
+            
             torch.save((data, slices), save_path)
-            if self.verbose:
-                print('Processed data saved successfully.')
+            logging.info('Processed data saved successfully.')
+        
+        return data_list
 
-        return data, slices
-
-    def get_data_list(self):
-        n_samples = len(self.y)
-        data_list = [Data() for _ in range(n_samples)]
-
-        for i, row in enumerate(self.y):
-            # TODO: need to better way to handle different datatypes in one CSV (see self.load_target()).
-            #       currently structure_id has to be int and target_val is float
-            structure_id, target_val = row[0], row[1:]
-            structure_id = str(int(structure_id))
-            # type(data) == torch_geometric.data.Data()
+    def get_data_list(self, dict_structures, y):
+        n_structures = len(dict_structures)
+        data_list = [Data() for _ in range(n_structures)]
+        
+        logging.info('Getting torch_geometric.data.Data() objects.')
+        for i, sdict in enumerate(tqdm(dict_structures)):
+            target_val = y[i]
             data = data_list[i]
 
-            # read structure data into ase Atoms object
-            ase_crystal = ase.io.read(
-                # TODO: generalize to other data formats
-                os.path.join(self.root_path, 'raw/' + structure_id + '.' + self.data_format)
-            )
-
-            # get cutoff_distance matrix
-            pos = ase_crystal.get_positions()
-            pos = torch.tensor(pos, device=self.device, dtype=torch.float)
-            cell = np.array(ase_crystal.get_cell())
-            cell = torch.tensor(cell, device=self.device, dtype=torch.float)
+            pos = sdict['positions']
+            cell = sdict['cell']
+            atomic_numbers = sdict['atomic_numbers']
+            structure_id = sdict['structure_id']
 
             cd_matrix, cell_offsets = get_cutoff_distance_matrix(
                 pos,
@@ -171,22 +254,14 @@ class DataProcessor():
                 image_selfloop=self.image_selfloop,
                 device=self.device
             )
-
+            
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
 
-            # edge_indices, edge_weights, cd_matrix_masked = add_selfloop(
-            #     len(ase_crystal),
-            #     *dense_to_sparse(cd_matrix),
-            #     cd_matrix,
-            #     self_loop=False
-            # )
-
-            data.n_atoms = len(ase_crystal)
-            data.ase = ase_crystal
+            data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
             data.y = torch.Tensor(np.array([target_val]))
-            data.z = torch.LongTensor(ase_crystal.get_atomic_numbers())
+            data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.cell_offsets = cell_offsets
@@ -197,13 +272,17 @@ class DataProcessor():
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
 
-        # add node features
-        generate_node_features(data_list, self.n_neighbors)
+            # add additional attributes
+            if self.additional_attributes:
+                for attr in self.additional_attributes:
+                    data.__setattr__(attr, sdict[attr])
 
-        # add edge features
-        generate_edge_features(data_list, self.edge_steps)
+        logging.info("Generating node features...")
+        generate_node_features(data_list, self.n_neighbors, device=self.device)
 
-        # clean up
-        clean_up(data_list, ['ase', 'edge_descriptor'])
+        logging.info("Generating edge features...")
+        generate_edge_features(data_list, self.edge_steps, device=self.device)
+
+        clean_up(data_list, ['edge_descriptor'])
 
         return data_list

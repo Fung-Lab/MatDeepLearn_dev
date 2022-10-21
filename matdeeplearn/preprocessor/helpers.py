@@ -20,7 +20,11 @@ def threshold_sort(all_distances, r, n_neighbors):
     N = len(A) - n_neighbors - 1
     if N > 0:
         _, indices = torch.topk(A, N)
-        A.scatter_(1, indices, torch.zeros(len(A), len(A), dtype=torch.float))
+        A.scatter_(
+            1, indices, torch.zeros(len(A), len(A), 
+            device=all_distances.device, 
+            dtype=torch.float)
+        )
 
     A[A > r] = 0
     return A
@@ -43,9 +47,9 @@ class GaussianSmearing(torch.nn.Module):
     '''
     slightly edited version from pytorch geometric to create edge from gaussian basis
     '''
-    def __init__(self, start=0.0, stop=5.0, resolution=50, width=0.05, **kwargs):
+    def __init__(self, start=0.0, stop=5.0, resolution=50, width=0.05, device='cpu', **kwargs):
         super(GaussianSmearing, self).__init__()
-        offset = torch.linspace(start, stop, resolution)
+        offset = torch.linspace(start, stop, resolution, device=device)
         # self.coeff = -0.5 / (offset[1] - offset[0]).item() ** 2
         self.coeff = -0.5 / ((stop - start) * width) ** 2
         self.register_buffer("offset", offset)
@@ -236,8 +240,6 @@ def load_node_representation(node_representation='onehot'):
         'onehot': str(node_rep_path / './node_representations/onehot.csv')
     }
 
-    # print(default_reps['onehot'])
-
     rep_file_path = node_representation
     if node_representation in default_reps:
         rep_file_path = default_reps[node_representation]
@@ -256,22 +258,24 @@ def load_node_representation(node_representation='onehot'):
 
     return loaded_rep
 
-def generate_node_features(input_data, n_neighbors):
+def generate_node_features(input_data, n_neighbors, device):
     node_reps = load_node_representation()
+    node_reps = torch.from_numpy(node_reps).to(device)
+    n_elements, n_features = node_reps.shape
     
     if isinstance(input_data, Data):
-        input_data.x = torch.Tensor(node_reps[input_data.z-1]).view(-1,100)
+        input_data.x = node_reps[input_data.z-1].view(-1,n_features)
         return one_hot_degree(input_data, n_neighbors+1)
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = torch.Tensor(node_reps[data.z-1]).view(-1,100)
+        data.x = node_reps[data.z-1].view(-1,n_features)
 
     for i, data in enumerate(input_data):
         input_data[i] = one_hot_degree(data, n_neighbors+1)
 
-def generate_edge_features(input_data, edge_steps):
-    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2)
+def generate_edge_features(input_data, edge_steps, device):
+    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
 
     if isinstance(input_data, Data):
         input_data.edge_attr = distance_gaussian(input_data.edge_descriptor['distance'])

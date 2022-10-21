@@ -11,6 +11,8 @@ class LRScheduler:
             optimizer, **model_parameters
         )
 
+        self.lr = self.optimizer.param_groups[0]["lr"]
+
     @classmethod
     def from_config(cls, optimizer, optim_config):
         scheduler_type = optim_config["scheduler_type"]
@@ -28,3 +30,10 @@ class LRScheduler:
             self.scheduler.step(metrics)
         else:
             self.scheduler.step()
+
+        # update the learning rate attribute to current lr
+        self.update_lr()
+
+    def update_lr(self):
+        for param_group in self.optimizer.param_groups:
+            self.lr = param_group["lr"]

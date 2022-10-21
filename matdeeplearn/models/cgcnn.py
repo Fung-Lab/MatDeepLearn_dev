@@ -128,7 +128,7 @@ class CGCNN(BaseModel):
         ##Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
-                out = self.pre_lin_list[i](data.x)
+                out = self.pre_lin_list[i](data.x.float())
                 out = getattr(F, self.act)(out)
             else:
                 out = self.pre_lin_list[i](out)
