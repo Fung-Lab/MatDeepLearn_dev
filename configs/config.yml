@@ -1,0 +1,86 @@
+
+trainer: property
+
+task:
+  # run_mode: train
+  name: "my_train_job"
+
+  reprocess: "False"
+
+
+  parallel: "True"
+  seed: 0
+  #seed=0 means random initalization
+
+
+  write_output: "True"
+  parallel: "True"
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+
+  #Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
+
+
+
+model:
+  name: CGCNN
+  load_model: "False"
+  save_model: "True"
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
+  #model attributes
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: "global_mean_pool"
+  pool_order: "early"
+  batch_norm: "True"
+  batch_track_stats: "True"
+  act: "relu"
+  dropout_rate: 0.0
+
+optim:
+  max_epochs: 250
+  lr: 0.002
+  #Loss functions (from pytorch) examples: l1_loss, mse_loss, binary_cross_entropy
+  loss_fn: "l1_loss"
+  batch_size: 100
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: False # if False, need to preprocessor data and generate .pt file
+  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
+  # dataset_type: "inmemory"
+  #Path to data files
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  #Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  #Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  #Print out processing info
+  verbose: "True"
+
+  #Loading dataset params
+  #Index of target column in targets.csv
+  target_index: 0
+
+  #graph specific settings
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
+  
