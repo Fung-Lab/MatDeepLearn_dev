@@ -2,17 +2,17 @@ import copy
 import logging
 import pprint
 
-# import submitit
-
-from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.config.build_config import build_config
+from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.trainer_context import new_trainer_context
-# from matdeeplearn.common.utils import setup_logging
-
 from matdeeplearn.preprocessor.processor import process_data
 
+# import submitit
 
-class Runner(): #submitit.helpers.Checkpointable):
+# from matdeeplearn.common.utils import setup_logging
+
+
+class Runner:  # submitit.helpers.Checkpointable):
     def __init__(self):
         self.config = None
 
@@ -31,13 +31,13 @@ class Runner(): #submitit.helpers.Checkpointable):
             self.task.run()
 
     def checkpoint(self, *args, **kwargs):
-        new_runner = Runner()
+        # new_runner = Runner()
         self.trainer.save(checkpoint_file="checkpoint.pt", training_state=True)
         self.config["checkpoint"] = self.task.chkpt_path
         self.config["timestamp_id"] = self.trainer.timestamp_id
         if self.trainer.logger is not None:
             self.trainer.logger.mark_preempting()
-        return submitit.helpers.DelayedSubmission(new_runner, self.config)
+        # return submitit.helpers.DelayedSubmission(new_runner, self.config)
 
 
 if __name__ == "__main__":
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         process_data(config["dataset"])
 
     if args.submit:  # Run on cluster
-        #TODO: add setup to submit to cluster
+        # TODO: add setup to submit to cluster
         pass
 
     else:  # Run locally

@@ -1,4 +1,4 @@
-##Torch imports
+# Torch imports
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -27,16 +27,12 @@ class Evaluator:
             # If dictionary, we expect it to have `metric`, `total`, `numel`.
             metrics[key]["total"] += stat["total"]
             metrics[key]["numel"] += stat["numel"]
-            metrics[key]["metric"] = (
-                metrics[key]["total"] / metrics[key]["numel"]
-            )
+            metrics[key]["metric"] = metrics[key]["total"] / metrics[key]["numel"]
         elif isinstance(stat, float) or isinstance(stat, int):
             # If float or int, just add to the total and increment numel by 1.
             metrics[key]["total"] += stat
             metrics[key]["numel"] += 1
-            metrics[key]["metric"] = (
-                metrics[key]["total"] / metrics[key]["numel"]
-            )
+            metrics[key]["metric"] = metrics[key]["total"] / metrics[key]["numel"]
         elif torch.is_tensor(stat):
             raise NotImplementedError
 

@@ -1,21 +1,49 @@
 import logging
 import time
+
 import torch
 
-from matdeeplearn.trainers.base_trainer import BaseTrainer
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
+from matdeeplearn.trainers.base_trainer import BaseTrainer
 
 
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
-    def __init__(self, model, dataset, optimizer, sampler, scheduler, train_loader, val_loader, test_loader, loss, max_epochs, verbosity):
-        super().__init__(model, dataset, optimizer, sampler, scheduler, train_loader, val_loader, test_loader, loss, max_epochs, verbosity)
+    def __init__(
+        self,
+        model,
+        dataset,
+        optimizer,
+        sampler,
+        scheduler,
+        train_loader,
+        val_loader,
+        test_loader,
+        loss,
+        max_epochs,
+        verbosity,
+    ):
+        super().__init__(
+            model,
+            dataset,
+            optimizer,
+            sampler,
+            scheduler,
+            train_loader,
+            val_loader,
+            test_loader,
+            loss,
+            max_epochs,
+            verbosity,
+        )
 
     def train(self):
         if self.train_verbosity:
             logging.info("Starting regular training")
-            logging.info(f"running for  {self.max_epochs} epochs on {type(self.model).__name__} model")
+            logging.info(
+                f"running for  {self.max_epochs} epochs on {type(self.model).__name__} model"
+            )
 
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
@@ -69,11 +97,13 @@ class PropertyTrainer(BaseTrainer):
                 # step scheduler, using validation error
                 self._scheduler_step()
 
-    def validate(self, split='val'):
+    def validate(self, split="val"):
         self.model.eval()
         evaluator, metrics = Evaluator(), {}
 
-        loader_iter = iter(self.val_loader) if split == 'val' else iter(self.test_loader)
+        loader_iter = (
+            iter(self.val_loader) if split == "val" else iter(self.test_loader)
+        )
 
         for i in range(0, len(loader_iter)):
             with torch.no_grad():
@@ -105,10 +135,14 @@ class PropertyTrainer(BaseTrainer):
 
     def _compute_metrics(self, out, batch_data, metrics):
         # TODO: finish this method
-        # 
-        property_target = torch.cat([batch.y.to(self.device) for batch in [batch_data]], dim=0)
+        #
+        property_target = torch.cat(
+            [batch.y.to(self.device) for batch in [batch_data]], dim=0
+        )
 
-        metrics = self.evaluator.eval(out, property_target, self.loss_fn, prev_metrics=metrics)
+        metrics = self.evaluator.eval(
+            out, property_target, self.loss_fn, prev_metrics=metrics
+        )
 
         return metrics
 
@@ -121,18 +155,20 @@ class PropertyTrainer(BaseTrainer):
             val_loss = val_metrics[self.loss_fn.__name__]["metric"]
             logging.info(
                 "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
-                    int(self.epoch-1), self.scheduler.lr, train_loss, val_loss, self.epoch_time
+                    int(self.epoch - 1),
+                    self.scheduler.lr,
+                    train_loss,
+                    val_loss,
+                    self.epoch_time,
                 )
             )
 
     def _load_task(self):
-        """ Initializes task-specific info. Implemented by derived classes. """
+        """Initializes task-specific info. Implemented by derived classes."""
         pass
 
     def _scheduler_step(self):
         if self.scheduler.scheduler_type == "ReduceLROnPlateau":
-            self.scheduler.step(
-                metrics=self.metrics[self.loss_fn.__name__]["metric"]
-            )
+            self.scheduler.step(metrics=self.metrics[self.loss_fn.__name__]["metric"])
         else:
             self.scheduler.step()

@@ -1,13 +1,10 @@
-
 import argparse
 from pathlib import Path
 
 
 class Flags:
     def __init__(self):
-        self.parser = argparse.ArgumentParser(
-            description="MatDeepLearn inputs"
-        )
+        self.parser = argparse.ArgumentParser(description="MatDeepLearn inputs")
         self.add_core_args()
 
     def get_parser(self):
@@ -118,12 +115,12 @@ class Flags:
         # parser.add_argument("--batch_size", default=None, type=int, help="batch size")
         # parser.add_argument("--lr", default=None, type=float, help="learning rate")
 
-        #TODO: add cluster args
+        # TODO: add cluster args
         self.parser.add_argument(
             "--submit", action="store_true", help="Submit job to cluster"
         )
-        #TODO: add checkpoint arg
-        #TODO: timestamp id arg?
+        # TODO: add checkpoint arg
+        # TODO: timestamp id arg?
 
 
 flags = Flags()
