@@ -16,3 +16,8 @@ scikit_learn
 ase==3.21.*
 pymatgen==2020.12.31
 #ray==1.0.1
+
+#developer tools
+pre-commit
+black
+# isort

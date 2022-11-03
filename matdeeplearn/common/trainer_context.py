@@ -1,8 +1,8 @@
 # from matdeeplearn.common.utils import setup_logging
 
 import copy
-import time
 import importlib
+import time
 from argparse import Namespace
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -35,9 +35,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
     #         gp_utils.setup_gp(config)
     try:
         setup_imports()
-        trainer_cls = registry.get_trainer_class(
-            config.get("trainer", "property")
-        )
+        trainer_cls = registry.get_trainer_class(config.get("trainer", "property"))
         assert trainer_cls is not None, "Trainer not found"
 
         # TODO: set up trainer to include different attributes from matedeeplearn
@@ -46,7 +44,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         task_cls = registry.get_task_class(config["run_mode"])
         assert task_cls is not None, "Task not found"
         task = task_cls(config)
-        start_time = time.time()
+        # start_time = time.time()
         ctx = _TrainingContext(config=config, task=task, trainer=trainer)
         yield ctx
 
@@ -74,10 +72,7 @@ def _import_local_file(path: Path, *, project_root: Path):
     project_root = project_root.resolve()
 
     module_name = ".".join(
-        path.absolute()
-        .relative_to(project_root.absolute())
-        .with_suffix("")
-        .parts
+        path.absolute().relative_to(project_root.absolute()).with_suffix("").parts
     )
     # logging.debug(f"Resolved module name of {path} to {module_name}")
     importlib.import_module(module_name)

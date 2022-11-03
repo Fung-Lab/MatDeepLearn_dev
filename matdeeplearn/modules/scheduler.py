@@ -2,7 +2,8 @@ import torch
 
 
 class LRScheduler:
-    """ wrapper around torch.optim.lr_scheduler._LRScheduler"""
+    """wrapper around torch.optim.lr_scheduler._LRScheduler"""
+
     def __init__(self, optimizer, scheduler_type, model_parameters):
         self.optimizer = optimizer
         self.scheduler_type = scheduler_type
@@ -24,9 +25,7 @@ class LRScheduler:
             return
         if self.scheduler_type == "ReduceLROnPlateau":
             if metrics is None:
-                raise Exception(
-                    "Validation set required for ReduceLROnPlateau."
-                )
+                raise Exception("Validation set required for ReduceLROnPlateau.")
             self.scheduler.step(metrics)
         else:
             self.scheduler.step()

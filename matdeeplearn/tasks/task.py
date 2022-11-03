@@ -1,11 +1,12 @@
-
 import logging
 import os
+
 from matdeeplearn.common.registry import registry
 
 """
 These classes are used for running with a config file via command line
 """
+
 
 class BaseTask:
     def __init__(self, config):

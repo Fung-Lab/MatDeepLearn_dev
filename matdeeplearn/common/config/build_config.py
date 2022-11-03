@@ -1,11 +1,11 @@
-
 import ast
 import copy
 import logging
 import os
+from pathlib import Path
+
 import yaml
 
-from pathlib import Path
 
 def merge_dicts(dict1: dict, dict2: dict):
     """Recursively merge two dictionaries.
@@ -48,6 +48,7 @@ def merge_dicts(dict1: dict, dict2: dict):
 
     return return_dict, duplicates
 
+
 def dict_set_recursively(dictionary, key_sequence, val):
     top_key = key_sequence.pop(0)
     if len(key_sequence) == 0:
@@ -84,9 +85,8 @@ def create_dict_from_args(args: list, sep: str = "."):
     return return_dict
 
 
-
 def build_config(args, args_override):
-    ##Open provided config file
+    # Open provided config file
     assert os.path.exists(args.config_path), (
         "Config file not found in " + args.config_path
     )
@@ -106,7 +106,7 @@ def build_config(args, args_override):
     config["submit"] = args.submit
     # config["summit"] = args.summit
     # Distributed
-    #TODO: add distributed flags
+    # TODO: add distributed flags
 
     # if run_mode != "Hyperparameter":
     #
@@ -118,6 +118,5 @@ def build_config(args, args_override):
     #         config["Job"]["reprocess"],
     #         config["Processing"],
     #     )
-
 
     return config

@@ -1,9 +1,16 @@
-import torch
 import warnings
+
+import torch
 import torch.nn as nn
 from torch_geometric.nn import radius_graph
+from torch_geometric.utils import dense_to_sparse
 
-from matdeeplearn.preprocessor.helpers import *
+from matdeeplearn.preprocessor.helpers import (
+    add_selfloop,
+    generate_edge_features,
+    generate_node_features,
+    get_cutoff_distance_matrix,
+)
 
 
 class BaseModel(nn.Module):
@@ -12,37 +19,41 @@ class BaseModel(nn.Module):
         self.edge_steps = edge_steps
         self.self_loop = self_loop
 
-    @classmethod
-    def from_config():
-        pass
-
     def __str__(self):
         # Prints model summary
-        str_representation = '\n'
+        str_representation = "\n"
         model_params_list = list(self.named_parameters())
-        separator = "--------------------------------------------------------------------------"
-        str_representation += separator + '\n'
+        separator = (
+            "--------------------------------------------------------------------------"
+        )
+        str_representation += separator + "\n"
         line_new = "{:>30}  {:>20} {:>20}".format(
             "Layer.Parameter", "Param Tensor Shape", "Param #"
         )
-        str_representation += line_new + '\n' + separator + '\n'
+        str_representation += line_new + "\n" + separator + "\n"
         for elem in model_params_list:
             p_name = elem[0]
             p_shape = list(elem[1].size())
             p_count = torch.tensor(elem[1].size()).prod().item()
-            line_new = "{:>30}  {:>20} {:>20}".format(p_name, str(p_shape), str(p_count))
-            str_representation += line_new + '\n'
-        str_representation += separator + '\n'
+            line_new = "{:>30}  {:>20} {:>20}".format(
+                p_name, str(p_shape), str(p_count)
+            )
+            str_representation += line_new + "\n"
+        str_representation += separator + "\n"
         total_params = sum([param.nelement() for param in self.parameters()])
-        str_representation += f"Total params: {total_params}" + '\n'
-        num_trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        str_representation += f"Trainable params: {num_trainable_params}" + '\n'
-        str_representation += f"Non-trainable params: {total_params - num_trainable_params}"
+        str_representation += f"Total params: {total_params}" + "\n"
+        num_trainable_params = sum(
+            p.numel() for p in self.parameters() if p.requires_grad
+        )
+        str_representation += f"Trainable params: {num_trainable_params}" + "\n"
+        str_representation += (
+            f"Non-trainable params: {total_params - num_trainable_params}"
+        )
 
         return str_representation
 
     def generate_graph(self, data, r, n_neighbors, otf: bool = False):
-        '''
+        """
         generates the graph on-the-fly.
 
         Parameters
@@ -59,9 +70,9 @@ class BaseModel(nn.Module):
             otf: bool
                 otf == on-the-fly
                 if True, this function will be called
-        '''
+        """
         if not otf:
-            warnings.warn('On-the-fly graph generation is called but otf is False')
+            warnings.warn("On-the-fly graph generation is called but otf is False")
             return
 
         # get cutoff distance matrix

@@ -1,14 +1,14 @@
-import numpy as np
-import ase
-from ase import io
-import torch
 import itertools
 from pathlib import Path
 
+import ase
+import numpy as np
 import torch
 import torch.nn.functional as F
-from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
+from ase import io
 from torch_geometric.data.data import Data
+from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
+
 
 def threshold_sort(all_distances, r, n_neighbors):
     A = all_distances.clone().detach()
@@ -21,13 +21,14 @@ def threshold_sort(all_distances, r, n_neighbors):
     if N > 0:
         _, indices = torch.topk(A, N)
         A.scatter_(
-            1, indices, torch.zeros(len(A), len(A), 
-            device=all_distances.device, 
-            dtype=torch.float)
+            1,
+            indices,
+            torch.zeros(len(A), len(A), device=all_distances.device, dtype=torch.float),
         )
 
     A[A > r] = 0
     return A
+
 
 def one_hot_degree(data, max_degree, in_degree=False, cat=True):
     idx, x = data.edge_index[1 if in_degree else 0], data.x
@@ -44,10 +45,13 @@ def one_hot_degree(data, max_degree, in_degree=False, cat=True):
 
 
 class GaussianSmearing(torch.nn.Module):
-    '''
+    """
     slightly edited version from pytorch geometric to create edge from gaussian basis
-    '''
-    def __init__(self, start=0.0, stop=5.0, resolution=50, width=0.05, device='cpu', **kwargs):
+    """
+
+    def __init__(
+        self, start=0.0, stop=5.0, resolution=50, width=0.05, device="cpu", **kwargs
+    ):
         super(GaussianSmearing, self).__init__()
         offset = torch.linspace(start, stop, resolution, device=device)
         # self.coeff = -0.5 / (offset[1] - offset[0]).item() ** 2
@@ -58,6 +62,7 @@ class GaussianSmearing(torch.nn.Module):
         dist = dist.unsqueeze(-1) - self.offset.view(1, -1)
         return torch.exp(self.coeff * torch.pow(dist, 2))
 
+
 def normalize_edge(dataset, descriptor_label):
     mean, std, feature_min, feature_max = get_ranges(dataset, descriptor_label)
 
@@ -65,6 +70,7 @@ def normalize_edge(dataset, descriptor_label):
         data.edge_descriptor[descriptor_label] = (
             data.edge_descriptor[descriptor_label] - feature_min
         ) / (feature_max - feature_min)
+
 
 def get_ranges(dataset, descriptor_label):
     mean = 0.0
@@ -85,40 +91,42 @@ def get_ranges(dataset, descriptor_label):
     std = std / len(dataset)
     return mean, std, feature_min, feature_max
 
+
 def clean_up(data_list, attr_list):
     if not attr_list:
         return data_list
-    
+
     for data in data_list:
         for attr in attr_list:
             try:
                 delattr(data, attr)
-            except:
+            except AttributeError:
                 continue
+
 
 def get_distances(
     positions: torch.Tensor,
     offsets: torch.Tensor,
-    device: str = 'cpu',
-    mic: bool = True
+    device: str = "cpu",
+    mic: bool = True,
 ):
-    '''
+    """
     Get pairwise atomic distances
 
     Parameters
         positions:  torch.Tensor
                     positions of atoms in a unit cell
-        
+
         offsets:    torch.Tensor
                     offsets for the unit cell
-        
+
         device:     str
                     torch device type
-        
+
         mic:        bool
                     minimum image convention
-    '''
-    
+    """
+
     # convert numpy array to torch tensors
     n_atoms = len(positions)
     n_cells = len(offsets)
@@ -135,23 +143,25 @@ def get_distances(
     # this allows us to get the minimum self-loop distance
     # of an atom to itself in all other images
     origin_unit_cell_idx = 13
-    atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float('inf'))
+    atomic_distances[:, :, origin_unit_cell_idx].fill_diagonal_(float("inf"))
 
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
     expanded_min_indices = min_indices.clone().detach()
 
     atom_rij = pos1 - pos2
-    expanded_min_indices = expanded_min_indices[..., None, None].expand(-1, -1, 1, atom_rij.size(3))
+    expanded_min_indices = expanded_min_indices[..., None, None].expand(
+        -1, -1, 1, atom_rij.size(3)
+    )
     atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices).squeeze()
 
     return min_atomic_distances, min_indices
 
 
-def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = 'cpu'):
-    '''
+def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
+    """
     Get the periodic boundary condition (PBC) offsets for a unit cell
-    
+
     Parameters
         cell:       torch.Tensor
                     unit cell vectors of ase.cell.Cell
@@ -160,24 +170,27 @@ def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = 'cpu'):
                     the number of offsets for the unit cell
                     if == 0: no PBC
                     if == 1: 27-cell offsets (3x3x3)
-    '''
+    """
 
-    _range = np.arange(-offset_number, offset_number+1)
+    _range = np.arange(-offset_number, offset_number + 1)
     offsets = [list(x) for x in itertools.product(_range, _range, _range)]
     offsets = torch.tensor(offsets, device=device, dtype=torch.float)
     return offsets @ cell, offsets
 
-def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, device, image_selfloop, offset_number=1):
-    '''
+
+def get_cutoff_distance_matrix(
+    pos, cell, r, n_neighbors, device, image_selfloop, offset_number=1
+):
+    """
     get the distance matrix
     TODO: need to tune this for elongated structures
 
     Parameters
     ----------
-        pos: np.ndarray 
+        pos: np.ndarray
             positions of atoms in a unit cell
             get from crystal.get_positions()
-        
+
         cell: np.ndarray
             unit cell of a ase Atoms object
 
@@ -186,7 +199,7 @@ def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, device, image_selfloop
 
         n_neighbors: int
             max number of neighbors to be considered
-    '''
+    """
 
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
     distance_matrix, min_indices = get_distances(pos, cells, device=device)
@@ -209,20 +222,23 @@ def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, device, image_selfloop
     # thus initialize a zero matrix of (M+N, 3) for cell offsets
     n_edges = torch.count_nonzero(cutoff_distance_matrix).item()
     cell_offsets = torch.zeros(n_edges + len(pos), 3, dtype=torch.float)
-    # get cells for edges except for self loops 
+    # get cells for edges except for self loops
     cell_offsets[:n_edges, :] = all_cell_offsets[cutoff_distance_matrix != 0]
 
     return cutoff_distance_matrix, cell_offsets
 
-def add_selfloop(num_nodes, edge_indices, edge_weights, cutoff_distance_matrix, self_loop=True):
-    '''
+
+def add_selfloop(
+    num_nodes, edge_indices, edge_weights, cutoff_distance_matrix, self_loop=True
+):
+    """
     add self loop (i, i) to graph structure
 
     Parameters
     ----------
         n_nodes: int
             number of nodes
-    '''
+    """
 
     if not self_loop:
         return edge_indices, edge_weights, (cutoff_distance_matrix != 0).int()
@@ -234,53 +250,56 @@ def add_selfloop(num_nodes, edge_indices, edge_weights, cutoff_distance_matrix, 
     distance_matrix_masked = (cutoff_distance_matrix.fill_diagonal_(1) != 0).int()
     return edge_indices, edge_weights, distance_matrix_masked
 
-def load_node_representation(node_representation='onehot'):
+
+def load_node_representation(node_representation="onehot"):
     node_rep_path = Path(__file__).parent
-    default_reps = {
-        'onehot': str(node_rep_path / './node_representations/onehot.csv')
-    }
+    default_reps = {"onehot": str(node_rep_path / "./node_representations/onehot.csv")}
 
     rep_file_path = node_representation
     if node_representation in default_reps:
         rep_file_path = default_reps[node_representation]
-    
-    file_type = rep_file_path.split('.')[-1]
+
+    file_type = rep_file_path.split(".")[-1]
     loaded_rep = None
 
-    if file_type == 'csv':
-        loaded_rep = np.genfromtxt(rep_file_path, delimiter=',')
+    if file_type == "csv":
+        loaded_rep = np.genfromtxt(rep_file_path, delimiter=",")
         # TODO: need to check if typecasting to integer is needed
         loaded_rep = loaded_rep.astype(int)
 
-    elif file_type == 'json':
+    elif file_type == "json":
         # TODO
         pass
 
     return loaded_rep
 
+
 def generate_node_features(input_data, n_neighbors, device):
     node_reps = load_node_representation()
     node_reps = torch.from_numpy(node_reps).to(device)
     n_elements, n_features = node_reps.shape
-    
+
     if isinstance(input_data, Data):
-        input_data.x = node_reps[input_data.z-1].view(-1,n_features)
-        return one_hot_degree(input_data, n_neighbors+1)
+        input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
+        return one_hot_degree(input_data, n_neighbors + 1)
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = node_reps[data.z-1].view(-1,n_features)
+        data.x = node_reps[data.z - 1].view(-1, n_features)
 
     for i, data in enumerate(input_data):
-        input_data[i] = one_hot_degree(data, n_neighbors+1)
+        input_data[i] = one_hot_degree(data, n_neighbors + 1)
+
 
 def generate_edge_features(input_data, edge_steps, device):
     distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
 
     if isinstance(input_data, Data):
-        input_data.edge_attr = distance_gaussian(input_data.edge_descriptor['distance'])
+        input_data.edge_attr = distance_gaussian(input_data.edge_descriptor["distance"])
         return
 
-    normalize_edge(input_data, 'distance')
+    normalize_edge(input_data, "distance")
     for i, data in enumerate(input_data):
-        input_data[i].edge_attr = distance_gaussian(input_data[i].edge_descriptor['distance'])
+        input_data[i].edge_attr = distance_gaussian(
+            input_data[i].edge_descriptor["distance"]
+        )
