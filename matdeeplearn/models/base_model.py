@@ -1,4 +1,5 @@
 import warnings
+from abc import abstractmethod
 
 import torch
 import torch.nn as nn
@@ -51,6 +52,10 @@ class BaseModel(nn.Module):
         )
 
         return str_representation
+
+    @abstractmethod
+    def forward(self):
+        """The forward method for the model."""
 
     def generate_graph(self, data, r, n_neighbors, otf: bool = False):
         """

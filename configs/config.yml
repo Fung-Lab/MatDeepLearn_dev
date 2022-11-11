@@ -5,30 +5,25 @@ task:
   # run_mode: train
   name: "my_train_job"
 
-  reprocess: "False"
+  reprocess: False
 
 
-  parallel: "True"
+  parallel: True
   seed: 0
   #seed=0 means random initalization
 
 
-  write_output: "True"
-  parallel: "True"
+  write_output: True
+  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
-
-  #Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
 
 
 
 model:
   name: CGCNN
-  load_model: "False"
-  save_model: "True"
+  load_model: False
+  save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
@@ -40,8 +35,8 @@ model:
   post_fc_count: 3
   pool: "global_mean_pool"
   pool_order: "early"
-  batch_norm: "True"
-  batch_track_stats: "True"
+  batch_norm: True
+  batch_track_stats: True
   act: "relu"
   dropout_rate: 0.0
 
@@ -77,7 +72,7 @@ dataset:
   node_representation: "onehot"
   additional_attributes: []
   #Print out processing info
-  verbose: "True"
+  verbose: True
 
   #Loading dataset params
   #Index of target column in targets.csv
@@ -87,3 +82,8 @@ dataset:
   cutoff_radius : 8.0
   n_neighbors : 12
   edge_steps : 50
+
+  #Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

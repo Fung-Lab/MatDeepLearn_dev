@@ -88,7 +88,7 @@ class BaseTrainer(ABC):
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset)
         train_loader, val_loader, test_loader = cls._load_dataloader(
-            config["optim"], dataset, sampler
+            config["optim"], config["dataset"], dataset, sampler
         )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
@@ -150,8 +150,13 @@ class BaseTrainer(ABC):
         return None
 
     @staticmethod
-    def _load_dataloader(optim_config, dataset, sampler):
-        train_dataset, val_dataset, test_dataset = dataset_split(dataset)
+    def _load_dataloader(optim_config, dataset_config, dataset, sampler):
+        train_ratio = dataset_config["train_ratio"]
+        val_ratio = dataset_config["val_ratio"]
+        test_ratio = dataset_config["test_ratio"]
+        train_dataset, val_dataset, test_dataset = dataset_split(
+            dataset, train_ratio, val_ratio, test_ratio
+        )
 
         batch_size = optim_config.get("batch_size")
 
