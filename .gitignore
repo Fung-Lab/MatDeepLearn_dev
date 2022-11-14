@@ -163,10 +163,13 @@ dmypy.json
 .DS_Store
 
 # data
-./data/*
+data/**
 
 # config
 ./config/*
+
+# results
+results/**
 
 server/
 
