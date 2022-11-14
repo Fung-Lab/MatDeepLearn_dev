@@ -1,7 +1,7 @@
 trainer: property
 
 task:
-  name: "my_train_job"
+  identifier: "my_train_job"
   reprocess: False
   parallel: True
   seed: 0
@@ -38,7 +38,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":40, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False
+  processed: True
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/raw/"
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/targets.csv"
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/STO_DOS_data/"

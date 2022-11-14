@@ -50,6 +50,7 @@ class Registry:
         "model_name_mapping": {},
         "logger_name_mapping": {},
         "trainer_name_mapping": {},
+        "loss_name_mapping": {},
         "state": {},
     }
 
@@ -166,6 +167,28 @@ class Registry:
         return wrap
 
     @classmethod
+    def register_loss(cls, name):
+        r"""Register a loss class to registry with key 'name'
+
+        Args:
+            name: Key with which the trainer will be registered.
+
+        Usage::
+
+            from matdeeplearn.common.registry import registry
+
+            @registry.register_loss("dos_loss")
+            class DOSLoss():
+                ...
+        """
+
+        def wrap(func):
+            cls.mapping["loss_name_mapping"][name] = func
+            return func
+
+        return wrap
+
+    @classmethod
     def register(cls, name, obj):
         r"""Register an item to registry with key 'name'
 
@@ -247,6 +270,10 @@ class Registry:
     @classmethod
     def get_trainer_class(cls, name):
         return cls.get_class(name, "trainer_name_mapping")
+
+    @classmethod
+    def get_loss_class(cls, name):
+        return cls.get_class(name, "loss_name_mapping")
 
     @classmethod
     def get(cls, name, default=None, no_warning=False):
