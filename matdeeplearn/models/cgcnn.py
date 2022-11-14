@@ -59,8 +59,8 @@ class CGCNN(BaseModel):
         else:
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
-            # Determine output dimension length
-            self.output_dim = 1 if data[0].y.ndim == 0 else len(data[0].y[0])
+        # Determine output dimension length
+        self.output_dim = 1 if data[0].y.ndim == 0 else len(data[0].y[0])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
@@ -99,7 +99,7 @@ class CGCNN(BaseModel):
             )
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
-            if self.batch_norm == "True":
+            if self.batch_norm:
                 bn = BatchNorm1d(
                     self.gc_dim, track_running_stats=self.batch_track_stats
                 )
@@ -147,7 +147,7 @@ class CGCNN(BaseModel):
         # GNN layers
         for i in range(0, len(self.conv_list)):
             if len(self.pre_lin_list) == 0 and i == 0:
-                if self.batch_norm == "True":
+                if self.batch_norm:
                     out = self.conv_list[i](
                         data.x, data.edge_index, data.edge_attr.float()
                     )
@@ -157,7 +157,7 @@ class CGCNN(BaseModel):
                         data.x, data.edge_index, data.edge_attr.float()
                     )
             else:
-                if self.batch_norm == "True":
+                if self.batch_norm:
                     out = self.conv_list[i](
                         out, data.edge_index, data.edge_attr.float()
                     )

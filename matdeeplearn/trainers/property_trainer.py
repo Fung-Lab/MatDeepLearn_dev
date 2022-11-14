@@ -125,7 +125,7 @@ class PropertyTrainer(BaseTrainer):
         return output
 
     def _compute_loss(self, out, batch_data):
-        loss = self.loss_fn(out, batch_data.y.to(self.device))
+        loss = self.loss_fn(out, batch_data.to(self.device))
         return loss
 
     def _backward(self, loss):
@@ -135,10 +135,7 @@ class PropertyTrainer(BaseTrainer):
 
     def _compute_metrics(self, out, batch_data, metrics):
         # TODO: finish this method
-        #
-        property_target = torch.cat(
-            [batch.y.to(self.device) for batch in [batch_data]], dim=0
-        )
+        property_target = batch_data.to(self.device)
 
         metrics = self.evaluator.eval(
             out, property_target, self.loss_fn, prev_metrics=metrics
@@ -149,10 +146,10 @@ class PropertyTrainer(BaseTrainer):
     def _log_metrics(self, val_metrics=None):
         if not val_metrics:
             logging.info(f"epoch: {self.epoch}, learning rate: {self.scheduler.lr}")
-            logging.info(self.metrics[self.loss_fn.__name__]["metric"])
+            logging.info(self.metrics[type(self.loss_fn).__name__]["metric"])
         else:
-            train_loss = self.metrics[self.loss_fn.__name__]["metric"]
-            val_loss = val_metrics[self.loss_fn.__name__]["metric"]
+            train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
+            val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
             logging.info(
                 "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
                     int(self.epoch - 1),
@@ -169,6 +166,8 @@ class PropertyTrainer(BaseTrainer):
 
     def _scheduler_step(self):
         if self.scheduler.scheduler_type == "ReduceLROnPlateau":
-            self.scheduler.step(metrics=self.metrics[self.loss_fn.__name__]["metric"])
+            self.scheduler.step(
+                metrics=self.metrics[type(self.loss_fn).__name__]["metric"]
+            )
         else:
             self.scheduler.step()

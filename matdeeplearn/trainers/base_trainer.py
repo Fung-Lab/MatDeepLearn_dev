@@ -2,8 +2,8 @@ import logging
 from abc import ABC, abstractmethod
 
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
+from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
@@ -17,6 +17,7 @@ from matdeeplearn.common.data import (
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
+from matdeeplearn.modules.loss import *
 from matdeeplearn.modules.scheduler import LRScheduler
 
 
@@ -32,7 +33,7 @@ class BaseTrainer(ABC):
         train_loader: DataLoader,
         val_loader: DataLoader,
         test_loader: DataLoader,
-        loss: str,
+        loss: nn.Module,
         max_epochs: int,
         verbosity: int = None,
     ):
@@ -47,8 +48,7 @@ class BaseTrainer(ABC):
             test_loader,
         )
         self.scheduler = scheduler
-
-        self.loss_fn = self.load_loss(loss)
+        self.loss_fn = loss
         self.max_epochs = max_epochs
         self.train_verbosity = verbosity
 
@@ -88,11 +88,11 @@ class BaseTrainer(ABC):
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset)
         train_loader, val_loader, test_loader = cls._load_dataloader(
-            config["optim"], dataset, sampler
+            config["optim"], config["dataset"], dataset, sampler
         )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
+        loss = cls._load_loss(config["optim"]["loss"])
 
-        loss = config["optim"]["loss_fn"]
         max_epochs = config["optim"]["max_epochs"]
         verbosity = config["task"].get("verbosity", None)
 
@@ -150,8 +150,13 @@ class BaseTrainer(ABC):
         return None
 
     @staticmethod
-    def _load_dataloader(optim_config, dataset, sampler):
-        train_dataset, val_dataset, test_dataset = dataset_split(dataset)
+    def _load_dataloader(optim_config, dataset_config, dataset, sampler):
+        train_ratio = dataset_config["train_ratio"]
+        val_ratio = dataset_config["val_ratio"]
+        test_ratio = dataset_config["test_ratio"]
+        train_dataset, val_dataset, test_dataset = dataset_split(
+            dataset, train_ratio, val_ratio, test_ratio
+        )
 
         batch_size = optim_config.get("batch_size")
 
@@ -172,11 +177,18 @@ class BaseTrainer(ABC):
         scheduler = LRScheduler(optimizer, scheduler_type, scheduler_args)
         return scheduler
 
-    def load_loss(self, loss_name):
+    @staticmethod
+    def _load_loss(loss_config):
+        """Loads the loss from either the TorchLossWrapper or custom loss functions in matdeeplearn"""
         try:
-            return getattr(F, loss_name)
-        except AttributeError:
-            raise NotImplementedError(f"Unknown loss function name: {loss_name}")
+            loss_type = loss_config["loss_type"]
+            # if there are other params for loss type, include in call
+            if loss_config.get("loss_args"):
+                return eval(loss_type)(**loss_config["loss_args"])
+            else:
+                return eval(loss_type)()
+        except (AttributeError, NameError):
+            raise NotImplementedError(f"Unknown loss class name: {loss_type}")
 
     @abstractmethod
     def _load_task(self):

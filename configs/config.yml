@@ -5,30 +5,25 @@ task:
   # run_mode: train
   name: "my_train_job"
 
-  reprocess: "False"
+  reprocess: False
 
 
-  parallel: "True"
+  parallel: True
   seed: 0
   #seed=0 means random initalization
 
 
-  write_output: "True"
-  parallel: "True"
+  write_output: True
+  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
-
-  #Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
 
 
 
 model:
   name: CGCNN
-  load_model: "False"
-  save_model: "True"
+  load_model: False
+  save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
@@ -40,16 +35,19 @@ model:
   post_fc_count: 3
   pool: "global_mean_pool"
   pool_order: "early"
-  batch_norm: "True"
-  batch_track_stats: "True"
+  batch_norm: True
+  batch_track_stats: True
   act: "relu"
   dropout_rate: 0.0
 
 optim:
   max_epochs: 250
   lr: 0.002
-  #Loss functions (from pytorch) examples: l1_loss, mse_loss, binary_cross_entropy
-  loss_fn: "l1_loss"
+  #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+
   batch_size: 100
   optimizer:
     optimizer_type: "AdamW"
@@ -72,8 +70,9 @@ dataset:
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
+  additional_attributes: []
   #Print out processing info
-  verbose: "True"
+  verbose: True
 
   #Loading dataset params
   #Index of target column in targets.csv
@@ -83,4 +82,8 @@ dataset:
   cutoff_radius : 8.0
   n_neighbors : 12
   edge_steps : 50
-  
+
+  #Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

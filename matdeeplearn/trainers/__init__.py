@@ -1,6 +1,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = ["BaseTrainer"]
+__all__ = ["BaseTrainer", "PropertyTrainer"]
 
 from .base_trainer import BaseTrainer
+from .property_trainer import PropertyTrainer
