@@ -12,13 +12,28 @@ class StructureDataset(InMemoryDataset):
         transform=None,
         pre_transform=None,
         pre_filter=None,
+        device=None,
     ):
         self.root = root
         self.processed_data_path = processed_data_path
         super(StructureDataset, self).__init__(
             root, transform, pre_transform, pre_filter
         )
-        self.data, self.slices = torch.load(self.processed_paths[0])
+
+        if device is None:
+            try:
+                self.data, self.slices = torch.load(self.processed_paths[0])
+            except Exception:
+                self.data, self.slices = torch.load(
+                    self.processed_paths[0], map_location=torch.device("cpu")
+                )
+        else:
+            if device == "cpu":
+                self.data, self.slices = torch.load(
+                    self.processed_paths[0], map_location=torch.device(device)
+                )
+            else:
+                self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
     def raw_file_names(self):

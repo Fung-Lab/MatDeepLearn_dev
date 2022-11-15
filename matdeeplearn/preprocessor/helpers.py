@@ -11,16 +11,18 @@ from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
 
 
 def threshold_sort(all_distances, r, n_neighbors):
-    A = all_distances.clone().detach()
+    # A = all_distances.clone().detach()
+    A = all_distances
 
     # set diagonal to zero to exclude self-loop distance
-    A.fill_diagonal_(0)
+    # A.fill_diagonal_(0)
 
     # keep n_neighbors only
     N = len(A) - n_neighbors - 1
     if N > 0:
         _, indices = torch.topk(A, N)
-        A.scatter_(
+        A = torch.scatter(
+            A,
             1,
             indices,
             torch.zeros(len(A), len(A), device=all_distances.device, dtype=torch.float),
@@ -72,6 +74,13 @@ def normalize_edge(dataset, descriptor_label):
         ) / (feature_max - feature_min)
 
 
+def normalize_edge_cutoff(dataset, descriptor_label, r):
+    for data in dataset:
+        data.edge_descriptor[descriptor_label] = (
+            data.edge_descriptor[descriptor_label] / r
+        )
+
+
 def get_ranges(dataset, descriptor_label):
     mean = 0.0
     std = 0.0
@@ -100,7 +109,7 @@ def clean_up(data_list, attr_list):
         for attr in attr_list:
             try:
                 delattr(data, attr)
-            except AttributeError:
+            except Exception:
                 continue
 
 
@@ -142,8 +151,8 @@ def get_distances(
     # set diagonal of the (0,0,0) unit cell to infinity
     # this allows us to get the minimum self-loop distance
     # of an atom to itself in all other images
-    origin_unit_cell_idx = 13
-    atomic_distances[:, :, origin_unit_cell_idx].fill_diagonal_(float("inf"))
+    # origin_unit_cell_idx = 13
+    # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float('inf'))
 
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
@@ -206,11 +215,11 @@ def get_cutoff_distance_matrix(
 
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
 
-    if image_selfloop:
-        # output of threshold sort has diagonal == 0
-        # fill in the original values
-        self_loop_diag = distance_matrix.diagonal()
-        cutoff_distance_matrix.diagonal().copy_(self_loop_diag)
+    # if image_selfloop:
+    #     # output of threshold sort has diagonal == 0
+    #     # fill in the original values
+    #     self_loop_diag = distance_matrix.diagonal()
+    #     cutoff_distance_matrix.diagonal().copy_(self_loop_diag)
 
     all_cell_offsets = cell_coors[torch.flatten(min_indices)]
     all_cell_offsets = all_cell_offsets.view(len(pos), -1, 3)
@@ -291,14 +300,13 @@ def generate_node_features(input_data, n_neighbors, device):
         input_data[i] = one_hot_degree(data, n_neighbors + 1)
 
 
-def generate_edge_features(input_data, edge_steps, device):
+def generate_edge_features(input_data, edge_steps, r, device):
     distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
 
     if isinstance(input_data, Data):
-        input_data.edge_attr = distance_gaussian(input_data.edge_descriptor["distance"])
-        return
+        input_data = [input_data]
 
-    normalize_edge(input_data, "distance")
+    normalize_edge_cutoff(input_data, "distance", r)
     for i, data in enumerate(input_data):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
