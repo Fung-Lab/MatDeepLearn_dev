@@ -123,8 +123,13 @@ class DataProcessor:
         self.self_loop = self_loop
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.verbose = verbose
+
+        self.disable_tqdm = logging.root.level > logging.INFO
+        self.device = "cpu"
+    
+    def set_device(self, device):
+        self.device = device
 
     def src_check(self):
         if self.target_file_path:
@@ -150,7 +155,7 @@ class DataProcessor:
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
             ase_structures.append(ase.io.read(p))
 
-        for i, s in enumerate(tqdm(ase_structures)):
+        for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
             cell = torch.tensor(
@@ -204,9 +209,10 @@ class DataProcessor:
 
         dict_structures = []
         y = []
+        y_dim = 1
 
         logging.info("Converting data to standardized form for downstream processing.")
-        for i, s in enumerate(tqdm(original_structures)):
+        for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
@@ -225,9 +231,18 @@ class DataProcessor:
                     )
 
             dict_structures.append(d)
-            y.append(s["y"])
 
-        return dict_structures, np.array(y)
+            if isinstance(s["y"], str):
+                y.append(float(s["y"]))
+            elif isinstance(s["y"], list):
+                _y = [float(each) for each in s["y"]]
+                y.append(_y)
+                y_dim = len(_y)
+            else:
+                y.append(s["y"])
+
+        y = np.array(y).reshape(-1, y_dim)
+        return dict_structures, y
 
     def process(self, save=True):
         logging.info("Data found at {}".format(self.root_path))
@@ -251,7 +266,7 @@ class DataProcessor:
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
-        for i, sdict in enumerate(tqdm(dict_structures)):
+        for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
             data = data_list[i]
 
@@ -295,7 +310,7 @@ class DataProcessor:
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         logging.info("Generating edge features...")
-        generate_edge_features(data_list, self.edge_steps, device=self.device)
+        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         clean_up(data_list, ["edge_descriptor"])
 
