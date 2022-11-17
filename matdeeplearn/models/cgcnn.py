@@ -2,15 +2,8 @@ import torch
 import torch.nn.functional as F
 import torch_geometric
 from torch import Tensor
-from torch.nn import BatchNorm1d, Linear, Sequential
-from torch_geometric.nn import (
-    CGConv,
-    Set2Set,
-    global_add_pool,
-    global_max_pool,
-    global_mean_pool,
-)
-from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
+from torch.nn import BatchNorm1d, Linear
+from torch_geometric.nn import CGConv, Set2Set
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
@@ -73,7 +66,7 @@ class CGCNN(BaseModel):
         elif self.pool_order == "late" and self.pool == "set2set":
             self.set2set = Set2Set(self.output_dim, processing_steps=3, num_layers=1)
             # workaround for doubled dimension by set2set; if late pooling not recommended to use set2set
-            self.lin_out_2 = torch.nn.Linear(self.output_dim * 2, self.output_dim)
+            self.lin_out_2 = Linear(self.output_dim * 2, self.output_dim)
 
     def _setup_pre_gnn_layers(self):
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
@@ -84,7 +77,7 @@ class CGCNN(BaseModel):
                 if i == 0:
                     lin = torch.nn.Linear(self.num_features, self.dim1)
                 else:
-                    lin = torch.nn.Linear(self.dim1, self.dim1)
+                    lin = Linear(self.dim1, self.dim1)
                 pre_lin_list.append(lin)
 
         return pre_lin_list
@@ -115,83 +108,71 @@ class CGCNN(BaseModel):
                 if i == 0:
                     # Set2set pooling has doubled dimension
                     if self.pool_order == "early" and self.pool == "set2set":
-                        lin = torch.nn.Linear(self.post_fc_dim * 2, self.dim2)
+                        lin = Linear(self.post_fc_dim * 2, self.dim2)
                     else:
-                        lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
+                        lin = Linear(self.post_fc_dim, self.dim2)
                 else:
-                    lin = torch.nn.Linear(self.dim2, self.dim2)
+                    lin = Linear(self.dim2, self.dim2)
                 post_lin_list.append(lin)
-            lin_out = torch.nn.Linear(self.dim2, self.output_dim)
+            lin_out = Linear(self.dim2, self.output_dim)
             # Set up set2set pooling (if used)
 
         # else post_fc_count is 0
         else:
             if self.pool_order == "early" and self.pool == "set2set":
-                lin_out = torch.nn.Linear(self.post_fc_dim * 2, self.output_dim)
+                lin_out = Linear(self.post_fc_dim * 2, self.output_dim)
             else:
-                lin_out = torch.nn.Linear(self.post_fc_dim, self.output_dim)
+                lin_out = Linear(self.post_fc_dim, self.output_dim)
 
         return post_lin_list, lin_out
 
     def forward(self, data):
+        if len(self.pre_lin_list) == 0:
+            out = data.x
+            # if data.x can be a float, then don't need this if/else statement
+        else:
+            out = self._forward_pre_gnn_layers(data.x.float())
 
-        # Pre-GNN dense layers
-        for i in range(0, len(self.pre_lin_list)):
-            if i == 0:
-                out = self.pre_lin_list[i](data.x.float())
-                out = getattr(F, self.act)(out)
-            else:
-                out = self.pre_lin_list[i](out)
-                out = getattr(F, self.act)(out)
+        out = self._forward_gnn_layers(data, out)
+        out = self._forward_post_gnn_layers(data, out)
 
-        # GNN layers
-        for i in range(0, len(self.conv_list)):
-            if len(self.pre_lin_list) == 0 and i == 0:
-                if self.batch_norm:
-                    out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
-                    )
-                    out = self.bn_list[i](out)
-                else:
-                    out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
-                    )
-            else:
-                if self.batch_norm:
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
-                    )
-                    out = self.bn_list[i](out)
-                else:
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
-                    )
-                    # out = getattr(F, self.act)(out)
+        out = out.view(-1) if out.shape[1] == 1 else out
+        return out
+
+    def _forward_pre_gnn_layers(self, out):
+        """Pre-GNN dense layers"""
+        for i in range(len(self.pre_lin_list)):
+            out = self.pre_lin_list[i](out)
+            out = getattr(F, self.act)(out)
+        return out
+
+    def _forward_gnn_layers(self, data, out):
+        """GNN layers"""
+        for i in range(len(self.conv_list)):
+            out = self.conv_list[i](out, data.edge_index, data.edge_attr.float())
+            if self.batch_norm:
+                out = self.bn_list[i](out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
-        # Post-GNN dense layers
+        return out
+
+    def _forward_post_gnn_layers(self, data, out):
+        """Post-GNN dense layers"""
         if self.pool_order == "early":
             if self.pool == "set2set":
                 out = self.set2set(out, data.batch)
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-            for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
-            out = self.lin_out(out)
 
-        elif self.pool_order == "late":
-            for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
-            out = self.lin_out(out)
+        for i in range(0, len(self.post_lin_list)):
+            out = self.post_lin_list[i](out)
+            out = getattr(F, self.act)(out)
+        out = self.lin_out(out)
+
+        if self.pool_order == "late":
             if self.pool == "set2set":
                 out = self.set2set(out, data.batch)
                 out = self.lin_out_2(out)
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-
-        if out.shape[1] == 1:
-            return out.view(-1)
-        else:
-            return out
+        return out
