@@ -1,3 +1,4 @@
+import copy
 import csv
 import logging
 import os
@@ -60,6 +61,7 @@ class BaseTrainer(ABC):
         self.metrics = {}
         self.epoch_time = None
         self.best_val_metric = 1e10
+        self.best_model_state = None
 
         self.evaluator = Evaluator()
 
@@ -218,6 +220,44 @@ class BaseTrainer(ABC):
     def predict(self):
         """Implemented by derived classes."""
 
+    def update_best_model(self, val_metrics):
+        """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
+        self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
+        self.best_model_state = copy.deepcopy(self.model.state_dict())
+
+        self.save_model("best_checkpoint.pt", val_metrics, False)
+
+        logging.debug(
+            f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
+        )
+        self.predict(self.train_loader, "train")
+        self.predict(self.val_loader, "val")
+        self.predict(self.test_loader, "test")
+
+    def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
+        """Saves the model state dict"""
+
+        if training_state:
+            state = {
+                "epoch": self.epoch,
+                "step": self.step,
+                "state_dict": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.scheduler.state_dict(),
+                "best_val_metric": self.best_val_metric,
+            }
+        else:
+            state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
+
+        checkpoint_dir = os.path.join(
+            self.run_dir, "results", self.timestamp_id, "checkpoint"
+        )
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        filename = os.path.join(checkpoint_dir, checkpoint_file)
+
+        torch.save(state, filename)
+        return filename
+
     def save_results(self, output, filename, node_level_predictions=False):
         results_path = os.path.join(self.run_dir, "results", self.timestamp_id)
         os.makedirs(results_path, exist_ok=True)
@@ -237,3 +277,9 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(headers)
                 elif i > 0:
                     csvwriter.writerow(output[i - 1, :])
+        return filename
+
+    def load_checkpoint(self):
+        """Loads the model from a checkpoint.pt file"""
+        # TODO: implement this method
+        pass

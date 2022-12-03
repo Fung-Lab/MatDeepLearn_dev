@@ -81,8 +81,11 @@ class PropertyTrainer(BaseTrainer):
                 _metrics = self._compute_metrics(out, batch, _metrics)
                 self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
 
+            # TODO: could add param to eval and save on increments instead of every time
+            # Save current model
+            self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+
             # Evaluate on validation set if it exists
-            # TODO: could add param to eval on increments instead of every time
             if self.val_loader:
                 val_metrics = self.validate()
 
@@ -92,24 +95,17 @@ class PropertyTrainer(BaseTrainer):
                 if epoch % self.train_verbosity == 0:
                     self._log_metrics(val_metrics)
 
-                # update best_val_metric and save predicted outputs for train, test, val
-                # TODO save checkpoint if metric is best so far
+                # Update best val metric and model, and save best model and predicted outputs
                 if (
                     val_metrics[type(self.loss_fn).__name__]["metric"]
                     < self.best_val_metric
                 ):
-                    self.best_val_metric = val_metrics[type(self.loss_fn).__name__][
-                        "metric"
-                    ]
-                    logging.debug(
-                        f"Saving prediction results for epoch {epoch} to: /results/{self.timestamp_id}/"
-                    )
-                    self.predict(self.train_loader, "train")
-                    self.predict(self.val_loader, "val")
-                    self.predict(self.test_loader, "test")
+                    self.update_best_model(val_metrics)
 
                 # step scheduler, using validation error
                 self._scheduler_step()
+
+        return self.best_model_state
 
     def validate(self, split="val"):
         self.model.eval()
