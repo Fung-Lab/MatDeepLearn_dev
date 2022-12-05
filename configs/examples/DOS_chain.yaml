@@ -1,0 +1,22 @@
+# run_mode: chain
+
+trainer: property
+
+task:
+  name: "my_train_job"
+  reprocess: False
+  parallel: True
+  seed: 0
+  write_output: True
+  verbosity: 5
+
+models:
+  - model: "CGCNN"
+#    config_path: "configs/examples/DOS_STO.yaml"
+    config_path: "configs/config.yaml"
+    run_mode: "train"
+    seed: 0
+  - model: "CGCNN_CNN"
+    config_path: "configs/config.yaml"
+    run_mode: "train"
+    seed: 0

@@ -14,17 +14,25 @@ class Flags:
         self.parser.add_argument(
             "--config_path",
             required=True,
-            default="config.yml",
+            default="config.yaml",
             type=Path,
-            help="Path to a config file with data and model parameters (default: config.yml)",
+            help="Path to a config file with data and model parameters (default: config.yaml)",
         )
         self.parser.add_argument(
             "--run_mode",
-            choices=["train"],
+            choices=["train", "chain"],
             required=True,
             type=str,
-            help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
+            help="Choices for run modes: train, chain, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
         )
+        # self.parser.add_argument(
+        #     "--num_models",
+        #     default=1,
+        #     type=int,
+        #     help="Optional param to use for chaining models together using chain run mode"
+        #
+        # )
+
         # self.parser.add_argument(
         #     "--job_name",
         #     default=None,
