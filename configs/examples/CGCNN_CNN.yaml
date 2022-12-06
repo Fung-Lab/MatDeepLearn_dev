@@ -1,0 +1,55 @@
+trainer: property
+
+task:
+  name: "my_train_job"
+  reprocess: False
+  parallel: True
+  seed: 0
+  write_output: True
+  verbosity: 5
+
+model:
+  name: CGCNN_CNN
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
+  dim1: 370
+  dim2: 370
+  pre_fc_count: 1
+  gc_count: 9
+  batch_norm: True
+  batch_track_stats: False
+  dropout_rate: 0.05
+
+optim:
+  max_epochs: 1000
+  lr: 0.00047
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+  batch_size: 180
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {"weight_decay":0.1}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":40, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: True
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
+  target_path: ""
+  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+  data_format: "json"
+  node_representation: "onehot"
+  additional_attributes: ["features", "scaled", "scaling_factor"]
+  verbose: True
+  target_index: 0
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
