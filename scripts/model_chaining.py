@@ -37,6 +37,11 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
 
             # load previous output and include in next trainer
             if step != 0:
+                # create separate directory with vasp and new scaled/feature csv - split results into individual files
+                # train model 2 on same train split as model 1
+                # use same validation split too
+
+                # can either split manually, or make seed same
                 pass
 
             # run first task
