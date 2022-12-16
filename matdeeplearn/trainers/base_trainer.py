@@ -1,5 +1,9 @@
+import copy
+import csv
 import logging
+import os
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 import torch
 import torch.optim as optim
@@ -17,7 +21,6 @@ from matdeeplearn.common.data import (
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
-from matdeeplearn.modules.loss import *
 from matdeeplearn.modules.scheduler import LRScheduler
 
 
@@ -35,6 +38,7 @@ class BaseTrainer(ABC):
         test_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
+        identifier: str = None,
         verbosity: int = None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -56,8 +60,19 @@ class BaseTrainer(ABC):
         self.step = 0
         self.metrics = {}
         self.epoch_time = None
+        self.best_val_metric = 1e10
+        self.best_model_state = None
 
         self.evaluator = Evaluator()
+
+        self.run_dir = os.getcwd()
+
+        timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
+        self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
+            "%Y-%m-%d-%H-%M-%S"
+        )
+        if identifier:
+            self.timestamp_id = f"{self.timestamp_id}-{identifier}"
 
         if self.train_verbosity:
             logging.info(
@@ -94,6 +109,7 @@ class BaseTrainer(ABC):
         loss = cls._load_loss(config["optim"]["loss"])
 
         max_epochs = config["optim"]["max_epochs"]
+        identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
 
         return cls(
@@ -107,6 +123,7 @@ class BaseTrainer(ABC):
             test_loader=test_loader,
             loss=loss,
             max_epochs=max_epochs,
+            identifier=identifier,
             verbosity=verbosity,
         )
 
@@ -180,15 +197,12 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_loss(loss_config):
         """Loads the loss from either the TorchLossWrapper or custom loss functions in matdeeplearn"""
-        try:
-            loss_type = loss_config["loss_type"]
-            # if there are other params for loss type, include in call
-            if loss_config.get("loss_args"):
-                return eval(loss_type)(**loss_config["loss_args"])
-            else:
-                return eval(loss_type)()
-        except (AttributeError, NameError):
-            raise NotImplementedError(f"Unknown loss class name: {loss_type}")
+        loss_cls = registry.get_loss_class(loss_config["loss_type"])
+        # if there are other params for loss type, include in call
+        if loss_config.get("loss_args"):
+            return loss_cls(**loss_config["loss_args"])
+        else:
+            return loss_cls()
 
     @abstractmethod
     def _load_task(self):
@@ -205,3 +219,67 @@ class BaseTrainer(ABC):
     @abstractmethod
     def predict(self):
         """Implemented by derived classes."""
+
+    def update_best_model(self, val_metrics):
+        """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
+        self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
+        self.best_model_state = copy.deepcopy(self.model.state_dict())
+
+        self.save_model("best_checkpoint.pt", val_metrics, False)
+
+        logging.debug(
+            f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
+        )
+        self.predict(self.train_loader, "train")
+        self.predict(self.val_loader, "val")
+        self.predict(self.test_loader, "test")
+
+    def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
+        """Saves the model state dict"""
+
+        if training_state:
+            state = {
+                "epoch": self.epoch,
+                "step": self.step,
+                "state_dict": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.scheduler.state_dict(),
+                "best_val_metric": self.best_val_metric,
+            }
+        else:
+            state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
+
+        checkpoint_dir = os.path.join(
+            self.run_dir, "results", self.timestamp_id, "checkpoint"
+        )
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        filename = os.path.join(checkpoint_dir, checkpoint_file)
+
+        torch.save(state, filename)
+        return filename
+
+    def save_results(self, output, filename, node_level_predictions=False):
+        results_path = os.path.join(self.run_dir, "results", self.timestamp_id)
+        os.makedirs(results_path, exist_ok=True)
+        filename = os.path.join(results_path, filename)
+        shape = output.shape
+
+        id_headers = ["structure_id"]
+        if node_level_predictions:
+            id_headers += ["node_id"]
+        num_cols = (shape[1] - len(id_headers)) // 2
+        headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols
+
+        with open(filename, "w") as f:
+            csvwriter = csv.writer(f)
+            for i in range(0, len(output)):
+                if i == 0:
+                    csvwriter.writerow(headers)
+                elif i > 0:
+                    csvwriter.writerow(output[i - 1, :])
+        return filename
+
+    def load_checkpoint(self):
+        """Loads the model from a checkpoint.pt file"""
+        # TODO: implement this method
+        pass

@@ -53,7 +53,10 @@ class CGCNN(BaseModel):
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
         # Determine output dimension length
-        self.output_dim = 1 if data[0].y.ndim == 0 else len(data[0].y[0])
+        if data[0][self.target_attr].ndim == 0:
+            self.output_dim = 1
+        else:
+            self.output_dim = len(data[0][self.target_attr][0])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
@@ -67,6 +70,10 @@ class CGCNN(BaseModel):
             self.set2set = Set2Set(self.output_dim, processing_steps=3, num_layers=1)
             # workaround for doubled dimension by set2set; if late pooling not recommended to use set2set
             self.lin_out_2 = Linear(self.output_dim * 2, self.output_dim)
+
+    @property
+    def target_attr(self):
+        return "y"
 
     def _setup_pre_gnn_layers(self):
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""

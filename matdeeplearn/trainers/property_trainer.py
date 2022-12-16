@@ -1,6 +1,7 @@
 import logging
 import time
 
+import numpy as np
 import torch
 
 from matdeeplearn.common.registry import registry
@@ -22,6 +23,7 @@ class PropertyTrainer(BaseTrainer):
         test_loader,
         loss,
         max_epochs,
+        identifier,
         verbosity,
     ):
         super().__init__(
@@ -35,6 +37,7 @@ class PropertyTrainer(BaseTrainer):
             test_loader,
             loss,
             max_epochs,
+            identifier,
             verbosity,
         )
 
@@ -78,15 +81,13 @@ class PropertyTrainer(BaseTrainer):
                 _metrics = self._compute_metrics(out, batch, _metrics)
                 self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
 
+            # TODO: could add param to eval and save on increments instead of every time
+            # Save current model
+            self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+
             # Evaluate on validation set if it exists
-            # TODO: could add param to eval on increments instead of every time
             if self.val_loader:
                 val_metrics = self.validate()
-
-                # save checkpoint if metric is best so far
-                # if self.val_metrics[self.evaluator.task_primary_metric[self.name]]["metric"] < self.best_val_metric:
-                #     pass
-                # if it is best and test loader exists, then predict too
 
                 # Train loop timings
                 self.epoch_time = time.time() - epoch_start_time
@@ -94,8 +95,17 @@ class PropertyTrainer(BaseTrainer):
                 if epoch % self.train_verbosity == 0:
                     self._log_metrics(val_metrics)
 
+                # Update best val metric and model, and save best model and predicted outputs
+                if (
+                    val_metrics[type(self.loss_fn).__name__]["metric"]
+                    < self.best_val_metric
+                ):
+                    self.update_best_model(val_metrics)
+
                 # step scheduler, using validation error
                 self._scheduler_step()
+
+        return self.best_model_state
 
     def validate(self, split="val"):
         self.model.eval()
@@ -116,9 +126,48 @@ class PropertyTrainer(BaseTrainer):
 
         return metrics
 
-    def predict(self):
-        # TODO: implement predict method
-        return {}
+    @torch.no_grad()
+    def predict(self, loader, split):
+        # TODO: make predict method work as standalone task
+        assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
+
+        predict, target = None, None
+        ids = []
+        node_level_predictions = False
+        for i, batch in enumerate(loader):
+            out = self._forward(batch.to(self.device))
+
+            # if out is a tuple, then it's scaled data
+            if type(out) == tuple:
+                out = out[0] * out[1].view(-1, 1).expand_as(out[0])
+
+            batch_p = out.data.cpu().numpy()
+            batch_t = batch[self.model.target_attr].cpu().numpy()
+
+            batch_ids = np.array(
+                [item for sublist in batch.structure_id for item in sublist]
+            )
+
+            # if shape is 2D, then it has node-level predictions
+            if batch_p.ndim == 2:
+                node_level_predictions = True
+                node_ids = batch.z.cpu().numpy()
+                structure_ids = np.repeat(
+                    batch_ids, batch.n_atoms.cpu().numpy(), axis=0
+                )
+                batch_ids = np.column_stack((structure_ids, node_ids))
+
+            ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
+            predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
+            target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
+
+        predictions = np.column_stack((ids, target, predict))
+
+        self.save_results(
+            predictions, f"{split}_predictions.csv", node_level_predictions
+        )
+
+        return predictions
 
     def _forward(self, batch_data):
         output = self.model(batch_data)

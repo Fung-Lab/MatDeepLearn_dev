@@ -3,7 +3,7 @@ trainer: property
 
 task:
   # run_mode: train
-  name: "my_train_job"
+  identifier: "my_train_job"
 
   reprocess: False
 

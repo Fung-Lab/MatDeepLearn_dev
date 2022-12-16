@@ -46,7 +46,10 @@ class DOSPredict(BaseModel):
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
         # Determine output dimension length
-        self.output_dim = 1 if data[0].scaled.ndim == 0 else len(data[0].scaled[0])
+        if data[0][self.target_attr].ndim == 0:
+            self.output_dim = 1
+        else:
+            self.output_dim = len(data[0][self.target_attr][0])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
@@ -64,6 +67,10 @@ class DOSPredict(BaseModel):
             torch.nn.PReLU(),
             Linear(self.dim2, 1),
         )
+
+    @property
+    def target_attr(self):
+        return "scaled"
 
     def _setup_pre_gnn_layers(self):
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
