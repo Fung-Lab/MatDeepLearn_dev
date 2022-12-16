@@ -227,7 +227,17 @@ class DataProcessor:
             dict_structures.append(d)
             y.append(s["y"])
 
-        return dict_structures, np.array(y)
+        if isinstance(s["y"], str):
+            y.append(float(s["y"]))
+        elif isinstance(s["y"], list):
+            _y = [float(each) for each in s["y"]]
+            y.append(_y)
+            y_dim = len(_y)
+        else:
+            y.append(s["y"])
+
+        y = np.array(y).reshape(-1, y_dim)
+        return dict_structures, y
 
     def process(self, save=True):
         logging.info("Data found at {}".format(self.root_path))

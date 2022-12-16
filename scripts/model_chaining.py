@@ -51,7 +51,10 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
                 logging.debug("Settings: ")
                 logging.debug(pprint.pformat(self.config))
 
-                self.task.run()
+                model = self.task.run()
+
+            # set scaled and scaling_factor in out
+            # save data to file for next processing
 
             step += 1
 
