@@ -20,20 +20,12 @@ class StructureDataset(InMemoryDataset):
             root, transform, pre_transform, pre_filter
         )
 
-        if device is None:
-            try:
-                self.data, self.slices = torch.load(self.processed_paths[0])
-            except Exception:
-                self.data, self.slices = torch.load(
-                    self.processed_paths[0], map_location=torch.device("cpu")
-                )
+        if not torch.cuda.is_available() or device == "cpu":
+            self.data, self.slices = torch.load(
+                self.processed_paths[0], map_location=torch.device("cpu")
+            )
         else:
-            if device == "cpu":
-                self.data, self.slices = torch.load(
-                    self.processed_paths[0], map_location=torch.device(device)
-                )
-            else:
-                self.data, self.slices = torch.load(self.processed_paths[0])
+            self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
     def raw_file_names(self):

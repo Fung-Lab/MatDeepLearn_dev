@@ -32,6 +32,7 @@ def process_data(dataset_config):
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
+    device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
         root_path=root_path,
@@ -46,6 +47,7 @@ def process_data(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
+        device=device,
     )
     processor.process()
 
@@ -65,6 +67,7 @@ class DataProcessor:
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
+        device: str = "cpu",
     ) -> None:
         """
         create a DataProcessor that processes the raw data and save into data.pt file.
@@ -76,6 +79,9 @@ class DataProcessor:
 
             target_file_path: str
                 a path to a CSV file containing target y values
+
+            pt_path: str
+                a path to the directory to which data.pt should be saved
 
             r: float
                 cutoff radius
@@ -124,12 +130,9 @@ class DataProcessor:
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
+        self.device = device
 
         self.disable_tqdm = logging.root.level > logging.INFO
-        self.device = "cpu"
-
-    def set_device(self, device):
-        self.device = device
 
     def src_check(self):
         if self.target_file_path:
@@ -195,7 +198,7 @@ class DataProcessor:
 
     def json_wrap(self):
         """
-        all structures are saved to a single json file
+        all structures are saved in a single json file
         """
         logging.info("Reading one JSON file for multiple structures.")
 
@@ -209,7 +212,11 @@ class DataProcessor:
 
         dict_structures = []
         y = []
-        y_dim = 1
+        y_dim = (
+            len(original_structures[0]["y"])
+            if isinstance(original_structures[0]["y"], list)
+            else 1
+        )
 
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
@@ -232,14 +239,13 @@ class DataProcessor:
 
             dict_structures.append(d)
 
-            if isinstance(s["y"], str):
-                y.append(float(s["y"]))
-            elif isinstance(s["y"], list):
-                _y = [float(each) for each in s["y"]]
-                y.append(_y)
-                y_dim = len(_y)
-            else:
-                y.append(s["y"])
+            # check y types
+            _y = s["y"]
+            if isinstance(_y, str):
+                _y = float(_y)
+            elif isinstance(_y, list):
+                _y = [float(each) for each in _y]
+            y.append(_y)
 
         y = np.array(y).reshape(-1, y_dim)
         return dict_structures, y
@@ -296,7 +302,7 @@ class DataProcessor:
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor = {}
-            # data.edge_descriptor['mask'] = cd_matrix_masked
+            # data.edge_descriptor["mask"] = cd_matrix_masked
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]

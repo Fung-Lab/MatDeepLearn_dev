@@ -103,14 +103,13 @@ def get_ranges(dataset, descriptor_label):
 
 def clean_up(data_list, attr_list):
     if not attr_list:
-        return data_list
+        return
 
+    # check which attributes in the list are removable
+    removable_attrs = [t for t in attr_list if t in data_list[0].to_dict()]
     for data in data_list:
-        for attr in attr_list:
-            try:
-                delattr(data, attr)
-            except Exception:
-                continue
+        for attr in removable_attrs:
+            delattr(data, attr)
 
 
 def get_distances(
@@ -151,8 +150,9 @@ def get_distances(
     # set diagonal of the (0,0,0) unit cell to infinity
     # this allows us to get the minimum self-loop distance
     # of an atom to itself in all other images
+
     # origin_unit_cell_idx = 13
-    # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float('inf'))
+    # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float("inf"))
 
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
