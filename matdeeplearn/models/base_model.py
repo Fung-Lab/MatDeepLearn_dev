@@ -1,9 +1,8 @@
 import warnings
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import radius_graph
 from torch_geometric.utils import dense_to_sparse
 
 from matdeeplearn.preprocessor.helpers import (
@@ -14,11 +13,16 @@ from matdeeplearn.preprocessor.helpers import (
 )
 
 
-class BaseModel(nn.Module):
+class BaseModel(nn.Module, metaclass=ABCMeta):
     def __init__(self, edge_steps: int = 50, self_loop: bool = True) -> None:
         super(BaseModel, self).__init__()
         self.edge_steps = edge_steps
         self.self_loop = self_loop
+
+    @property
+    @abstractmethod
+    def target_attr(self):
+        """Specifies the target attribute property for writing output to file"""
 
     def __str__(self):
         # Prints model summary

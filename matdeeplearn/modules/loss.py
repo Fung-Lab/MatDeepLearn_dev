@@ -4,7 +4,10 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.data import Batch
 
+from matdeeplearn.common.registry import registry
 
+
+@registry.register_loss("DOSLoss")
 class DOSLoss(nn.Module):
     def __init__(
         self,
@@ -47,27 +50,20 @@ class DOSLoss(nn.Module):
     def get_dos_features(self, x, dos):
         """get dos features"""
         dos = torch.abs(dos)
+        dos_sum = torch.sum(dos, axis=1)
 
-        center = torch.sum(x * dos, axis=1) / torch.sum(dos, axis=1)
+        center = torch.sum(x * dos, axis=1) / dos_sum
         x_offset = (
             torch.repeat_interleave(x[np.newaxis, :], dos.shape[0], axis=0)
             - center[:, None]
         )
-        width = torch.diagonal(torch.mm((x_offset**2), dos.T)) / torch.sum(
-            dos, axis=1
-        )
-        skew = (
-            torch.diagonal(torch.mm((x_offset**3), dos.T))
-            / torch.sum(dos, axis=1)
-            / width**1.5
-        )
+        width = torch.diagonal(torch.mm((x_offset**2), dos.T)) / dos_sum
+        skew = torch.diagonal(torch.mm((x_offset**3), dos.T)) / dos_sum / width**1.5
         kurtosis = (
-            torch.diagonal(torch.mm((x_offset**4), dos.T))
-            / torch.sum(dos, axis=1)
-            / width**2
+            torch.diagonal(torch.mm((x_offset**4), dos.T)) / dos_sum / width**2
         )
 
-        # find zero index (fermi leve)
+        # find zero index (fermi level)
         zero_index = torch.abs(x - 0).argmin().long()
         ef_states = torch.sum(dos[:, zero_index - 20 : zero_index + 20], axis=1) * abs(
             x[0] - x[1]
@@ -75,6 +71,7 @@ class DOSLoss(nn.Module):
         return torch.stack((center, width, skew, kurtosis, ef_states), axis=1)
 
 
+@registry.register_loss("TorchLossWrapper")
 class TorchLossWrapper(nn.Module):
     def __init__(self, loss_fn="l1_loss"):
         super().__init__()
