@@ -32,6 +32,7 @@ def process_data(dataset_config):
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
+    device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
         root_path=root_path,
@@ -46,6 +47,7 @@ def process_data(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
+        device=device
     )
     processor.process()
 
@@ -65,6 +67,7 @@ class DataProcessor:
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
+        device: str = "cpu",
     ) -> None:
         """
         create a DataProcessor that processes the raw data and save into data.pt file.
@@ -76,6 +79,9 @@ class DataProcessor:
 
             target_file_path: str
                 a path to a CSV file containing target y values
+
+            pt_path: str
+                a path to the directory to which data.pt should be saved
 
             r: float
                 cutoff radius
@@ -123,8 +129,10 @@ class DataProcessor:
         self.self_loop = self_loop
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.verbose = verbose
+        self.device = device
+
+        self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
         if self.target_file_path:
@@ -150,7 +158,7 @@ class DataProcessor:
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
             ase_structures.append(ase.io.read(p))
 
-        for i, s in enumerate(tqdm(ase_structures)):
+        for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
             cell = torch.tensor(
@@ -190,7 +198,7 @@ class DataProcessor:
 
     def json_wrap(self):
         """
-        all structures are saved to a single json file
+        all structures are saved in a single json file
         """
         logging.info("Reading one JSON file for multiple structures.")
 
@@ -204,9 +212,10 @@ class DataProcessor:
 
         dict_structures = []
         y = []
+        y_dim = len(original_structures[0]["y"]) if isinstance(original_structures[0]["y"], list) else 1
 
         logging.info("Converting data to standardized form for downstream processing.")
-        for i, s in enumerate(tqdm(original_structures)):
+        for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
@@ -225,9 +234,17 @@ class DataProcessor:
                     )
 
             dict_structures.append(d)
-            y.append(s["y"])
 
-        return dict_structures, np.array(y)
+            # check y types
+            _y = s["y"]
+            if isinstance(_y, str):
+                _y = float(_y)
+            elif isinstance(_y, list):
+                _y = [float(each) for each in _y]
+            y.append(_y)
+
+        y = np.array(y).reshape(-1, y_dim)
+        return dict_structures, y
 
     def process(self, save=True):
         logging.info("Data found at {}".format(self.root_path))
@@ -251,7 +268,7 @@ class DataProcessor:
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
-        for i, sdict in enumerate(tqdm(dict_structures)):
+        for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
             data = data_list[i]
 
@@ -281,7 +298,7 @@ class DataProcessor:
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor = {}
-            # data.edge_descriptor['mask'] = cd_matrix_masked
+            # data.edge_descriptor["mask"] = cd_matrix_masked
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
@@ -295,7 +312,7 @@ class DataProcessor:
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         logging.info("Generating edge features...")
-        generate_edge_features(data_list, self.edge_steps, device=self.device)
+        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         clean_up(data_list, ["edge_descriptor"])
 

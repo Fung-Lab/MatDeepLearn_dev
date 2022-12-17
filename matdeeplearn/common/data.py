@@ -103,6 +103,7 @@ def get_dataloader(
     batch_size: int,
     num_workers: int = 0,
     sampler=None,
+    shuffle=True
 ):
     """
     Returns a single dataloader for a given dataset
@@ -124,7 +125,7 @@ def get_dataloader(
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=(sampler is None),
+        shuffle=shuffle,
         num_workers=num_workers,
         sampler=sampler,
     )
