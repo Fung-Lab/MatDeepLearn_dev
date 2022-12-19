@@ -1,0 +1,13 @@
+python main.py --config_path="/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/config_alignn.yml" --run_mode="train"
+salloc --nodes 1 --qos interactive --time 01:00:00 --constraint gpu --gpus 1 --account=m3641
+rm -rf ../matdeeplearn/trainers/.ipynb_checkpoints
+
+salloc -C gpu -t 60 -c 10 -G 1 -q interactive -A
+
+memory leak observations
+- occurring near end of first run of forward (nothing at end is printed out)
+- dataset and OTF are not the issue
+- Issue is narrowed down to ALIGNN conv layer's forward
+- Edge and Node model may have issues, each respective forward consumes ~100mb which is the issue
+
+second time node model issue - second time we do 

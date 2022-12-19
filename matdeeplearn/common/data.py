@@ -3,9 +3,10 @@ import warnings
 import torch
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
+from torch_geometric.transforms import Compose
 
 from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
-from matdeeplearn.preprocessor.transforms import GetY
+from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY, GetY
 
 
 # train test split
@@ -58,7 +59,7 @@ def dataset_split(
 
 
 def get_dataset(
-    data_path, target_index: int = 0, transform_type="GetY", large_dataset=False
+    data_path, target_index: int = 0, transform_list=[], large_dataset=False
 ):
     """
     get dataset according to data_path
@@ -78,14 +79,17 @@ def get_dataset(
         particular dataset, thus we need to index one column for
         the current run/experiment
 
-    transform_type: transformation function/class to be applied
+    transform_list: transformation function/classes to be applied
     """
+    
+    transforms = [GetY(index=target_index)]
 
     # set transform method
-    if transform_type == "GetY":
-        T = GetY
-    else:
-        raise ValueError("No such transform found for {transform}")
+    for transform in transform_list:
+        if transform in TRANSFORM_REGISTRY:
+            transforms.append(TRANSFORM_REGISTRY[transform]())
+        else:
+            raise ValueError("No such transform found for {transform}")
 
     # check if large dataset is needed
     if large_dataset:
@@ -93,7 +97,7 @@ def get_dataset(
     else:
         Dataset = StructureDataset
 
-    transform = T(index=target_index)
+    transform = Compose(transforms)
 
     return Dataset(data_path, processed_data_path="", transform=transform)
 

@@ -6,6 +6,7 @@ import itertools
 from pathlib import Path
 
 import torch
+from torch_sparse import SparseTensor
 import torch.nn.functional as F
 from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
 from torch_geometric.data.data import Data
@@ -288,3 +289,66 @@ def generate_edge_features(input_data, edge_steps, r, device):
     normalize_edge_cutoff(input_data, "distance", r)
     for i, data in enumerate(input_data):
         input_data[i].edge_attr = distance_gaussian(input_data[i].edge_descriptor["distance"])
+
+def triplets(edge_index, cell_offsets, num_nodes):
+    '''
+    Taken from the DimeNet implementation on OCP
+    '''
+
+    row, col = edge_index  # j->i
+
+    value = torch.arange(row.size(0), device=row.device)
+    adj_t = SparseTensor(
+        row=col, col=row, value=value, sparse_sizes=(num_nodes, num_nodes)
+    )
+    adj_t_row = adj_t[row]
+    num_triplets = adj_t_row.set_value(None).sum(dim=1).to(torch.long)
+
+    # Node indices (k->j->i) for triplets.
+    idx_i = col.repeat_interleave(num_triplets)
+    idx_j = row.repeat_interleave(num_triplets)
+    idx_k = adj_t_row.storage.col()
+
+    # Edge indices (k->j, j->i) for triplets.
+    idx_kj = adj_t_row.storage.value()
+    idx_ji = adj_t_row.storage.row()
+
+    # Remove self-loop triplets d->b->d
+    # Check atom as well as cell offset
+    cell_offset_kji = cell_offsets[idx_kj] + cell_offsets[idx_ji]
+    mask = (idx_i != idx_k) | torch.any(
+        cell_offset_kji != 0, dim=-1).to(device=idx_i.device)
+
+    idx_i, idx_j, idx_k = idx_i[mask], idx_j[mask], idx_k[mask]
+    idx_kj, idx_ji = idx_kj[mask], idx_ji[mask]
+
+    return idx_i, idx_j, idx_k, idx_kj, idx_ji
+
+
+def compute_bond_angles(pos: torch.Tensor, offsets: torch.Tensor, edge_index: torch.Tensor, num_nodes: int) -> torch.Tensor:
+    '''
+    Compute angle between bonds to compute node embeddings for L(g)
+    Taken from the DimeNet implementation on OCP
+    '''
+
+    # Calculate triplets
+    idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
+        edge_index, offsets, num_nodes)
+
+    # Calculate angles.
+    pos_i = pos[idx_i]
+    pos_j = pos[idx_j]
+
+    offsets = offsets.to(pos.device)
+
+    pos_ji, pos_kj = (
+        pos[idx_j] - pos_i + offsets[idx_ji],
+        pos[idx_k] - pos_j + offsets[idx_kj],
+    )
+
+    a = (pos_ji * pos_kj).sum(dim=-1)
+    b = torch.cross(pos_ji, pos_kj).norm(dim=-1)
+
+    angle = torch.atan2(b, a)
+
+    return angle, idx_kj, idx_ji
