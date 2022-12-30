@@ -1,6 +1,7 @@
 import copy
 import csv
 import logging
+import re
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -41,7 +42,8 @@ class BaseTrainer(ABC):
         identifier: str = None,
         verbosity: int = None,
     ):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
@@ -105,7 +107,8 @@ class BaseTrainer(ABC):
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"], config["dataset"], dataset, sampler
         )
-        scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
+        scheduler = cls._load_scheduler(
+            config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
 
         max_epochs = config["optim"]["max_epochs"]
@@ -133,7 +136,7 @@ class BaseTrainer(ABC):
         dataset_path = dataset_config["pt_path"]
         target_index = dataset_config.get("target_index", 0)
 
-        dataset = get_dataset(dataset_path, target_index)
+        dataset = get_dataset(dataset_path, target_index, transforms_list=dataset_config["transforms"])
 
         return dataset
 
@@ -180,7 +183,8 @@ class BaseTrainer(ABC):
         train_loader = get_dataloader(
             train_dataset, batch_size=batch_size, sampler=sampler
         )
-        val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
+        val_loader = get_dataloader(
+            val_dataset, batch_size=batch_size, sampler=sampler)
         test_loader = get_dataloader(
             test_dataset, batch_size=batch_size, sampler=sampler
         )
@@ -222,7 +226,8 @@ class BaseTrainer(ABC):
 
     def update_best_model(self, val_metrics):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
-        self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
+        self.best_val_metric = val_metrics[type(
+            self.loss_fn).__name__]["metric"]
         self.best_model_state = copy.deepcopy(self.model.state_dict())
 
         self.save_model("best_checkpoint.pt", val_metrics, False)
@@ -247,7 +252,8 @@ class BaseTrainer(ABC):
                 "best_val_metric": self.best_val_metric,
             }
         else:
-            state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
+            state = {"state_dict": self.model.state_dict(),
+                     "val_metrics": val_metrics}
 
         checkpoint_dir = os.path.join(
             self.run_dir, "results", self.timestamp_id, "checkpoint"
@@ -268,7 +274,8 @@ class BaseTrainer(ABC):
         if node_level_predictions:
             id_headers += ["node_id"]
         num_cols = (shape[1] - len(id_headers)) // 2
-        headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols
+        headers = id_headers + ["target"] * \
+            num_cols + ["prediction"] * num_cols
 
         with open(filename, "w") as f:
             csvwriter = csv.writer(f)

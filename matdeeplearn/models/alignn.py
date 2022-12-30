@@ -356,6 +356,10 @@ class ALIGNN(BaseModel):
             )
         elif link == "logit":
             self.link = torch.sigmoid
+            
+    @property
+    def target_attr(self):
+        return "y"
 
     def forward(self, g: Data):
         # Compute OTF transform to generate attributes for L(g)

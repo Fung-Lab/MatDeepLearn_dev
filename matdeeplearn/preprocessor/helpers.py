@@ -6,6 +6,7 @@ import itertools
 from pathlib import Path
 
 import torch
+from torch_sparse import SparseTensor
 import torch.nn.functional as F
 from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
 from torch_geometric.data.data import Data

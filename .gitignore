@@ -178,3 +178,5 @@ main.py
 
 test*.py
 test*.ipynb
+
+!testing/*
