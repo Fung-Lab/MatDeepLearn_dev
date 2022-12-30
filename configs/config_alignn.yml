@@ -3,52 +3,53 @@ trainer: property
 
 task:
   # run_mode: train
-  name: "alignn_first_training"
+  identifier: "alignn_train_job"
 
-  reprocess: "False"
+  reprocess: False
 
-  parallel: "True"
+
+  parallel: True
   seed: 0
   #seed=0 means random initalization
 
-  write_output: "True"
-  parallel: "True"
+
+  write_output: True
+  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
 
-  #Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.85
-  val_ratio: 0.05
-  test_ratio: 0.10
+
 
 model:
-  name: "ALIGNN_GRAPHITE"
-  load_model: "False"
-  save_model: "True"
-  model_path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/testing/models/alignn_model_t1.pth"
-
+  name: ALIGNN
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
   #model attributes
-  alignn_layers: 4
-  gcn_layers: 4
-  atom_input_features: 114
-  edge_input_features: 50
-  triplet_input_features: 40
-  embedding_features: 32
-  hidden_features: 64
-  output_features: 1
-  # min_edge_distance: 0.0,
-  # max_edge_distance: 8.0,
-  # min_angle: 0.0,
-  # max_angle: torch.acos(torch.zeros(1)).item() * 2,
-  link: "identity"
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: "global_mean_pool"
+  pool_order: "early"
+  batch_norm: True
+  batch_track_stats: True
+  act: "relu"
+  dropout_rate: 0.0
 
 optim:
-  max_epochs: 300
+  max_epochs: 250
   lr: 0.001
-  #Loss functions (from pytorch) examples: l1_loss, mse_loss, binary_cross_entropy
-  loss_fn: "mse_loss"
+  #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "mse_loss"}
+
   batch_size: 64
- 
+
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {"weight_decay": 0.00001}
@@ -67,16 +68,18 @@ dataset:
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/targets.csv"
   #Path to save processed data.pt file (a directory path not filepath)
   pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/"
+  otf: False
   transforms:
     - NumNodeTransform
     - LineGraphMod
     - ToFloat
   #Format of data files (limit to those supported by ASE)
   data_format: "json"
-  #Method of obtaining atom dictionary: available:(one-hot)
+  #Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
+  additional_attributes: []
   #Print out processing info
-  verbose: "True"
+  verbose: True
 
   #Loading dataset params
   #Index of target column in targets.csv
@@ -86,3 +89,8 @@ dataset:
   cutoff_radius : 8.0
   n_neighbors : 12
   edge_steps : 50
+
+  #Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

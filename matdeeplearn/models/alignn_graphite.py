@@ -116,6 +116,10 @@ class ALIGNN_GRAPHITE(BaseModel):
         )
 
         self.reset_parameters()
+        
+    @property
+    def target_attr(self):
+        return "y"
 
     def reset_parameters(self):
         self.embed_atm.reset_parameters()
@@ -127,14 +131,10 @@ class ALIGNN_GRAPHITE(BaseModel):
         cos_ang = torch.cos(x_ang)
         return gaussian(cos_ang, start=-1, end=1, num_basis=self.dim)
 
-    def forward(self, data: Data):
-        with torch.no_grad():
-            otf = Compose([NumNodeTransform(), LineGraphMod(),  ToFloat()])
-            otf(data)
-        
+    def forward(self, data: Data):        
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
-        h_atm = self.embed_atm(data.x)
+        h_atm = self.embed_atm(data.x.type(torch.long))
         h_bnd = self.embed_bnd(data.edge_attr)
         h_ang = self.embed_ang(data.edge_attr_lg)
 

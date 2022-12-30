@@ -279,6 +279,7 @@ def generate_node_features(input_data, n_neighbors, device):
 
     for i, data in enumerate(input_data):
         input_data[i] = one_hot_degree(data, n_neighbors+1)
+        
 
 def generate_edge_features(input_data, edge_steps, r, device):
     distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
@@ -333,7 +334,7 @@ def compute_bond_angles(pos: torch.Tensor, offsets: torch.Tensor, edge_index: to
 
     # Calculate triplets
     idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
-        edge_index, offsets, num_nodes)
+        edge_index, offsets.to(device=edge_index.device), num_nodes)
 
     # Calculate angles.
     pos_i = pos[idx_i]

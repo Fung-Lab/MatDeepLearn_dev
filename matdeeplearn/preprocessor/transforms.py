@@ -3,10 +3,7 @@ import torch
 import numpy as np
 from torch_scatter import scatter_add
 from torch_sparse import coalesce
-from torch_geometric.utils import remove_self_loops
-from matdeeplearn.preprocessor.helpers import compute_bond_angles, triplets
-from scipy.spatial.distance import cdist
-from contextlib import contextmanager
+from matdeeplearn.preprocessor.helpers import compute_bond_angles
 
 '''
 here resides the transform classes needed for data processing
@@ -83,10 +80,10 @@ class ToFloat(object):
     Convert non-int attributes to float
     '''
 
-    def __call__(self, data):
+    def __call__(self, data):        
         data.x = data.x.float()
         data.x_lg = data.x_lg.float()
-
+        
         data.distances = data.distances.float()
         data.pos = data.pos.float()
 

@@ -9,6 +9,7 @@ import torch
 from ase import io
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.utils import dense_to_sparse
+from torch_geometric.transforms import Compose
 from tqdm import tqdm
 
 from matdeeplearn.preprocessor.helpers import (
@@ -17,6 +18,8 @@ from matdeeplearn.preprocessor.helpers import (
     generate_node_features,
     get_cutoff_distance_matrix,
 )
+
+from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
 
 
 def process_data(dataset_config):
@@ -41,6 +44,8 @@ def process_data(dataset_config):
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         edge_steps=edge_steps,
+        otf=dataset_config.get("otf", False),
+        transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
         self_loop=self_loop,
@@ -61,6 +66,8 @@ class DataProcessor:
         r: float,
         n_neighbors: int,
         edge_steps: int,
+        otf: bool = False,
+        transforms: list = [],
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
@@ -132,6 +139,9 @@ class DataProcessor:
         self.verbose = verbose
         self.device = device
 
+        self.otf = otf
+        self.transforms = transforms
+
         self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
@@ -153,14 +163,17 @@ class DataProcessor:
         dict_structures = []
         ase_structures = []
 
-        logging.info("Converting data to standardized form for downstream processing.")
+        logging.info(
+            "Converting data to standardized form for downstream processing.")
         for i, structure_id in enumerate(file_names):
-            p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
+            p = os.path.join(self.root_path, str(
+                structure_id) + "." + self.data_format)
             ase_structures.append(ase.io.read(p))
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
-            pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
+            pos = torch.tensor(s.get_positions(),
+                               device=self.device, dtype=torch.float)
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             )
@@ -173,7 +186,8 @@ class DataProcessor:
 
             # add additional attributes
             if self.additional_attributes:
-                attributes = self.get_csv_additional_attributes(d["structure_id"])
+                attributes = self.get_csv_additional_attributes(
+                    d["structure_id"])
                 for k, v in attributes.items():
                     d[k] = v
 
@@ -189,9 +203,12 @@ class DataProcessor:
         attributes = {}
 
         for attr in self.additional_attributes:
-            p = os.path.join(self.root_path, structure_id + "_" + attr + ".csv")
-            values = np.genfromtxt(p, delimiter=",", dtype=float, encoding=None)
-            values = torch.tensor(values, device=self.device, dtype=torch.float)
+            p = os.path.join(self.root_path, structure_id +
+                             "_" + attr + ".csv")
+            values = np.genfromtxt(
+                p, delimiter=",", dtype=float, encoding=None)
+            values = torch.tensor(
+                values, device=self.device, dtype=torch.float)
             attributes[attr] = values
 
         return attributes
@@ -212,13 +229,17 @@ class DataProcessor:
 
         dict_structures = []
         y = []
-        y_dim = len(original_structures[0]["y"]) if isinstance(original_structures[0]["y"], list) else 1
+        y_dim = len(original_structures[0]["y"]) if isinstance(
+            original_structures[0]["y"], list) else 1
 
-        logging.info("Converting data to standardized form for downstream processing.")
+        logging.info(
+            "Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
-            pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+            pos = torch.tensor(
+                s["positions"], device=self.device, dtype=torch.float)
+            cell = torch.tensor(
+                s["cell"], device=self.device, dtype=torch.float)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -268,6 +289,7 @@ class DataProcessor:
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
+
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
             data = data_list[i]
@@ -312,7 +334,26 @@ class DataProcessor:
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         logging.info("Generating edge features...")
-        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+        generate_edge_features(data_list, self.edge_steps,
+                               self.r, device=self.device)
+
+        logging.info("Applying transforms...")
+
+        # saving line graph attributes through transforms
+        transforms_list = []
+
+        if not self.otf:
+            for transform in self.transforms:
+                if transform in TRANSFORM_REGISTRY:
+                    transforms_list.append(TRANSFORM_REGISTRY[transform]())
+                else:
+                    raise ValueError(
+                        "No such transform found for {transform}")
+
+        composition = Compose(transforms_list)
+
+        for data in data_list:
+            composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
 

@@ -59,7 +59,7 @@ def dataset_split(
 
 
 def get_dataset(
-    data_path, target_index: int = 0, transform_list=[], large_dataset=False
+    data_path, target_index: int = 0, transform_list=[], otf=False, large_dataset=False
 ):
     """
     get dataset according to data_path
@@ -81,15 +81,16 @@ def get_dataset(
 
     transform_list: transformation function/classes to be applied
     """
-    
+
     transforms = [GetY(index=target_index)]
 
     # set transform method
-    for transform in transform_list:
-        if transform in TRANSFORM_REGISTRY:
-            transforms.append(TRANSFORM_REGISTRY[transform]())
-        else:
-            raise ValueError("No such transform found for {transform}")
+    if otf:
+        for transform in transform_list:
+            if transform in TRANSFORM_REGISTRY:
+                transforms.append(TRANSFORM_REGISTRY[transform]())
+            else:
+                raise ValueError("No such transform found for {transform}")
 
     # check if large dataset is needed
     if large_dataset:
@@ -98,7 +99,7 @@ def get_dataset(
         Dataset = StructureDataset
 
     transform = Compose(transforms)
-
+    
     return Dataset(data_path, processed_data_path="", transform=transform)
 
 
