@@ -136,7 +136,7 @@ class BaseTrainer(ABC):
         dataset_path = dataset_config["pt_path"]
         target_index = dataset_config.get("target_index", 0)
 
-        dataset = get_dataset(dataset_path, target_index, transforms_list=dataset_config["transforms"])
+        dataset = get_dataset(dataset_path, target_index, transform_list=dataset_config["transforms"], otf=dataset_config["otf"])
 
         return dataset
 

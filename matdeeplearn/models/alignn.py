@@ -7,7 +7,6 @@ from torch_geometric.data import Data
 from torch_geometric.transforms import Compose
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-from matdeeplearn.preprocessor.transforms import NumNodeTransform, LineGraphMod, ToFloat
 from typing import Optional, Literal
 import numpy as np
 import contextlib
@@ -362,14 +361,6 @@ class ALIGNN(BaseModel):
         return "y"
 
     def forward(self, g: Data):
-        # Compute OTF transform to generate attributes for L(g)
-        
-        # with prof_ctx():
-        
-        with torch.no_grad():
-            otf = Compose([NumNodeTransform(), LineGraphMod(),  ToFloat()])
-            otf(g)
-
         # initial node features
         node_feats = self.atom_embedding(g.x)
         # initial bond features
