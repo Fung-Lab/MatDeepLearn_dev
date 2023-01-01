@@ -3,7 +3,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "alignn_train_job"
+  identifier: "alignn_train_100"
 
   reprocess: False
 
@@ -24,24 +24,23 @@ model:
   name: ALIGNN
   load_model: False
   save_model: True
-  model_path: "my_model.pth"
-  edge_steps: 50
-  self_loop: True
-  #model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_mean_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  model_path: "alignn_model.pth"
+  alignn_layers: 4
+  gcn_layers: 4
+  atom_input_features: 114
+  edge_input_features: 50
+  triplet_input_features: 40
+  embedding_features: 64
+  hidden_features: 256
+  output_features: 1
+  min_edge_distance: 0.0
+  max_edge_distance: 8.0
+  # min_angle: float = 0.0,
+  # max_angle: float = torch.acos(torch.zeros(1)).item() * 2,
+  link: "identity"
 
 optim:
-  max_epochs: 250
+  max_epochs: 100
   lr: 0.001
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:

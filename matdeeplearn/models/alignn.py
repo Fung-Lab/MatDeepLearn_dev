@@ -15,13 +15,15 @@ from torch.profiler import profile, record_function, ProfilerActivity
 # profiling for memory analysis
 ENABLE_PROFILER = True
 
+
 @contextlib.contextmanager
 def prof_ctx():
     with profile(activities=[ProfilerActivity.CUDA], record_shapes=True, profile_memory=True) as prof:
-        
+
         yield
-    
+
     print(prof.key_averages().table(sort_by="cuda_memory_usage", row_limit=10))
+
 
 class EdgeModel(torch.nn.Module):
     '''
@@ -44,7 +46,7 @@ class EdgeModel(torch.nn.Module):
 
     def forward(self, src, dest, edge_attr, u=None, batch=None):
         # src and dest are the nodes connecting the edge
-        
+
         new_feats = F.silu(self.batch_norm(
             self.src_gate(src) + self.dest_gate(dest) +
             self.edge_gate(edge_attr)
@@ -113,14 +115,14 @@ class NodeModel(torch.nn.Module):
         self.batch_norm = BatchNorm1d(output_features)
         self.act = SiLU()
         self.sigmoid = Sigmoid()
-        
-        self.residual = residual        
+
+        self.residual = residual
         self.eps = eps
 
     def forward(self, x, edge_index, edge_attr, u=None, batch=None):
-        # compute sigmoid-aggregate of new edge features    
+        # compute sigmoid-aggregate of new edge features
         node_aggregate = self.node_aggr(x, edge_index, edge_attr)
-                    
+
         with prof_ctx():
             edge_aggregate = self.edge_aggr(edge_index, edge_attr)
 
@@ -139,9 +141,10 @@ class EdgeGatedGraphConv(MessagePassing):
     '''
     Message-passing based implementation of EGGConv
     '''
+
     def __init__(self, input_features: int, output_features: int, residual: bool = True, eps=1e-6) -> None:
         super().__init__()
-        
+
         self.W_src = Linear(input_features, output_features)
         self.W_dst = Linear(input_features, output_features)
         # Operates on h_i
@@ -150,7 +153,7 @@ class EdgeGatedGraphConv(MessagePassing):
         self.W_bj = Linear(input_features, output_features)
         # Operates on e_ij
         self.W_cij = Linear(output_features, output_features)
-        
+
         self.bn_nodes = BatchNorm1d(output_features)
         self.bn_edges = BatchNorm1d(output_features)
 
@@ -158,7 +161,7 @@ class EdgeGatedGraphConv(MessagePassing):
         self.sigmoid = Sigmoid()
         self.residual = residual
         self.eps = eps
-    
+
     def forward(self, node_feats: torch.Tensor, edge_attr: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         i, j = edge_index
         # Node update routine
@@ -166,16 +169,18 @@ class EdgeGatedGraphConv(MessagePassing):
         sigma_sum = scatter(src=sigma, index=i, dim=0)
         # Accessing at index i allows for shape matching and correct aggregate division
         e_ij_hat = sigma / (sigma_sum[i] + self.eps)
-        
+
         dest_aggr = self.propagate(edge_index, x=node_feats, e_ij_hat=e_ij_hat)
-        
-        new_node_feats = node_feats + self.act(self.bn_nodes(self.W_src(node_feats) + dest_aggr))
-        
+
+        new_node_feats = node_feats + \
+            self.act(self.bn_nodes(self.W_src(node_feats) + dest_aggr))
+
         # Edge update routine
-        new_edge_attr = edge_attr + self.act(self.bn_edges(self.W_ai(node_feats[i]) + self.W_bj(node_feats[j]) + self.W_cij(edge_attr)))
-        
+        new_edge_attr = edge_attr + self.act(self.bn_edges(
+            self.W_ai(node_feats[i]) + self.W_bj(node_feats[j]) + self.W_cij(edge_attr)))
+
         return new_node_feats, new_edge_attr
-    
+
     def message(self, x_j, e_ij_hat):
         return e_ij_hat * self.W_dst(x_j)
 
@@ -193,19 +198,18 @@ class EdgeGatedGraphConvNoMP(torch.nn.Module):
         self.node_model = NodeModel(input_features, output_features, residual)
 
     def forward(self, node_feats: torch.Tensor, edge_attr: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
-        # compute new edge features    
-        
+        # compute new edge features
+
         row, col = edge_index
         new_edge_attr = self.edge_model(
             node_feats[row], node_feats[col], edge_attr)
-        
+
         # compute new node features (which are based on previously updated edge features)
         new_node_feats = self.node_model(
             node_feats, edge_index, new_edge_attr)
 
         return new_node_feats, new_edge_attr
 
-    
 
 class ALIGNNConv(torch.nn.Module):
     '''
@@ -227,8 +231,8 @@ class ALIGNNConv(torch.nn.Module):
             edge_attr, triplet_feats, g.edge_index_lg)
 
         node_feats, edge_attr = self.node_update(
-                node_feats, message, g.edge_index)
-        
+            node_feats, message, g.edge_index)
+
         # Return updated node, edge, and triplet embeddings
         return node_feats, edge_attr, triplet_feats
 
@@ -355,7 +359,7 @@ class ALIGNN(BaseModel):
             )
         elif link == "logit":
             self.link = torch.sigmoid
-            
+
     @property
     def target_attr(self):
         return "y"

@@ -1,0 +1,33 @@
+INFO:root:GPU is available: True, Quantity: 1
+INFO:root:Dataset used: StructureDataset(69239)
+INFO:root:Starting regular training
+INFO:root:running for  100 epochs on ALIGNN model
+INFO:root:Epoch: 0000, Learning Rate: 0.000040, Training Error: 0.38423, Val Error: 0.13911, Time per epoch (s): 206.80561
+INFO:root:Epoch: 0001, Learning Rate: 0.000040, Training Error: 0.13924, Val Error: 0.09457, Time per epoch (s): 195.60865
+INFO:root:Epoch: 0002, Learning Rate: 0.000041, Training Error: 0.10649, Val Error: 0.06653, Time per epoch (s): 195.51838
+INFO:root:Epoch: 0003, Learning Rate: 0.000043, Training Error: 0.08044, Val Error: 0.05974, Time per epoch (s): 195.76826
+INFO:root:Epoch: 0004, Learning Rate: 0.000045, Training Error: 0.06709, Val Error: 0.04889, Time per epoch (s): 195.69507
+INFO:root:Epoch: 0005, Learning Rate: 0.000047, Training Error: 0.05853, Val Error: 0.05638, Time per epoch (s): 195.84432
+INFO:root:Epoch: 0006, Learning Rate: 0.000051, Training Error: 0.05109, Val Error: 0.05370, Time per epoch (s): 195.86274
+INFO:root:Epoch: 0007, Learning Rate: 0.000055, Training Error: 0.04519, Val Error: 0.04938, Time per epoch (s): 195.94256
+INFO:root:Epoch: 0008, Learning Rate: 0.000059, Training Error: 0.03990, Val Error: 0.03470, Time per epoch (s): 195.72490
+INFO:root:Epoch: 0009, Learning Rate: 0.000064, Training Error: 0.03638, Val Error: 0.03491, Time per epoch (s): 195.70747
+INFO:root:Epoch: 0010, Learning Rate: 0.000070, Training Error: 0.03299, Val Error: 0.02935, Time per epoch (s): 195.51977
+INFO:root:Epoch: 0011, Learning Rate: 0.000076, Training Error: 0.02947, Val Error: 0.03714, Time per epoch (s): 195.49056
+INFO:root:Epoch: 0012, Learning Rate: 0.000082, Training Error: 0.02728, Val Error: 0.02692, Time per epoch (s): 195.44787
+INFO:root:Epoch: 0013, Learning Rate: 0.000090, Training Error: 0.02705, Val Error: 0.02537, Time per epoch (s): 195.34094
+INFO:root:Epoch: 0014, Learning Rate: 0.000097, Training Error: 0.02292, Val Error: 0.02673, Time per epoch (s): 195.51230
+INFO:root:Epoch: 0015, Learning Rate: 0.000106, Training Error: 0.02228, Val Error: 0.02622, Time per epoch (s): 195.59988
+INFO:root:Epoch: 0016, Learning Rate: 0.000115, Training Error: 0.01933, Val Error: 0.02520, Time per epoch (s): 195.84661
+INFO:root:Epoch: 0017, Learning Rate: 0.000124, Training Error: 0.01866, Val Error: 0.02054, Time per epoch (s): 195.39463
+INFO:root:Epoch: 0018, Learning Rate: 0.000134, Training Error: 0.01783, Val Error: 0.01971, Time per epoch (s): 195.72286
+INFO:root:Epoch: 0019, Learning Rate: 0.000144, Training Error: 0.01734, Val Error: 0.02705, Time per epoch (s): 195.62022
+INFO:root:Epoch: 0020, Learning Rate: 0.000155, Training Error: 0.01658, Val Error: 0.01917, Time per epoch (s): 195.52015
+INFO:root:Epoch: 0021, Learning Rate: 0.000166, Training Error: 0.01513, Val Error: 0.03038, Time per epoch (s): 195.69114
+INFO:root:Epoch: 0022, Learning Rate: 0.000178, Training Error: 0.01363, Val Error: 0.02008, Time per epoch (s): 195.47845
+INFO:root:Epoch: 0023, Learning Rate: 0.000190, Training Error: 0.01386, Val Error: 0.01934, Time per epoch (s): 195.78954
+INFO:root:Epoch: 0024, Learning Rate: 0.000202, Training Error: 0.01300, Val Error: 0.01740, Time per epoch (s): 195.67375
+INFO:root:Epoch: 0025, Learning Rate: 0.000215, Training Error: 0.01246, Val Error: 0.01827, Time per epoch (s): 195.71211
+INFO:root:Epoch: 0026, Learning Rate: 0.000228, Training Error: 0.01199, Val Error: 0.01488, Time per epoch (s): 195.49706
+INFO:root:Epoch: 0027, Learning Rate: 0.000242, Training Error: 0.01176, Val Error: 0.01641, Time per epoch (s): 195.78095
+INFO:root:Epoch: 0028, Learning Rate: 0.000256, Training Error: 0.01282, Val Error: 0.01524, Time per epoch (s): 195.66414

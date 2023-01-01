@@ -3,6 +3,7 @@ import csv
 import logging
 import re
 import os
+import glob
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -19,6 +20,7 @@ from matdeeplearn.common.data import (
     get_dataloader,
     get_dataset,
 )
+
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
@@ -136,7 +138,8 @@ class BaseTrainer(ABC):
         dataset_path = dataset_config["pt_path"]
         target_index = dataset_config.get("target_index", 0)
 
-        dataset = get_dataset(dataset_path, target_index, transform_list=dataset_config["transforms"], otf=dataset_config["otf"])
+        dataset = get_dataset(dataset_path, target_index,
+                              transform_list=dataset_config["transforms"], otf=dataset_config["otf"])
 
         return dataset
 
@@ -241,7 +244,7 @@ class BaseTrainer(ABC):
 
     def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
         """Saves the model state dict"""
-
+        
         if training_state:
             state = {
                 "epoch": self.epoch,
@@ -286,7 +289,35 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(output[i - 1, :])
         return filename
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, most_recent=True):
         """Loads the model from a checkpoint.pt file"""
-        # TODO: implement this method
-        pass
+
+        if not most_recent:
+            raise NotImplementedError(
+                "Loading from a specific checkpoint is not yet implemented.")
+
+        # look in both scripts and jobs folders
+
+        checkpoint_dir = glob.glob(os.path.join(
+            self.run_dir, "results", "*"))
+
+        if len(checkpoint_dir) == 0:
+            checkpoint_dir = glob.glob(os.path.join(
+                "../testing/jobs", "results", "*"))
+
+        # find most recent checkpoint
+        checkpoint_file = os.path.join(sorted([folder for folder in checkpoint_dir if os.path.isdir(
+            folder)])[-1], "checkpoint", "checkpoint.pt")
+
+        if not os.path.exists(checkpoint_file):
+            raise FileNotFoundError("No recent checkpoint file found.")
+
+        # Load params from checkpoint
+        checkpoint = torch.load(checkpoint_file)
+
+        self.model.load_state_dict(checkpoint["state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
+        self.epoch = checkpoint["epoch"]
+        self.step = checkpoint["step"]
+        self.best_val_metric = checkpoint["best_val_metric"]

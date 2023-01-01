@@ -14,10 +14,11 @@ class BaseTask:
 
     def setup(self, trainer):
         self.trainer = trainer
-        checkpoint = self.config.get("checkpoint", None)
-        if checkpoint is not None:
-            self.trainer.load_checkpoint(self.config["checkpoint"])
-
+        use_checkpoint = self.config["model"]["load_model"]
+        if use_checkpoint:
+            logging.info("Attempting to load most recent checkpoint...")
+            self.trainer.load_checkpoint(most_recent=True)
+            logging.info("Recent checkpoint loaded successfully.")
         # save checkpoint path to runner state for slurm resubmissions
         # self.chkpt_path = os.path.join(
         #     self.trainer.config["cmd"]["checkpoint_dir"], "checkpoint.pt"
