@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+core.python.*
 
 # C extensions
 *.so
@@ -163,20 +164,23 @@ dmypy.json
 # mac
 .DS_Store
 
-# data
-data/**
-
 # config
 ./config/*
 
 # results
-results/**
+**/*/results/
 
 server/
 
-main.py
-
+# tests
+testing/*
 test*.py
 test*.ipynb
 
-!testing/*
+checkpoints/
+
+# misc
+.flake8
+.pylintrc
+**/wandb/
+*.out

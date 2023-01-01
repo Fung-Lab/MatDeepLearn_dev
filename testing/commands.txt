@@ -1,6 +1,0 @@
-python main.py --config_path="/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/config_alignn.yml" --run_mode="train"
-salloc --nodes 1 --qos interactive --time 01:00:00 --constraint gpu --gpus 1 --account=m3641
-rm -rf ../matdeeplearn/trainers/.ipynb_checkpoints
-rm -rf ../matdeeplearn/models/.ipynb_checkpoints
-
-salloc -C gpu -t 60 -c 10 -G 1 -q interactive -A

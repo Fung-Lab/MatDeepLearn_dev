@@ -15,6 +15,7 @@ Various decorators for registry different kind of classes with unique keys
 - Register a model: ``@registry.register_model``
 """
 import importlib
+from typing import Callable
 
 
 def _get_absolute_mapping(name: str):
@@ -52,6 +53,7 @@ class Registry:
         "trainer_name_mapping": {},
         "loss_name_mapping": {},
         "state": {},
+        "transforms": {},
     }
 
     @classmethod
@@ -212,6 +214,16 @@ class Registry:
         current[path[-1]] = obj
 
     @classmethod
+    def register_transform(cls, transform_name: str):
+        """Registers a transform function for bookkeeping."""
+
+        def wrap_func(transform: Callable):
+            cls.mapping["transforms"][transform_name] = transform
+            return transform
+
+        return wrap_func
+
+    @classmethod
     def __import_error(cls, name: str, mapping_name: str):
         kind = mapping_name[: -len("_name_mapping")]
         mapping = cls.mapping.get(mapping_name, {})
@@ -274,6 +286,10 @@ class Registry:
     @classmethod
     def get_loss_class(cls, name):
         return cls.get_class(name, "loss_name_mapping")
+
+    @classmethod
+    def get_transform_class(cls, name, **kwargs):
+        return cls.get_class(name, "transforms")(**kwargs)
 
     @classmethod
     def get(cls, name, default=None, no_warning=False):

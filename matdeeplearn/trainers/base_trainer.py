@@ -1,7 +1,7 @@
 import copy
 import csv
+import glob
 import logging
-import re
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -39,11 +39,13 @@ class BaseTrainer(ABC):
         test_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
+        max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
+        save_dir: str = None,
+        checkpoint_dir: str = None,
     ):
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
@@ -56,6 +58,7 @@ class BaseTrainer(ABC):
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
+        self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
 
         self.epoch = 0
@@ -65,9 +68,10 @@ class BaseTrainer(ABC):
         self.best_val_metric = 1e10
         self.best_model_state = None
 
-        self.evaluator = Evaluator()
+        self.save_dir = save_dir if save_dir else os.getcwd()
+        self.checkpoint_dir = checkpoint_dir
 
-        self.run_dir = os.getcwd()
+        self.evaluator = Evaluator()
 
         timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
@@ -97,9 +101,6 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        # TODO: figure out what configs are passed in and how they're structured
-        #  (one overall config, or individual components)
-
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset)
         optimizer = cls._load_optimizer(config["optim"], model)
@@ -107,13 +108,15 @@ class BaseTrainer(ABC):
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"], config["dataset"], dataset, sampler
         )
-        scheduler = cls._load_scheduler(
-            config["optim"]["scheduler"], optimizer)
+        scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
-
         max_epochs = config["optim"]["max_epochs"]
+        max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
+        # pass in custom results home dir and load in prev checkpoint dir
+        save_dir = config["task"].get("save_dir", None)
+        checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
         return cls(
             model=model,
@@ -126,17 +129,22 @@ class BaseTrainer(ABC):
             test_loader=test_loader,
             loss=loss,
             max_epochs=max_epochs,
+            max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
+            save_dir=save_dir,
+            checkpoint_dir=checkpoint_dir,
         )
 
     @staticmethod
     def _load_dataset(dataset_config):
         """Loads the dataset if from a config file."""
         dataset_path = dataset_config["pt_path"]
-        target_index = dataset_config.get("target_index", 0)
 
-        dataset = get_dataset(dataset_path, target_index, transform_list=dataset_config["transforms"], otf=dataset_config["otf"])
+        dataset = get_dataset(
+            dataset_path,
+            transform_list=dataset_config.get("transforms", []),
+        )
 
         return dataset
 
@@ -183,8 +191,7 @@ class BaseTrainer(ABC):
         train_loader = get_dataloader(
             train_dataset, batch_size=batch_size, sampler=sampler
         )
-        val_loader = get_dataloader(
-            val_dataset, batch_size=batch_size, sampler=sampler)
+        val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
         test_loader = get_dataloader(
             test_dataset, batch_size=batch_size, sampler=sampler
         )
@@ -226,8 +233,7 @@ class BaseTrainer(ABC):
 
     def update_best_model(self, val_metrics):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
-        self.best_val_metric = val_metrics[type(
-            self.loss_fn).__name__]["metric"]
+        self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
         self.best_model_state = copy.deepcopy(self.model.state_dict())
 
         self.save_model("best_checkpoint.pt", val_metrics, False)
@@ -252,20 +258,19 @@ class BaseTrainer(ABC):
                 "best_val_metric": self.best_val_metric,
             }
         else:
-            state = {"state_dict": self.model.state_dict(),
-                     "val_metrics": val_metrics}
+            state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
 
-        checkpoint_dir = os.path.join(
-            self.run_dir, "results", self.timestamp_id, "checkpoint"
+        curr_checkpt_dir = os.path.join(
+            self.save_dir, "results", self.timestamp_id, "checkpoint"
         )
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        filename = os.path.join(checkpoint_dir, checkpoint_file)
+        os.makedirs(curr_checkpt_dir, exist_ok=True)
+        filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
         torch.save(state, filename)
         return filename
 
     def save_results(self, output, filename, node_level_predictions=False):
-        results_path = os.path.join(self.run_dir, "results", self.timestamp_id)
+        results_path = os.path.join(self.save_dir, "results", self.timestamp_id)
         os.makedirs(results_path, exist_ok=True)
         filename = os.path.join(results_path, filename)
         shape = output.shape
@@ -274,8 +279,7 @@ class BaseTrainer(ABC):
         if node_level_predictions:
             id_headers += ["node_id"]
         num_cols = (shape[1] - len(id_headers)) // 2
-        headers = id_headers + ["target"] * \
-            num_cols + ["prediction"] * num_cols
+        headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols
 
         with open(filename, "w") as f:
             csvwriter = csv.writer(f)
@@ -286,7 +290,22 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(output[i - 1, :])
         return filename
 
+    # TODO: streamline this from PR #12
     def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
-        # TODO: implement this method
-        pass
+
+        if not self.checkpoint_dir:
+            raise ValueError("No checkpoint directory specified in config.")
+
+        checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
+        checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
+
+        # Load params from checkpoint
+        checkpoint = torch.load(checkpoint_file)
+
+        self.model.load_state_dict(checkpoint["state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
+        self.epoch = checkpoint["epoch"]
+        self.step = checkpoint["step"]
+        self.best_val_metric = checkpoint["best_val_metric"]
