@@ -176,9 +176,9 @@ server/
 
 main.py
 
+# tests
+testing/*
 test*.py
 test*.ipynb
-
-!testing/*
 
 checkpoints/

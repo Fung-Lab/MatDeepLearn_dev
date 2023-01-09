@@ -22,7 +22,7 @@ task:
 
 model:
   name: ALIGNN
-  load_model: False
+  load_model: True
   save_model: True
   model_path: "alignn_model.pth"
   alignn_layers: 4
@@ -40,7 +40,7 @@ model:
   link: "identity"
 
 optim:
-  max_epochs: 100
+  max_epochs: 103
   lr: 0.001
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
