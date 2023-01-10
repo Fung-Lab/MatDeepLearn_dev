@@ -17,6 +17,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
+    generate_virtual_nodes,
 )
 
 from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
@@ -31,7 +32,8 @@ def process_data(dataset_config):
     edge_steps = dataset_config["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
-    self_loop = dataset_config.get("self_loop", True)
+    self_loop = (dataset_config.get("self_loop", True),)
+    use_virtual_nodes = (dataset_config.get("use_virtual_nodes", False),)
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
@@ -48,6 +50,7 @@ def process_data(dataset_config):
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
+        use_virtual_nodes=use_virtual_nodes,
         self_loop=self_loop,
         node_representation=node_representation,
         additional_attributes=additional_attributes,
@@ -71,6 +74,7 @@ class DataProcessor:
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
+        use_virtual_nodes: bool = False,
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
@@ -134,6 +138,7 @@ class DataProcessor:
         self.data_format = data_format
         self.image_selfloop = image_selfloop
         self.self_loop = self_loop
+        self.use_virtual_nodes = use_virtual_nodes
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
@@ -170,11 +175,21 @@ class DataProcessor:
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
-            pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
+
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             )
-            atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
+
+            atomic_numbers, pos = (
+                generate_virtual_nodes(s, cell, self.device)
+                if self.use_virtual_nodes
+                else (
+                    torch.LongTensor(s.get_atomic_numbers()),
+                    torch.tensor(
+                        s.get_positions(), device=self.device, dtype=torch.float
+                    ),
+                )
+            )
 
             d["positions"] = pos
             d["cell"] = cell
@@ -297,7 +312,8 @@ class DataProcessor:
                 cell,
                 self.r,
                 self.n_neighbors,
-                image_selfloop=self.image_selfloop,
+                use_virtual_nodes=self.use_virtual_nodes,
+                atomic_numbers=atomic_numbers,
                 device=self.device,
             )
 
