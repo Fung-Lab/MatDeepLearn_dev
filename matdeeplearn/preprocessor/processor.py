@@ -6,7 +6,7 @@ import ase
 import numpy as np
 import pandas as pd
 import torch
-from ase import io
+from ase import io, Atoms
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.utils import dense_to_sparse
 from torch_geometric.transforms import Compose
@@ -52,7 +52,7 @@ def process_data(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
-        device=device
+        device=device,
     )
     processor.process()
 
@@ -163,17 +163,14 @@ class DataProcessor:
         dict_structures = []
         ase_structures = []
 
-        logging.info(
-            "Converting data to standardized form for downstream processing.")
+        logging.info("Converting data to standardized form for downstream processing.")
         for i, structure_id in enumerate(file_names):
-            p = os.path.join(self.root_path, str(
-                structure_id) + "." + self.data_format)
+            p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
             ase_structures.append(ase.io.read(p))
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
-            pos = torch.tensor(s.get_positions(),
-                               device=self.device, dtype=torch.float)
+            pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             )
@@ -186,8 +183,7 @@ class DataProcessor:
 
             # add additional attributes
             if self.additional_attributes:
-                attributes = self.get_csv_additional_attributes(
-                    d["structure_id"])
+                attributes = self.get_csv_additional_attributes(d["structure_id"])
                 for k, v in attributes.items():
                     d[k] = v
 
@@ -203,12 +199,9 @@ class DataProcessor:
         attributes = {}
 
         for attr in self.additional_attributes:
-            p = os.path.join(self.root_path, structure_id +
-                             "_" + attr + ".csv")
-            values = np.genfromtxt(
-                p, delimiter=",", dtype=float, encoding=None)
-            values = torch.tensor(
-                values, device=self.device, dtype=torch.float)
+            p = os.path.join(self.root_path, structure_id + "_" + attr + ".csv")
+            values = np.genfromtxt(p, delimiter=",", dtype=float, encoding=None)
+            values = torch.tensor(values, device=self.device, dtype=torch.float)
             attributes[attr] = values
 
         return attributes
@@ -229,17 +222,17 @@ class DataProcessor:
 
         dict_structures = []
         y = []
-        y_dim = len(original_structures[0]["y"]) if isinstance(
-            original_structures[0]["y"], list) else 1
+        y_dim = (
+            len(original_structures[0]["y"])
+            if isinstance(original_structures[0]["y"], list)
+            else 1
+        )
 
-        logging.info(
-            "Converting data to standardized form for downstream processing.")
+        logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
-            pos = torch.tensor(
-                s["positions"], device=self.device, dtype=torch.float)
-            cell = torch.tensor(
-                s["cell"], device=self.device, dtype=torch.float)
+            pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
+            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -334,8 +327,7 @@ class DataProcessor:
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         logging.info("Generating edge features...")
-        generate_edge_features(data_list, self.edge_steps,
-                               self.r, device=self.device)
+        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         logging.info("Applying transforms...")
 
@@ -347,8 +339,7 @@ class DataProcessor:
                 if transform in TRANSFORM_REGISTRY:
                     transforms_list.append(TRANSFORM_REGISTRY[transform]())
                 else:
-                    raise ValueError(
-                        "No such transform found for {transform}")
+                    raise ValueError("No such transform found for {transform}")
 
         composition = Compose(transforms_list)
 

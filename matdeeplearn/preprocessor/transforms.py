@@ -1,8 +1,10 @@
 import os
-import torch
+
 import numpy as np
+import torch
 from torch_scatter import scatter_add
 from torch_sparse import coalesce
+
 from matdeeplearn.preprocessor.helpers import compute_bond_angles
 
 '''
