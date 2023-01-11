@@ -8,6 +8,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
+from collections import defaultdict
 
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
@@ -51,61 +52,78 @@ class PropertyTrainer(BaseTrainer):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
-    
+
         start_epoch = self.step // len(self.train_loader)
-        
-        for epoch in range(start_epoch, start_epoch + self.max_epochs):
-            epoch_start_time = time.time()
-            if self.train_sampler:
-                self.train_sampler.set_epoch(epoch)
-            skip_steps = self.step % len(self.train_loader)
-            train_loader_iter = iter(self.train_loader)
 
-            # metrics for every epoch
-            _metrics = {}
+        train_metrics = defaultdict(list)
 
-            for i in range(skip_steps, len(self.train_loader)):
-                self.epoch = epoch + (i + 1) / len(self.train_loader)
-                self.step = epoch * len(self.train_loader) + i + 1
-                self.model.train()
+        try:
+            for epoch in range(start_epoch, start_epoch + self.max_epochs):
+                epoch_start_time = time.time()
+                if self.train_sampler:
+                    self.train_sampler.set_epoch(epoch)
+                skip_steps = self.step % len(self.train_loader)
+                train_loader_iter = iter(self.train_loader)
 
-                # Get a batch of train data
-                batch = next(train_loader_iter).to(self.device)
+                # metrics for every epoch
+                _metrics = {}
 
-                # Compute forward, loss, backward
-                out = self._forward(batch)
-                loss = self._compute_loss(out, batch)
-                self._backward(loss)
+                for i in range(skip_steps, len(self.train_loader)):
+                    self.epoch = epoch + (i + 1) / len(self.train_loader)
+                    self.step = epoch * len(self.train_loader) + i + 1
+                    self.model.train()
 
-                # Compute metrics
-                # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
-                #  keep option to log metrics per epoch
-                _metrics = self._compute_metrics(out, batch, _metrics)
-                self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
+                    # Get a batch of train data
+                    batch = next(train_loader_iter).to(self.device)
 
-            # TODO: could add param to eval and save on increments instead of every time
-            # Save current model
+                    # Compute forward, loss, backward
+                    out = self._forward(batch)
+                    loss = self._compute_loss(out, batch)
+                    self._backward(loss)
+
+                    # Compute metrics
+                    # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
+                    #  keep option to log metrics per epoch
+                    _metrics = self._compute_metrics(out, batch, _metrics)
+                    self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
+
+                # TODO: could add param to eval and save on increments instead of every time
+                # Save current model
+                self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+
+                # Evaluate on validation set if it exists
+                if self.val_loader:
+                    val_metrics = self.validate()
+
+                    # Train loop timings
+                    self.epoch_time = time.time() - epoch_start_time
+                    # Log metrics
+                    if epoch % self.train_verbosity == 0:
+                        curr_metrics = self._log_metrics(val_metrics)
+
+                        # update overall metrics for plotting
+                        train_metrics["train"].append(curr_metrics["train"])
+                        train_metrics["val"].append(curr_metrics["val"])
+                        train_metrics["lr"].append(curr_metrics["lr"])
+                        train_metrics["time"].append(curr_metrics["time"])
+
+                    # Update best val metric and model, and save best model and predicted outputs
+                    if (
+                        val_metrics[type(self.loss_fn).__name__]["metric"]
+                        < self.best_val_metric
+                    ):
+                        self.update_best_model(val_metrics)
+
+                    # step scheduler, using validation error
+                    self._scheduler_step()
+
+        except KeyboardInterrupt:
+            logging.info("Training interrupted by user, saving progress")
             self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+            self.plot_losses(train_metrics)
 
-            # Evaluate on validation set if it exists
-            if self.val_loader:
-                val_metrics = self.validate()
-
-                # Train loop timings
-                self.epoch_time = time.time() - epoch_start_time
-                # Log metrics
-                if epoch % self.train_verbosity == 0:
-                    self._log_metrics(val_metrics)
-
-                # Update best val metric and model, and save best model and predicted outputs
-                if (
-                    val_metrics[type(self.loss_fn).__name__]["metric"]
-                    < self.best_val_metric
-                ):
-                    self.update_best_model(val_metrics)
-
-                # step scheduler, using validation error
-                self._scheduler_step()
+        # plot metrics
+        self.plot_losses(train_metrics)
 
         return self.best_model_state
 
@@ -210,6 +228,12 @@ class PropertyTrainer(BaseTrainer):
                     self.epoch_time,
                 )
             )
+            return {
+                "lr": self.scheduler.lr,
+                "train": train_loss,
+                "val": val_loss,
+                "time": self.epoch_time,
+            }
 
     def _load_task(self):
         """Initializes task-specific info. Implemented by derived classes."""

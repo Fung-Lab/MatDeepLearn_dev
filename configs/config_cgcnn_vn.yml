@@ -21,10 +21,10 @@ task:
 
 
 model:
-  name: CGCNN
+  name: CGCNN_VN
   load_model: False
   save_model: True
-  model_path: "cgcnn.pth"
+  model_path: "cgcnn_vn.pth"
   edge_steps: 50
   self_loop: True
   #model attributes
@@ -41,7 +41,7 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 250
+  max_epochs: 100
   lr: 0.002
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
@@ -73,6 +73,8 @@ dataset:
   additional_attributes: []
   #Print out processing info
   verbose: True
+
+  use_virtual_nodes: True
 
   #Loading dataset params
   #Index of target column in targets.csv

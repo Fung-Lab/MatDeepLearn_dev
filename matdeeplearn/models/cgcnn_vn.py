@@ -1,22 +1,18 @@
 import torch
 import torch.nn.functional as F
 import torch_geometric
-from torch import Tensor
-from torch.nn import BatchNorm1d, Linear, Sequential
+from torch.nn import BatchNorm1d
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
-    global_add_pool,
-    global_max_pool,
-    global_mean_pool,
 )
-from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
+from matdeeplearn.models.routines.pooling import AtomicNumberPooling, RealVirtualPooling
 
 
-@registry.register_model("CGCNN")
+@registry.register_model("CGCNN_VN")
 class CGCNN(BaseModel):
     def __init__(
         self,
@@ -182,6 +178,9 @@ class CGCNN(BaseModel):
                 out = self.set2set(out, data.batch)
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
+                
+            # TODO: virtual node pooling happens here
+                
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
@@ -197,6 +196,9 @@ class CGCNN(BaseModel):
                 out = self.lin_out_2(out)
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
+                
+                
+            # TODO: virtual node pooling happens here
 
         if out.shape[1] == 1:
             return out.view(-1)

@@ -174,7 +174,7 @@ results/**
 
 server/
 
-main.py
+# main.py
 
 # tests
 testing/*

@@ -12,7 +12,7 @@ class RealVirtualPooling(nn.Module):
         Pool real and virtual nodes separately then concatenate them.
         """
         super().__init__()
-        self.pool = "global_max_pool"
+        self.pool = "global_mean_pool"
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
         # obtain mask for all real nodes
@@ -40,6 +40,7 @@ class AtomicNumberPooling(nn.Module):
         if atomic_number = 2, then it is found in 100:199, etc.
         """
         super().__init__()
+        self.pool = "global_mean_pool"
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
         elem_pool = torch.zeros((out.shape[0], out.shape[1] * 100), device=out.device)
