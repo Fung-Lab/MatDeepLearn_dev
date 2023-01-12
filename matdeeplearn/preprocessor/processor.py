@@ -6,20 +6,16 @@ import ase
 import numpy as np
 import pandas as pd
 import torch
-from ase import io, Atoms
 from torch_geometric.data import Data, InMemoryDataset
-from torch_geometric.utils import dense_to_sparse
 from torch_geometric.transforms import Compose
+from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
-from matdeeplearn.preprocessor.helpers import (
-    clean_up,
-    generate_edge_features,
-    generate_node_features,
-    get_cutoff_distance_matrix,
-    generate_virtual_nodes,
-)
-
+from matdeeplearn.preprocessor.helpers import (clean_up,
+                                               generate_edge_features,
+                                               generate_node_features,
+                                               generate_virtual_nodes,
+                                               get_cutoff_distance_matrix)
 from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
 
 

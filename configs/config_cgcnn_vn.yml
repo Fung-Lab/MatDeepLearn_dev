@@ -3,7 +3,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "my_train_job"
+  identifier: "cgcnn_vn"
 
   reprocess: False
 
@@ -16,7 +16,7 @@ task:
   write_output: True
   parallel: True
   #Training print out frequency (print per n number of epochs)
-  verbosity: 5
+  verbosity: 1
 
 
 
@@ -34,6 +34,7 @@ model:
   gc_count: 4
   post_fc_count: 3
   pool: "global_mean_pool"
+  virtual_pool: "RealVirtualPooling"
   pool_order: "early"
   batch_norm: True
   batch_track_stats: True
@@ -48,7 +49,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -57,28 +58,30 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  target_path: ""
   #Path to save processed data.pt file
-  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/"
   #Format of data files (limit to those supported by ASE)
   data_format: "json"
-  #Method of obtaining atom idctionary: available:(onehot)
+  #Method of obtaining atom dictionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes: []
   #Print out processing info
   verbose: True
 
   use_virtual_nodes: True
+  transforms:
+  otf: False
 
   #Loading dataset params
   #Index of target column in targets.csv
-  target_index: 0
+  target_index: 5 # methane adsorption uptake
 
   #graph specific settings
   cutoff_radius : 8.0

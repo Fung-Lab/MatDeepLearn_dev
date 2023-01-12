@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-import torch_geometric
 from torch.nn import BatchNorm1d
+from torch_geometric.data import Data
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
@@ -9,11 +9,11 @@ from torch_geometric.nn import (
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-from matdeeplearn.models.routines.pooling import AtomicNumberPooling, RealVirtualPooling
+import matdeeplearn.models.routines.pooling as pooling
 
 
 @registry.register_model("CGCNN_VN")
-class CGCNN(BaseModel):
+class CGCNN_VN(BaseModel):
     def __init__(
         self,
         edge_steps,
@@ -25,6 +25,7 @@ class CGCNN(BaseModel):
         gc_count=3,
         post_fc_count=1,
         pool="global_mean_pool",
+        virtual_pool="RealVirtualPooling",
         pool_order="early",
         batch_norm=True,
         batch_track_stats=True,
@@ -32,11 +33,12 @@ class CGCNN(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN, self).__init__(edge_steps, self_loop)
+        super(CGCNN_VN, self).__init__(edge_steps, self_loop)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
         self.pool = pool
+        self.virtual_pool = virtual_pool
         self.act = act
         self.pool_order = pool_order
         self.dropout_rate = dropout_rate
@@ -73,6 +75,9 @@ class CGCNN(BaseModel):
             self.set2set = Set2Set(self.output_dim, processing_steps=3, num_layers=1)
             # workaround for doubled dimension by set2set; if late pooling not recommended to use set2set
             self.lin_out_2 = torch.nn.Linear(self.output_dim * 2, self.output_dim)
+
+        # virtual node pooling scheme
+        self.virtual_node_pool = getattr(pooling, self.virtual_pool)(self.pool)
 
     @property
     def target_attr(self):
@@ -115,10 +120,22 @@ class CGCNN(BaseModel):
         post_lin_list = torch.nn.ModuleList()
         if self.post_fc_count > 0:
             for i in range(self.post_fc_count):
+                lin: torch.nn.Module
                 if i == 0:
-                    # Set2set pooling has doubled dimension
-                    if self.pool_order == "early" and self.pool == "set2set":
+                    # Set2set pooling AND RV_node pooling has doubled dimension
+                    if self.pool_order == "early" and (
+                        self.pool == "set2set"
+                        or self.virtual_pool == "RealVirtualPooling"
+                    ):
                         lin = torch.nn.Linear(self.post_fc_dim * 2, self.dim2)
+                    elif (
+                        self.pool_order == "early"
+                        and self.virtual_pool == "AtomicNumberPooling"
+                    ):
+                        # We use 100 as embedding expansion in atomic num pooling
+                        lin = torch.nn.Linear(
+                            self.post_fc_dim * 100, self.dim2
+                        )
                     else:
                         lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
                 else:
@@ -129,14 +146,22 @@ class CGCNN(BaseModel):
 
         # else post_fc_count is 0
         else:
-            if self.pool_order == "early" and self.pool == "set2set":
+            if self.pool_order == "early" and (
+                self.pool == "set2set" or self.virtual_pool == "RealVirtualPooling"
+            ):
                 lin_out = torch.nn.Linear(self.post_fc_dim * 2, self.output_dim)
+            elif (
+                self.pool_order == "early"
+                and self.virtual_pool == "AtomicNumberPooling"
+            ):
+                # We use 100 as embedding expansion in atomic num pooling
+                lin_out = torch.nn.Linear(self.post_fc_dim * 100, self.dim2)
             else:
                 lin_out = torch.nn.Linear(self.post_fc_dim, self.output_dim)
 
         return post_lin_list, lin_out
 
-    def forward(self, data):
+    def forward(self, data: Data):
 
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
@@ -174,13 +199,12 @@ class CGCNN(BaseModel):
 
         # Post-GNN dense layers
         if self.pool_order == "early":
-            if self.pool == "set2set":
-                out = self.set2set(out, data.batch)
-            else:
-                out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-                
-            # TODO: virtual node pooling happens here
-                
+            # virtual node pooling
+            print(out.shape)
+            out = self.virtual_node_pool(data, out)
+            print(out.shape)
+            print(self.post_fc_dim * 100, self.output_dim)
+
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
@@ -191,14 +215,9 @@ class CGCNN(BaseModel):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
             out = self.lin_out(out)
-            if self.pool == "set2set":
-                out = self.set2set(out, data.batch)
-                out = self.lin_out_2(out)
-            else:
-                out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-                
-                
-            # TODO: virtual node pooling happens here
+
+            # virtual node pooling
+            out = self.virtual_node_pool(data, out)
 
         if out.shape[1] == 1:
             return out.view(-1)

@@ -26,6 +26,7 @@ from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
 
 from matplotlib import pyplot as plt
+import os
 
 
 @registry.register_trainer("base")
@@ -231,6 +232,8 @@ class BaseTrainer(ABC):
 
     def plot_losses(self, metrics):
         fig = plt.figure()
+        fig.tight_layout()
+
         ax0 = fig.add_subplot(131, title="loss")
         ax1 = fig.add_subplot(132, title="lr")
         ax2 = fig.add_subplot(133, title="time")
@@ -245,11 +248,12 @@ class BaseTrainer(ABC):
         ax1.legend()
         ax2.legend()
 
-        fig.savefig(
-            os.path.join(
-                self.run_dir, "results", self.timestamp_id, "plots", "losses.png"
-            )
-        )
+        res_folder = os.path.join(self.run_dir, "results", self.timestamp_id)
+
+        if not os.path.exists(os.path.join(res_folder, "plots")):
+            os.mkdir(os.path.join(res_folder, "plots"))
+
+        fig.savefig(os.path.join(res_folder, "plots", "losses.png"))
 
     def update_best_model(self, val_metrics):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""

@@ -170,7 +170,7 @@ data/**
 ./config/*
 
 # results
-results/**
+**/*/results/**
 
 server/
 
@@ -180,5 +180,5 @@ server/
 testing/*
 test*.py
 test*.ipynb
-
 checkpoints/
+scripts/outputs.txt
