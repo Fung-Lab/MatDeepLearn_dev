@@ -3,7 +3,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn"
+  identifier: "cgcnn_vn-rv100_late"
 
   reprocess: False
 
@@ -33,7 +33,7 @@ model:
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
-  pool: "global_mean_pool"
+  pool: "global_max_pool"
   virtual_pool: "RealVirtualPooling"
   pool_order: "early"
   batch_norm: True
@@ -49,7 +49,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 128
+  batch_size: 100
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -58,7 +58,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files

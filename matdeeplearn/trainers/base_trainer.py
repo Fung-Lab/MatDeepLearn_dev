@@ -26,7 +26,6 @@ from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
 
 from matplotlib import pyplot as plt
-import os
 
 
 @registry.register_trainer("base")

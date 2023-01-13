@@ -1,13 +1,12 @@
 import itertools
 from pathlib import Path
 
-import ase
 import numpy as np
 import torch
 import torch.nn.functional as F
-from ase import Atoms, io
+from ase import Atoms
 from torch_geometric.data.data import Data
-from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
+from torch_geometric.utils import add_self_loops, degree
 from torch_sparse import SparseTensor
 
 
@@ -347,7 +346,7 @@ def generate_edge_features(input_data, edge_steps, r, device):
         )
 
 
-def generate_virtual_nodes(structure, cell, device: torch.device):
+def generate_virtual_nodes(structure, device: torch.device):
     """
     increment specifies the spacing between virtual nodes in cartesian
     space (units in Angstroms); increment is a hyperparameter
@@ -390,7 +389,7 @@ def generate_virtual_nodes(structure, cell, device: torch.device):
     )
     # obtain non-fractional coordinates and append to real atoms
     pos = torch.tensor(
-        np.vstack((cell, temp.get_positions())),
+        np.vstack((structure.get_positions(), temp.get_positions())),
         device=device,
         dtype=torch.float,
     )

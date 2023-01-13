@@ -1,16 +1,8 @@
 import torch
 import torch.nn.functional as F
 import torch_geometric
-from torch import Tensor
-from torch.nn import BatchNorm1d, Linear, Sequential
-from torch_geometric.nn import (
-    CGConv,
-    Set2Set,
-    global_add_pool,
-    global_max_pool,
-    global_mean_pool,
-)
-from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
+from torch.nn import BatchNorm1d
+from torch_geometric.nn import CGConv, Set2Set
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel

@@ -2,14 +2,11 @@ import torch
 import torch.nn.functional as F
 from torch.nn import BatchNorm1d
 from torch_geometric.data import Data
-from torch_geometric.nn import (
-    CGConv,
-    Set2Set,
-)
+from torch_geometric.nn import CGConv, Set2Set
 
+import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-import matdeeplearn.models.routines.pooling as pooling
 
 
 @registry.register_model("CGCNN_VN")
@@ -200,10 +197,7 @@ class CGCNN_VN(BaseModel):
         # Post-GNN dense layers
         if self.pool_order == "early":
             # virtual node pooling
-            print(out.shape)
             out = self.virtual_node_pool(data, out)
-            print(out.shape)
-            print(self.post_fc_dim * 100, self.output_dim)
 
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)

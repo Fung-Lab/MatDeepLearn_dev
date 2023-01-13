@@ -48,7 +48,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 64
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -73,6 +73,10 @@ dataset:
   additional_attributes: []
   #Print out processing info
   verbose: True
+
+  use_virtual_nodes: False
+  otf: False
+  transforms:
 
   #Loading dataset params
   #Index of target column in targets.csv

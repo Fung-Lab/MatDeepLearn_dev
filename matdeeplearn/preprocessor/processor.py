@@ -2,20 +2,22 @@ import json
 import logging
 import os
 
-import ase
 import numpy as np
 import pandas as pd
 import torch
+from ase import io, Atoms
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
-from matdeeplearn.preprocessor.helpers import (clean_up,
-                                               generate_edge_features,
-                                               generate_node_features,
-                                               generate_virtual_nodes,
-                                               get_cutoff_distance_matrix)
+from matdeeplearn.preprocessor.helpers import (
+    clean_up,
+    generate_edge_features,
+    generate_node_features,
+    generate_virtual_nodes,
+    get_cutoff_distance_matrix,
+)
 from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
 
 
@@ -28,8 +30,8 @@ def process_data(dataset_config):
     edge_steps = dataset_config["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
-    self_loop = (dataset_config.get("self_loop", True),)
-    use_virtual_nodes = (dataset_config.get("use_virtual_nodes", False),)
+    self_loop = dataset_config.get("self_loop", True)
+    use_virtual_nodes = dataset_config.get("use_virtual_nodes", False)
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
@@ -141,14 +143,16 @@ class DataProcessor:
         self.device = device
 
         self.otf = otf
-        self.transforms = transforms
+        self.transforms = transforms if transforms else []
 
         self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
         if self.target_file_path:
+            print("ASE wrap")
             return self.ase_wrap()
         else:
+            print("JSON wrap")
             return self.json_wrap()
 
     def ase_wrap(self):
@@ -167,7 +171,7 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, structure_id in enumerate(file_names):
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
-            ase_structures.append(ase.io.read(p))
+            ase_structures.append(io.read(p))
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
@@ -177,7 +181,7 @@ class DataProcessor:
             )
 
             atomic_numbers, pos = (
-                generate_virtual_nodes(s, cell, self.device)
+                generate_virtual_nodes(s, self.device)
                 if self.use_virtual_nodes
                 else (
                     torch.LongTensor(s.get_atomic_numbers()),
@@ -245,6 +249,13 @@ class DataProcessor:
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
+
+            if self.use_virtual_nodes:
+                # NOTE: using cell2 instead as a temporary fix, this encodes lengths and angles
+                ase_struct = Atoms(
+                    positions=pos, numbers=atomic_numbers, cell=s["cell2"]
+                )
+                pos, atomic_numbers = generate_virtual_nodes(ase_struct, self.device)
 
             d["positions"] = pos
             d["cell"] = cell
