@@ -11,6 +11,7 @@
       ```
       conda-merge env.common.yaml env.gpu.yaml > env.yaml
       conda env create -f env.yaml
+      conda activate matdeeplearn
       ```
    
    2. CPU-only machines:
@@ -27,6 +28,7 @@
          ```
          conda-merge env.common.yaml env.cpu.yaml > env.yaml
          conda env create -f env.yaml
+         conda activate matdeeplearn
          ```
 
 3. Install package:
