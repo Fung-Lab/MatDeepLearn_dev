@@ -18,7 +18,7 @@ from matdeeplearn.preprocessor.helpers import (
     get_cutoff_distance_matrix,
 )
 
-from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
+from matdeeplearn.common.registry import registry
 
 
 def process_data(dataset_config):
@@ -289,10 +289,10 @@ class DataProcessor:
 
         if not self.otf:
             for transform in self.transforms:
-                if transform in TRANSFORM_REGISTRY:
-                    transforms_list.append(TRANSFORM_REGISTRY[transform]())
-                else:
-                    raise ValueError("No such transform found for {transform}")
+                try:
+                    transforms_list.append(registry.get_transform_class(transform))
+                except KeyError:
+                    raise KeyError("No such transform found for '{transform}'")
 
         composition = Compose(transforms_list)
 

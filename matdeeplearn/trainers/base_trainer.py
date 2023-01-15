@@ -68,10 +68,10 @@ class BaseTrainer(ABC):
         self.best_model_state = None
 
         self.evaluator = Evaluator()
-    
-        self.save_dir = save_dir if save_dir else os.getcwd()
+
+        self.save_dir = save_dir
         # this is the previous job's identifier name and timestamp
-        self.checkpoint_dir = checkpoint_dir if checkpoint_dir else None
+        self.checkpoint_dir = checkpoint_dir
 
         timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
@@ -119,8 +119,10 @@ class BaseTrainer(ABC):
         verbosity = config["task"].get("verbosity", None)
 
         # pass in custom results home dir and load in prev checkpoint dir
-        save_dir = config["task"].get("save_dir", os.cwd())
+        save_dir = config["task"].get("save_dir", os.getcwd())
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
+
+        print(cls.__init__.__code__.co_varnames)
 
         return cls(
             model=model,
@@ -148,8 +150,8 @@ class BaseTrainer(ABC):
         dataset = get_dataset(
             dataset_path,
             target_index,
-            transform_list=dataset_config["transforms"],
-            otf=dataset_config["otf"],
+            transform_list=dataset_config.get("transforms", []),
+            otf=dataset_config.get("otf", False),
         )
 
         return dataset

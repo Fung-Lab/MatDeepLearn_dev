@@ -1,7 +1,7 @@
 import torch
 from torch_sparse import coalesce
 
-from matdeeplearn.common.registry import register_transform
+from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import compute_bond_angles
 
 """
@@ -13,9 +13,11 @@ From PyG:
     The data object will be transformed before every access.
 """
 
-@register_transform("GetY")
+
+@registry.register_transform("GetY")
 class GetY(object):
-    '''Get the target from the data object.'''
+    """Get the target from the data object."""
+
     def __init__(self, index=0):
         self.index = index
 
@@ -26,7 +28,7 @@ class GetY(object):
         return data
 
 
-@register_transform("NumNodeTransform")
+@registry.register_transform("NumNodeTransform")
 class NumNodeTransform(object):
     """
     Adds the number of nodes to the data object
@@ -37,7 +39,7 @@ class NumNodeTransform(object):
         return data
 
 
-@register_transform("LineGraphMod")
+@registry.register_transform("LineGraphMod")
 class LineGraphMod(object):
     """
     Adds line graph attributes to the data object
@@ -65,7 +67,7 @@ class LineGraphMod(object):
         return data
 
 
-@register_transform("ToFloat")
+@registry.register_transform("ToFloat")
 class ToFloat(object):
     """
     Convert non-int attributes to float

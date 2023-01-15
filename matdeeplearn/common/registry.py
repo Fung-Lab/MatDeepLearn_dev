@@ -53,6 +53,7 @@ class Registry:
         "trainer_name_mapping": {},
         "loss_name_mapping": {},
         "state": {},
+        "transforms": {}
     }
 
     @classmethod
@@ -285,7 +286,7 @@ class Registry:
     @classmethod
     def get_loss_class(cls, name):
         return cls.get_class(name, "loss_name_mapping")
-    
+
     @classmethod
     def get_transform_class(cls, name):
         return cls.get_class(name, "transforms")
