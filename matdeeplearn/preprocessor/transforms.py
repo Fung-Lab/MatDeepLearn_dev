@@ -1,31 +1,21 @@
-import os
 import torch
-import numpy as np
-from torch_scatter import scatter_add
 from torch_sparse import coalesce
+
+from matdeeplearn.common.registry import register_transform
 from matdeeplearn.preprocessor.helpers import compute_bond_angles
 
-'''
+"""
 here resides the transform classes needed for data processing
 
 From PyG:
     Transform: A function/transform that takes in an torch_geometric.data.Data
     object and returns a transformed version. 
     The data object will be transformed before every access.
-'''
+"""
 
-TRANSFORM_REGISTRY = {}
-
-
-def register_transform(transform_name):
-    '''Registers a transform function for bookkeeping.'''
-    def registered_transform(transform):
-        TRANSFORM_REGISTRY[transform_name] = transform
-        return transform
-    return registered_transform
-
-
+@register_transform("GetY")
 class GetY(object):
+    '''Get the target from the data object.'''
     def __init__(self, index=0):
         self.index = index
 
@@ -38,9 +28,9 @@ class GetY(object):
 
 @register_transform("NumNodeTransform")
 class NumNodeTransform(object):
-    '''
+    """
     Adds the number of nodes to the data object
-    '''
+    """
 
     def __call__(self, data):
         data.num_nodes = data.x.shape[0]
@@ -49,9 +39,9 @@ class NumNodeTransform(object):
 
 @register_transform("LineGraphMod")
 class LineGraphMod(object):
-    '''
+    """
     Adds line graph attributes to the data object
-    '''
+    """
 
     def __call__(self, data):
         # CODE FROM PYG LINEGRAPH TRANSFORM (DIRECTED)
@@ -61,7 +51,8 @@ class LineGraphMod(object):
 
         # compute bond angles
         angles, idx_kj, idx_ji = compute_bond_angles(
-            data.pos, data.cell_offsets, data.edge_index, data.num_nodes)
+            data.pos, data.cell_offsets, data.edge_index, data.num_nodes
+        )
         triplet_pairs = torch.stack([idx_kj, idx_ji], dim=0)
 
         data.edge_index_lg = triplet_pairs
@@ -76,14 +67,14 @@ class LineGraphMod(object):
 
 @register_transform("ToFloat")
 class ToFloat(object):
-    '''
+    """
     Convert non-int attributes to float
-    '''
+    """
 
-    def __call__(self, data):        
+    def __call__(self, data):
         data.x = data.x.float()
         data.x_lg = data.x_lg.float()
-        
+
         data.distances = data.distances.float()
         data.pos = data.pos.float()
 

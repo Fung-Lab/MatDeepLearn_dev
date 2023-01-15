@@ -163,18 +163,13 @@ dmypy.json
 # mac
 .DS_Store
 
-# data
-data/**
-
 # config
 ./config/*
 
 # results
-results/**
+**/*/results/
 
 server/
-
-main.py
 
 # tests
 testing/*
@@ -182,3 +177,7 @@ test*.py
 test*.ipynb
 
 checkpoints/
+
+# misc
+.flake8
+.pylintrc

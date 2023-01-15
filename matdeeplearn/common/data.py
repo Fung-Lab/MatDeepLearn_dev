@@ -6,8 +6,7 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
 
 from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
-from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY, GetY
-
+from matdeeplearn.common.registry import registry
 
 # train test split
 def dataset_split(
@@ -82,15 +81,15 @@ def get_dataset(
     transform_list: transformation function/classes to be applied
     """
 
-    transforms = [GetY(index=target_index)]
+    transforms = [registry.get_transform_class("GetY")(index=target_index)]
 
     # set transform method
     if otf:
         for transform in transform_list:
-            if transform in TRANSFORM_REGISTRY:
-                transforms.append(TRANSFORM_REGISTRY[transform]())
-            else:
-                raise ValueError("No such transform found for {transform}")
+            try:
+                transforms.append(registry.get_transform_class(transform)())
+            except KeyError:
+                raise KeyError("No such transform found for {transform}")
 
     # check if large dataset is needed
     if large_dataset:
@@ -99,16 +98,12 @@ def get_dataset(
         Dataset = StructureDataset
 
     transform = Compose(transforms)
-    
+
     return Dataset(data_path, processed_data_path="", transform=transform)
 
 
 def get_dataloader(
-    dataset,
-    batch_size: int,
-    num_workers: int = 0,
-    sampler=None,
-    shuffle=True
+    dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
 ):
     """
     Returns a single dataloader for a given dataset
