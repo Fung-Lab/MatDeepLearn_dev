@@ -2,6 +2,7 @@ import json
 import logging
 import os
 
+import ase
 import numpy as np
 import pandas as pd
 import torch
@@ -180,13 +181,15 @@ class DataProcessor:
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             )
+            atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             atomic_numbers, pos = (
-                # TODO: use new API for virtual nodes
-                generate_virtual_nodes(s, self.device)
+                generate_virtual_nodes(
+                    cell, pos, atomic_numbers, self.device, increment=3
+                )
                 if self.use_virtual_nodes
                 else (
-                    torch.LongTensor(s.get_atomic_numbers()),
+                    atomic_numbers,
                     torch.tensor(
                         s.get_positions(), device=self.device, dtype=torch.float
                     ),
