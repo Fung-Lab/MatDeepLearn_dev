@@ -7,10 +7,13 @@ task:
 
   reprocess: False
   # checkpoint_dir: 
+  # save_dir: 
 
   parallel: True
   seed: 0
   #seed=0 means random initalization
+
+  save_dir: ""
 
 
   write_output: True

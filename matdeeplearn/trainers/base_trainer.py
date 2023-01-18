@@ -42,8 +42,6 @@ class BaseTrainer(ABC):
         max_epochs: int,
         identifier: str = None,
         verbosity: int = None,
-        save_dir: str = None,
-        checkpoint_dir: str = None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -67,11 +65,11 @@ class BaseTrainer(ABC):
         self.best_val_metric = 1e10
         self.best_model_state = None
 
-        self.evaluator = Evaluator()
+        # for type checking, see workaround below
+        self.save_dir: str
+        self.checkpoint_dir: str
 
-        self.save_dir = save_dir
-        # this is the previous job's identifier name and timestamp
-        self.checkpoint_dir = checkpoint_dir
+        self.evaluator = Evaluator()
 
         timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
@@ -104,6 +102,7 @@ class BaseTrainer(ABC):
         # TODO: figure out what configs are passed in and how they're structured
         #  (one overall config, or individual components)
 
+        # args
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset)
         optimizer = cls._load_optimizer(config["optim"], model)
@@ -113,18 +112,18 @@ class BaseTrainer(ABC):
         )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
-
         max_epochs = config["optim"]["max_epochs"]
+
+        # kwargs
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
-
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", os.getcwd())
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
-        print(cls.__init__.__code__.co_varnames)
+        # TODO: figure out why the attribute workaround is necessary
 
-        return cls(
+        new_trainer = cls(
             model=model,
             dataset=dataset,
             optimizer=optimizer,
@@ -137,9 +136,13 @@ class BaseTrainer(ABC):
             max_epochs=max_epochs,
             identifier=identifier,
             verbosity=verbosity,
-            save_dir=save_dir,
-            checkpoint_dir=checkpoint_dir,
         )
+
+        # assign new args workaround
+        new_trainer.save_dir = save_dir
+        new_trainer.checkpoint_dir = checkpoint_dir
+
+        return new_trainer
 
     @staticmethod
     def _load_dataset(dataset_config):
@@ -268,21 +271,17 @@ class BaseTrainer(ABC):
         else:
             state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
 
-        checkpoint_dir = os.path.join(
+        curr_checkpt_dir = os.path.join(
             self.save_dir, "results", self.timestamp_id, "checkpoint"
         )
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        filename = os.path.join(checkpoint_dir, checkpoint_file)
+        os.makedirs(curr_checkpt_dir, exist_ok=True)
+        filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
         torch.save(state, filename)
         return filename
 
     def save_results(self, output, filename, node_level_predictions=False):
-        results_path = (
-            os.path.join(self.save_dir, "results", self.timestamp_id)
-            if not self.checkpoint_dir
-            else self.checkpoint_dir
-        )
+        results_path = os.path.join(self.save_dir, "results", self.timestamp_id)
         os.makedirs(results_path, exist_ok=True)
         filename = os.path.join(results_path, filename)
         shape = output.shape
