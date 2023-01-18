@@ -25,6 +25,8 @@ class PropertyTrainer(BaseTrainer):
         max_epochs,
         identifier,
         verbosity,
+        save_dir,
+        checkpoint_dir,
     ):
         super().__init__(
             model,
@@ -39,6 +41,8 @@ class PropertyTrainer(BaseTrainer):
             max_epochs,
             identifier,
             verbosity,
+            save_dir,
+            checkpoint_dir,
         )
 
     def train(self):
@@ -51,9 +55,9 @@ class PropertyTrainer(BaseTrainer):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
-    
+
         start_epoch = self.step // len(self.train_loader)
-        
+
         for epoch in range(start_epoch, start_epoch + self.max_epochs):
             epoch_start_time = time.time()
             if self.train_sampler:

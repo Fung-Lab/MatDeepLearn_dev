@@ -42,6 +42,8 @@ class BaseTrainer(ABC):
         max_epochs: int,
         identifier: str = None,
         verbosity: int = None,
+        save_dir: str = None,
+        checkpoint_dir: str = None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -65,9 +67,8 @@ class BaseTrainer(ABC):
         self.best_val_metric = 1e10
         self.best_model_state = None
 
-        # for type checking, see workaround below
-        self.save_dir: str
-        self.checkpoint_dir: str
+        self.save_dir = save_dir
+        self.checkpoint_dir = checkpoint_dir
 
         self.evaluator = Evaluator()
 
@@ -121,9 +122,7 @@ class BaseTrainer(ABC):
         save_dir = config["task"].get("save_dir", os.getcwd())
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
-        # TODO: figure out why the attribute workaround is necessary
-
-        new_trainer = cls(
+        return cls(
             model=model,
             dataset=dataset,
             optimizer=optimizer,
@@ -136,13 +135,9 @@ class BaseTrainer(ABC):
             max_epochs=max_epochs,
             identifier=identifier,
             verbosity=verbosity,
+            save_dir=save_dir,
+            checkpoint_dir=checkpoint_dir,
         )
-
-        # assign new args workaround
-        new_trainer.save_dir = save_dir
-        new_trainer.checkpoint_dir = checkpoint_dir
-
-        return new_trainer
 
     @staticmethod
     def _load_dataset(dataset_config):

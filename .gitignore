@@ -181,3 +181,4 @@ checkpoints/
 # misc
 .flake8
 .pylintrc
+**/wandb/
