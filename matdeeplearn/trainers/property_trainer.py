@@ -27,6 +27,12 @@ class PropertyTrainer(BaseTrainer):
         max_epochs,
         identifier,
         verbosity,
+        save_dir,
+        checkpoint_dir,
+        wandb_config,
+        model_config,
+        opt_config,
+        dataset_config,
     ):
         super().__init__(
             model,
@@ -41,9 +47,15 @@ class PropertyTrainer(BaseTrainer):
             max_epochs,
             identifier,
             verbosity,
+            save_dir,
+            checkpoint_dir,
+            wandb_config,
+            model_config,
+            opt_config,
+            dataset_config,
         )
 
-        self.use_wandb = self.master_config["task"].get("wandb", False)
+        self.use_wandb = self.wandb_config.get("use_wandb", False)
 
     def train(self):
         if self.train_verbosity:
@@ -55,29 +67,26 @@ class PropertyTrainer(BaseTrainer):
         # configure wandb experiment tracking
         if self.use_wandb:
             wandb.init(
-                project=self.master_config["task"]["wandb_project"],
-                entity=self.master_config["task"]["wandb_entity"],
+                settings=wandb.Settings(start_method="fork"),
+                project=self.wandb_config.get("wandb_project", "matdeeplearn"),
+                entity=self.wandb_config.get("wandb_entity", "fung-lab"),
                 name=self.identifier,
             )
-            wandb.config(
-                {
-                    "model_hyperparams": self.master_config["model"]["hyperparams"],
-                    "optimizer_hyperparams": {
-                        "lr": self.master_config["optim"]["lr"],
-                        "epochs": self.master_config["optim"]["epochs"],
-                        "batch_size": self.master_config["optim"]["batch_size"],
-                        "scheduler_args": self.master_config["optim"]["scheduler_args"],
-                    },
-                    "preprocess_params": self.master_config["dataset"][
-                        "preprocess_params"
-                    ],
-                    "splits": {
-                        "train": self.master_config["dataset"]["train_size"],
-                        "val": self.master_config["dataset"]["val_size"],
-                        "test": self.master_config["dataset"]["test_size"],
-                    },
-                }
-            )
+            wandb.config = {
+                "model_hyperparams": self.model_config["hyperparams"],
+                "optimizer_hyperparams": {
+                    "lr": self.opt_config["lr"],
+                    "epochs": self.opt_config["max_epochs"],
+                    "batch_size": self.opt_config["batch_size"],
+                    "scheduler_args": self.opt_config["scheduler"]["scheduler_args"],
+                },
+                "preprocess_params": self.dataset_config["preprocess_params"],
+                "splits": {
+                    "train": self.dataset_config["train_ratio"],
+                    "val": self.dataset_config["val_ratio"],
+                    "test": self.dataset_config["test_ratio"],
+                },
+            }
 
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number

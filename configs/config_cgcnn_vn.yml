@@ -3,7 +3,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-gmp-anp"
+  identifier: "cgcnn_vn-baseline"
 
   reprocess: False
 
@@ -18,10 +18,10 @@ task:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
 
-  use_wandb: True
-  wandb_entity: "fung-lab"
-  wandb_project: "cgcnn_vn"
-
+  wandb:
+    use_wandb: True
+    wandb_entity: "fung-lab"
+    wandb_project: "cgcnn_vn"
 
 
 model:
@@ -40,7 +40,7 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    pool: "global_max_pool"
+    pool: "global_mean_pool"
     virtual_pool: "RealVirtualPooling"
     virtual_box_increment: 3
     pool_order: "early"
@@ -66,7 +66,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files
@@ -93,8 +93,8 @@ dataset:
 
   #graph specific settings: preprocessing hyperparams
   preprocess_params:
-    cutoff_radius : 8.0
-    n_neighbors : 12
+    cutoff_radius : 5.0
+    n_neighbors : 50
     edge_steps : 50
 
   #Ratios for train/val/test split out of a total of 1

@@ -25,13 +25,6 @@ class Flags:
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
         )
-        self.parser.add_argument(
-            "--use_wandb",
-            choices=[True, False],
-            required=True,
-            type=bool,
-            help="Whether or not to log this job using wandb",
-        )
         # self.parser.add_argument(
         #     "--job_name",
         #     default=None,

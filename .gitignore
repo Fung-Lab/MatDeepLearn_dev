@@ -167,31 +167,18 @@ dmypy.json
 ./config/*
 
 # results
-<<<<<<< HEAD
-**/*/results/**
-
-server/
-
-# main.py
-
-=======
 **/*/results/
 
 server/
 
->>>>>>> feature/alignn-model
 # tests
 testing/*
 test*.py
 test*.ipynb
-<<<<<<< HEAD
-checkpoints/
-scripts/outputs.txt
-=======
 
 checkpoints/
 
 # misc
 .flake8
 .pylintrc
->>>>>>> feature/alignn-model
+**/wandb/
