@@ -13,15 +13,14 @@ task:
   seed: 0
   #seed=0 means random initalization
 
-  save_dir: ""
-
+  use_wandb: True
+  wandb_entity: "fung-lab"
+  wandb_project: "cgcnn_vn"
 
   write_output: True
   parallel: True
   #Training print out frequency (print per n number of epochs)
-  verbosity: 5
-
-
+  verbosity: 1
 
 model:
   name: CGCNN
@@ -30,21 +29,23 @@ model:
   model_path: "cgcnn.pth"
   edge_steps: 50
   self_loop: True
+
   #model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_mean_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  hyperparams:
+    dim1: 100
+    dim2: 150
+    pre_fc_count: 1
+    gc_count: 4
+    post_fc_count: 3
+    pool: "global_mean_pool"
+    pool_order: "early"
+    batch_norm: True
+    batch_track_stats: True
+    act: "relu"
+    dropout_rate: 0.0
 
 optim:
-  max_epochs: 10
+  max_epochs: 50
   lr: 0.002
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
@@ -86,9 +87,10 @@ dataset:
   target_index: 0
 
   #graph specific settings
-  cutoff_radius : 8.0
-  n_neighbors : 12
-  edge_steps : 50
+  preprocess_params:
+    cutoff_radius : 8.0
+    n_neighbors : 12
+    edge_steps : 50
 
   #Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8

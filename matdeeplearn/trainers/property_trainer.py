@@ -8,7 +8,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
-from collections import defaultdict
+import wandb
+
 
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
@@ -42,6 +43,8 @@ class PropertyTrainer(BaseTrainer):
             verbosity,
         )
 
+        self.use_wandb = self.master_config["task"].get("wandb", False)
+
     def train(self):
         if self.train_verbosity:
             logging.info("Starting regular training")
@@ -49,13 +52,38 @@ class PropertyTrainer(BaseTrainer):
                 f"running for  {self.max_epochs} epochs on {type(self.model).__name__} model"
             )
 
+        # configure wandb experiment tracking
+        if self.use_wandb:
+            wandb.init(
+                project=self.master_config["task"]["wandb_project"],
+                entity=self.master_config["task"]["wandb_entity"],
+                name=self.identifier,
+            )
+            wandb.config(
+                {
+                    "model_hyperparams": self.master_config["model"]["hyperparams"],
+                    "optimizer_hyperparams": {
+                        "lr": self.master_config["optim"]["lr"],
+                        "epochs": self.master_config["optim"]["epochs"],
+                        "batch_size": self.master_config["optim"]["batch_size"],
+                        "scheduler_args": self.master_config["optim"]["scheduler_args"],
+                    },
+                    "preprocess_params": self.master_config["dataset"][
+                        "preprocess_params"
+                    ],
+                    "splits": {
+                        "train": self.master_config["dataset"]["train_size"],
+                        "val": self.master_config["dataset"]["val_size"],
+                        "test": self.master_config["dataset"]["test_size"],
+                    },
+                }
+            )
+
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
-
         start_epoch = self.step // len(self.train_loader)
-
-        train_metrics = defaultdict(list)
+        # train_metrics = defaultdict(list)
 
         try:
             for epoch in range(start_epoch, start_epoch + self.max_epochs):
@@ -102,10 +130,10 @@ class PropertyTrainer(BaseTrainer):
                         curr_metrics = self._log_metrics(val_metrics)
 
                         # update overall metrics for plotting
-                        train_metrics["train"].append(curr_metrics["train"])
-                        train_metrics["val"].append(curr_metrics["val"])
-                        train_metrics["lr"].append(curr_metrics["lr"])
-                        train_metrics["time"].append(curr_metrics["time"])
+                        # train_metrics["train"].append(curr_metrics["train"])
+                        # train_metrics["val"].append(curr_metrics["val"])
+                        # train_metrics["lr"].append(curr_metrics["lr"])
+                        # train_metrics["time"].append(curr_metrics["time"])
 
                     # Update best val metric and model, and save best model and predicted outputs
                     if (
@@ -120,10 +148,10 @@ class PropertyTrainer(BaseTrainer):
         except KeyboardInterrupt:
             logging.info("Training interrupted by user, saving progress")
             self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
-            self.plot_losses(train_metrics)
+            # self.plot_losses(train_metrics)
 
         # plot metrics
-        self.plot_losses(train_metrics)
+        # self.plot_losses(train_metrics)
 
         return self.best_model_state
 
@@ -219,15 +247,25 @@ class PropertyTrainer(BaseTrainer):
         else:
             train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
+
+            log_kwargs = {
+                "epoch": int(self.epoch - 1),
+                "lr": self.scheduler.lr,
+                "train_loss": train_loss,
+                "val_loss": val_loss,
+                "epoch_time": self.epoch_time,
+            }
+
             logging.info(
                 "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
-                    int(self.epoch - 1),
-                    self.scheduler.lr,
-                    train_loss,
-                    val_loss,
-                    self.epoch_time,
+                    *log_kwargs.values()
                 )
             )
+
+            # wandb logging
+            if self.use_wandb:
+                wandb.log(log_kwargs)
+
             return {
                 "lr": self.scheduler.lr,
                 "train": train_loss,

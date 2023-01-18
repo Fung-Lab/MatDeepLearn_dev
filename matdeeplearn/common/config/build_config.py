@@ -101,7 +101,7 @@ def build_config(args, args_override):
     # Some other flags.
     config["run_mode"] = args.run_mode
     config["seed"] = args.seed
-    #
+
     # Submit
     config["submit"] = args.submit
     # config["summit"] = args.summit

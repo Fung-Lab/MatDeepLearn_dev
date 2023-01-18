@@ -70,6 +70,8 @@ class BaseTrainer(ABC):
         # for type checking, see workaround below
         self.save_dir: str
         self.checkpoint_dir: str
+        self.wandb_project: str
+        self.master_config: dict
 
         self.evaluator = Evaluator()
 
@@ -79,6 +81,8 @@ class BaseTrainer(ABC):
         )
         if identifier:
             self.timestamp_id = f"{self.timestamp_id}-{identifier}"
+
+        self.identifier = self.identifier
 
         if self.train_verbosity:
             logging.info(
@@ -142,7 +146,9 @@ class BaseTrainer(ABC):
 
         # assign new args workaround
         new_trainer.save_dir = save_dir
-        new_trainer.checkpoint_dir = checkpoint_dir
+        new_trainer.checkpoint_dir = checkpoint_dir        
+        # pass the entire config to the trainer for granular experiment tracking
+        new_trainer.master_config = config
 
         return new_trainer
 
@@ -166,7 +172,7 @@ class BaseTrainer(ABC):
         """Loads the model if from a config file."""
 
         model_cls = registry.get_model_class(model_config["name"])
-        model = model_cls(data=dataset, **model_config)
+        model = model_cls(data=dataset, **model_config["hyperparams"])
         return model
 
     @staticmethod

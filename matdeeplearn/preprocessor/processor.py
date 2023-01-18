@@ -5,10 +5,6 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-<<<<<<< HEAD
-from ase import io, Atoms
-=======
->>>>>>> feature/alignn-model
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
@@ -21,21 +17,17 @@ from matdeeplearn.preprocessor.helpers import (
     generate_virtual_nodes,
     get_cutoff_distance_matrix,
 )
-<<<<<<< HEAD
-from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
-=======
 
 from matdeeplearn.common.registry import registry
->>>>>>> feature/alignn-model
 
 
 def process_data(dataset_config):
     root_path = dataset_config["src"]
     target_path = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
-    cutoff_radius = dataset_config["cutoff_radius"]
-    n_neighbors = dataset_config["n_neighbors"]
-    edge_steps = dataset_config["edge_steps"]
+    cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
+    n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
+    edge_steps = dataset_config["preprocess_params"]["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)

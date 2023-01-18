@@ -18,6 +18,10 @@ task:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
 
+  use_wandb: True
+  wandb_entity: "fung-lab"
+  wandb_project: "cgcnn_vn"
+
 
 
 model:
@@ -25,21 +29,24 @@ model:
   load_model: False
   save_model: True
   model_path: "cgcnn_vn.pth"
-  edge_steps: 50
-  self_loop: True
-  #model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_max_pool"
-  virtual_pool: "RealVirtualPooling"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+
+  # model hyperparams
+  hyperparams:
+    edge_steps: 50
+    self_loop: True
+    #model attributes
+    dim1: 100
+    dim2: 150
+    pre_fc_count: 1
+    gc_count: 4
+    post_fc_count: 3
+    pool: "global_max_pool"
+    virtual_pool: "RealVirtualPooling"
+    pool_order: "early"
+    batch_norm: True
+    batch_track_stats: True
+    act: "relu"
+    dropout_rate: 0.0
 
 optim:
   max_epochs: 100
@@ -83,10 +90,11 @@ dataset:
   #Index of target column in targets.csv
   target_index: 5 # methane adsorption uptake
 
-  #graph specific settings
-  cutoff_radius : 8.0
-  n_neighbors : 12
-  edge_steps : 50
+  #graph specific settings: preprocessing hyperparams
+  preprocess_params:
+    cutoff_radius : 8.0
+    n_neighbors : 12
+    edge_steps : 50
 
   #Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
