@@ -3,14 +3,17 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "my_train_job"
+  identifier: "cgcnn-test-1"
 
   reprocess: False
-
+  # checkpoint_dir: 
+  # save_dir: 
 
   parallel: True
   seed: 0
   #seed=0 means random initalization
+
+  save_dir: ""
 
 
   write_output: True
@@ -41,7 +44,7 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 250
+  max_epochs: 10
   lr: 0.002
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
@@ -57,7 +60,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files

@@ -1,6 +1,4 @@
 import logging
-import os
-
 from matdeeplearn.common.registry import registry
 
 """
@@ -17,8 +15,9 @@ class BaseTask:
         use_checkpoint = self.config["model"]["load_model"]
         if use_checkpoint:
             logging.info("Attempting to load most recent checkpoint...")
-            self.trainer.load_checkpoint(most_recent=True)
+            self.trainer.load_checkpoint()
             logging.info("Recent checkpoint loaded successfully.")
+
         # save checkpoint path to runner state for slurm resubmissions
         # self.chkpt_path = os.path.join(
         #     self.trainer.config["cmd"]["checkpoint_dir"], "checkpoint.pt"

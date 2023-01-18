@@ -5,7 +5,10 @@ import os
 import numpy as np
 import pandas as pd
 import torch
+<<<<<<< HEAD
 from ase import io, Atoms
+=======
+>>>>>>> feature/alignn-model
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
@@ -18,7 +21,12 @@ from matdeeplearn.preprocessor.helpers import (
     generate_virtual_nodes,
     get_cutoff_distance_matrix,
 )
+<<<<<<< HEAD
 from matdeeplearn.preprocessor.transforms import TRANSFORM_REGISTRY
+=======
+
+from matdeeplearn.common.registry import registry
+>>>>>>> feature/alignn-model
 
 
 def process_data(dataset_config):
@@ -171,11 +179,11 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, structure_id in enumerate(file_names):
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
-            ase_structures.append(io.read(p))
+            ase_structures.append(ase.io.read(p))
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
-
+            pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             )
@@ -303,7 +311,21 @@ class DataProcessor:
         n_structures = len(dict_structures)
         data_list = [Data() for _ in range(n_structures)]
 
-        logging.info("Getting torch_geometric.data.Data() objects.")
+        logging.info(
+            "Getting torch_geometric.data.Data() objects and applying transforms."
+        )
+
+        # saving line graph attributes through transforms
+        transforms_list = []
+
+        if not self.otf:
+            for transform in self.transforms:
+                try:
+                    transforms_list.append(registry.get_transform_class(transform))
+                except KeyError:
+                    raise KeyError("No such transform found for '{transform}'")
+
+        composition = Compose(transforms_list)
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
@@ -346,28 +368,14 @@ class DataProcessor:
                 for attr in self.additional_attributes:
                     data.__setattr__(attr, sdict[attr])
 
+            # apply transforms
+            composition(data)
+
         logging.info("Generating node features...")
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         logging.info("Generating edge features...")
         generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
-
-        logging.info("Applying transforms...")
-
-        # saving line graph attributes through transforms
-        transforms_list = []
-
-        if not self.otf:
-            for transform in self.transforms:
-                if transform in TRANSFORM_REGISTRY:
-                    transforms_list.append(TRANSFORM_REGISTRY[transform]())
-                else:
-                    raise ValueError("No such transform found for {transform}")
-
-        composition = Compose(transforms_list)
-
-        for data in data_list:
-            composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
 

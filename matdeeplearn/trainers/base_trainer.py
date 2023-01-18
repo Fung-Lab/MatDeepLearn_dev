@@ -67,9 +67,11 @@ class BaseTrainer(ABC):
         self.best_val_metric = 1e10
         self.best_model_state = None
 
-        self.evaluator = Evaluator()
+        # for type checking, see workaround below
+        self.save_dir: str
+        self.checkpoint_dir: str
 
-        self.run_dir = os.getcwd()
+        self.evaluator = Evaluator()
 
         timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
@@ -102,6 +104,7 @@ class BaseTrainer(ABC):
         # TODO: figure out what configs are passed in and how they're structured
         #  (one overall config, or individual components)
 
+        # args
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset)
         optimizer = cls._load_optimizer(config["optim"], model)
@@ -111,12 +114,18 @@ class BaseTrainer(ABC):
         )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
-
         max_epochs = config["optim"]["max_epochs"]
+
+        # kwargs
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
+        # pass in custom results home dir and load in prev checkpoint dir
+        save_dir = config["task"].get("save_dir", os.getcwd())
+        checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
-        return cls(
+        # TODO: figure out why the attribute workaround is necessary
+
+        new_trainer = cls(
             model=model,
             dataset=dataset,
             optimizer=optimizer,
@@ -131,6 +140,12 @@ class BaseTrainer(ABC):
             verbosity=verbosity,
         )
 
+        # assign new args workaround
+        new_trainer.save_dir = save_dir
+        new_trainer.checkpoint_dir = checkpoint_dir
+
+        return new_trainer
+
     @staticmethod
     def _load_dataset(dataset_config):
         """Loads the dataset if from a config file."""
@@ -140,8 +155,8 @@ class BaseTrainer(ABC):
         dataset = get_dataset(
             dataset_path,
             target_index,
-            transform_list=dataset_config["transforms"],
-            otf=dataset_config["otf"],
+            transform_list=dataset_config.get("transforms", []),
+            otf=dataset_config.get("otf", False),
         )
 
         return dataset
@@ -283,17 +298,17 @@ class BaseTrainer(ABC):
         else:
             state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
 
-        checkpoint_dir = os.path.join(
-            self.run_dir, "results", self.timestamp_id, "checkpoint"
+        curr_checkpt_dir = os.path.join(
+            self.save_dir, "results", self.timestamp_id, "checkpoint"
         )
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        filename = os.path.join(checkpoint_dir, checkpoint_file)
+        os.makedirs(curr_checkpt_dir, exist_ok=True)
+        filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
         torch.save(state, filename)
         return filename
 
     def save_results(self, output, filename, node_level_predictions=False):
-        results_path = os.path.join(self.run_dir, "results", self.timestamp_id)
+        results_path = os.path.join(self.save_dir, "results", self.timestamp_id)
         os.makedirs(results_path, exist_ok=True)
         filename = os.path.join(results_path, filename)
         shape = output.shape
@@ -313,30 +328,15 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(output[i - 1, :])
         return filename
 
-    def load_checkpoint(self, most_recent=True):
+    # TODO: streamline this from PR #12
+    def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
 
-        if not most_recent:
-            raise NotImplementedError(
-                "Loading from a specific checkpoint is not yet implemented."
-            )
+        if not self.checkpoint_dir:
+            raise ValueError("No checkpoint directory specified in config.")
 
-        # look in both scripts and jobs folders
-
-        checkpoint_dir = glob.glob(os.path.join(self.run_dir, "results", "*"))
-
-        if len(checkpoint_dir) == 0:
-            checkpoint_dir = glob.glob(os.path.join("../testing/jobs", "results", "*"))
-
-        # find most recent checkpoint
-        checkpoint_file = os.path.join(
-            sorted([folder for folder in checkpoint_dir if os.path.isdir(folder)])[-1],
-            "checkpoint",
-            "checkpoint.pt",
-        )
-
-        if not os.path.exists(checkpoint_file):
-            raise FileNotFoundError("No recent checkpoint file found.")
+        checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
+        checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
 
         # Load params from checkpoint
         checkpoint = torch.load(checkpoint_file)

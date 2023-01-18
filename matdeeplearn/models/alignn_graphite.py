@@ -5,9 +5,7 @@ from torch_scatter import scatter
 from functools import partial
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-from matdeeplearn.preprocessor.transforms import NumNodeTransform, LineGraphMod, ToFloat
 from torch_geometric.data import Data
-from torch_geometric.transforms import Compose
 
 
 class EGConv(MessagePassing):
@@ -90,9 +88,7 @@ class ALIGNN_GRAPHITE(BaseModel):
     Reference: https://www.nature.com/articles/s41524-021-00650-1.
     """
 
-    def __init__(
-        self, dim=100, num_interactions=6, num_species=3, cutoff=3.0, **kwargs
-    ):
+    def __init__(self, dim=64, num_interactions=4, num_species=3, cutoff=3.0, **kwargs):
         super().__init__()
 
         self.dim = dim
@@ -114,7 +110,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         )
 
         self.out = Sequential(
-            Linear(dim, 3),
+            Linear(dim, 1),
         )
 
         self.reset_parameters()
