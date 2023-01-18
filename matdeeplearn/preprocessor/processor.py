@@ -15,6 +15,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_edge_features,
     generate_node_features,
     generate_virtual_nodes,
+    # generate_virtual_nodes_ase,
     get_cutoff_distance_matrix,
 )
 
@@ -181,6 +182,7 @@ class DataProcessor:
             )
 
             atomic_numbers, pos = (
+                # TODO: use new API for virtual nodes
                 generate_virtual_nodes(s, self.device)
                 if self.use_virtual_nodes
                 else (
@@ -251,11 +253,13 @@ class DataProcessor:
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             if self.use_virtual_nodes:
-                # NOTE: using cell2 instead as a temporary fix, this encodes lengths and angles
-                ase_struct = Atoms(
-                    positions=pos, numbers=atomic_numbers, cell=s["cell2"]
+                # pos, atomic_numbers = generate_virtual_nodes_ase(
+                #     Atoms(positions=pos, numbers=atomic_numbers, cell=s["cell2"]),
+                #     self.device,
+                # )
+                pos, atomic_numbers = generate_virtual_nodes(
+                    cell, pos, atomic_numbers, self.device, increment=3
                 )
-                pos, atomic_numbers = generate_virtual_nodes(ase_struct, self.device)
 
             d["positions"] = pos
             d["cell"] = cell

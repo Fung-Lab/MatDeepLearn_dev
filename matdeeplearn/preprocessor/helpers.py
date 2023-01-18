@@ -231,10 +231,10 @@ def get_cutoff_distance_matrix(
 
         n_neighbors: int
             max number of neighbors to be considered
-            
+
         use_virtual_nodes: bool
             whether or not to include virtual nodes in the structure
-        
+
         atomic_numbers: np.ndarray
             atomic numbers of the atoms in the structure (used only for virtual nodes)
     """
@@ -346,7 +346,151 @@ def generate_edge_features(input_data, edge_steps, r, device):
         )
 
 
-def generate_virtual_nodes(structure, device: torch.device):
+def lattice_params_to_matrix_torch(lengths, angles):
+    """Batched torch version to compute lattice matrix from params.
+    lengths: torch.Tensor of shape (N, 3), unit A
+    angles: torch.Tensor of shape (N, 3), unit degree
+    From https://github.com/txie-93/cdvae/blob/main/cdvae/common/data_utils.py
+    """
+    angles_r = torch.deg2rad(angles)
+    coses = torch.cos(angles_r)
+    sins = torch.sin(angles_r)
+
+    val = (coses[:, 0] * coses[:, 1] - coses[:, 2]) / (sins[:, 0] * sins[:, 1])
+    # Sometimes rounding errors result in values slightly > 1.
+    val = torch.clamp(val, -1.0, 1.0)
+    gamma_star = torch.arccos(val)
+
+    vector_a = torch.stack(
+        [
+            lengths[:, 0] * sins[:, 1],
+            torch.zeros(lengths.size(0), device=lengths.device),
+            lengths[:, 0] * coses[:, 1],
+        ],
+        dim=1,
+    )
+    vector_b = torch.stack(
+        [
+            -lengths[:, 1] * sins[:, 0] * torch.cos(gamma_star),
+            lengths[:, 1] * sins[:, 0] * torch.sin(gamma_star),
+            lengths[:, 1] * coses[:, 0],
+        ],
+        dim=1,
+    )
+    vector_c = torch.stack(
+        [
+            torch.zeros(lengths.size(0), device=lengths.device),
+            torch.zeros(lengths.size(0), device=lengths.device),
+            lengths[:, 2],
+        ],
+        dim=1,
+    )
+
+    return torch.stack([vector_a, vector_b, vector_c], dim=1)
+
+
+def abs_cap(val, max_abs_val=1):
+    """
+    Returns the value with its absolute value capped at max_abs_val.
+    Particularly useful in passing values to trignometric functions where
+    numerical errors may result in an argument > 1 being passed in.
+    https://github.com/materialsproject/pymatgen/blob/b789d74639aa851d7e5ee427a765d9fd5a8d1079/pymatgen/util/num.py#L15
+    Args:
+        val (float): Input value.
+        max_abs_val (float): The maximum absolute value for val. Defaults to 1.
+    Returns:
+        val if abs(val) < 1 else sign of val * max_abs_val.
+    """
+    return max(min(val, max_abs_val), -max_abs_val)
+
+
+def lattice_matrix_to_params(matrix: torch.Tensor):
+    """From https://github.com/txie-93/cdvae/blob/main/cdvae/common/data_utils.py"""
+    lengths = torch.sqrt(torch.sum(matrix**2, dim=1)).tolist()
+
+    angles = torch.zeros(3)
+    for i in range(3):
+        j = (i + 1) % 3
+        k = (i + 2) % 3
+        angles[i] = abs_cap(torch.dot(matrix[j], matrix[k]) / (lengths[j] * lengths[k]))
+    angles = torch.arccos(angles) * 180.0 / torch.pi
+    a, b, c = lengths
+    alpha, beta, gamma = angles
+    return a, b, c, alpha, beta, gamma
+
+
+def cart_to_frac_coords(
+    cart_coords,
+    lengths,
+    angles,
+    num_atoms,
+):
+    """From https://github.com/txie-93/cdvae/blob/main/cdvae/common/data_utils.py"""
+    lattice = lattice_params_to_matrix_torch(lengths, angles)
+    # use pinv in case the predicted lattice is not rank 3
+    inv_lattice = torch.linalg.pinv(lattice)
+    inv_lattice_nodes = torch.repeat_interleave(inv_lattice, num_atoms, dim=0)
+    frac_coords = torch.einsum("bi,bij->bj", cart_coords, inv_lattice_nodes)
+    return frac_coords % 1.0
+
+
+def frac_to_cart_coords(
+    frac_coords,
+    lengths,
+    angles,
+    num_atoms,
+):
+    """From https://github.com/txie-93/cdvae/blob/main/cdvae/common/data_utils.py"""
+    lattice = lattice_params_to_matrix_torch(lengths, angles)
+    lattice_nodes = torch.repeat_interleave(lattice, num_atoms, dim=0)
+    pos = torch.einsum("bi,bij->bj", frac_coords, lattice_nodes)  # cart coords
+
+    return pos
+
+
+def generate_virtual_nodes(
+    cell: torch.Tensor,
+    pos: torch.Tensor,
+    atomic_numbers: torch.Tensor,
+    device: torch.device,
+    increment: int = 3,
+):
+    """_summary_
+
+    Args:
+        cell (torch.Tensor): _description_
+        pos (torch.Tensor): _description_
+        atomic_numbers (torch.Tensor): _description_
+        device (torch.device): _description_
+        increment (int, optional): increment specifies the spacing between virtual nodes in cartesian
+        space (units in Angstroms); increment is a hyperparameter. Defaults to 3.
+    """
+
+    # get lengths and angles for unit parallelpiped
+    a, b, c, alpha, beta, gamma = lattice_matrix_to_params(cell)
+
+    # obtain fractional spacings from 0 to 1 of the virtual atoms
+    ar1 = torch.arange(0, 1, increment / a)
+    ar2 = torch.arange(0, 1, increment / b)
+    ar3 = torch.arange(0, 1, increment / c)
+
+    # use meshgrid to obtain x,y,z, coordinates for the virtual atoms
+    xx, yy, zz = torch.meshgrid(ar1[:], ar2[:], ar3[:])
+    coords = torch.stack([xx.flatten(), yy.flatten(), zz.flatten()], dim=-1)
+
+    # obtain cartesian coordinates of virtual atoms
+    lengths = torch.Tensor([[a, b, c]], device=device)
+    angles = torch.Tensor([[alpha, beta, gamma]], device=device)    
+    virtual_pos = frac_to_cart_coords(coords, lengths, angles, len(coords))
+
+    # add virtual atoms to the original atomic positions
+    pos = torch.cat([pos, virtual_pos], dim=0)
+    atomic_numbers = torch.LongTensor(list(atomic_numbers) + [100] * len(coords))
+
+    return pos, atomic_numbers
+
+
+def generate_virtual_nodes_ase(structure, device: torch.device):
     """
     increment specifies the spacing between virtual nodes in cartesian
     space (units in Angstroms); increment is a hyperparameter
@@ -387,6 +531,7 @@ def generate_virtual_nodes(structure, device: torch.device):
         cell=l_and_a,
         pbc=[1, 1, 1],
     )
+    
     # obtain non-fractional coordinates and append to real atoms
     pos = torch.tensor(
         np.vstack((structure.get_positions(), temp.get_positions())),

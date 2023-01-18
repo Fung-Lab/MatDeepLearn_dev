@@ -15,7 +15,7 @@ class RealVirtualPooling(nn.Module):
         self.pooling = getattr(torch_geometric.nn, pool)
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
-        # obtain mask for all real nodes   
+        # obtain mask for all real nodes
         mask = torch.argwhere(data.z != 100).squeeze(1)
         out_masked = torch.index_select(out, 0, mask)
         batch_masked = torch.index_select(data.batch, 0, mask)    
