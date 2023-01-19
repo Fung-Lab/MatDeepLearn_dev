@@ -48,3 +48,22 @@ class TrainTask(BaseTask):
         except RuntimeError as e:
             self._process_error(e)
             raise e
+
+
+@registry.register_task("predict")
+class PredictTask(BaseTask):
+    def run(self):
+        assert (
+            self.trainer.test_loader is not None
+        ), "Test dataset is required for making predictions"
+        assert self.config[
+            "checkpoint"
+        ], "Model checkpoint is required for making predictions"
+        results_dir = f"predictions/{self.config['dataset']['name']}"
+        try:
+            self.trainer.predict(
+                loader=self.trainer.test_loader, split="test", results_dir=results_dir
+            )
+        except RuntimeError as e:
+            logging.warning("Errors in predict task")
+            raise e

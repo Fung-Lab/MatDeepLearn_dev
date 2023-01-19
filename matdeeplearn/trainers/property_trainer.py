@@ -140,8 +140,7 @@ class PropertyTrainer(BaseTrainer):
         return metrics
 
     @torch.no_grad()
-    def predict(self, loader, split):
-        # TODO: make predict method work as standalone task
+    def predict(self, loader, split, results_dir="train_results"):
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
         self.model.eval()
@@ -184,7 +183,7 @@ class PropertyTrainer(BaseTrainer):
         predictions = np.column_stack((ids, target, predict))
 
         self.save_results(
-            predictions, f"{split}_predictions.csv", node_level_predictions
+            predictions, results_dir, f"{split}_predictions.csv", node_level_predictions
         )
         predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
         logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
