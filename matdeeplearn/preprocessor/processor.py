@@ -7,18 +7,17 @@ import numpy as np
 import pandas as pd
 import torch
 from torch_geometric.data import Data, InMemoryDataset
-from torch_geometric.utils import dense_to_sparse
 from torch_geometric.transforms import Compose
+from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
+from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
 )
-
-from matdeeplearn.common.registry import registry
 
 
 def process_data(dataset_config):
@@ -100,6 +99,12 @@ class DataProcessor:
                 step size for creating Gaussian basis for edges
                 used in torch.linspace
 
+            otf: bool
+                default False. Whether or not to transform the data on the fly.
+
+            transforms: list
+                default []. List of transforms to apply to the data.
+
             data_format: str
                 format of the raw data file
 
@@ -137,10 +142,8 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.device = device
-
         self.otf = otf
         self.transforms = transforms
-
         self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
@@ -280,19 +283,20 @@ class DataProcessor:
         n_structures = len(dict_structures)
         data_list = [Data() for _ in range(n_structures)]
 
-        logging.info(
-            "Getting torch_geometric.data.Data() objects and applying transforms."
-        )
+        logging.info("Getting torch_geometric.data.Data() objects.")
 
         # saving line graph attributes through transforms
         transforms_list = []
 
         if not self.otf:
+            logging.debug("Applying transforms.")
             for transform in self.transforms:
-                try:
-                    transforms_list.append(registry.get_transform_class(transform))
-                except KeyError:
-                    raise KeyError("No such transform found for '{transform}'")
+                transforms_list.append(
+                    registry.get_transform_class(
+                        transform["name"],
+                        **({} if transform["args"] is None else transform["args"])
+                    )
+                )
 
         composition = Compose(transforms_list)
 

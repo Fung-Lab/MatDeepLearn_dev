@@ -12,7 +12,7 @@
       conda-merge env.common.yaml env.gpu.yaml > env.yaml
       conda env create -f env.yaml
       ```
-   
+
    2. CPU-only machines:
 
       1. M1 Macs (see https://github.com/pyg-team/pytorch_geometric/issues/4549):

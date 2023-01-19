@@ -1,11 +1,13 @@
+from functools import partial
+
 import torch
-from torch.nn import Linear, LayerNorm, SiLU, Sigmoid, Embedding, ModuleList, Sequential
+from torch.nn import Embedding, LayerNorm, Linear, ModuleList, Sequential, Sigmoid, SiLU
+from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing
 from torch_scatter import scatter
-from functools import partial
+
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-from torch_geometric.data import Data
 
 
 class EGConv(MessagePassing):

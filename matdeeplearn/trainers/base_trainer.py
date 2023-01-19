@@ -1,8 +1,8 @@
 import copy
 import csv
+import glob
 import logging
 import os
-import glob
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -19,7 +19,6 @@ from matdeeplearn.common.data import (
     get_dataloader,
     get_dataset,
 )
-
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
@@ -40,6 +39,7 @@ class BaseTrainer(ABC):
         test_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
+        max_checkpoint_epochs: int,
         identifier: str = None,
         verbosity: int = None,
         save_dir: str = None,
@@ -58,6 +58,7 @@ class BaseTrainer(ABC):
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
+        self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
 
         self.epoch = 0
@@ -100,10 +101,6 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        # TODO: figure out what configs are passed in and how they're structured
-        #  (one overall config, or individual components)
-
-        # args
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset)
         optimizer = cls._load_optimizer(config["optim"], model)
@@ -114,8 +111,7 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-
-        # kwargs
+        max_checkpoint_epochs = config["optim"]["max_checkpoint_epochs"]
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
         # pass in custom results home dir and load in prev checkpoint dir
@@ -133,6 +129,7 @@ class BaseTrainer(ABC):
             test_loader=test_loader,
             loss=loss,
             max_epochs=max_epochs,
+            max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
             save_dir=save_dir,
