@@ -66,16 +66,10 @@ class PropertyTrainer(BaseTrainer):
 
         # configure wandb experiment tracking
         if self.use_wandb:
-            wandb.init(
-                settings=wandb.Settings(start_method="fork"),
-                project=self.wandb_config.get("wandb_project", "matdeeplearn"),
-                entity=self.wandb_config.get("wandb_entity", "fung-lab"),
-                name=self.identifier,
-            )
-            wandb.config = {
+            _wandb_config = {
                 "model_hyperparams": self.model_config["hyperparams"],
                 "optimizer_hyperparams": {
-                    "lr": self.opt_config["lr"],
+                    "start_lr": self.opt_config["lr"],
                     "epochs": self.opt_config["max_epochs"],
                     "batch_size": self.opt_config["batch_size"],
                     "scheduler_args": self.opt_config["scheduler"]["scheduler_args"],
@@ -87,6 +81,13 @@ class PropertyTrainer(BaseTrainer):
                     "test": self.dataset_config["test_ratio"],
                 },
             }
+            wandb.init(
+                settings=wandb.Settings(start_method="fork"),
+                project=self.wandb_config.get("wandb_project", "matdeeplearn"),
+                entity=self.wandb_config.get("wandb_entity", "fung-lab"),
+                name=self.identifier,
+                config=_wandb_config
+            )
 
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number

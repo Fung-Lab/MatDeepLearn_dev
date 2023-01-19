@@ -41,7 +41,7 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool"
-    virtual_pool: "RealVirtualPooling"
+    virtual_pool: "AtomicNumberPooling"
     virtual_box_increment: 3
     pool_order: "early"
     batch_norm: True
