@@ -5,8 +5,9 @@ from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
 
-from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
 from matdeeplearn.common.registry import registry
+from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
+
 
 # train test split
 def dataset_split(
@@ -58,7 +59,9 @@ def dataset_split(
 
 
 def get_dataset(
-    data_path, target_index: int = 0, transform_list=[], otf=False, large_dataset=False
+    data_path,
+    transform_list: list = [],
+    large_dataset=False,
 ):
     """
     get dataset according to data_path
@@ -71,25 +74,19 @@ def get_dataset(
     data_path: str
         path to the folder containing data.pt file
 
-    target_index: int
-        the index to select the target values
-        this is needed because in our target.csv, there might be
-        multiple columns of target values available for that
-        particular dataset, thus we need to index one column for
-        the current run/experiment
-
     transform_list: transformation function/classes to be applied
     """
 
-    transforms = [registry.get_transform_class("GetY")(index=target_index)]
-
+    transforms = []
     # set transform method
-    if otf:
-        for transform in transform_list:
-            try:
-                transforms.append(registry.get_transform_class(transform)())
-            except KeyError:
-                raise KeyError("No such transform found for {transform}")
+    for transform in transform_list:
+        if transform["otf"]:
+            transforms.append(
+                registry.get_transform_class(
+                    transform["name"],
+                    **({} if transform["args"] is None else transform["args"])
+                )
+            )
 
     # check if large dataset is needed
     if large_dataset:
@@ -97,9 +94,11 @@ def get_dataset(
     else:
         Dataset = StructureDataset
 
-    transform = Compose(transforms)
+    composition = Compose(transforms) if len(transforms) > 0 else None
 
-    return Dataset(data_path, processed_data_path="", transform=transform)
+    dataset = Dataset(data_path, processed_data_path="", transform=composition)
+
+    return dataset
 
 
 def get_dataloader(

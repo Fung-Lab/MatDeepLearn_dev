@@ -2,15 +2,16 @@ import json
 import logging
 import os
 
-import ase
 import numpy as np
 import pandas as pd
 import torch
+from ase import io
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
+from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
@@ -19,8 +20,6 @@ from matdeeplearn.preprocessor.helpers import (
     # generate_virtual_nodes_ase,
     get_cutoff_distance_matrix,
 )
-
-from matdeeplearn.common.registry import registry
 
 
 def process_data(dataset_config):
@@ -46,7 +45,6 @@ def process_data(dataset_config):
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         edge_steps=edge_steps,
-        otf=dataset_config.get("otf", False),
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
@@ -69,7 +67,6 @@ class DataProcessor:
         r: float,
         n_neighbors: int,
         edge_steps: int,
-        otf: bool = False,
         transforms: list = [],
         data_format: str = "json",
         image_selfloop: bool = True,
@@ -104,6 +101,12 @@ class DataProcessor:
             edge_steps: int
                 step size for creating Gaussian basis for edges
                 used in torch.linspace
+
+            otf: bool
+                default False. Whether or not to transform the data on the fly.
+
+            transforms: list
+                default []. List of transforms to apply to the data.
 
             data_format: str
                 format of the raw data file
@@ -143,10 +146,7 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.device = device
-
-        self.otf = otf
-        self.transforms = transforms if transforms else []
-
+        self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
@@ -173,7 +173,7 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, structure_id in enumerate(file_names):
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
-            ase_structures.append(ase.io.read(p))
+            ase_structures.append(io.read(p))
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
@@ -310,21 +310,7 @@ class DataProcessor:
         n_structures = len(dict_structures)
         data_list = [Data() for _ in range(n_structures)]
 
-        logging.info(
-            "Getting torch_geometric.data.Data() objects and applying transforms."
-        )
-
-        # saving line graph attributes through transforms
-        transforms_list = []
-
-        if not self.otf:
-            for transform in self.transforms:
-                try:
-                    transforms_list.append(registry.get_transform_class(transform))
-                except KeyError:
-                    raise KeyError("No such transform found for '{transform}'")
-
-        composition = Compose(transforms_list)
+        logging.info("Getting torch_geometric.data.Data() objects.")
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
@@ -367,14 +353,28 @@ class DataProcessor:
                 for attr in self.additional_attributes:
                     data.__setattr__(attr, sdict[attr])
 
-            # apply transforms
-            composition(data)
-
         logging.info("Generating node features...")
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         logging.info("Generating edge features...")
         generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+
+        # compile non-otf transforms
+        logging.debug("Applying transforms.")
+        transforms_list = []
+        for transform in self.transforms:
+            if not transform["otf"]:
+                transforms_list.append(
+                    registry.get_transform_class(
+                        transform["name"],
+                        **({} if transform["args"] is None else transform["args"])
+                    )
+                )
+        composition = Compose(transforms_list)
+        # apply transforms
+
+        for data in data_list:
+            composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
 

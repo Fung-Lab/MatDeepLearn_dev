@@ -61,11 +61,20 @@ dataset:
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/targets.csv"
   #Path to save processed data.pt file (a directory path not filepath)
   pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/"
-  otf: False
   transforms:
-    - NumNodeTransform
-    - LineGraphMod
-    - ToFloat
+    - name: GetY
+      args:
+        index: 0
+      otf: False
+    - name: NumNodeTransform
+      args:
+      otf: False
+    - name: LineGraphMod
+      args:
+      otf: False
+    - name: ToFloat
+      args:
+      otf: False
   #Format of data files (limit to those supported by ASE)
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)

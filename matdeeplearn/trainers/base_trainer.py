@@ -1,8 +1,8 @@
 import copy
 import csv
+import glob
 import logging
 import os
-import glob
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -19,7 +19,6 @@ from matdeeplearn.common.data import (
     get_dataloader,
     get_dataset,
 )
-
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
@@ -42,14 +41,18 @@ class BaseTrainer(ABC):
         test_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
+        max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
         save_dir: str = None,
         checkpoint_dir: str = None,
+<<<<<<< HEAD
         wandb_config: dict = None,
         model_config: dict = None,
         opt_config: dict = None,
         dataset_config: dict = None,
+=======
+>>>>>>> feature/alignn-model
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -64,6 +67,7 @@ class BaseTrainer(ABC):
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
+        self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
 
         self.save_dir = save_dir
@@ -81,6 +85,9 @@ class BaseTrainer(ABC):
         self.epoch_time = None
         self.best_val_metric = 1e10
         self.best_model_state = None
+
+        self.save_dir = save_dir if save_dir else os.getcwd()
+        self.checkpoint_dir = checkpoint_dir
 
         self.evaluator = Evaluator()
 
@@ -114,10 +121,6 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        # TODO: figure out what configs are passed in and how they're structured
-        #  (one overall config, or individual components)
-
-        # args
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset)
         optimizer = cls._load_optimizer(config["optim"], model)
@@ -128,15 +131,12 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-
-        # kwargs
+        max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
         # pass in custom results home dir and load in prev checkpoint dir
-        save_dir = config["task"].get("save_dir", os.getcwd())
+        save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
-
-        # TODO: figure out why the attribute workaround is necessary
 
         return cls(
             model=model,
@@ -149,6 +149,7 @@ class BaseTrainer(ABC):
             test_loader=test_loader,
             loss=loss,
             max_epochs=max_epochs,
+            max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
             save_dir=save_dir,
@@ -163,13 +164,10 @@ class BaseTrainer(ABC):
     def _load_dataset(dataset_config):
         """Loads the dataset if from a config file."""
         dataset_path = dataset_config["pt_path"]
-        target_index = dataset_config.get("target_index", 0)
 
         dataset = get_dataset(
             dataset_path,
-            target_index,
             transform_list=dataset_config.get("transforms", []),
-            otf=dataset_config.get("otf", False),
         )
 
         return dataset

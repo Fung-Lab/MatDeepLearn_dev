@@ -1,13 +1,27 @@
+import contextlib
 import itertools
+import logging
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from ase import Atoms
+from torch.profiler import ProfilerActivity, profile
 from torch_geometric.data.data import Data
 from torch_geometric.utils import add_self_loops, degree
 from torch_sparse import SparseTensor
+
+
+@contextlib.contextmanager
+def prof_ctx():
+    """Primitive debug tool which allows profiling of PyTorch code"""
+    with profile(
+        activities=[ProfilerActivity.CUDA], record_shapes=True, profile_memory=True
+    ) as prof:
+
+        yield
+
+    logging.debug(prof.key_averages().table(sort_by="cuda_memory_usage", row_limit=10))
 
 
 def threshold_sort(all_distances, r, n_neighbors):

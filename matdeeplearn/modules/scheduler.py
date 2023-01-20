@@ -11,7 +11,7 @@ class LRScheduler:
         self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
             optimizer, **model_parameters
         )
-        
+
         self.lr = self.optimizer.param_groups[0]["lr"]
 
     @classmethod

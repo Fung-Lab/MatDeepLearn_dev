@@ -7,12 +7,6 @@ task:
   parallel: True
   # seed=0 means random initalization
   seed: 0
-  #seed=0 means random initalization
-
-  use_wandb: True
-  wandb_entity: "fung-lab"
-  wandb_project: "cgcnn_vn"
-
   # Defaults to run directory if not specified
   # save_dir: "."
   # checkpoint_dir: "."
@@ -25,7 +19,7 @@ model:
   name: CGCNN
   load_model: False
   save_model: True
-  model_path: "cgcnn.pth"
+  model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
@@ -50,7 +44,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 64
+  batch_size: 100
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -61,11 +55,11 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
+  src: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/raw/"
   # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  target_path: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/targets.csv"
   # Path to save processed data.pt file
-  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  pt_path: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/"
   transforms:
     - name: GetY
       args:
@@ -78,16 +72,11 @@ dataset:
   additional_attributes: []
   # Print out processing info
   verbose: True
-
-  use_virtual_nodes: False
-  otf: False
-  transforms:
   # Index of target column in targets.csv
   # graph specific settings
-  preprocess_params:
-    cutoff_radius : 8.0
-    n_neighbors : 12
-    edge_steps : 50
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
