@@ -39,10 +39,13 @@ optim:
 
 dataset:
   processed: True
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/raw/"
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/targets.csv"
-  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/STO_DOS_data/"
-  data_format: "vasp"
+#  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/raw/"
+#  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/targets.csv"
+#  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/STO_DOS_data/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
+  target_path: ""
+  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+  data_format: "json"
   node_representation: "onehot"
   additional_attributes: ["features", "scaled", "scaling_factor"]
   verbose: True
