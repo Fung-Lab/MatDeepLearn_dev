@@ -1,7 +1,7 @@
 trainer: property
 
 task:
-  name: "my_train_job"
+  name: "CGCNN_CNN_MP_DOS_baseline"
   reprocess: False
   parallel: True
   seed: 0
