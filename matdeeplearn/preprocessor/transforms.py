@@ -23,7 +23,7 @@ class GetY(object):
 
     def __call__(self, data):
         # Specify target.
-        if self.index != -1:
+        if self.index != -1 or data.y.ndim != 1:
             data.y = data.y[0][self.index]
         return data
 

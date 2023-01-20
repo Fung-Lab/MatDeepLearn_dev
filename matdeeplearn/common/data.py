@@ -60,9 +60,7 @@ def dataset_split(
 
 def get_dataset(
     data_path,
-    target_index: int = 0,
     transform_list: list = [],
-    otf=False,
     large_dataset=False,
 ):
     """
@@ -88,8 +86,8 @@ def get_dataset(
 
     transforms = []
     # set transform method
-    if otf:
-        for transform in transform_list:
+    for transform in transform_list:
+        if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(
                     transform["name"],

@@ -55,11 +55,11 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
+  src: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/raw/"
   # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  target_path: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/targets.csv"
   # Path to save processed data.pt file
-  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  pt_path: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/"
   transforms:
     - name: GetY
       args:

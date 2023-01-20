@@ -140,13 +140,10 @@ class BaseTrainer(ABC):
     def _load_dataset(dataset_config):
         """Loads the dataset if from a config file."""
         dataset_path = dataset_config["pt_path"]
-        target_index = dataset_config.get("target_index", 0)
 
         dataset = get_dataset(
             dataset_path,
-            target_index,
             transform_list=dataset_config.get("transforms", []),
-            otf=dataset_config.get("otf", False),
         )
 
         return dataset
