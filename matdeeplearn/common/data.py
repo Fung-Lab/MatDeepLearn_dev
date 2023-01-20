@@ -86,8 +86,7 @@ def get_dataset(
     transform_list: transformation function/classes to be applied
     """
 
-    transforms = [registry.get_transform_class("GetY", index=target_index)]
-
+    transforms = []
     # set transform method
     if otf:
         for transform in transform_list:
@@ -97,9 +96,6 @@ def get_dataset(
                     **({} if transform["args"] is None else transform["args"])
                 )
             )
-
-    print(transforms)
-    exit(0)
 
     # check if large dataset is needed
     if large_dataset:

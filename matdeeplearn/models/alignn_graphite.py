@@ -10,6 +10,77 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 
 
+@registry.register_model("ALIGNN_GRAPHITE")
+class ALIGNN_GRAPHITE(BaseModel):
+    """ALIGNN model that uses auxiliary line graph to explicitly represent and encode bond angles.
+    Reference: https://www.nature.com/articles/s41524-021-00650-1.
+    """
+
+    def __init__(self, dim=64, num_interactions=4, num_species=3, cutoff=3.0):
+        super().__init__()
+
+        self.dim = dim
+        self.num_interactions = num_interactions
+        self.cutoff = cutoff
+
+        self.embed_atm = Embedding(num_species, dim)
+        self.embed_bnd = partial(bessel, start=0, end=cutoff, num_basis=dim)
+
+        self.atm_bnd_interactions = ModuleList()
+        self.bnd_ang_interactions = ModuleList()
+        for _ in range(num_interactions):
+            self.atm_bnd_interactions.append(EGConv(dim, dim))
+            self.bnd_ang_interactions.append(EGConv(dim, dim))
+
+        self.head = Sequential(
+            Linear(dim, dim),
+            SiLU(),
+        )
+
+        self.out = Sequential(
+            Linear(dim, 1),
+        )
+
+        self.reset_parameters()
+
+    @property
+    def target_attr(self):
+        return "y"
+
+    def reset_parameters(self):
+        self.embed_atm.reset_parameters()
+        for i in range(self.num_interactions):
+            self.atm_bnd_interactions[i].reset_parameters()
+            self.bnd_ang_interactions[i].reset_parameters()
+
+    def embed_ang(self, x_ang):
+        cos_ang = torch.cos(x_ang)
+        return gaussian(cos_ang, start=-1, end=1, num_basis=self.dim)
+
+    def forward(self, data: Data):
+        edge_index_G = data.edge_index
+        edge_index_A = data.edge_index_lg
+        h_atm = self.embed_atm(data.x.type(torch.long))
+        h_bnd = self.embed_bnd(data.edge_attr)
+        h_ang = self.embed_ang(data.edge_attr_lg)
+
+        for i in range(self.num_interactions):
+            h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
+            h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
+
+        h = scatter(h_atm, data.batch, dim=0, reduce="add")
+        h = self.head(h)
+        return self.out(h)
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"dim={self.dim}, "
+            f"num_interactions={self.num_interactions}, "
+            f"cutoff={self.cutoff})"
+        )
+
+
 class EGConv(MessagePassing):
     """Edge-gated convolution.
     This version is closer to the original formulation (without the concatenation).
@@ -82,74 +153,3 @@ def gaussian(x, start=0.0, end=1.0, num_basis=8):
     diff = (x[..., None] - mu) / step
     # division by 1.12 so that sum of square is roughly 1
     return diff.pow(2).neg().exp().div(1.12)
-
-
-@registry.register_model("ALIGNN_GRAPHITE")
-class ALIGNN_GRAPHITE(BaseModel):
-    """ALIGNN model that uses auxiliary line graph to explicitly represent and encode bond angles.
-    Reference: https://www.nature.com/articles/s41524-021-00650-1.
-    """
-
-    def __init__(self, dim=64, num_interactions=4, num_species=3, cutoff=3.0, **kwargs):
-        super().__init__()
-
-        self.dim = dim
-        self.num_interactions = num_interactions
-        self.cutoff = cutoff
-
-        self.embed_atm = Embedding(num_species, dim)
-        self.embed_bnd = partial(bessel, start=0, end=cutoff, num_basis=dim)
-
-        self.atm_bnd_interactions = ModuleList()
-        self.bnd_ang_interactions = ModuleList()
-        for _ in range(num_interactions):
-            self.atm_bnd_interactions.append(EGConv(dim, dim))
-            self.bnd_ang_interactions.append(EGConv(dim, dim))
-
-        self.head = Sequential(
-            Linear(dim, dim),
-            SiLU(),
-        )
-
-        self.out = Sequential(
-            Linear(dim, 1),
-        )
-
-        self.reset_parameters()
-
-    @property
-    def target_attr(self):
-        return "y"
-
-    def reset_parameters(self):
-        self.embed_atm.reset_parameters()
-        for i in range(self.num_interactions):
-            self.atm_bnd_interactions[i].reset_parameters()
-            self.bnd_ang_interactions[i].reset_parameters()
-
-    def embed_ang(self, x_ang):
-        cos_ang = torch.cos(x_ang)
-        return gaussian(cos_ang, start=-1, end=1, num_basis=self.dim)
-
-    def forward(self, data: Data):
-        edge_index_G = data.edge_index
-        edge_index_A = data.edge_index_lg
-        h_atm = self.embed_atm(data.x.type(torch.long))
-        h_bnd = self.embed_bnd(data.edge_attr)
-        h_ang = self.embed_ang(data.edge_attr_lg)
-
-        for i in range(self.num_interactions):
-            h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
-            h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
-
-        h = scatter(h_atm, data.batch, dim=0, reduce="add")
-        h = self.head(h)
-        return self.out(h)
-
-    def __repr__(self):
-        return (
-            f"{self.__class__.__name__}("
-            f"dim={self.dim}, "
-            f"num_interactions={self.num_interactions}, "
-            f"cutoff={self.cutoff})"
-        )

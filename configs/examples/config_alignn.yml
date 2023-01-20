@@ -58,6 +58,9 @@ dataset:
   pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/"
   otf: False
   transforms:
+    - name: GetY
+        args:
+          target_index: 0
     - name: NumNodeTransform
       args:
     - name: LineGraphMod

@@ -16,7 +16,6 @@ from matdeeplearn.models.base_model import BaseModel
 class ALIGNN(BaseModel):
     def __init__(
         self,
-        # data: torch_geometric.data.Dataset,
         alignn_layers: int = 4,
         gcn_layers: int = 4,
         atom_input_features: int = 114,
@@ -30,7 +29,6 @@ class ALIGNN(BaseModel):
         min_angle: float = 0.0,
         max_angle: float = torch.acos(torch.zeros(1)).item() * 2,
         link: Literal["identity", "log", "logit"] = "identity",
-        **kwargs
     ) -> None:
         super().__init__()
 

@@ -1,15 +1,14 @@
 import contextlib
 import itertools
+import logging
 from pathlib import Path
 
-import ase
 import numpy as np
 import torch
 import torch.nn.functional as F
-from ase import io
-from torch.profiler import ProfilerActivity, profile, record_function
+from torch.profiler import ProfilerActivity, profile
 from torch_geometric.data.data import Data
-from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
+from torch_geometric.utils import add_self_loops, degree
 from torch_sparse import SparseTensor
 
 
@@ -22,7 +21,7 @@ def prof_ctx():
 
         yield
 
-    print(prof.key_averages().table(sort_by="cuda_memory_usage", row_limit=10))
+    logging.debug(prof.key_averages().table(sort_by="cuda_memory_usage", row_limit=10))
 
 
 def threshold_sort(all_distances, r, n_neighbors):

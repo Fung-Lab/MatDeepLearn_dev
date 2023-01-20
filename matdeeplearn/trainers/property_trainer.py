@@ -48,9 +48,14 @@ class PropertyTrainer(BaseTrainer):
         )
 
     def train(self):
+        # Start training over epochs loop
+        # Calculate start_epoch from step instead of loading the epoch number
+        # to prevent inconsistencies due to different batch size in checkpoint.
+        start_epoch = self.step // len(self.train_loader)
+
         epochs_to_run = (
-            self.max_checkpoint_epochs
-            if self.max_checkpoint_epochs > 0
+            self.max_checkpoint_epochs + start_epoch
+            if self.max_checkpoint_epochs
             else self.max_epochs
         )
 
@@ -59,12 +64,6 @@ class PropertyTrainer(BaseTrainer):
             logging.info(
                 f"running for {epochs_to_run} epochs on {type(self.model).__name__} model"
             )
-
-        # Start training over epochs loop
-        # Calculate start_epoch from step instead of loading the epoch number
-        # to prevent inconsistencies due to different batch size in checkpoint.
-
-        start_epoch = self.step // len(self.train_loader)
 
         for epoch in range(start_epoch, epochs_to_run):
             epoch_start_time = time.time()

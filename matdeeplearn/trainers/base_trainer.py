@@ -39,7 +39,7 @@ class BaseTrainer(ABC):
         test_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
-        max_checkpoint_epochs: int,
+        max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
         save_dir: str = None,
@@ -68,7 +68,7 @@ class BaseTrainer(ABC):
         self.best_val_metric = 1e10
         self.best_model_state = None
 
-        self.save_dir = save_dir
+        self.save_dir = save_dir if save_dir else os.getcwd()
         self.checkpoint_dir = checkpoint_dir
 
         self.evaluator = Evaluator()
@@ -111,11 +111,11 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-        max_checkpoint_epochs = config["optim"]["max_checkpoint_epochs"]
+        max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
         # pass in custom results home dir and load in prev checkpoint dir
-        save_dir = config["task"].get("save_dir", os.getcwd())
+        save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
         return cls(
