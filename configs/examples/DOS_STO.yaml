@@ -1,7 +1,7 @@
 trainer: property
 
 task:
-  identifier: "my_train_job"
+  identifier: "DOSPredict_MP_DOS"
   reprocess: False
   parallel: True
   seed: 0
