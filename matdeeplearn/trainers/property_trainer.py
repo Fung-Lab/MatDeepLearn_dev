@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 import torch
+import wandb
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
@@ -220,15 +221,21 @@ class PropertyTrainer(BaseTrainer):
         else:
             train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
+
+            log_kwargs = {
+                "epoch": int(self.epoch - 1),
+                "lr": self.scheduler.lr,
+                "train_loss": train_loss,
+                "val_loss": val_loss,
+                "epoch_time": self.epoch_time,
+            }
+
             logging.info(
                 "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
-                    int(self.epoch - 1),
-                    self.scheduler.lr,
-                    train_loss,
-                    val_loss,
-                    self.epoch_time,
+                    *log_kwargs.values()
                 )
             )
+            wandb.log(log_kwargs)
 
     def _load_task(self):
         """Initializes task-specific info. Implemented by derived classes."""
