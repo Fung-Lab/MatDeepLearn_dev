@@ -1,7 +1,7 @@
 trainer: property
 
 task:
-  name: "CGCNN_CNN_MP_DOS_baseline"
+  identifier: "CGCNN_CNN_MP_DOS_baseline"
   reprocess: False
   parallel: True
   seed: 0
