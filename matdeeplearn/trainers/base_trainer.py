@@ -7,6 +7,7 @@ from datetime import datetime
 
 import torch
 import torch.optim as optim
+import wandb
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
@@ -111,6 +112,29 @@ class BaseTrainer(ABC):
         max_epochs = config["optim"]["max_epochs"]
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
+
+        wandb.init(
+            settings=wandb.Settings(start_method="fork"),
+            project="DOS_cgcnn",
+            entity="fung-lab",
+            resume="allow",
+            name=identifier,
+        )
+        wandb.config = {
+            # "model_hyperparams": self.model_config["hyperparams"],
+            "optimizer_hyperparams": {
+                "lr": config["optim"]["lr"],
+                "epochs": max_epochs,
+                "batch_size": config["optim"]["batch_size"],
+                "scheduler_args": config["optim"]["scheduler"]["scheduler_args"],
+            },
+            # "preprocess_params": config["optim"]["preprocess_params"],
+            "splits": {
+                "train": config["dataset"]["train_ratio"],
+                "val": config["dataset"]["val_ratio"],
+                "test": config["dataset"]["test_ratio"],
+            },
+        }
 
         return cls(
             model=model,
