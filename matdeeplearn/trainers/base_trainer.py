@@ -46,13 +46,10 @@ class BaseTrainer(ABC):
         verbosity: int = None,
         save_dir: str = None,
         checkpoint_dir: str = None,
-<<<<<<< HEAD
         wandb_config: dict = None,
         model_config: dict = None,
         opt_config: dict = None,
         dataset_config: dict = None,
-=======
->>>>>>> feature/alignn-model
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)

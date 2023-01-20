@@ -78,11 +78,7 @@ dataset:
   additional_attributes: []
   # Print out processing info
   verbose: True
-
   use_virtual_nodes: False
-  otf: False
-  transforms:
-  # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
     cutoff_radius : 8.0
