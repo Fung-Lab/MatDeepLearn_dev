@@ -74,13 +74,6 @@ def get_dataset(
     data_path: str
         path to the folder containing data.pt file
 
-    target_index: int
-        the index to select the target values
-        this is needed because in our target.csv, there might be
-        multiple columns of target values available for that
-        particular dataset, thus we need to index one column for
-        the current run/experiment
-
     transform_list: transformation function/classes to be applied
     """
 
@@ -101,9 +94,11 @@ def get_dataset(
     else:
         Dataset = StructureDataset
 
-    transform = Compose(transforms)
+    composition = Compose(transforms) if len(transforms) > 0 else None
 
-    return Dataset(data_path, processed_data_path="", transform=transform)
+    dataset = Dataset(data_path, processed_data_path="", transform=composition)
+
+    return dataset
 
 
 def get_dataloader(

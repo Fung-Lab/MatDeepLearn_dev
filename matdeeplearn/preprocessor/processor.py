@@ -341,6 +341,7 @@ class DataProcessor:
                 )
         composition = Compose(transforms_list)
         # apply transforms
+
         for data in data_list:
             composition(data)
 
