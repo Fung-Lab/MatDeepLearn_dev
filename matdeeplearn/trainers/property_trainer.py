@@ -60,12 +60,6 @@ class PropertyTrainer(BaseTrainer):
         self.use_wandb = self.wandb_config.get("use_wandb", False)
 
     def train(self):
-        if self.train_verbosity:
-            logging.info("Starting regular training")
-            logging.info(
-                f"running for  {self.max_epochs} epochs on {type(self.model).__name__} model"
-            )
-
         # configure wandb experiment tracking
         if self.use_wandb:
             _wandb_config = {
@@ -87,8 +81,8 @@ class PropertyTrainer(BaseTrainer):
                 settings=wandb.Settings(start_method="fork"),
                 project=self.wandb_config.get("wandb_project", "matdeeplearn"),
                 entity=self.wandb_config.get("wandb_entity", "fung-lab"),
-                name=self.identifier,
-                config=_wandb_config
+                name=self.timestamp_id,
+                config=_wandb_config,
             )
 
         # Start training over epochs loop
@@ -114,7 +108,6 @@ class PropertyTrainer(BaseTrainer):
                 self.train_sampler.set_epoch(epoch)
             skip_steps = self.step % len(self.train_loader)
             train_loader_iter = iter(self.train_loader)
-
 
             # metrics for every epoch
             _metrics = {}
@@ -151,12 +144,6 @@ class PropertyTrainer(BaseTrainer):
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
                     curr_metrics = self._log_metrics(val_metrics)
-
-                    # update overall metrics for plotting
-                    # train_metrics["train"].append(curr_metrics["train"])
-                    # train_metrics["val"].append(curr_metrics["val"])
-                    # train_metrics["lr"].append(curr_metrics["lr"])
-                    # train_metrics["time"].append(curr_metrics["time"])
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if (

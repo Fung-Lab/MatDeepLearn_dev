@@ -222,8 +222,6 @@ def get_cutoff_distance_matrix(
     cell,
     r,
     n_neighbors,
-    use_virtual_nodes,
-    atomic_numbers,
     device,
     offset_number=1,
 ):
@@ -246,19 +244,12 @@ def get_cutoff_distance_matrix(
         n_neighbors: int
             max number of neighbors to be considered
 
-        use_virtual_nodes: bool
-            whether or not to include virtual nodes in the structure
-
         atomic_numbers: np.ndarray
             atomic numbers of the atoms in the structure (used only for virtual nodes)
     """
 
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
     distance_matrix, min_indices = get_distances(pos, cells, device=device)
-
-    # control edge creation for virtual nodes
-    if use_virtual_nodes:
-        distance_matrix = control_virtual_edges(distance_matrix, atomic_numbers)
 
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
 
@@ -493,8 +484,8 @@ def generate_virtual_nodes(
     coords = torch.stack([xx.flatten(), yy.flatten(), zz.flatten()], dim=-1)
 
     # obtain cartesian coordinates of virtual atoms
-    lengths = torch.Tensor([[a, b, c]], device=device)
-    angles = torch.Tensor([[alpha, beta, gamma]], device=device)    
+    lengths = torch.tensor([[a, b, c]], device=device)
+    angles = torch.tensor([[alpha, beta, gamma]], device=device)    
     virtual_pos = frac_to_cart_coords(coords, lengths, angles, len(coords))
 
     # add virtual atoms to the original atomic positions

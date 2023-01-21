@@ -8,6 +8,8 @@ import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 
+from typing import List
+
 
 @registry.register_model("CGCNN_VN")
 class CGCNN_VN(BaseModel):
@@ -23,12 +25,13 @@ class CGCNN_VN(BaseModel):
         post_fc_count=1,
         pool="global_mean_pool",
         virtual_pool="RealVirtualPooling",
+        atomic_intermediate_layer_resolution=4,
         pool_order="early",
         batch_norm=True,
         batch_track_stats=True,
-        act="relu",
+        act_fn="relu",
+        act_nn="ReLU",
         dropout_rate=0.0,
-        **kwargs
     ):
         super(CGCNN_VN, self).__init__(edge_steps, self_loop)
 
@@ -36,7 +39,9 @@ class CGCNN_VN(BaseModel):
         self.batch_norm = batch_norm
         self.pool = pool
         self.virtual_pool = virtual_pool
-        self.act = act
+        self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
+        self.act_fn = act_fn
+        self.act_nn = act_nn
         self.pool_order = pool_order
         self.dropout_rate = dropout_rate
         self.pre_fc_count = pre_fc_count
@@ -58,7 +63,7 @@ class CGCNN_VN(BaseModel):
         if data[0][self.target_attr].ndim == 0:
             self.output_dim = 1
         else:
-            self.output_dim = len(data[0][self.target_attr][0])
+            self.output_dim = len(data[0][self.target_attr])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
@@ -112,8 +117,49 @@ class CGCNN_VN(BaseModel):
 
         return conv_list, bn_list
 
+    def _setup_post_atomic_pooling_layers(self, post_fc: bool = False):
+        if self.atomic_intermediate_layer_resolution > 0:
+            # We use 100 as embedding expansion in atomic num pooling, can prevent loss of info with sequential layers
+            interm_layers: List[torch.nn.Linear] = []
+
+            # Find closest lesser multiple of self.dim2 to the input dim
+            in_dim = self.post_fc_dim * 100 - (self.post_fc_dim * 100) % self.dim2
+            # Find the resolution of the atomic number embedding, how many layers to add
+            scale_factor = self.dim2 * self.atomic_intermediate_layer_resolution
+            resolution = (in_dim // scale_factor)
+
+            stride_dims = [
+                scale_factor * i
+                for i in range(resolution - 1, 0, -1)
+            ]
+
+            for out_dim in stride_dims:
+                interm_layers.append(torch.nn.Linear(in_dim, out_dim))
+                interm_layers.append(getattr(torch.nn, self.act_nn)()),
+                torch.nn.Dropout(p=self.dropout_rate)
+                in_dim = out_dim
+
+            interm_layers.append(torch.nn.Linear(in_dim, self.dim2))
+
+            layers = [
+                torch.nn.Linear(
+                    self.post_fc_dim * 100, interm_layers[0].in_features
+                ),
+                getattr(torch.nn, self.act_nn)(),
+                torch.nn.Dropout(p=self.dropout_rate),
+                *interm_layers,
+            ]
+            if not post_fc:
+                layers.append(torch.nn.Linear(self.dim2, self.output_dim))
+        else:
+            layers = [
+                torch.nn.Linear(self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim),
+            ]
+        return torch.nn.Sequential(*layers)
+
     def _setup_post_gnn_layers(self):
-        """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. In the current version, the minimum is zero)."""
+        """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. 
+        In the current version, the minimum is zero)."""
         post_lin_list = torch.nn.ModuleList()
         if self.post_fc_count > 0:
             for i in range(self.post_fc_count):
@@ -130,9 +176,7 @@ class CGCNN_VN(BaseModel):
                         and self.virtual_pool == "AtomicNumberPooling"
                     ):
                         # We use 100 as embedding expansion in atomic num pooling
-                        lin = torch.nn.Linear(
-                            self.post_fc_dim * 100, self.dim2
-                        )
+                        lin = self._setup_post_atomic_pooling_layers(post_fc=True)
                     else:
                         lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
                 else:
@@ -151,8 +195,7 @@ class CGCNN_VN(BaseModel):
                 self.pool_order == "early"
                 and self.virtual_pool == "AtomicNumberPooling"
             ):
-                # We use 100 as embedding expansion in atomic num pooling
-                lin_out = torch.nn.Linear(self.post_fc_dim * 100, self.dim2)
+                lin_out = self._setup_post_atomic_pooling_layers(post_fc=False)
             else:
                 lin_out = torch.nn.Linear(self.post_fc_dim, self.output_dim)
 
@@ -164,10 +207,10 @@ class CGCNN_VN(BaseModel):
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
                 out = self.pre_lin_list[i](data.x.float())
-                out = getattr(F, self.act)(out)
+                out = getattr(F, self.act_fn)(out)
             else:
                 out = self.pre_lin_list[i](out)
-                out = getattr(F, self.act)(out)
+                out = getattr(F, self.act_fn)(out)
 
         # GNN layers
         for i in range(0, len(self.conv_list)):
@@ -191,7 +234,7 @@ class CGCNN_VN(BaseModel):
                     out = self.conv_list[i](
                         out, data.edge_index, data.edge_attr.float()
                     )
-                    # out = getattr(F, self.act)(out)
+                    out = getattr(F, self.act_fn)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Post-GNN dense layers
@@ -201,17 +244,11 @@ class CGCNN_VN(BaseModel):
 
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
+                out = getattr(F, self.act_fn)(out)
             out = self.lin_out(out)
 
         elif self.pool_order == "late":
-            for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
-            out = self.lin_out(out)
-
-            # virtual node pooling
-            out = self.virtual_node_pool(data, out)
+            raise NotImplementedError("Late pooling not supported for CGCNN_VN")
 
         if out.shape[1] == 1:
             return out.view(-1)

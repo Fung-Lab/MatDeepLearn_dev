@@ -1,23 +1,16 @@
-
 trainer: property
 
 task:
   # run_mode: train
   identifier: "cgcnn_vn-baseline"
-
   reprocess: False
-
-
   parallel: True
   seed: 0
-  #seed=0 means random initalization
-
-
+  # seed=0 means random initalization
   write_output: True
   parallel: True
-  #Training print out frequency (print per n number of epochs)
+  # Training print out frequency (print per n number of epochs)
   verbosity: 1
-
   wandb:
     use_wandb: True
     wandb_entity: "fung-lab"
@@ -29,34 +22,31 @@ model:
   load_model: False
   save_model: True
   model_path: "cgcnn_vn.pth"
-
   # model hyperparams
   hyperparams:
     edge_steps: 50
     self_loop: True
-    #model attributes
     dim1: 100
     dim2: 150
+    atomic_intermediate_layer_resolution: 17
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool"
     virtual_pool: "AtomicNumberPooling"
-    virtual_box_increment: 3
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
-    act: "relu"
+    act_fn: "relu"
+    act_nn: "ReLU"
     dropout_rate: 0.0
 
 optim:
   max_epochs: 100
   lr: 0.002
-  #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-
   batch_size: 100
   optimizer:
     optimizer_type: "AdamW"
@@ -67,37 +57,34 @@ optim:
 
 dataset:
   processed: True # if False, need to preprocessor data and generate .pt file
-  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
-  # dataset_type: "inmemory"
-  #Path to data files
+  # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
-  #Path to target file within data_path
+  # Path to target file within data_path
   target_path: ""
-  #Path to save processed data.pt file
+  # Path to save processed data.pt file
   pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/"
-  #Format of data files (limit to those supported by ASE)
+  # transforms
+  transforms:
+    - name: GetY
+      args:
+        index: 5 # methane adsorption uptake
+      otf: False
+    - name: VirtualNodes
+      args:
+        virtual_box_increment: 3
+      otf: False
   data_format: "json"
-  #Method of obtaining atom dictionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes: []
-  #Print out processing info
+  # Print out processing info
   verbose: True
-
-  use_virtual_nodes: True
-  transforms:
-  otf: False
-
-  #Loading dataset params
-  #Index of target column in targets.csv
-  target_index: 5 # methane adsorption uptake
-
-  #graph specific settings: preprocessing hyperparams
+  # graph specific settings: preprocessing hyperparams
   preprocess_params:
     cutoff_radius : 5.0
+    virtual_box_increment: 3
     n_neighbors : 50
     edge_steps : 50
-
-  #Ratios for train/val/test split out of a total of 1
+  # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15

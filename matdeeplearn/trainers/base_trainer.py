@@ -93,7 +93,7 @@ class BaseTrainer(ABC):
             "%Y-%m-%d-%H-%M-%S"
         )
         if identifier:
-            self.timestamp_id = f"{self.timestamp_id}-{identifier}"
+            self.timestamp_id = f"{identifier}-{self.timestamp_id}"
 
         self.identifier = identifier
 

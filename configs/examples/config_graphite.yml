@@ -3,7 +3,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "alignn_train_100"
+  identifier: "graphite_train_100"
 
   reprocess: False
 
@@ -22,19 +22,25 @@ task:
 
 model:
   name: ALIGNN_GRAPHITE
-  load_model: False
+  load_model: True
   save_model: True
-  model_path: "alignn_graphite_model.pth"
-  num_interactions: 4
-  num_species: 3
-  cutoff: 3.0
-  dim: 64
+  model_path: "alignn_model.pth"
+  alignn_layers: 4
+  gcn_layers: 4
+  atom_input_features: 114
+  edge_input_features: 50
+  triplet_input_features: 40
+  embedding_features: 64
+  hidden_features: 256
+  output_features: 1
+  min_edge_distance: 0.0
+  max_edge_distance: 8.0
   # min_angle: float = 0.0,
   # max_angle: float = torch.acos(torch.zeros(1)).item() * 2,
   link: "identity"
 
 optim:
-  max_epochs: 103
+  max_epochs: 100
   lr: 0.001
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
@@ -61,20 +67,11 @@ dataset:
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/targets.csv"
   #Path to save processed data.pt file (a directory path not filepath)
   pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/"
+  otf: False
   transforms:
-    - name: GetY
-      args:
-        index: 0
-      otf: False
-    - name: NumNodeTransform
-      args:
-      otf: False
-    - name: LineGraphMod
-      args:
-      otf: False
-    - name: ToFloat
-      args:
-      otf: False
+    - NumNodeTransform
+    - LineGraphMod
+    - ToFloat
   #Format of data files (limit to those supported by ASE)
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)

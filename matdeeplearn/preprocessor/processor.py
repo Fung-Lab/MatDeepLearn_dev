@@ -16,8 +16,6 @@ from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
     generate_node_features,
-    generate_virtual_nodes,
-    # generate_virtual_nodes_ase,
     get_cutoff_distance_matrix,
 )
 
@@ -32,7 +30,9 @@ def process_data(dataset_config):
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
-    use_virtual_nodes = dataset_config.get("use_virtual_nodes", False)
+    virtual_box_increment = dataset_config["preprocess_params"].get(
+        "virtual_box_increment", 3.0
+    )
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
@@ -48,7 +48,7 @@ def process_data(dataset_config):
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
-        use_virtual_nodes=use_virtual_nodes,
+        virtual_box_increment=virtual_box_increment,
         self_loop=self_loop,
         node_representation=node_representation,
         additional_attributes=additional_attributes,
@@ -71,7 +71,7 @@ class DataProcessor:
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
-        use_virtual_nodes: bool = False,
+        virtual_box_increment: float = 3.0,
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
@@ -141,7 +141,7 @@ class DataProcessor:
         self.data_format = data_format
         self.image_selfloop = image_selfloop
         self.self_loop = self_loop
-        self.use_virtual_nodes = use_virtual_nodes
+        self.virtual_box_increment = virtual_box_increment
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
@@ -184,16 +184,10 @@ class DataProcessor:
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             atomic_numbers, pos = (
-                generate_virtual_nodes(
-                    cell, pos, atomic_numbers, self.device, increment=3
-                )
-                if self.use_virtual_nodes
-                else (
                     atomic_numbers,
                     torch.tensor(
                         s.get_positions(), device=self.device, dtype=torch.float
                     ),
-                )
             )
 
             d["positions"] = pos
@@ -254,15 +248,6 @@ class DataProcessor:
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
-
-            if self.use_virtual_nodes:
-                # pos, atomic_numbers = generate_virtual_nodes_ase(
-                #     Atoms(positions=pos, numbers=atomic_numbers, cell=s["cell2"]),
-                #     self.device,
-                # )
-                pos, atomic_numbers = generate_virtual_nodes(
-                    cell, pos, atomic_numbers, self.device, increment=3
-                )
 
             d["positions"] = pos
             d["cell"] = cell
@@ -326,8 +311,6 @@ class DataProcessor:
                 cell,
                 self.r,
                 self.n_neighbors,
-                use_virtual_nodes=self.use_virtual_nodes,
-                atomic_numbers=atomic_numbers,
                 device=self.device,
             )
 
@@ -372,7 +355,6 @@ class DataProcessor:
                 )
         composition = Compose(transforms_list)
         # apply transforms
-
         for data in data_list:
             composition(data)
 
