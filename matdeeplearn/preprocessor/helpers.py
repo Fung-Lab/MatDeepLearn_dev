@@ -251,8 +251,6 @@ def get_cutoff_distance_matrix(
 
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
     
-    print('distances', distance_matrix)
-
     # if image_selfloop:
     #     # output of threshold sort has diagonal == 0
     #     # fill in the original values

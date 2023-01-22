@@ -74,9 +74,6 @@ class VirtualNodes(object):
             data.pos, data.cell, self.rv_cutoff, self.rv_neighbors, self.device
         )
 
-        print("cd_matrix_vv", cd_matrix_vv)
-        print("cd_matrix_rv", cd_matrix_rv)
-
         data.edge_index_vv, edge_weight_vv = dense_to_sparse(cd_matrix_vv)
         data.edge_index_rv, edge_weight_rv = dense_to_sparse(cd_matrix_rv)
 

@@ -349,7 +349,6 @@ class EdgeAggregation(MessagePassing):
 
     def forward(self, edge_index, edge_attr):
         out = self.propagate(edge_index, edge_attr=edge_attr)
-        # print(out.element_size() * out.nelement(), out.nelement())
         return out
 
     def message(self, edge_attr):
