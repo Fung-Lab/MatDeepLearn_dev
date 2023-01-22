@@ -8,6 +8,7 @@ from datetime import datetime
 
 import torch
 import torch.optim as optim
+from matplotlib import pyplot as plt
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
@@ -23,8 +24,6 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
-
-from matplotlib import pyplot as plt
 
 
 @registry.register_trainer("base")

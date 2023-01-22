@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 import torch.nn.functional as F
 from torch.nn import BatchNorm1d
@@ -7,8 +9,6 @@ from torch_geometric.nn import CGConv, Set2Set
 import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-
-from typing import List
 
 
 @registry.register_model("CGCNN_VN")
@@ -126,12 +126,9 @@ class CGCNN_VN(BaseModel):
             in_dim = self.post_fc_dim * 100 - (self.post_fc_dim * 100) % self.dim2
             # Find the resolution of the atomic number embedding, how many layers to add
             scale_factor = self.dim2 * self.atomic_intermediate_layer_resolution
-            resolution = (in_dim // scale_factor)
+            resolution = in_dim // scale_factor
 
-            stride_dims = [
-                scale_factor * i
-                for i in range(resolution - 1, 0, -1)
-            ]
+            stride_dims = [scale_factor * i for i in range(resolution - 1, 0, -1)]
 
             for out_dim in stride_dims:
                 interm_layers.append(torch.nn.Linear(in_dim, out_dim))
@@ -142,9 +139,7 @@ class CGCNN_VN(BaseModel):
             interm_layers.append(torch.nn.Linear(in_dim, self.dim2))
 
             layers = [
-                torch.nn.Linear(
-                    self.post_fc_dim * 100, interm_layers[0].in_features
-                ),
+                torch.nn.Linear(self.post_fc_dim * 100, interm_layers[0].in_features),
                 getattr(torch.nn, self.act_nn)(),
                 torch.nn.Dropout(p=self.dropout_rate),
                 *interm_layers,
@@ -153,12 +148,14 @@ class CGCNN_VN(BaseModel):
                 layers.append(torch.nn.Linear(self.dim2, self.output_dim))
         else:
             layers = [
-                torch.nn.Linear(self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim),
+                torch.nn.Linear(
+                    self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim
+                ),
             ]
         return torch.nn.Sequential(*layers)
 
     def _setup_post_gnn_layers(self):
-        """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. 
+        """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number.
         In the current version, the minimum is zero)."""
         post_lin_list = torch.nn.ModuleList()
         if self.post_fc_count > 0:

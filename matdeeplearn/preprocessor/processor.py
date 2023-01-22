@@ -184,10 +184,8 @@ class DataProcessor:
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             atomic_numbers, pos = (
-                    atomic_numbers,
-                    torch.tensor(
-                        s.get_positions(), device=self.device, dtype=torch.float
-                    ),
+                atomic_numbers,
+                torch.tensor(s.get_positions(), device=self.device, dtype=torch.float),
             )
 
             d["positions"] = pos

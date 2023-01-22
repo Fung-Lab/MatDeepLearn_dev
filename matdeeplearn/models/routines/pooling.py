@@ -18,7 +18,7 @@ class RealVirtualPooling(nn.Module):
         # obtain mask for all real nodes
         mask = torch.argwhere(data.z != 100).squeeze(1)
         out_masked = torch.index_select(out, 0, mask)
-        batch_masked = torch.index_select(data.batch, 0, mask)    
+        batch_masked = torch.index_select(data.batch, 0, mask)
         out_1 = self.pooling(out_masked, batch_masked)
 
         # obtain mask for all virtual nodes

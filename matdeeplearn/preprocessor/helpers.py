@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
+from ase import Atoms
 from torch.profiler import ProfilerActivity, profile
 from torch_geometric.data.data import Data
 from torch_geometric.utils import add_self_loops, degree
@@ -243,15 +244,14 @@ def get_cutoff_distance_matrix(
 
         n_neighbors: int
             max number of neighbors to be considered
-
-        atomic_numbers: np.ndarray
-            atomic numbers of the atoms in the structure (used only for virtual nodes)
     """
 
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
     distance_matrix, min_indices = get_distances(pos, cells, device=device)
 
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
+    
+    print('distances', distance_matrix)
 
     # if image_selfloop:
     #     # output of threshold sort has diagonal == 0
@@ -349,6 +349,43 @@ def generate_edge_features(input_data, edge_steps, r, device):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
         )
+
+
+def custom_node_edge_feats(
+    atomic_numbers,
+    num_nodes,
+    n_neighbors,
+    edge_descriptor,
+    edge_index,
+    edge_steps,
+    r,
+    device,
+    cat=True,
+    in_degree=False,
+):
+    # generate node_features
+    node_reps = torch.from_numpy(
+        load_node_representation(),
+    ).to(device)
+
+    x = node_reps[atomic_numbers - 1].view(-1, node_reps.shape[1])
+
+    idx = edge_index[1 if in_degree else 0]
+    deg = degree(idx, num_nodes, dtype=torch.long)
+    deg = F.one_hot(deg, num_classes=n_neighbors + 1).to(torch.float)
+
+    if x is not None and cat:
+        x = x.view(-1, 1) if x.dim() == 1 else x
+        x = torch.cat([x, deg.to(x.dtype)], dim=-1)
+    else:
+        x = deg
+
+    # generate edge_features
+    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
+    # perform normalization and feature generation in one step
+    edge_attr = distance_gaussian(edge_descriptor / r)
+
+    return x, edge_attr
 
 
 def lattice_params_to_matrix_torch(lengths, angles):
@@ -455,10 +492,8 @@ def frac_to_cart_coords(
 
 def generate_virtual_nodes(
     cell: torch.Tensor,
-    pos: torch.Tensor,
-    atomic_numbers: torch.Tensor,
+    increment: int,
     device: torch.device,
-    increment: int = 3,
 ):
     """_summary_
 
@@ -485,16 +520,14 @@ def generate_virtual_nodes(
 
     # obtain cartesian coordinates of virtual atoms
     lengths = torch.tensor([[a, b, c]], device=device)
-    angles = torch.tensor([[alpha, beta, gamma]], device=device)    
+    angles = torch.tensor([[alpha, beta, gamma]], device=device)
     virtual_pos = frac_to_cart_coords(coords, lengths, angles, len(coords))
 
-    # add virtual atoms to the original atomic positions
-    pos = torch.cat([pos, virtual_pos], dim=0)
-    atomic_numbers = torch.LongTensor(list(atomic_numbers) + [100] * len(coords))
-
-    return pos, atomic_numbers
+    # virtual positions and atomic numbers
+    return virtual_pos, torch.tensor([100] * len(coords), device=device)
 
 
+@DeprecationWarning
 def generate_virtual_nodes_ase(structure, device: torch.device):
     """
     increment specifies the spacing between virtual nodes in cartesian
@@ -536,7 +569,7 @@ def generate_virtual_nodes_ase(structure, device: torch.device):
         cell=l_and_a,
         pbc=[1, 1, 1],
     )
-    
+
     # obtain non-fractional coordinates and append to real atoms
     pos = torch.tensor(
         np.vstack((structure.get_positions(), temp.get_positions())),
