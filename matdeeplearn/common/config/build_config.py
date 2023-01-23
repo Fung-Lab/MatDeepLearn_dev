@@ -87,9 +87,9 @@ def create_dict_from_args(args: list, sep: str = "."):
 
 def build_config(args, args_override):
     # Open provided config file
-    assert os.path.exists(args.config_path), (
-        "Config file not found in " + args.config_path
-    )
+    assert os.path.exists(
+        args.config_path
+    ), f"Config file not found in {str(args.config_path)}"
     with open(args.config_path, "r") as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
