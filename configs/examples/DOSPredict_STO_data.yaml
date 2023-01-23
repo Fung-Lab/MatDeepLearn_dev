@@ -1,7 +1,7 @@
 trainer: property
 
 task:
-  identifier: "CGCNN_CNN_MP_DOS_baseline"
+  identifier: "DOSPredict_STO"
   reprocess: False
   parallel: True
   seed: 0
@@ -9,7 +9,7 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN_CNN
+  name: DOSPredict
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -24,11 +24,11 @@ model:
   dropout_rate: 0.05
 
 optim:
-  max_epochs: 1000
+  max_epochs: 800
   lr: 0.00047
   loss:
-    loss_type: "TorchLossWrapper"
-    loss_args: {"loss_fn": "l1_loss"}
+    loss_type: "DOSLoss"
+    loss_args: {"loss_fn": "l1_loss", "scaling_weight": 0.05, "cumsum_weight": 0.005, "features_weight": 0.15}
   batch_size: 180
   optimizer:
     optimizer_type: "AdamW"
@@ -39,9 +39,9 @@ optim:
 
 dataset:
   processed: True
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
-  target_path: ""
-  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/raw/"
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/targets.csv"
+  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/STO_DOS_data/"
   data_format: "json"
   node_representation: "onehot"
   additional_attributes: ["features", "scaled", "scaling_factor"]

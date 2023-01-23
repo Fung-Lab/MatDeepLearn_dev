@@ -21,15 +21,15 @@ model:
   gc_count: 9
   batch_norm: True
   batch_track_stats: False
-  dropout_rate: 0.05
+  dropout_rate: 0.1
 
 optim:
-  max_epochs: 2000
-  lr: 0.00047
+  max_epochs: 800
+  lr: 0.00034
   loss:
     loss_type: "DOSLoss"
     loss_args: {"loss_fn": "l1_loss", "scaling_weight": 0.05, "cumsum_weight": 0.005, "features_weight": 0.15}
-  batch_size: 180
+  batch_size: 140
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {"weight_decay":0.1}
@@ -39,9 +39,6 @@ optim:
 
 dataset:
   processed: True
-#  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/raw/"
-#  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/STO_DOS_data/targets.csv"
-#  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/STO_DOS_data/"
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
   target_path: ""
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
