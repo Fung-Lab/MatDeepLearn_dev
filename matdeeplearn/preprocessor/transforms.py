@@ -4,6 +4,7 @@ from torch_geometric.utils import dense_to_sparse, remove_self_loops
 from torch_sparse import coalesce
 
 from matdeeplearn.common.registry import registry
+from matdeeplearn.preprocessor.graph_data import VirtualNodeGraph
 from matdeeplearn.preprocessor.helpers import (
     compute_bond_angles,
     custom_node_edge_feats,
@@ -42,10 +43,10 @@ class VirtualNodes(object):
     def __init__(
         self,
         virtual_box_increment: int = 3,
-        vv_cutoff: float = 5,
-        vv_neighbors: int = 10,
-        rv_cutoff: float = 5,
-        rv_neighbors: int = 10,
+        vv_cutoff: float = 3,
+        vv_neighbors: int = 50,
+        rv_cutoff: float = 3,
+        rv_neighbors: int = 50,
         edge_steps: int = 50,
     ):
         self.virtual_box_increment = virtual_box_increment
@@ -58,6 +59,12 @@ class VirtualNodes(object):
         self.device = torch.device("cpu")
 
     def __call__(self, data: Data) -> Data:
+        # make sure n_neigbhors for node embeddings were specified equally for all nodes
+        # TODO fix this
+        # assert (
+        #     self.vv_neighbors == self.rv_neighbors == self.rr_neighbors
+        # ), "n_neighbors must be the same for all node types"
+
         vpos, virtual_z = generate_virtual_nodes(
             data.cell, self.virtual_box_increment, self.device
         )
@@ -71,13 +78,13 @@ class VirtualNodes(object):
             vpos, data.cell, self.vv_cutoff, self.vv_neighbors, self.device
         )
         cd_matrix_rv, _ = get_cutoff_distance_matrix(
-            data.pos, data.cell, self.rv_cutoff, self.rv_neighbors, self.device
+            data.rv_pos, data.cell, self.rv_cutoff, self.rv_neighbors, self.device
         )
 
         data.edge_index_vv, edge_weight_vv = dense_to_sparse(cd_matrix_vv)
-        data.edge_index_rv, edge_weight_rv = dense_to_sparse(cd_matrix_rv)
+        edge_index_rv, edge_weight_rv = dense_to_sparse(cd_matrix_rv)
 
-        # create edge attributes
+        # create node and edge attributes
         data.x_vv, data.edge_attr_vv = custom_node_edge_feats(
             virtual_z,
             len(virtual_z),
@@ -93,21 +100,40 @@ class VirtualNodes(object):
             len(data.z_rv),
             self.rv_neighbors,
             edge_weight_rv,
-            data.edge_index_rv,
+            edge_index_rv,
             self.edge_steps,
             self.vv_cutoff,
             self.device,
         )
 
+        rv_edge_mask = torch.argwhere(data.z_rv[edge_index_rv[0]] == 100)
+        # vr_edge_mask = torch.argwhere(data.z_rv[edge_index_rv[1]] == 100)
+
+        # create real->virtual directional edges
+        data.edge_index_rv = torch.clone(edge_index_rv)
+        data.edge_index_rv[0, rv_edge_mask] = edge_index_rv[1, rv_edge_mask]
+
+        # real->real edges
+        # data.edge_index_rr = torch.clone(edge_index_rv)
+        # data.edge_index_rr[0, rv_edge_mask] = edge_index_rv[1, rv_edge_mask]
+        # data.edge_index_rr[1, vr_edge_mask] = edge_index_rv[0, vr_edge_mask]
+
         # remove self loops
+        data.edge_index_rr, data.edge_attr_rr = remove_self_loops(
+            data.edge_index_rv, data.edge_attr_rv
+        )
         data.edge_index_vv, data.edge_attr_vv = remove_self_loops(
             data.edge_index_vv, data.edge_attr_vv
         )
-        data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
-            data.edge_index_rv, data.edge_attr_rv
-        )
+        # data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
+        #     data.edge_index_rv, data.edge_attr_rv
+        # )
 
-        return data
+        # assign descriptive attributes
+        data.n_vv_nodes = torch.tensor([len(data.x_vv)])
+        data.n_rv_nodes = torch.tensor([len(data.x_rv)])
+
+        return VirtualNodeGraph(data)
 
 
 @registry.register_transform("NumNodeTransform")

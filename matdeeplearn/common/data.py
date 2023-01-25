@@ -83,8 +83,7 @@ def get_dataset(
         if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(
-                    transform["name"],
-                    **({} if transform["args"] is None else transform["args"])
+                    transform["name"], **transforms.get("args", {})
                 )
             )
 

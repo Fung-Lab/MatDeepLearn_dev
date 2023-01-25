@@ -347,8 +347,7 @@ class DataProcessor:
             if not transform["otf"]:
                 transforms_list.append(
                     registry.get_transform_class(
-                        transform["name"],
-                        **({} if transform["args"] is None else transform["args"])
+                        transform["name"], **transform.get("args", {})
                     )
                 )
         composition = Compose(transforms_list)

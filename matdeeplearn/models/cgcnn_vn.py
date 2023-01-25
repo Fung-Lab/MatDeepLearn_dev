@@ -9,6 +9,7 @@ from torch_geometric.nn import CGConv, Set2Set
 import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
+from matdeeplearn.preprocessor.graph_data import VirtualNodeGraph
 
 
 @registry.register_model("CGCNN_VN")
@@ -24,8 +25,9 @@ class CGCNN_VN(BaseModel):
         gc_count=3,
         post_fc_count=1,
         pool="global_mean_pool",
-        virtual_pool="RealVirtualPooling",
-        atomic_intermediate_layer_resolution=4,
+        virtual_pool="AtomicNumberPooling",
+        pool_choice="both",
+        atomic_intermediate_layer_resolution=0,
         pool_order="early",
         batch_norm=True,
         batch_track_stats=True,
@@ -39,6 +41,7 @@ class CGCNN_VN(BaseModel):
         self.batch_norm = batch_norm
         self.pool = pool
         self.virtual_pool = virtual_pool
+        self.pool_choice = pool_choice
         self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
         self.act_fn = act_fn
         self.act_nn = act_nn
@@ -79,17 +82,18 @@ class CGCNN_VN(BaseModel):
             self.lin_out_2 = torch.nn.Linear(self.output_dim * 2, self.output_dim)
 
         # virtual node pooling scheme
-        self.virtual_node_pool = getattr(pooling, self.virtual_pool)(self.pool)
+        self.virtual_node_pool = getattr(pooling, self.virtual_pool)(
+            self.pool, self.pool_choice
+        )
 
     @property
     def target_attr(self):
         return "y"
 
-    def _setup_pre_gnn_layers(self):
+    def _setup_pre_gnn_layers(self) -> torch.nn.ModuleList:
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
         pre_lin_list = torch.nn.ModuleList()
         if self.pre_fc_count > 0:
-            pre_lin_list = torch.nn.ModuleList()
             for i in range(self.pre_fc_count):
                 if i == 0:
                     lin = torch.nn.Linear(self.num_features, self.dim1)
@@ -198,28 +202,29 @@ class CGCNN_VN(BaseModel):
 
         return post_lin_list, lin_out
 
-    def forward(self, data: Data):
+    def forward(self, data: VirtualNodeGraph):
+        print(data)
 
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
-                out = self.pre_lin_list[i](data.x.float())
-                out = getattr(F, self.act_fn)(out)
+                out = self.pre_lin_list[i](data.x_rv.float())
             else:
                 out = self.pre_lin_list[i](out)
-                out = getattr(F, self.act_fn)(out)
 
-        # GNN layers
-        for i in range(0, len(self.conv_list)):
+            out = getattr(F, self.act_fn)(out)
+
+        # GNN layers, perform MP only on the real nodes
+        for i in range(0, len(self.conv_list) - 1):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
+                        data.x_rv, data.edge_index, data.edge_attr.float()
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
+                        data.x_rv, data.edge_index, data.edge_attr.float()
                     )
             else:
                 if self.batch_norm:
@@ -234,9 +239,12 @@ class CGCNN_VN(BaseModel):
                     out = getattr(F, self.act_fn)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
+        # Perform MP for virtual nodes at last layer only
+        out = self.conv_list[-1](out, data.edge_index_rv, data.edge_attr_rv.float())
+
         # Post-GNN dense layers
         if self.pool_order == "early":
-            # virtual node pooling
+            # virtual node pooling scheme
             out = self.virtual_node_pool(data, out)
 
             for i in range(0, len(self.post_lin_list)):
