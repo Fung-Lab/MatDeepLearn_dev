@@ -121,22 +121,6 @@ class BaseTrainer(ABC):
         save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
-        # wandb_config = {
-        #     "model_params": config["model"],
-        #     "optimizer_hyperparams": {
-        #         "start_lr": config["optim"]["lr"],
-        #         "epochs": max_epochs,
-        #         "batch_size": config["optim"]["batch_size"],
-        #         "scheduler_args": config["optim"]["scheduler"]["scheduler_args"],
-        #     },
-        #     # "preprocess_params": config["optim"]["preprocess_params"],
-        #     "splits": {
-        #         "train": config["dataset"]["train_ratio"],
-        #         "val": config["dataset"]["val_ratio"],
-        #         "test": config["dataset"]["test_ratio"],
-        #     },
-        # }
-
         wandb.init(
             settings=wandb.Settings(start_method="fork"),
             project="DOS_cgcnn",
@@ -145,6 +129,8 @@ class BaseTrainer(ABC):
             name=identifier,
             config=config,
         )
+        # save model file
+        wandb.save("../models/cgcnn_cnn.py")
 
         return cls(
             model=model,
