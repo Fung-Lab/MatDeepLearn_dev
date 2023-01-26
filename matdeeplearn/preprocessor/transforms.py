@@ -133,7 +133,31 @@ class VirtualNodes(object):
         data.n_vv_nodes = torch.tensor([len(data.x_vv)])
         data.n_rv_nodes = torch.tensor([len(data.x_rv)])
 
-        return VirtualNodeGraph(data)
+        return VirtualNodeGraph(
+            data.x,
+            data.edge_index,
+            data.edge_attr,
+            data.y,
+            data.pos,
+            data.n_atoms,
+            data.cell,
+            data.z,
+            data.u,
+            data.edge_weight,
+            data.cell_offsets,
+            data.distances,
+            data.structure_id,
+            data.rv_pos,
+            data.z_rv,
+            data.edge_index_vv,
+            data.x_vv,
+            data.edge_attr_vv,
+            data.x_rv,
+            data.edge_attr_rv,
+            data.edge_index_rv,
+            data.n_vv_nodes,
+            data.n_rv_nodes,
+        )
 
 
 @registry.register_transform("NumNodeTransform")

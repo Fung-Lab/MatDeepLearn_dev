@@ -179,6 +179,9 @@ test*.ipynb
 
 checkpoints/
 
+# local configs
+configs/examples/config-hive.yml
+
 # misc
 .flake8
 .pylintrc

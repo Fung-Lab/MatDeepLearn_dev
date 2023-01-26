@@ -1,53 +1,74 @@
 from __future__ import annotations
 
 from torch_geometric.data import Data
+from torch_geometric.typing import OptTensor
 
 
 class VirtualNodeGraph(Data):
-    """Data class for virtual node applications to implement correct
+    """class for virtual node applications to implement correct
     minibatching and type recognition.
     """
 
     def __init__(
         self,
-        data: Data,
+        x: OptTensor = None,
+        edge_index: OptTensor = None,
+        edge_attr: OptTensor = None,
+        y: OptTensor = None,
+        pos: OptTensor = None,
+        n_atoms: OptTensor = None,
+        cell: OptTensor = None,
+        z: OptTensor = None,
+        u: OptTensor = None,
+        edge_weight: OptTensor = None,
+        cell_offsets: OptTensor = None,
+        distances: OptTensor = None,
+        structure_id: OptTensor = None,
+        rv_pos: OptTensor = None,
+        z_rv: OptTensor = None,
+        edge_index_vv: OptTensor = None,
+        x_vv: OptTensor = None,
+        edge_attr_vv: OptTensor = None,
+        x_rv: OptTensor = None,
+        edge_attr_rv: OptTensor = None,
+        edge_index_rv: OptTensor = None,
+        n_vv_nodes: OptTensor = None,
+        n_rv_nodes: OptTensor = None,
     ):
         super().__init__()
 
-        self.x = data.x
-        self.edge_index = data.edge_index
-        self.edge_attr = data.edge_attr
-        self.y = data.y
-        self.pos = data.pos
-        self.n_atoms = data.n_atoms
-        self.cell = data.cell
-        self.z = data.z
-        self.u = data.u
-        self.edge_weight = data.edge_weight
-        self.cell_offsets = data.cell_offsets
-        self.distances = data.distances
-        self.structure_id = data.structure_id
+        self.x = x
+        self.edge_index = edge_index
+        self.edge_attr = edge_attr
+        self.y = y
+        self.pos = pos
+        self.n_atoms = n_atoms
+        self.cell = cell
+        self.z = z
+        self.u = u
+        self.edge_weight = edge_weight
+        self.cell_offsets = cell_offsets
+        self.distances = distances
+        self.structure_id = structure_id
 
         # Properties specific to virtual nodes
-        self.rv_pos = data.rv_pos
-        self.z_rv = data.z_rv
-        self.edge_index_vv = data.edge_index_vv
-        self.x_vv = data.x_vv
-        self.edge_attr_vv = data.edge_attr_vv
-        self.x_rv = data.x_rv
-        self.edge_attr_rv = data.edge_attr_rv
-        self.edge_index_rv = data.edge_index_rv
-        # self.edge_index_rr = data.edge_index_rr
-        # self.edge_attr_rr = data.edge_attr_rr
+        self.rv_pos = rv_pos
+        self.z_rv = z_rv
+        self.edge_index_vv = edge_index_vv
+        self.x_vv = x_vv
+        self.edge_attr_vv = edge_attr_vv
+        self.x_rv = x_rv
+        self.edge_attr_rv = edge_attr_rv
+        self.edge_index_rv = edge_index_rv
 
         # assign descriptive attributes
-        self.n_vv_nodes = data.n_vv_nodes
-        self.n_rv_nodes = data.n_rv_nodes
+        self.n_vv_nodes = n_vv_nodes
+        self.n_rv_nodes = n_rv_nodes
 
-    def __inc__(self, key, value):
+    def __inc__(self, key, value, *args, **kwargs):
         if "rv" in key:
             return self.n_rv_nodes
         if "vv" in key:
             return self.n_vv_nodes
 
-        return super().__inc__(key, value)
+        return super().__inc__(key, value, *args, **kwargs)
