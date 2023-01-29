@@ -8,6 +8,8 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
+from matdeeplearn.common.registry import registry
+@registry.register_model("torchmd_t")
 
 
 class TorchMD_T(nn.Module):
