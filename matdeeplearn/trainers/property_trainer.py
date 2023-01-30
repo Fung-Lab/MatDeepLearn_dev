@@ -3,8 +3,8 @@ import time
 
 import numpy as np
 import torch
-import wandb
 
+import wandb
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
@@ -61,28 +61,22 @@ class PropertyTrainer(BaseTrainer):
     def train(self):
         # configure wandb experiment tracking
         if self.use_wandb:
+            metadata = self.wandb_config.get("metadata", {})
             _wandb_config = {
-                "model_hyperparams": self.model_config["hyperparams"],
-                "optimizer_hyperparams": {
-                    "start_lr": self.opt_config["lr"],
-                    "epochs": self.opt_config["max_epochs"],
-                    "batch_size": self.opt_config["batch_size"],
-                    "scheduler_args": self.opt_config["scheduler"]["scheduler_args"],
-                },
-                "preprocess_params": self.dataset_config["preprocess_params"],
-                "splits": {
-                    "train": self.dataset_config["train_ratio"],
-                    "val": self.dataset_config["val_ratio"],
-                    "test": self.dataset_config["test_ratio"],
-                },
+                "architecture": metadata.get("architecture"),
+                "cluster": metadata.get("cluster"),
+                "dataset": metadata.get("dataset"),
             }
             wandb.init(
                 settings=wandb.Settings(start_method="fork"),
                 project=self.wandb_config.get("wandb_project", "matdeeplearn"),
                 entity=self.wandb_config.get("wandb_entity", "fung-lab"),
                 name=self.timestamp_id,
+                notes=self.wandb_config.get("notes", None),
+                tags=self.wandb_config.get("tags", None),
                 config=_wandb_config,
             )
+            wandb_artifacts = self.wandb_config.get("log_artifacts", [])
 
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
@@ -142,7 +136,7 @@ class PropertyTrainer(BaseTrainer):
                 self.epoch_time = time.time() - epoch_start_time
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
-                    curr_metrics = self._log_metrics(val_metrics)
+                    self._log_metrics(val_metrics)
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if (
@@ -154,8 +148,12 @@ class PropertyTrainer(BaseTrainer):
                 # step scheduler, using validation error
                 self._scheduler_step()
 
-        # plot metrics
-        # self.plot_losses(train_metrics)
+        # create wandb artifacts
+        for i, artifact in enumerate(wandb_artifacts):
+            # run.log_artifact(
+            #     artifact["path"], name=artifact["name"], type=artifact["type"]
+            # )
+            wandb.save(artifact["path"])
 
         return self.best_model_state
 

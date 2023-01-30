@@ -23,11 +23,11 @@ class RealVirtualPooling(nn.Module):
         if self.pool_choice == "both":
             out_real = self.pooling(
                 torch.index_select(out, 0, real_mask),
-                torch.index_select(data.batch, 0, real_mask),
+                torch.index_select(data.x_rv_batch, 0, real_mask),
             )
             out_virtual = self.pooling(
                 torch.index_select(out, 0, virtual_mask),
-                torch.index_select(data.batch, 0, virtual_mask),
+                torch.index_select(data.x_rv_batch, 0, virtual_mask),
             )
 
             out = torch.cat((out_real, out_virtual), dim=1)
@@ -35,13 +35,13 @@ class RealVirtualPooling(nn.Module):
         elif self.pool_choice == "real":
             out = self.pooling(
                 torch.index_select(out, 0, real_mask),
-                torch.index_select(data.batch, 0, real_mask),
+                torch.index_select(data.x_rv_batch, 0, real_mask),
             )
 
         elif self.pool_choice == "virtual":
             out = self.pooling(
                 torch.index_select(out, 0, virtual_mask),
-                torch.index_select(data.batch, 0, virtual_mask),
+                torch.index_select(data.x_rv_batch, 0, virtual_mask),
             )
 
         return out
@@ -69,5 +69,5 @@ class AtomicNumberPooling(nn.Module):
         elem_pool.scatter_(dim=1, index=indices, src=out)
 
         # pool as before, but now each element within a graph is pooled separately
-        out = self.pooling(elem_pool, data.batch)
+        out = self.pooling(elem_pool, data.x_rv_batch)
         return out

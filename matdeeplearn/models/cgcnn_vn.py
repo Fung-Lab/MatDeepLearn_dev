@@ -3,7 +3,6 @@ from typing import List
 import torch
 import torch.nn.functional as F
 from torch.nn import BatchNorm1d
-from torch_geometric.data import Data
 from torch_geometric.nn import CGConv, Set2Set
 
 import matdeeplearn.models.routines.pooling as pooling
@@ -69,7 +68,7 @@ class CGCNN_VN(BaseModel):
             self.output_dim = len(data[0][self.target_attr])
 
         # setup layers
-        self.pre_lin_list = self._setup_pre_gnn_layers()
+        self.pre_lin_list_real, self.pre_lin_list_rv = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
 
@@ -92,16 +91,21 @@ class CGCNN_VN(BaseModel):
 
     def _setup_pre_gnn_layers(self) -> torch.nn.ModuleList:
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
-        pre_lin_list = torch.nn.ModuleList()
+        pre_lin_list_real = torch.nn.ModuleList()
+        pre_lin_list_rv = torch.nn.ModuleList()
+
         if self.pre_fc_count > 0:
             for i in range(self.pre_fc_count):
                 if i == 0:
-                    lin = torch.nn.Linear(self.num_features, self.dim1)
+                    lin_r = torch.nn.Linear(self.num_features, self.dim1)
+                    lin_rv = torch.nn.Linear(self.num_features, self.dim1)
                 else:
-                    lin = torch.nn.Linear(self.dim1, self.dim1)
-                pre_lin_list.append(lin)
+                    lin_r = torch.nn.Linear(self.dim1, self.dim1)
+                    lin_rv = torch.nn.Linear(self.dim1, self.dim1)
+                pre_lin_list_real.append(lin_r)
+                pre_lin_list_rv.append(lin_rv)
 
-        return pre_lin_list
+        return pre_lin_list_real, pre_lin_list_rv
 
     def _setup_gnn_layers(self):
         """Sets up GNN layers."""
@@ -171,7 +175,12 @@ class CGCNN_VN(BaseModel):
                         self.pool == "set2set"
                         or self.virtual_pool == "RealVirtualPooling"
                     ):
-                        lin = torch.nn.Linear(self.post_fc_dim * 2, self.dim2)
+                        if self.pool_choice == "both":
+                            lin = torch.nn.Linear(self.post_fc_dim * 2, self.dim2)
+                        elif (
+                            self.pool_choice == "real" or self.pool_choice == "virtual"
+                        ):
+                            lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
                     elif (
                         self.pool_order == "early"
                         and self.virtual_pool == "AtomicNumberPooling"
@@ -203,23 +212,20 @@ class CGCNN_VN(BaseModel):
         return post_lin_list, lin_out
 
     def forward(self, data: VirtualNodeGraph):
-        print(data)
-
         # Pre-GNN dense layers
-        for i in range(0, len(self.pre_lin_list)):
+        for i in range(0, len(self.pre_lin_list_real)):
             if i == 0:
-                out = self.pre_lin_list[i](data.x_rv.float())
+                out = self.pre_lin_list_real[i](data.x_rv.float())
             else:
-                out = self.pre_lin_list[i](out)
-
+                out = self.pre_lin_list_real[i](out)
             out = getattr(F, self.act_fn)(out)
 
         # GNN layers, perform MP only on the real nodes
         for i in range(0, len(self.conv_list) - 1):
-            if len(self.pre_lin_list) == 0 and i == 0:
+            if len(self.pre_lin_list_real) == 0 and i == 0:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        data.x_rv, data.edge_index, data.edge_attr.float()
+                        data.x_rv, data.edge_index_rr, data.edge_attr.float()
                     )
                     out = self.bn_list[i](out)
                 else:
@@ -239,7 +245,7 @@ class CGCNN_VN(BaseModel):
                     out = getattr(F, self.act_fn)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
-        # Perform MP for virtual nodes at last layer only
+        # Perform MP to virtual nodes at last layer only
         out = self.conv_list[-1](out, data.edge_index_rv, data.edge_attr_rv.float())
 
         # Post-GNN dense layers

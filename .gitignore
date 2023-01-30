@@ -187,3 +187,4 @@ configs/examples/config-hive.yml
 .pylintrc
 **/wandb/
 *.out
+results/

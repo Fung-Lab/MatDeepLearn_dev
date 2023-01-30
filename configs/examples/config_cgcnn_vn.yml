@@ -15,7 +15,19 @@ task:
     use_wandb: False
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-
+    notes: "Baseline with last layer MP"
+    tags: ["baseline"]
+    log_artifacts:
+      - path: "configs/examples/config_cgcnn_vn.yml"
+        name: "train config"
+        type: "config"
+      - path: "matdeeplearn/model/cgcnn_vn.py"
+        name: "cgcnn_vn model"
+        type: "model"
+    metadata:
+      architecture: "CGCNN_VN"
+      cluster: "perlmutter-slurm"
+      dataset: "hMOF-5K"
 
 model:
   name: CGCNN_VN

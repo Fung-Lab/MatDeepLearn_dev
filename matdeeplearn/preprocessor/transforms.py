@@ -60,7 +60,7 @@ class VirtualNodes(object):
 
     def __call__(self, data: Data) -> Data:
         # make sure n_neigbhors for node embeddings were specified equally for all nodes
-        # TODO fix this
+        # TODO find better way to assert, perhaps read from config file
         # assert (
         #     self.vv_neighbors == self.rv_neighbors == self.rr_neighbors
         # ), "n_neighbors must be the same for all node types"
@@ -107,27 +107,23 @@ class VirtualNodes(object):
         )
 
         rv_edge_mask = torch.argwhere(data.z_rv[edge_index_rv[0]] == 100)
-        # vr_edge_mask = torch.argwhere(data.z_rv[edge_index_rv[1]] == 100)
+        rr_edge_mask = torch.argwhere(
+            (data.z_rv[edge_index_rv[0]] != 100) & (data.z_rv[edge_index_rv[1]] != 100)
+        )
 
         # create real->virtual directional edges
         data.edge_index_rv = torch.clone(edge_index_rv)
         data.edge_index_rv[0, rv_edge_mask] = edge_index_rv[1, rv_edge_mask]
-
-        # real->real edges
-        # data.edge_index_rr = torch.clone(edge_index_rv)
-        # data.edge_index_rr[0, rv_edge_mask] = edge_index_rv[1, rv_edge_mask]
-        # data.edge_index_rr[1, vr_edge_mask] = edge_index_rv[0, vr_edge_mask]
+        # find real->real directional edges for removal
+        data.edge_index_rv[0, rr_edge_mask] = edge_index_rv[1, rr_edge_mask]
 
         # remove self loops
-        data.edge_index_rr, data.edge_attr_rr = remove_self_loops(
-            data.edge_index_rv, data.edge_attr_rv
-        )
         data.edge_index_vv, data.edge_attr_vv = remove_self_loops(
             data.edge_index_vv, data.edge_attr_vv
         )
-        # data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
-        #     data.edge_index_rv, data.edge_attr_rv
-        # )
+        data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
+            data.edge_index_rv, data.edge_attr_rv
+        )
 
         # assign descriptive attributes
         data.n_vv_nodes = torch.tensor([len(data.x_vv)])
