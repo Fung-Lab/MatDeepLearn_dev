@@ -8,6 +8,7 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
+from matdeeplearn.models.output_modules import Scalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_gn")
 
@@ -73,6 +74,7 @@ class TorchMD_GN(nn.Module):
         max_z=100,
         max_num_neighbors=32,
         aggr="add",
+        **kwargs
     ):
         super(TorchMD_GN, self).__init__()
 
@@ -102,6 +104,7 @@ class TorchMD_GN(nn.Module):
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
         self.aggr = aggr
+        self.pool = Scalar(self.hidden_channels)
 
         act_class = act_class_mapping[activation]
 
@@ -163,6 +166,10 @@ class TorchMD_GN(nn.Module):
 
         for interaction in self.interactions:
             x = x + interaction(x, edge_index, edge_weight, edge_attr)
+        x = self.pool.pre_reduce(x, None, z, pos, batch)
+        x = self.pool.reduce(x, batch)
+        if x.shape[1] == 1:
+            x = x.view(-1)
 
         return x, None, z, pos, batch
 

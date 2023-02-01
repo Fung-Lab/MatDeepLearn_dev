@@ -8,6 +8,7 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
+from matdeeplearn.models.output_modules import Scalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_t")
 
@@ -67,6 +68,7 @@ class TorchMD_T(nn.Module):
         cutoff_upper=5.0,
         max_z=100,
         max_num_neighbors=32,
+        **kwargs
     ):
         super(TorchMD_T, self).__init__()
 
@@ -93,6 +95,7 @@ class TorchMD_T(nn.Module):
         self.cutoff_lower = cutoff_lower
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
+        self.pool = Scalar(self.hidden_channels)
 
         act_class = act_class_mapping[activation]
         attn_act_class = act_class_mapping[attn_activation]
@@ -160,6 +163,10 @@ class TorchMD_T(nn.Module):
         for attn in self.attention_layers:
             x = x + attn(x, edge_index, edge_weight, edge_attr)
         x = self.out_norm(x)
+        x = self.pool.pre_reduce(x, None, z, pos, batch)
+        x = self.pool.reduce(x, batch)
+        if x.shape[1] == 1:
+            x = x.view(-1)
 
         return x, None, z, pos, batch
 
@@ -192,6 +199,7 @@ class MultiHeadAttention(MessagePassing):
         attn_activation,
         cutoff_lower,
         cutoff_upper,
+    
     ):
         super(MultiHeadAttention, self).__init__(aggr="add", node_dim=0)
         assert hidden_channels % num_heads == 0, (

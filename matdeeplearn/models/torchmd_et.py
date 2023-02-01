@@ -10,6 +10,7 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
+from matdeeplearn.models.output_modules import Scalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_et")
 
@@ -70,6 +71,7 @@ class TorchMD_ET(nn.Module):
         cutoff_upper=5.0,
         max_z=100,
         max_num_neighbors=32,
+        **kwargs
     ):
         super(TorchMD_ET, self).__init__()
 
@@ -100,6 +102,7 @@ class TorchMD_ET(nn.Module):
         self.cutoff_lower = cutoff_lower
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
+        self.pool = Scalar(self.hidden_channels)
 
         act_class = act_class_mapping[activation]
 
@@ -180,6 +183,10 @@ class TorchMD_ET(nn.Module):
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
+        x = self.pool.pre_reduce(x, vec, z, pos, batch)
+        x = self.pool.reduce(x, batch)
+        if x.shape[1] == 1:
+            x = x.view(-1)
 
         return x, vec, z, pos, batch
 
@@ -285,6 +292,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
             if self.dv_proj is not None
             else None
         )
+        
 
         # propagate_type: (q: Tensor, k: Tensor, v: Tensor, vec: Tensor, dk: Tensor, dv: Tensor, r_ij: Tensor, d_ij: Tensor)
         x, vec = self.propagate(

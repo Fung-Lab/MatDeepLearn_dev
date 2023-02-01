@@ -1,5 +1,5 @@
 
-trainer: property
+trainer: torchmd
 
 task:
   # run_mode: train
@@ -21,7 +21,7 @@ task:
 
 
 model:
-  name: torchmd_et
+  name: torchmd_t
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -33,7 +33,7 @@ model:
   rbf_type: "expnorm"
   trainable_rbf: True
   activation: "silu"
-  neighbor_embedding: True
+  neighbor_embedding: False
   cutoff_lower: 0.0
   cutoff_upper: 5.0
   max_z: 100
@@ -41,14 +41,14 @@ model:
   aggr: "add"
 
 optim:
-  max_epochs: 250
+  max_epochs: 600
   lr: 0.002
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
