@@ -122,13 +122,18 @@ class BaseTrainer(ABC):
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
         wandb.init(
-            settings=wandb.Settings(start_method="fork"),
+            settings=wandb.Settings(start_method="fork", code_dir="../"),
             project="DOS_cgcnn",
             entity="fung-lab",
             resume="allow",
             name=identifier,
             config=config,
+            save_code=True,
+            settings=wandb.Settings(),
         )
+
+        # save model file
+        # wandb.run.log_code(".", include_fn=lambda path: path.endswith("cgcnn_cnn.py"))
 
         # wandb.save("../models/cgcnn_cnn.py")
 
