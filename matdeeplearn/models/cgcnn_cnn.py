@@ -1,4 +1,5 @@
 import torch
+import wandb
 from torch.nn import AdaptiveAvgPool1d, BatchNorm1d, Dropout, Linear, ReLU, Sequential
 
 from matdeeplearn.common.registry import registry
@@ -42,6 +43,8 @@ class CGCNN_CNN(CGCNN):
             dropout_rate,
             **kwargs
         )
+        # save model file
+        wandb.run.log_code(".", include_fn=lambda path: path.endswith("cgcnn_cnn.py"))
 
         # set up CNN
         self.conv_layer1 = Sequential(
