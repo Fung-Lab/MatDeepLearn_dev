@@ -132,7 +132,7 @@ class BaseTrainer(ABC):
         )
 
         # save model file
-        run.log_code(root="../models")
+        run.log_code(root=".")
 
         # wandb.save("../models/cgcnn_cnn.py")
 
