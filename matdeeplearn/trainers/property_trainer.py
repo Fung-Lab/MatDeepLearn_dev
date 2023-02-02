@@ -140,7 +140,6 @@ class PropertyTrainer(BaseTrainer):
         node_level_predictions = False
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
-            
             if type(out) == tuple and len(out) == 5:
                 out = out[0]
             # if out is a tuple, then it's scaled data

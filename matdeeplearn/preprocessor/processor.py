@@ -277,7 +277,7 @@ class DataProcessor:
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
 
-            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+            cd_matrix, cell_offsets, atom_rij = get_cutoff_distance_matrix(
                 pos,
                 cell,
                 self.r,
@@ -287,6 +287,8 @@ class DataProcessor:
             )
 
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+            edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
+
 
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
@@ -295,6 +297,7 @@ class DataProcessor:
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
+            data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor = {}
