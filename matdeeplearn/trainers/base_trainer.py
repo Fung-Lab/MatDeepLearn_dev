@@ -129,7 +129,6 @@ class BaseTrainer(ABC):
             name=identifier,
             config=config,
             save_code=True,
-            settings=wandb.Settings(),
         )
 
         # save model file
