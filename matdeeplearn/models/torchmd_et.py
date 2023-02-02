@@ -202,6 +202,9 @@ class TorchMD_ET(nn.Module):
             f"cutoff_lower={self.cutoff_lower}, "
             f"cutoff_upper={self.cutoff_upper})"
         )
+    @property
+    def target_attr(self):
+        return "y"
 
 
 class EquivariantMultiHeadAttention(MessagePassing):

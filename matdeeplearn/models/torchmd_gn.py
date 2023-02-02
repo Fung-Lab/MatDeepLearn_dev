@@ -183,6 +183,9 @@ class TorchMD_GN(nn.Module):
             f"cutoff_upper={self.cutoff_upper}, "
             f"aggr={self.aggr})"
         )
+    @property
+    def target_attr(self):
+        return "y"
 
 
 class InteractionBlock(nn.Module):

@@ -72,6 +72,8 @@ class PropertyTrainer(BaseTrainer):
 
                 # Compute forward, loss, backward
                 out = self._forward(batch)
+                if type(out) == tuple and len(out) == 5:
+                    out = out[0]
                 loss = self._compute_loss(out, batch)
                 self._backward(loss)
 
@@ -119,6 +121,8 @@ class PropertyTrainer(BaseTrainer):
             with torch.no_grad():
                 batch = next(loader_iter).to(self.device)
                 out = self._forward(batch.to(self.device))
+                if type(out) == tuple and len(out) == 5:
+                    out = out[0]
                 loss = self._compute_loss(out, batch)
                 # Compute metrics
                 metrics = self._compute_metrics(out, batch, metrics)
@@ -136,7 +140,9 @@ class PropertyTrainer(BaseTrainer):
         node_level_predictions = False
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
-
+            
+            if type(out) == tuple and len(out) == 5:
+                out = out[0]
             # if out is a tuple, then it's scaled data
             if type(out) == tuple:
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
