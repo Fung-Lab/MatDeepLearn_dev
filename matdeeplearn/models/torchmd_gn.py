@@ -8,7 +8,7 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
-from matdeeplearn.models.output_modules import Scalar
+from matdeeplearn.models.output_modules import EquivariantScalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_gn")
 
@@ -104,7 +104,7 @@ class TorchMD_GN(nn.Module):
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
         self.aggr = aggr
-        self.pool = Scalar(self.hidden_channels)
+        self.pool = EquivariantScalar(self.hidden_channels)
 
         act_class = act_class_mapping[activation]
 
@@ -149,29 +149,24 @@ class TorchMD_GN(nn.Module):
 
     def forward(
         self,
-        z: Tensor,
-        pos: Tensor,
-        batch: Tensor,
-        s: Optional[Tensor] = None,
-        q: Optional[Tensor] = None,
+        data
     ) -> Tuple[Tensor, Optional[Tensor], Tensor, Tensor, Tensor]:
 
-        x = self.embedding(z)
+        x = self.embedding(data.z)
 
-        edge_index, edge_weight, _ = self.distance(pos, batch)
-        edge_attr = self.distance_expansion(edge_weight)
+        edge_attr = self.distance_expansion(data.edge_weight)
 
         if self.neighbor_embedding is not None:
-            x = self.neighbor_embedding(z, x, edge_index, edge_weight, edge_attr)
+            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, edge_attr)
 
         for interaction in self.interactions:
-            x = x + interaction(x, edge_index, edge_weight, edge_attr)
-        x = self.pool.pre_reduce(x, None, z, pos, batch)
-        x = self.pool.reduce(x, batch)
+            x = x + interaction(x, data.edge_index, data.edge_weight, edge_attr)
+        x = self.pool.pre_reduce(x, None, data.z, data.pos, data.batch)
+        x = self.pool.reduce(x, data.batch)
         if x.shape[1] == 1:
             x = x.view(-1)
 
-        return x, None, z, pos, batch
+        return x, None, data.z, data.pos, data.batch
 
     def __repr__(self):
         return (

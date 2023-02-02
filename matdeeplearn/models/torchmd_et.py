@@ -10,7 +10,7 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
-from matdeeplearn.models.output_modules import Scalar
+from matdeeplearn.models.output_modules import EquivariantScalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_et")
 
@@ -102,7 +102,7 @@ class TorchMD_ET(nn.Module):
         self.cutoff_lower = cutoff_lower
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
-        self.pool = Scalar(self.hidden_channels)
+        self.pool = EquivariantScalar(self.hidden_channels)
 
         act_class = act_class_mapping[activation]
 
@@ -155,40 +155,36 @@ class TorchMD_ET(nn.Module):
 
     def forward(
         self,
-        z: Tensor,
-        pos: Tensor,
-        batch: Tensor,
-        q: Optional[Tensor] = None,
-        s: Optional[Tensor] = None,
+        data
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
 
-        x = self.embedding(z)
+        x = self.embedding(data.z)
 
-        edge_index, edge_weight, edge_vec = self.distance(pos, batch)
+        edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
         assert (
             edge_vec is not None
         ), "Distance module did not return directional information"
 
-        edge_attr = self.distance_expansion(edge_weight)
-        mask = edge_index[0] != edge_index[1]
-        edge_vec[mask] = edge_vec[mask] / torch.norm(edge_vec[mask], dim=1).unsqueeze(1)
+        edge_attr = self.distance_expansion(data.edge_weight)
+        mask = data.edge_index[0] != data.edge_index[1]
+        data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
 
         if self.neighbor_embedding is not None:
-            x = self.neighbor_embedding(z, x, edge_index, edge_weight, edge_attr)
+            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, edge_attr)
 
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
-            dx, dvec = attn(x, vec, edge_index, edge_weight, edge_attr, edge_vec)
+            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, edge_attr, data.edge_vec)
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
-        x = self.pool.pre_reduce(x, vec, z, pos, batch)
-        x = self.pool.reduce(x, batch)
+        x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
+        x = self.pool.reduce(x, data.batch)
         if x.shape[1] == 1:
             x = x.view(-1)
 
-        return x, vec, z, pos, batch
+        return x, vec, data.z, data.pos, data.batch
 
     def __repr__(self):
         return (
