@@ -43,8 +43,6 @@ class CGCNN_CNN(CGCNN):
             dropout_rate,
             **kwargs
         )
-        # save model file
-        wandb.run.log_code(".", include_fn=lambda path: path.endswith("cgcnn_cnn.py"))
 
         # set up CNN
         self.conv_layer1 = Sequential(
