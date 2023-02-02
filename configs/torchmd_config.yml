@@ -21,7 +21,7 @@ task:
 
 
 model:
-  name: torchmd_t
+  name: torchmd_et
   load_model: False
   save_model: True
   model_path: "my_model.pth"

@@ -8,7 +8,7 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
-from matdeeplearn.models.output_modules import EquivariantScalar
+from matdeeplearn.models.output_modules import Scalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_t")
 
@@ -95,7 +95,7 @@ class TorchMD_T(nn.Module):
         self.cutoff_lower = cutoff_lower
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
-        self.pool = EquivariantScalar(self.hidden_channels)
+        self.pool = Scalar(self.hidden_channels)
 
         act_class = act_class_mapping[activation]
         attn_act_class = act_class_mapping[attn_activation]
