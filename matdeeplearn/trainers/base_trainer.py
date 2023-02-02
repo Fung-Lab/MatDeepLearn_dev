@@ -122,7 +122,7 @@ class BaseTrainer(ABC):
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
         wandb.init(
-            settings=wandb.Settings(start_method="fork", code_dir="../"),
+            settings=wandb.Settings(start_method="fork", code_dir="../models/"),
             project="DOS_cgcnn",
             entity="fung-lab",
             resume="allow",
