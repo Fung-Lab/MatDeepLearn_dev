@@ -129,8 +129,8 @@ class BaseTrainer(ABC):
             name=identifier,
             config=config,
         )
-        # save model file
-        wandb.save("../models/cgcnn_cnn.py")
+
+        # wandb.save("../models/cgcnn_cnn.py")
 
         return cls(
             model=model,
