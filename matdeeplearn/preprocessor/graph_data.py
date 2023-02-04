@@ -5,7 +5,7 @@ from torch_geometric.typing import OptTensor
 
 
 class VirtualNodeGraph(Data):
-    """class for virtual node applications to implement correct
+    """Class for virtual node applications to implement correct
     minibatching and type recognition.
     """
 
@@ -32,8 +32,13 @@ class VirtualNodeGraph(Data):
         x_rv: OptTensor = None,
         edge_attr_rv: OptTensor = None,
         edge_index_rv: OptTensor = None,
+        edge_index_vr: OptTensor = None,
+        x_both: OptTensor = None,
+        edge_index_both: OptTensor = None,
+        edge_attr_both: OptTensor = None,
         n_vv_nodes: OptTensor = None,
         n_rv_nodes: OptTensor = None,
+        n_both_nodes: OptTensor = None,
     ):
         super().__init__()
 
@@ -60,15 +65,22 @@ class VirtualNodeGraph(Data):
         self.x_rv = x_rv
         self.edge_attr_rv = edge_attr_rv
         self.edge_index_rv = edge_index_rv
+        self.edge_index_vr = edge_index_vr
+        self.x_both = x_both
+        self.edge_index_both = edge_index_both
+        self.edge_attr_both = edge_attr_both
 
         # assign descriptive attributes
         self.n_vv_nodes = n_vv_nodes
         self.n_rv_nodes = n_rv_nodes
+        self.n_both_nodes = n_both_nodes
 
     def __inc__(self, key, value, *args, **kwargs):
         if "rv" in key:
             return self.n_rv_nodes
         if "vv" in key:
             return self.n_vv_nodes
+        if "both" in key:
+            return self.n_both_nodes
 
         return super().__inc__(key, value, *args, **kwargs)

@@ -2,6 +2,7 @@ import logging
 import time
 
 import numpy as np
+import os
 import torch
 
 import wandb
@@ -33,6 +34,7 @@ class PropertyTrainer(BaseTrainer):
         model_config,
         opt_config,
         dataset_config,
+        use_wandb,
     ):
         super().__init__(
             model,
@@ -54,9 +56,11 @@ class PropertyTrainer(BaseTrainer):
             model_config,
             opt_config,
             dataset_config,
+            use_wandb
         )
 
-        self.use_wandb = self.wandb_config.get("use_wandb", False)
+        # allow CLI to override config file
+        self.use_wandb = self.wandb_config.get("use_wandb", False) and use_wandb
 
     def train(self):
         # configure wandb experiment tracking
@@ -77,6 +81,18 @@ class PropertyTrainer(BaseTrainer):
                 config=_wandb_config,
             )
             wandb_artifacts = self.wandb_config.get("log_artifacts", [])
+
+            # create wandb artifacts
+            for i, artifact in enumerate(wandb_artifacts):
+                # TODO fix this temporary workaround to log artifacts
+                # run.log_artifact(
+                #     artifact["path"], name=artifact["name"], type=artifact["type"]
+                # )
+                if not os.path.exists(artifact["path"]):
+                    raise ValueError(
+                        f"Artifact {artifact['path']} does not exist. Please check the path."
+                    )
+                wandb.save(artifact["path"])
 
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
@@ -147,13 +163,6 @@ class PropertyTrainer(BaseTrainer):
 
                 # step scheduler, using validation error
                 self._scheduler_step()
-
-        # create wandb artifacts
-        for i, artifact in enumerate(wandb_artifacts):
-            # run.log_artifact(
-            #     artifact["path"], name=artifact["name"], type=artifact["type"]
-            # )
-            wandb.save(artifact["path"])
 
         return self.best_model_state
 

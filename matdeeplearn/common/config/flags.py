@@ -25,6 +25,21 @@ class Flags:
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
         )
+
+        # fix boolean parsing
+        def boolean_string(s):
+            if s not in {"False", "True"}:
+                raise ValueError("Not a valid boolean string")
+            return s == "True"
+
+        self.parser.add_argument(
+            "--use_wandb",
+            required=False,
+            default=True,
+            type=boolean_string,
+            help="Whether or not to use wandb",
+        )
+
         # self.parser.add_argument(
         #     "--job_name",
         #     default=None,

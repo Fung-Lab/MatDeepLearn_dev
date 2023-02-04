@@ -26,6 +26,8 @@ class CGCNN_VN(BaseModel):
         pool="global_mean_pool",
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
+        node_pool_choice="x_both",
+        mp_pattern: List[str] = ["x_both", "x_both", "x_both"],
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
         batch_norm=True,
@@ -41,6 +43,8 @@ class CGCNN_VN(BaseModel):
         self.pool = pool
         self.virtual_pool = virtual_pool
         self.pool_choice = pool_choice
+        self.node_pool_choice = node_pool_choice
+        self.mp_pattern = mp_pattern
         self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
         self.act_fn = act_fn
         self.act_nn = act_nn
@@ -53,6 +57,11 @@ class CGCNN_VN(BaseModel):
         self.post_fc_count = post_fc_count
         self.num_features = data.num_features
         self.num_edge_features = data.num_edge_features
+
+        # make sure mp pattern is valid
+        assert (
+            len(self.mp_pattern) == self.gc_count
+        ), "mp_pattern must be same length as gc_count"
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
@@ -68,7 +77,7 @@ class CGCNN_VN(BaseModel):
             self.output_dim = len(data[0][self.target_attr])
 
         # setup layers
-        self.pre_lin_list_real, self.pre_lin_list_rv = self._setup_pre_gnn_layers()
+        self.pre_lin_lists = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
 
@@ -82,7 +91,11 @@ class CGCNN_VN(BaseModel):
 
         # virtual node pooling scheme
         self.virtual_node_pool = getattr(pooling, self.virtual_pool)(
-            self.pool, self.pool_choice
+            self.pool,
+            **{
+                "pool_choice": self.pool_choice,
+                "node_pool_choice": self.node_pool_choice,
+            },
         )
 
     @property
@@ -91,21 +104,22 @@ class CGCNN_VN(BaseModel):
 
     def _setup_pre_gnn_layers(self) -> torch.nn.ModuleList:
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
-        pre_lin_list_real = torch.nn.ModuleList()
-        pre_lin_list_rv = torch.nn.ModuleList()
+        pre_lin_lists = {}
 
-        if self.pre_fc_count > 0:
-            for i in range(self.pre_fc_count):
-                if i == 0:
-                    lin_r = torch.nn.Linear(self.num_features, self.dim1)
-                    lin_rv = torch.nn.Linear(self.num_features, self.dim1)
-                else:
-                    lin_r = torch.nn.Linear(self.dim1, self.dim1)
-                    lin_rv = torch.nn.Linear(self.dim1, self.dim1)
-                pre_lin_list_real.append(lin_r)
-                pre_lin_list_rv.append(lin_rv)
+        for key in set(self.mp_pattern):
+            pre_lin_list = torch.nn.ModuleList()
 
-        return pre_lin_list_real, pre_lin_list_rv
+            if self.pre_fc_count > 0:
+                for i in range(self.pre_fc_count):
+                    if i == 0:
+                        lin_r = torch.nn.Linear(self.num_features, self.dim1)
+                    else:
+                        lin_r = torch.nn.Linear(self.dim1, self.dim1)
+                    pre_lin_list.append(lin_r)
+
+            pre_lin_lists[key] = pre_lin_list
+
+        return pre_lin_lists
 
     def _setup_gnn_layers(self):
         """Sets up GNN layers."""
@@ -125,7 +139,7 @@ class CGCNN_VN(BaseModel):
 
         return conv_list, bn_list
 
-    def _setup_post_atomic_pooling_layers(self, post_fc: bool = False):
+    def _setup_post_atomic_pooling_layers(self, post_fc: bool):
         if self.atomic_intermediate_layer_resolution > 0:
             # We use 100 as embedding expansion in atomic num pooling, can prevent loss of info with sequential layers
             interm_layers: List[torch.nn.Linear] = []
@@ -140,7 +154,6 @@ class CGCNN_VN(BaseModel):
 
             for out_dim in stride_dims:
                 interm_layers.append(torch.nn.Linear(in_dim, out_dim))
-                interm_layers.append(getattr(torch.nn, self.act_nn)()),
                 torch.nn.Dropout(p=self.dropout_rate)
                 in_dim = out_dim
 
@@ -148,17 +161,12 @@ class CGCNN_VN(BaseModel):
 
             layers = [
                 torch.nn.Linear(self.post_fc_dim * 100, interm_layers[0].in_features),
-                getattr(torch.nn, self.act_nn)(),
                 torch.nn.Dropout(p=self.dropout_rate),
                 *interm_layers,
             ]
-            if not post_fc:
-                layers.append(torch.nn.Linear(self.dim2, self.output_dim))
         else:
             layers = [
-                torch.nn.Linear(
-                    self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim
-                ),
+                torch.nn.Linear(self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim),
             ]
         return torch.nn.Sequential(*layers)
 
@@ -212,49 +220,70 @@ class CGCNN_VN(BaseModel):
         return post_lin_list, lin_out
 
     def forward(self, data: VirtualNodeGraph):
-        # Pre-GNN dense layers
-        for i in range(0, len(self.pre_lin_list_real)):
-            if i == 0:
-                out = self.pre_lin_list_real[i](data.x_rv.float())
-            else:
-                out = self.pre_lin_list_real[i](out)
-            out = getattr(F, self.act_fn)(out)
+        # Pre-GNN dense layers for each node type
+        pre_lin_out = {}
+        for key, pre_lin_list in self.pre_lin_lists.items():
+            for j in range(0, len(pre_lin_list)):
+                if j == 0:
+                    node_attr = getattr(data, key)
+                    # (bug) ensure layers from dictionary are on right device
+                    pre_lin_list[j].to(node_attr.device)
+                    out = pre_lin_list[j](node_attr.float())
+                else:
+                    out = pre_lin_list[j](out)
+                out = getattr(F, self.act_fn)(out)
+            pre_lin_out[key] = out
 
         # GNN layers, perform MP only on the real nodes
-        for i in range(0, len(self.conv_list) - 1):
-            if len(self.pre_lin_list_real) == 0 and i == 0:
+        for j in range(0, len(self.conv_list)):
+            # which nodes to engage in MP at this layer
+            mp_choice = self.mp_pattern[j]
+            # use the correct edge_index for MP at this layer
+            edge_index_use, edge_attr_use = data.edge_index_both, data.edge_attr_both
+            if mp_choice == "x_rv":
+                edge_index_use, edge_attr_use = data.edge_index_rv, data.edge_attr_rv
+            elif mp_choice == "x_vv":
+                edge_index_use, edge_attr_use = data.edge_index_vv, data.edge_attr_vv
+            elif mp_choice == "x_vr":
+                edge_index_use, edge_attr_use = data.edge_index_vr, data.edge_attr_rv
+
+            if len(self.pre_lin_lists.get(mp_choice)) == 0 and j == 0:
                 if self.batch_norm:
-                    out = self.conv_list[i](
-                        data.x_rv, data.edge_index_rr, data.edge_attr.float()
+                    out = self.conv_list[j](
+                        getattr(data, mp_choice),
+                        edge_index_use,
+                        edge_attr_use.float(),
                     )
-                    out = self.bn_list[i](out)
+                    out = self.bn_list[j](out)
                 else:
-                    out = self.conv_list[i](
-                        data.x_rv, data.edge_index, data.edge_attr.float()
+                    out = self.conv_list[j](
+                        getattr(data, mp_choice),
+                        edge_index_use,
+                        edge_attr_use.float(),
                     )
             else:
                 if self.batch_norm:
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
+                    out = self.conv_list[j](
+                        pre_lin_out[mp_choice], edge_index_use, edge_attr_use.float()
                     )
-                    out = self.bn_list[i](out)
+                    out = self.bn_list[j](out)
                 else:
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
+                    out = self.conv_list[j](
+                        pre_lin_out[mp_choice], edge_index_use, edge_attr_use.float()
                     )
                     out = getattr(F, self.act_fn)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
-        # Perform MP to virtual nodes at last layer only
-        out = self.conv_list[-1](out, data.edge_index_rv, data.edge_attr_rv.float())
-
         # Post-GNN dense layers
         if self.pool_order == "early":
             # virtual node pooling scheme
-            out = self.virtual_node_pool(data, out)
+            out = self.virtual_node_pool(
+                data,
+                out,
+            )
 
-            for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
+            for j in range(0, len(self.post_lin_list)):
+                out = self.post_lin_list[j](out)
                 out = getattr(F, self.act_fn)(out)
             out = self.lin_out(out)
 

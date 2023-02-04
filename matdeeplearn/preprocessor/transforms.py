@@ -47,6 +47,8 @@ class VirtualNodes(object):
         vv_neighbors: int = 50,
         rv_cutoff: float = 3,
         rv_neighbors: int = 50,
+        n_neighbors: int = 50,
+        cutoff: float = 5,
         edge_steps: int = 50,
     ):
         self.virtual_box_increment = virtual_box_increment
@@ -54,6 +56,8 @@ class VirtualNodes(object):
         self.vv_neighbors = vv_neighbors
         self.rv_cutoff = rv_cutoff
         self.rv_neighbors = rv_neighbors
+        self.n_neighbors = n_neighbors
+        self.cutoff = cutoff
         self.edge_steps = edge_steps
         # processing is done on cpu
         self.device = torch.device("cpu")
@@ -80,9 +84,17 @@ class VirtualNodes(object):
         cd_matrix_rv, _ = get_cutoff_distance_matrix(
             data.rv_pos, data.cell, self.rv_cutoff, self.rv_neighbors, self.device
         )
+        cd_matrix, _ = get_cutoff_distance_matrix(
+            torch.cat((data.pos, vpos), dim=0),
+            data.cell,
+            self.cutoff,
+            self.n_neighbors,
+            self.device,
+        )
 
         data.edge_index_vv, edge_weight_vv = dense_to_sparse(cd_matrix_vv)
         edge_index_rv, edge_weight_rv = dense_to_sparse(cd_matrix_rv)
+        data.edge_index_both, edge_weight_both = dense_to_sparse(cd_matrix)
 
         # create node and edge attributes
         data.x_vv, data.edge_attr_vv = custom_node_edge_feats(
@@ -102,11 +114,24 @@ class VirtualNodes(object):
             edge_weight_rv,
             edge_index_rv,
             self.edge_steps,
-            self.vv_cutoff,
+            self.rv_cutoff,
+            self.device,
+        )
+
+        # original method without specific cutoffs
+        data.x_both, data.edge_attr_both = custom_node_edge_feats(
+            torch.cat((data.z, virtual_z), dim=0),
+            len(data.z_rv),
+            self.n_neighbors,
+            edge_weight_both,
+            data.edge_index_both,
+            self.edge_steps,
+            self.cutoff,
             self.device,
         )
 
         rv_edge_mask = torch.argwhere(data.z_rv[edge_index_rv[0]] == 100)
+        vr_edge_mask = torch.argwhere(data.z_rv[edge_index_rv[0]] != 100)
         rr_edge_mask = torch.argwhere(
             (data.z_rv[edge_index_rv[0]] != 100) & (data.z_rv[edge_index_rv[1]] != 100)
         )
@@ -116,18 +141,24 @@ class VirtualNodes(object):
         data.edge_index_rv[0, rv_edge_mask] = edge_index_rv[1, rv_edge_mask]
         # find real->real directional edges for removal
         data.edge_index_rv[0, rr_edge_mask] = edge_index_rv[1, rr_edge_mask]
+        # create virtual->real directional edges
+        data.edge_index_vr = torch.clone(edge_index_rv)
+        data.edge_index_vr[0, vr_edge_mask] = edge_index_rv[1, vr_edge_mask]
 
         # remove self loops
+        # TODO check if this is necessary for VV interactions
         data.edge_index_vv, data.edge_attr_vv = remove_self_loops(
             data.edge_index_vv, data.edge_attr_vv
         )
         data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
             data.edge_index_rv, data.edge_attr_rv
         )
+        data.edge_index_vr, _ = remove_self_loops(data.edge_index_vr)
 
         # assign descriptive attributes
         data.n_vv_nodes = torch.tensor([len(data.x_vv)])
         data.n_rv_nodes = torch.tensor([len(data.x_rv)])
+        data.n_both_nodes = torch.tensor([len(data.x_both)])
 
         return VirtualNodeGraph(
             data.x,
@@ -151,8 +182,13 @@ class VirtualNodes(object):
             data.x_rv,
             data.edge_attr_rv,
             data.edge_index_rv,
+            data.edge_index_vr,
+            data.x_both,
+            data.edge_index_both,
+            data.edge_attr_both,
             data.n_vv_nodes,
             data.n_rv_nodes,
+            data.n_both_nodes,
         )
 
 

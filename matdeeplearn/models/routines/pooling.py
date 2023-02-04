@@ -8,13 +8,13 @@ from torch_geometric.data import Data
 
 
 class RealVirtualPooling(nn.Module):
-    def __init__(self, pool: str, pool_choice: str) -> None:
+    def __init__(self, pool: str, **kwargs) -> None:
         """
         Pool real and virtual nodes separately then concatenate them.
         """
         super().__init__()
         self.pooling = getattr(torch_geometric.nn, pool)
-        self.pool_choice = pool_choice
+        self.pool_choice = kwargs.get("pool_choice", "both")
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
         real_mask = torch.argwhere(data.z_rv != 100).squeeze(1)
@@ -48,7 +48,7 @@ class RealVirtualPooling(nn.Module):
 
 
 class AtomicNumberPooling(nn.Module):
-    def __init__(self, pool, *args) -> None:
+    def __init__(self, pool, **kwargs) -> None:
         """
         Expands the node embedding from length N to length N*100, where a node of a specific atomic number
         is indexed to the appropriate location in the N*100 tensor. If atomic number = 1, then the embedding is found in 0:99,
@@ -56,7 +56,7 @@ class AtomicNumberPooling(nn.Module):
         """
         super().__init__()
         self.pooling = getattr(torch_geometric.nn, pool)
-        del args
+        self.node_pool_choice = kwargs.get("node_pool_choice", "x_both")
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
         elem_pool = torch.zeros((out.shape[0], out.shape[1] * 100), device=out.device)
@@ -69,5 +69,14 @@ class AtomicNumberPooling(nn.Module):
         elem_pool.scatter_(dim=1, index=indices, src=out)
 
         # pool as before, but now each element within a graph is pooled separately
-        out = self.pooling(elem_pool, data.x_rv_batch)
+        if self.node_pool_choice == "x_rv":
+            batch = data.x_rv_batch
+        elif self.node_pool_choice == "x_vv":
+            batch = data.x_vv_batch
+        elif self.node_pool_choice == "x_both":
+            batch = data.x_both_batch
+        else:
+            batch = data.batch
+        
+        out = self.pooling(elem_pool, batch)
         return out
