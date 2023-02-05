@@ -1,0 +1,98 @@
+
+trainer: property
+
+task:
+  # run_mode: train
+  identifier: "alignn_train_100"
+
+  reprocess: False
+
+
+  parallel: True
+  seed: 0
+  #seed=0 means random initalization
+
+
+  write_output: True
+  parallel: True
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 1
+
+
+
+model:
+  name: ALIGNN_GRAPHITE
+  load_model: False
+  save_model: True
+  model_path: "alignn_graphite_model.pth"
+  num_interactions: 4
+  num_species: 3
+  cutoff: 3.0
+  dim: 64
+  # min_angle: float = 0.0,
+  # max_angle: float = torch.acos(torch.zeros(1)).item() * 2,
+  link: "identity"
+
+optim:
+  max_epochs: 103
+  lr: 0.001
+  #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "mse_loss"}
+
+  batch_size: 64
+
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {"weight_decay": 0.00001}
+  scheduler:
+    scheduler_type: "OneCycleLR"
+    # Look further into steps per epoch, for now hardcoded calculation from paper
+    scheduler_args: {"max_lr": 0.001, "epochs": 300, "steps_per_epoch": 1}
+
+dataset:
+  processed: True # if False, need to preprocessor data and generate .pt file
+  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
+  # dataset_type: "inmemory"
+  #Path to data files
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/targets.csv"
+  #Path to save processed data.pt file (a directory path not filepath)
+  pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/"
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: False
+    - name: NumNodeTransform
+      args:
+      otf: False
+    - name: LineGraphMod
+      args:
+      otf: False
+    - name: ToFloat
+      args:
+      otf: False
+  #Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  #Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  #Print out processing info
+  verbose: True
+
+  #Loading dataset params
+  #Index of target column in targets.csv
+  target_index: 0
+
+  #graph specific settings
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
+
+  #Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

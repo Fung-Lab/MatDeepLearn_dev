@@ -1,0 +1,92 @@
+trainer: property
+
+task:
+  identifier: "alignn_train_100"
+  reprocess: False
+  parallel: True
+  seed: 0
+  save_dir: "."
+  checkpoint_dir: "."
+  write_output: True
+  parallel: True
+  # Training print out frequency (print per n number of epochs)
+  verbosity: 1
+
+
+model:
+  name: ALIGNN
+  load_model: False
+  save_model: True
+  model_path: "alignn_model.pth"
+  alignn_layers: 4
+  gcn_layers: 4
+  atom_input_features: 114
+  edge_input_features: 50
+  triplet_input_features: 40
+  embedding_features: 64
+  hidden_features: 256
+  output_features: 1
+  min_edge_distance: 0.0
+  max_edge_distance: 8.0
+  link: "identity"
+
+optim:
+  max_epochs: 100
+  lr: 0.001
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "mse_loss"}
+
+  batch_size: 64
+
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {"weight_decay": 0.00001}
+  scheduler:
+    scheduler_type: "OneCycleLR"
+    # Look further into steps per epoch, for now hardcoded calculation from paper
+    scheduler_args: {"max_lr": 0.001, "epochs": 300, "steps_per_epoch": 1}
+
+dataset:
+  processed: False
+  # Path to data files
+  # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/raw/"
+  src: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/raw/"
+  # Path to target file within data_path
+  # target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/targets.csv"
+  target_path: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/targets.csv"
+  # Path to save processed data.pt file (a directory path not filepath)
+  # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/"
+  pt_path: "/storage/home/hhive1/sbaskaran31/scratch/MP_data_69K/"
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: False
+    - name: NumNodeTransform
+      args:
+      otf: False
+    - name: LineGraphMod
+      args:
+      otf: False
+    - name: ToFloat
+      args:
+      otf: False
+  # Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  # Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  # Print out processing info
+  verbose: True
+  # Loading dataset params
+  # Index of target column in targets.csv
+  # graph specific settings
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
+  # Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

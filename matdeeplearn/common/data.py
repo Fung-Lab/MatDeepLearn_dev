@@ -1,11 +1,13 @@
 import warnings
+from typing import List
 
 import torch
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
+from torch_geometric.transforms import Compose
 
+from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
-from matdeeplearn.preprocessor.transforms import GetY
 
 
 # train test split
@@ -58,7 +60,9 @@ def dataset_split(
 
 
 def get_dataset(
-    data_path, target_index: int = 0, transform_type="GetY", large_dataset=False
+    data_path,
+    transform_list: List[dict] = [],
+    large_dataset=False,
 ):
     """
     get dataset according to data_path
@@ -71,21 +75,24 @@ def get_dataset(
     data_path: str
         path to the folder containing data.pt file
 
-    target_index: int
-        the index to select the target values
-        this is needed because in our target.csv, there might be
-        multiple columns of target values available for that
-        particular dataset, thus we need to index one column for
-        the current run/experiment
-
-    transform_type: transformation function/class to be applied
+    transform_list: transformation function/classes to be applied
     """
 
+    # Ensure GetY exists to prevent downstream model errors
+    assert "GetY" in [
+        tf["name"] for tf in transform_list
+    ], "The target transform GetY is required in config."
+
+    transforms = []
     # set transform method
-    if transform_type == "GetY":
-        T = GetY
-    else:
-        raise ValueError("No such transform found for {transform}")
+    for transform in transform_list:
+        if transform.get("otf", False):
+            transforms.append(
+                registry.get_transform_class(
+                    transform["name"],
+                    **({} if transform["args"] is None else transform["args"])
+                )
+            )
 
     # check if large dataset is needed
     if large_dataset:
@@ -93,17 +100,15 @@ def get_dataset(
     else:
         Dataset = StructureDataset
 
-    transform = T(index=target_index)
+    composition = Compose(transforms) if len(transforms) > 1 else transforms[0]
 
-    return Dataset(data_path, processed_data_path="", transform=transform)
+    dataset = Dataset(data_path, processed_data_path="", transform=composition)
+
+    return dataset
 
 
 def get_dataloader(
-    dataset,
-    batch_size: int,
-    num_workers: int = 0,
-    sampler=None,
-    shuffle=True
+    dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
 ):
     """
     Returns a single dataloader for a given dataset

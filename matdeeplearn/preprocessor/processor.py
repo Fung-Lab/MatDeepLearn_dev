@@ -2,15 +2,16 @@ import json
 import logging
 import os
 
-import ase
 import numpy as np
 import pandas as pd
 import torch
 from ase import io
 from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
+from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
@@ -41,13 +42,14 @@ def process_data(dataset_config):
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         edge_steps=edge_steps,
+        transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
         self_loop=self_loop,
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
-        device=device
+        device=device,
     )
     processor.process()
 
@@ -61,6 +63,7 @@ class DataProcessor:
         r: float,
         n_neighbors: int,
         edge_steps: int,
+        transforms: list = [],
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
@@ -93,6 +96,9 @@ class DataProcessor:
             edge_steps: int
                 step size for creating Gaussian basis for edges
                 used in torch.linspace
+
+            transforms: list
+                default []. List of transforms to apply to the data.
 
             data_format: str
                 format of the raw data file
@@ -131,7 +137,7 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.device = device
-
+        self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
@@ -156,7 +162,7 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, structure_id in enumerate(file_names):
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
-            ase_structures.append(ase.io.read(p))
+            ase_structures.append(io.read(p))
 
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
@@ -212,7 +218,11 @@ class DataProcessor:
 
         dict_structures = []
         y = []
-        y_dim = len(original_structures[0]["y"]) if isinstance(original_structures[0]["y"], list) else 1
+        y_dim = (
+            len(original_structures[0]["y"])
+            if isinstance(original_structures[0]["y"], list)
+            else 1
+        )
 
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
@@ -268,6 +278,7 @@ class DataProcessor:
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
+
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
             data = data_list[i]
@@ -313,6 +324,30 @@ class DataProcessor:
 
         logging.info("Generating edge features...")
         generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+
+        # compile non-otf transforms
+        logging.debug("Applying transforms.")
+
+        # Ensure GetY exists to prevent downstream model errors
+        assert "GetY" in [
+            tf["name"] for tf in self.transforms
+        ], "The target transform GetY is required in config."
+
+        transforms_list = []
+        for transform in self.transforms:
+            if not transform.get("otf", False):
+                transforms_list.append(
+                    registry.get_transform_class(
+                        transform["name"],
+                        **({} if transform["args"] is None else transform["args"])
+                    )
+                )
+
+        composition = Compose(transforms_list)
+
+        # apply transforms
+        for data in data_list:
+            composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
 
