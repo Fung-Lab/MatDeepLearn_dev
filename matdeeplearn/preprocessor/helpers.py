@@ -9,6 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.utils import dense_to_sparse, degree, add_self_loops
 from torch_geometric.data.data import Data
+from torch_sparse import SparseTensor
 
 def threshold_sort(all_distances, r, n_neighbors):
     # A = all_distances.clone().detach()

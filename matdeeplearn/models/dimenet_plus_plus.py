@@ -313,9 +313,9 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         self,
         #num_atoms,
         #bond_feat_dim,  # not used
-        num_targets,
+        num_targets=1,
         use_pbc=True,
-        regress_forces=True,
+        regress_forces=False,
         hidden_channels=128,
         num_blocks=4,
         int_emb_size=64,
@@ -329,6 +329,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         num_before_skip=1,
         num_after_skip=2,
         num_output_layers=3,
+        **kwargs,
     ):
         self.num_targets = num_targets
         self.regress_forces = regress_forces
@@ -370,12 +371,14 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         #data.cell_offsets = cell_offsets
         #data.neighbors = neighbors
         j, i = data.edge_index
+        dist = data.distances
 
         idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
             data.edge_index,
             data.cell_offsets,
-            num_nodes=data.atomic_numbers.size(0),
+            num_nodes=data.z.size(0),
         )
+        offsets = data.cell_offsets
 
         # Calculate angles.
         pos_i = pos[idx_i].detach()
@@ -399,7 +402,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         sbf = self.sbf(dist, angle, idx_kj)
 
         # Embedding block.
-        x = self.emb(data.atomic_numbers.long(), rbf, i, j)
+        x = self.emb(data.z.long(), rbf, i, j)
         P = self.output_blocks[0](x, rbf, i, num_nodes=pos.size(0))
 
         # Interaction blocks.
@@ -417,7 +420,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         if self.regress_forces:
             data.pos.requires_grad_(True)
         energy = self._forward(data)
-
+        
         if self.regress_forces:
             forces = -1 * (
                 torch.autograd.grad(
@@ -425,11 +428,17 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
                     data.pos,
                     grad_outputs=torch.ones_like(energy),
                     create_graph=True,
+                    allow_unused=True,
                 )[0]
             )
             return energy, forces
+        elif energy.shape[1] == 1:
+            return energy.view(-1)
         else:
             return energy
+    @property
+    def target_attr(self):
+        return "y"
 
     @property
     def num_params(self):

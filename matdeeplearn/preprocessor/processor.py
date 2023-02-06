@@ -287,8 +287,8 @@ class DataProcessor:
             )
 
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-            edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
-
+            if(atom_rij.dim() > 1):
+                edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
 
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
