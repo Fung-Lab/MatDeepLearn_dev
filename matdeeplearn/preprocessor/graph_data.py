@@ -25,7 +25,7 @@ class VirtualNodeGraph(Data):
         distances: OptTensor = None,
         structure_id: OptTensor = None,
         rv_pos: OptTensor = None,
-        z_rv: OptTensor = None,
+        zv: OptTensor = None,
         edge_index_vv: OptTensor = None,
         x_vv: OptTensor = None,
         edge_attr_vv: OptTensor = None,
@@ -36,6 +36,7 @@ class VirtualNodeGraph(Data):
         x_both: OptTensor = None,
         edge_index_both: OptTensor = None,
         edge_attr_both: OptTensor = None,
+        total_atoms: OptTensor = None,
         n_vv_nodes: OptTensor = None,
         n_rv_nodes: OptTensor = None,
         n_both_nodes: OptTensor = None,
@@ -58,7 +59,7 @@ class VirtualNodeGraph(Data):
 
         # Properties specific to virtual nodes
         self.rv_pos = rv_pos
-        self.z_rv = z_rv
+        self.zv = zv
         self.edge_index_vv = edge_index_vv
         self.x_vv = x_vv
         self.edge_attr_vv = edge_attr_vv
@@ -80,7 +81,7 @@ class VirtualNodeGraph(Data):
             return self.n_rv_nodes
         if "vv" in key:
             return self.n_vv_nodes
-        if "both" in key:
+        if "both" in key or "zv" in key:
             return self.n_both_nodes
 
         return super().__inc__(key, value, *args, **kwargs)

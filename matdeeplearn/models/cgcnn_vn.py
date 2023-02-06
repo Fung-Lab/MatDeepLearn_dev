@@ -18,16 +18,17 @@ class CGCNN_VN(BaseModel):
         edge_steps,
         self_loop,
         data,
-        dim1=64,
-        dim2=64,
+        dim1=100,
+        dim2=150,
         pre_fc_count=1,
-        gc_count=3,
-        post_fc_count=1,
+        gc_count=4,
+        post_fc_count=3,
         pool="global_mean_pool",
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
         node_pool_choice="x_both",
-        mp_pattern: List[str] = ["x_both", "x_both", "x_both"],
+        mp_pattern: List[str] = ["x_both", "x_both", "x_both", "x_both"],
+        atomic_numbers_for_pool: str = "zv",
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
         batch_norm=True,
@@ -45,6 +46,7 @@ class CGCNN_VN(BaseModel):
         self.pool_choice = pool_choice
         self.node_pool_choice = node_pool_choice
         self.mp_pattern = mp_pattern
+        self.atomic_numbers_for_pool = atomic_numbers_for_pool
         self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
         self.act_fn = act_fn
         self.act_nn = act_nn
@@ -95,6 +97,7 @@ class CGCNN_VN(BaseModel):
             **{
                 "pool_choice": self.pool_choice,
                 "node_pool_choice": self.node_pool_choice,
+                "atomic_numbers_for_pool": self.atomic_numbers_for_pool,
             },
         )
 
@@ -104,7 +107,7 @@ class CGCNN_VN(BaseModel):
 
     def _setup_pre_gnn_layers(self) -> torch.nn.ModuleList:
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
-        pre_lin_lists = {}
+        pre_lin_lists = torch.nn.ModuleDict()
 
         for key in set(self.mp_pattern):
             pre_lin_list = torch.nn.ModuleList()
@@ -125,7 +128,7 @@ class CGCNN_VN(BaseModel):
         """Sets up GNN layers."""
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
-        for i in range(self.gc_count):
+        for _ in range(self.gc_count):
             conv = CGConv(
                 self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
             )
@@ -166,7 +169,9 @@ class CGCNN_VN(BaseModel):
             ]
         else:
             layers = [
-                torch.nn.Linear(self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim),
+                torch.nn.Linear(
+                    self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim
+                ),
             ]
         return torch.nn.Sequential(*layers)
 
@@ -228,26 +233,32 @@ class CGCNN_VN(BaseModel):
                     node_attr = getattr(data, key)
                     # (bug) ensure layers from dictionary are on right device
                     pre_lin_list[j].to(node_attr.device)
-                    out = pre_lin_list[j](node_attr.float())
+                    curr_out = pre_lin_list[j](node_attr.float())
                 else:
-                    out = pre_lin_list[j](out)
-                out = getattr(F, self.act_fn)(out)
-            pre_lin_out[key] = out
+                    curr_out = pre_lin_list[j](curr_out)
+                curr_out = getattr(F, self.act_fn)(curr_out)
+            pre_lin_out[key] = curr_out
 
         # GNN layers, perform MP only on the real nodes
         for j in range(0, len(self.conv_list)):
             # which nodes to engage in MP at this layer
             mp_choice = self.mp_pattern[j]
             # use the correct edge_index for MP at this layer
-            edge_index_use, edge_attr_use = data.edge_index_both, data.edge_attr_both
-            if mp_choice == "x_rv":
+            if mp_choice == "x_both":
+                edge_index_use, edge_attr_use = (
+                    data.edge_index_both,
+                    data.edge_attr_both,
+                )
+            elif mp_choice == "x_rv":
                 edge_index_use, edge_attr_use = data.edge_index_rv, data.edge_attr_rv
             elif mp_choice == "x_vv":
                 edge_index_use, edge_attr_use = data.edge_index_vv, data.edge_attr_vv
             elif mp_choice == "x_vr":
                 edge_index_use, edge_attr_use = data.edge_index_vr, data.edge_attr_rv
+            elif mp_choice == "x":
+                edge_index_use, edge_attr_use = data.edge_index, data.edge_attr
 
-            if len(self.pre_lin_lists.get(mp_choice)) == 0 and j == 0:
+            if len(self.pre_lin_lists[mp_choice]) == 0 and j == 0:
                 if self.batch_norm:
                     out = self.conv_list[j](
                         getattr(data, mp_choice),
@@ -264,14 +275,17 @@ class CGCNN_VN(BaseModel):
             else:
                 if self.batch_norm:
                     out = self.conv_list[j](
-                        pre_lin_out[mp_choice], edge_index_use, edge_attr_use.float()
+                        pre_lin_out[mp_choice] if j == 0 else out,
+                        edge_index_use,
+                        edge_attr_use.float(),
                     )
                     out = self.bn_list[j](out)
                 else:
                     out = self.conv_list[j](
-                        pre_lin_out[mp_choice], edge_index_use, edge_attr_use.float()
+                        pre_lin_out[mp_choice] if j == 0 else out,
+                        edge_index_use,
+                        edge_attr_use.float(),
                     )
-                    out = getattr(F, self.act_fn)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Post-GNN dense layers
@@ -281,7 +295,6 @@ class CGCNN_VN(BaseModel):
                 data,
                 out,
             )
-
             for j in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[j](out)
                 out = getattr(F, self.act_fn)(out)

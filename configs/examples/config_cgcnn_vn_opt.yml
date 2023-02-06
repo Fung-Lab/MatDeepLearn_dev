@@ -15,13 +15,13 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "Baseline with full MP"
-    tags: ["baseline"]
+    notes: "Running without use of virtual nodes"
+    tags: ["test"]
     log_artifacts:
       - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml"
         name: "train config"
         type: "config"
-      - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_old.py"
         name: "cgcnn_vn model"
         type: "model"
     metadata:
@@ -47,8 +47,9 @@ model:
     pool: "global_mean_pool"
     virtual_pool: "AtomicNumberPooling"
     pool_choice: "virtual"
-    node_pool_choice: "x_both"
-    mp_pattern: ["x_both", "x_both", "x_both", "x_both"]
+    node_pool_choice: "x"
+    mp_pattern: ["x", "x", "x", "x"]
+    atomic_numbers_for_pool: "z"
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -57,7 +58,7 @@ model:
     dropout_rate: 0.0
 
 optim:
-  max_epochs: 500
+  max_epochs: 100
   lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
@@ -71,7 +72,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
   # Path to target file within data_path
@@ -94,13 +95,10 @@ dataset:
         n_neighbors: 50
         cutoff: 5
         edge_steps: 50
+        mp_attrs: []
       otf: False
-  mp_nodes:
-    - x
-    - x_rv
-    - x_vv
-    - x_vr
-    - x_both
+  # use again for passing into global config
+  batch_nodes: ["x_both"]
   data_format: "json"
   node_representation: "onehot"
   additional_attributes: []

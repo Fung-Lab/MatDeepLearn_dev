@@ -212,16 +212,16 @@ class BaseTrainer(ABC):
         batch_size = optim_config.get("batch_size")
 
         # choose node attributes for batching to enable message passing
-        mp_nodes = dataset_config.get("mp_nodes", ["x"])
+        batch_nodes = dataset_config.get("batch_nodes", ["x"])
 
         train_loader = get_dataloader(
-            train_dataset, batch_size=batch_size, sampler=sampler, mp_nodes=mp_nodes
+            train_dataset, batch_size=batch_size, sampler=sampler, batch_nodes=batch_nodes
         )
         val_loader = get_dataloader(
-            val_dataset, batch_size=batch_size, sampler=sampler, mp_nodes=mp_nodes
+            val_dataset, batch_size=batch_size, sampler=sampler, batch_nodes=batch_nodes
         )
         test_loader = get_dataloader(
-            test_dataset, batch_size=batch_size, sampler=sampler, mp_nodes=mp_nodes
+            test_dataset, batch_size=batch_size, sampler=sampler, batch_nodes=batch_nodes
         )
 
         return train_loader, val_loader, test_loader

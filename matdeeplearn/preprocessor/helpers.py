@@ -225,6 +225,8 @@ def get_cutoff_distance_matrix(
     n_neighbors,
     device,
     offset_number=1,
+    remove_virtual_edges=False,
+    vn: torch.Tensor = None
 ):
     """
     get the distance matrix
@@ -248,6 +250,9 @@ def get_cutoff_distance_matrix(
 
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
     distance_matrix, min_indices = get_distances(pos, cells, device=device)
+
+    if remove_virtual_edges:
+        distance_matrix = control_virtual_edges(distance_matrix, vn)
 
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
 

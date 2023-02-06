@@ -93,11 +93,9 @@ dataset:
         n_neighbors: 50
         cutoff: 5
         edge_steps: 50
+        mp_attrs: ["x_both, edge_index_both, edge_attr_both"]
       otf: False
-  mp_nodes:
-    - x
-    - x_rv
-    - x_vv
+  batch_nodes: ["x_both"]
   data_format: "json"
   node_representation: "onehot"
   additional_attributes: []

@@ -17,6 +17,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
+    generate_virtual_nodes,
 )
 
 
@@ -170,7 +171,9 @@ class DataProcessor:
         dict_structures = []
         ase_structures = []
 
-        logging.info("Converting data to standardized form for downstream processing.")
+        logging.info(
+            "(ASE) Converting data to standardized form for downstream processing."
+        )
         for i, structure_id in enumerate(file_names):
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
             ase_structures.append(io.read(p))
@@ -182,11 +185,6 @@ class DataProcessor:
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             )
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
-
-            atomic_numbers, pos = (
-                atomic_numbers,
-                torch.tensor(s.get_positions(), device=self.device, dtype=torch.float),
-            )
 
             d["positions"] = pos
             d["cell"] = cell
@@ -240,7 +238,9 @@ class DataProcessor:
             else 1
         )
 
-        logging.info("Converting data to standardized form for downstream processing.")
+        logging.info(
+            "(JSON) Converting data to standardized form for downstream processing."
+        )
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
@@ -341,7 +341,7 @@ class DataProcessor:
         generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         # compile non-otf transforms
-        logging.debug("Applying transforms.")
+        logging.info("Applying transforms.")
         transforms_list = []
         for transform in self.transforms:
             if not transform["otf"]:
@@ -352,7 +352,7 @@ class DataProcessor:
                 )
         composition = Compose(transforms_list)
         # apply transforms
-        for data in data_list:
+        for data in tqdm(data_list, disable=self.disable_tqdm):
             composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
