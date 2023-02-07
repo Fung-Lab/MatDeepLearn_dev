@@ -18,6 +18,7 @@ class VirtualNodeGraph(Data):
         pos: OptTensor = None,
         n_atoms: OptTensor = None,
         cell: OptTensor = None,
+        cell2: OptTensor = None,
         z: OptTensor = None,
         u: OptTensor = None,
         edge_weight: OptTensor = None,
@@ -36,7 +37,6 @@ class VirtualNodeGraph(Data):
         x_both: OptTensor = None,
         edge_index_both: OptTensor = None,
         edge_attr_both: OptTensor = None,
-        total_atoms: OptTensor = None,
         n_vv_nodes: OptTensor = None,
         n_rv_nodes: OptTensor = None,
         n_both_nodes: OptTensor = None,
@@ -50,6 +50,7 @@ class VirtualNodeGraph(Data):
         self.pos = pos
         self.n_atoms = n_atoms
         self.cell = cell
+        self.cell2 = cell2
         self.z = z
         self.u = u
         self.edge_weight = edge_weight

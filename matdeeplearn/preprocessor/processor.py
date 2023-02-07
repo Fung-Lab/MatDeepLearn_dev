@@ -31,9 +31,6 @@ def process_data(dataset_config):
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
-    virtual_box_increment = dataset_config["preprocess_params"].get(
-        "virtual_box_increment", 3.0
-    )
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
@@ -49,7 +46,6 @@ def process_data(dataset_config):
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
-        virtual_box_increment=virtual_box_increment,
         self_loop=self_loop,
         node_representation=node_representation,
         additional_attributes=additional_attributes,
@@ -72,7 +68,6 @@ class DataProcessor:
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
-        virtual_box_increment: float = 3.0,
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
@@ -142,7 +137,6 @@ class DataProcessor:
         self.data_format = data_format
         self.image_selfloop = image_selfloop
         self.self_loop = self_loop
-        self.virtual_box_increment = virtual_box_increment
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
@@ -245,10 +239,18 @@ class DataProcessor:
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+            cell2 = s["cell2"]
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
+
+            # VIRTUAL NODE MODIFICATION
+            # vpos, virtual_z = generate_virtual_nodes(cell2, 3, self.device)
+
+            # pos = torch.cat([pos, vpos], dim=0)
+            # atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
             d["positions"] = pos
             d["cell"] = cell
+            d["cell2"] = cell2
             d["atomic_numbers"] = atomic_numbers
             d["structure_id"] = s["structure_id"]
 
@@ -301,6 +303,7 @@ class DataProcessor:
 
             pos = sdict["positions"]
             cell = sdict["cell"]
+            cell2 = sdict["cell2"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
 
@@ -310,6 +313,8 @@ class DataProcessor:
                 self.r,
                 self.n_neighbors,
                 device=self.device,
+                # remove_virtual_edges=True,
+                # vn=atomic_numbers,
             )
 
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
@@ -317,6 +322,7 @@ class DataProcessor:
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
+            data.cell2 = cell2
             data.y = torch.Tensor(np.array([target_val]))
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])

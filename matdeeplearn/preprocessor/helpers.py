@@ -226,7 +226,7 @@ def get_cutoff_distance_matrix(
     device,
     offset_number=1,
     remove_virtual_edges=False,
-    vn: torch.Tensor = None
+    vn: torch.Tensor = None,
 ):
     """
     get the distance matrix
@@ -494,7 +494,7 @@ def frac_to_cart_coords(
 
 
 def generate_virtual_nodes(
-    cell: torch.Tensor,
+    cell,  # TODO: add types
     increment: int,
     device: torch.device,
 ):
@@ -510,7 +510,9 @@ def generate_virtual_nodes(
     """
 
     # get lengths and angles for unit parallelpiped
-    a, b, c, alpha, beta, gamma = lattice_matrix_to_params(cell)
+    a, b, c, alpha, beta, gamma = (
+        cell if isinstance(cell, list) else lattice_matrix_to_params(cell)
+    )
 
     # obtain fractional spacings from 0 to 1 of the virtual atoms
     ar1 = torch.arange(0, 1, increment / a)
@@ -521,6 +523,13 @@ def generate_virtual_nodes(
     xx, yy, zz = torch.meshgrid(ar1[:], ar2[:], ar3[:])
     coords = torch.stack([xx.flatten(), yy.flatten(), zz.flatten()], dim=-1)
 
+    """
+    if increment is larger than size of the unit cell, create a minimum
+    of one virtual atom at the origin
+    """
+    if coords.shape[0] == 0:
+        coords = np.array([[0, 0, 0]])
+
     # obtain cartesian coordinates of virtual atoms
     lengths = torch.tensor([[a, b, c]], device=device)
     angles = torch.tensor([[alpha, beta, gamma]], device=device)
@@ -530,7 +539,6 @@ def generate_virtual_nodes(
     return virtual_pos, torch.tensor([100] * len(coords), device=device)
 
 
-@DeprecationWarning
 def generate_virtual_nodes_ase(structure, device: torch.device):
     """
     increment specifies the spacing between virtual nodes in cartesian

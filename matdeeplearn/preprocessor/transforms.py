@@ -43,7 +43,7 @@ class VirtualNodes(object):
 
     def __init__(
         self,
-        virtual_box_increment: int = 3,
+        virtual_box_increment: float = 3.0,
         vv_cutoff: float = 3,
         vv_neighbors: int = 50,
         rv_cutoff: float = 3,
@@ -72,6 +72,7 @@ class VirtualNodes(object):
             "zv",
             "z",
             "cell",
+            "cell2",
             "pos",
             "structure_id",
             "distances",
@@ -79,6 +80,7 @@ class VirtualNodes(object):
             "cell_offsets",
             "y",
             "total_atoms",
+            "rv_pos"
         ]
 
     def __call__(self, data: Data) -> Data:
@@ -88,13 +90,42 @@ class VirtualNodes(object):
         #     self.vv_neighbors == self.rv_neighbors == self.rr_neighbors
         # ), "n_neighbors must be the same for all node types"
 
+        # NOTE use cell2 instead of cell for correct VN generation
         vpos, virtual_z = generate_virtual_nodes(
-            data.cell, self.virtual_box_increment, self.device
+            data.cell2, self.virtual_box_increment, self.device
         )
 
         # append virtual nodes positions and atomic numbers
-        data.rv_pos = torch.cat((data.pos, vpos), dim=0)
-        data.zv = torch.cat((data.z, virtual_z), dim=0)
+        data.rv_pos = torch.cat([data.pos, vpos], dim=0)
+        data.zv = torch.cat([data.z, virtual_z], dim=0)
+
+        if "x_both" in self.mp_attrs:
+            # original method
+            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+                data.rv_pos,
+                data.cell,
+                self.cutoff,
+                self.n_neighbors,
+                self.device,
+                remove_virtual_edges=True,
+                vn=data.zv,
+            )
+
+            data.edge_index_both, edge_weight_both = dense_to_sparse(cd_matrix)
+
+            # original method without specific cutoffs
+            data.x_both, data.edge_attr_both = custom_node_edge_feats(
+                data.zv,
+                len(data.zv),
+                self.n_neighbors,
+                edge_weight_both,
+                data.edge_index_both,
+                self.edge_steps,
+                self.cutoff,
+                self.device,
+            )
+
+            data.cell_offsets = cell_offsets
 
         if "x_vv" in self.mp_attrs:
             # use cutoffs to determine edge attributes
@@ -129,32 +160,6 @@ class VirtualNodes(object):
                 edge_index_rv,
                 self.edge_steps,
                 self.rv_cutoff,
-                self.device,
-            )
-
-        if "x_both" in self.mp_attrs:
-            # original primitive method
-            cd_matrix, _ = get_cutoff_distance_matrix(
-                data.rv_pos,
-                data.cell,
-                self.cutoff,
-                self.n_neighbors,
-                self.device,
-                remove_virtual_edges=True,
-                vn=data.zv,
-            )
-
-            data.edge_index_both, edge_weight_both = dense_to_sparse(cd_matrix)
-
-            # original method without specific cutoffs
-            data.x_both, data.edge_attr_both = custom_node_edge_feats(
-                data.zv,
-                len(data.zv),
-                self.n_neighbors,
-                edge_weight_both,
-                data.edge_index_both,
-                self.edge_steps,
-                self.cutoff,
                 self.device,
             )
 
@@ -198,7 +203,11 @@ class VirtualNodes(object):
                 data.__dict__.get("_store")[attr] = None
 
         return VirtualNodeGraph(
-            *[item for _, item in data.__dict__.items() if item is not None]
+            **{
+                key: item
+                for key, item in data.__dict__.get("_store").items()
+                if item is not None
+            }
         )
 
 

@@ -343,7 +343,6 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(output[i - 1, :])
         return filename
 
-    # TODO: streamline this from PR #12
     def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
 

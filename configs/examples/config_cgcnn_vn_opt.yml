@@ -21,7 +21,7 @@ task:
       - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml"
         name: "train config"
         type: "config"
-      - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_old.py"
+      - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
         name: "cgcnn_vn model"
         type: "model"
     metadata:
@@ -85,18 +85,18 @@ dataset:
       args:
         index: 5 # methane adsorption uptake
       otf: False
-    - name: VirtualNodes
-      args:
-        virtual_box_increment: 3
-        vv_cutoff: 6
-        vv_neighbors: 50
-        rv_cutoff: 6
-        rv_neighbors: 50
-        n_neighbors: 50
-        cutoff: 5
-        edge_steps: 50
-        mp_attrs: []
-      otf: False
+    # - name: VirtualNodes
+    #   args:
+    #     virtual_box_increment: 3
+    #     vv_cutoff: 6
+    #     vv_neighbors: 50
+    #     rv_cutoff: 6
+    #     rv_neighbors: 50
+    #     n_neighbors: 50
+    #     cutoff: 5
+    #     edge_steps: 50
+    #     mp_attrs: ["x_both", "edge_attr_both", "edge_index_both"]
+    #   otf: False
   # use again for passing into global config
   batch_nodes: ["x_both"]
   data_format: "json"
@@ -107,7 +107,6 @@ dataset:
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
     cutoff_radius : 5.0
-    virtual_box_increment: 3
     n_neighbors : 50
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
