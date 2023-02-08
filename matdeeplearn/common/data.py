@@ -83,7 +83,7 @@ def get_dataset(
         if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(
-                    transform["name"], **transforms.get("args", {})
+                    transform["name"], **transform.get("args", {})
                 )
             )
 

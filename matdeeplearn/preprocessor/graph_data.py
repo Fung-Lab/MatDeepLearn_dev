@@ -40,8 +40,14 @@ class VirtualNodeGraph(Data):
         n_vv_nodes: OptTensor = None,
         n_rv_nodes: OptTensor = None,
         n_both_nodes: OptTensor = None,
+        
+        o_pos: OptTensor = None,
+        o_z: OptTensor = None,
     ):
         super().__init__()
+        
+        self.o_pos = o_pos
+        self.o_z = o_z
 
         self.x = x
         self.edge_index = edge_index

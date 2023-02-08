@@ -79,8 +79,8 @@ class VirtualNodes(object):
             "u",
             "cell_offsets",
             "y",
-            "total_atoms",
-            "rv_pos"
+            "o_pos",
+            "o_z"
         ]
 
     def __call__(self, data: Data) -> Data:
@@ -96,8 +96,10 @@ class VirtualNodes(object):
         )
 
         # append virtual nodes positions and atomic numbers
-        data.rv_pos = torch.cat([data.pos, vpos], dim=0)
-        data.zv = torch.cat([data.z, virtual_z], dim=0)
+        data.rv_pos = torch.cat([data.o_pos, vpos], dim=0)
+        data.zv = torch.cat([data.o_z, virtual_z], dim=0)
+        
+        
 
         if "x_both" in self.mp_attrs:
             # original method

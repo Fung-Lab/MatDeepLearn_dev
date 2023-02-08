@@ -47,9 +47,9 @@ model:
     pool: "global_mean_pool"
     virtual_pool: "AtomicNumberPooling"
     pool_choice: "virtual"
-    node_pool_choice: "x"
-    mp_pattern: ["x", "x", "x", "x"]
-    atomic_numbers_for_pool: "z"
+    node_pool_choice: "x_both"
+    mp_pattern: ["x_both", "x_both", "x_both", "x_both"]
+    atomic_numbers_for_pool: "zv"
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -85,18 +85,18 @@ dataset:
       args:
         index: 5 # methane adsorption uptake
       otf: False
-    # - name: VirtualNodes
-    #   args:
-    #     virtual_box_increment: 3
-    #     vv_cutoff: 6
-    #     vv_neighbors: 50
-    #     rv_cutoff: 6
-    #     rv_neighbors: 50
-    #     n_neighbors: 50
-    #     cutoff: 5
-    #     edge_steps: 50
-    #     mp_attrs: ["x_both", "edge_attr_both", "edge_index_both"]
-    #   otf: False
+    - name: VirtualNodes
+      args:
+        virtual_box_increment: 3
+        vv_cutoff: 6
+        vv_neighbors: 50
+        rv_cutoff: 6
+        rv_neighbors: 50
+        n_neighbors: 50
+        cutoff: 5
+        edge_steps: 50
+        mp_attrs: ["x_both", "edge_attr_both", "edge_index_both"]
+      otf: False
   # use again for passing into global config
   batch_nodes: ["x_both"]
   data_format: "json"

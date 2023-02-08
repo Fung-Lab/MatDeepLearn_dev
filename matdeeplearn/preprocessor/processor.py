@@ -243,10 +243,13 @@ class DataProcessor:
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             # VIRTUAL NODE MODIFICATION
-            # vpos, virtual_z = generate_virtual_nodes(cell2, 3, self.device)
+            d["opos"] = pos.clone()
+            d["oz"] = atomic_numbers.clone()
 
-            # pos = torch.cat([pos, vpos], dim=0)
-            # atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
+            vpos, virtual_z = generate_virtual_nodes(cell2, 3, self.device)
+
+            pos = torch.cat([pos, vpos], dim=0)
+            atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
             d["positions"] = pos
             d["cell"] = cell
@@ -313,9 +316,12 @@ class DataProcessor:
                 self.r,
                 self.n_neighbors,
                 device=self.device,
-                # remove_virtual_edges=True,
-                # vn=atomic_numbers,
+                remove_virtual_edges=True,
+                vn=atomic_numbers,
             )
+
+            data.o_pos = sdict["opos"]
+            data.o_z = sdict["oz"]
 
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
 
