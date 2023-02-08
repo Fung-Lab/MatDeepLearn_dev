@@ -20,7 +20,6 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
     conditional_grad,
 )
-#from ocpmodels.models.base import BaseModel
 
 try:
     import sympy as sym
