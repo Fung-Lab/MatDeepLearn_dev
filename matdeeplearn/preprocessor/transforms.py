@@ -79,8 +79,6 @@ class VirtualNodes(object):
             "u",
             "cell_offsets",
             "y",
-            "o_pos",
-            "o_z"
         ]
 
     def __call__(self, data: Data) -> Data:
@@ -96,10 +94,8 @@ class VirtualNodes(object):
         )
 
         # append virtual nodes positions and atomic numbers
-        data.rv_pos = torch.cat([data.o_pos, vpos], dim=0)
-        data.zv = torch.cat([data.o_z, virtual_z], dim=0)
-        
-        
+        data.rv_pos = data.pos
+        data.zv = data.z
 
         if "x_both" in self.mp_attrs:
             # original method
@@ -195,22 +191,22 @@ class VirtualNodes(object):
             )
             data.n_rv_nodes = torch.tensor([len(data.x_rv)])
         if "x_vr" in self.mp_attrs:
-            data.edge_index_vr, _ = remove_self_loops(data.edge_index_vr)
-        if "x_both" in self.mp_attrs:
-            data.n_both_nodes = torch.tensor([len(data.x_both)])
+            data.edge_index_vr, _ = remove_self_loops(data.edge_index_vr)            
 
         # remove unnecessary attributes to reduce memory overhead
         for attr in list(data.__dict__.get("_store").keys()):
             if attr not in self.mp_attrs and attr not in self.keep_attrs:
                 data.__dict__.get("_store")[attr] = None
+                
+        return data
 
-        return VirtualNodeGraph(
-            **{
-                key: item
-                for key, item in data.__dict__.get("_store").items()
-                if item is not None
-            }
-        )
+        # return VirtualNodeGraph(
+        #     **{
+        #         key: item
+        #         for key, item in data.__dict__.get("_store").items()
+        #         if item is not None
+        #     }
+        # )
 
 
 @registry.register_transform("NumNodeTransform")

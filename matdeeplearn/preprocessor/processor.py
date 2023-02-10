@@ -18,6 +18,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_node_features,
     get_cutoff_distance_matrix,
     generate_virtual_nodes,
+    custom_node_edge_feats
 )
 
 
@@ -242,15 +243,6 @@ class DataProcessor:
             cell2 = s["cell2"]
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
-            # VIRTUAL NODE MODIFICATION
-            d["opos"] = pos.clone()
-            d["oz"] = atomic_numbers.clone()
-
-            vpos, virtual_z = generate_virtual_nodes(cell2, 3, self.device)
-
-            pos = torch.cat([pos, vpos], dim=0)
-            atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
-
             d["positions"] = pos
             d["cell"] = cell
             d["cell2"] = cell2
@@ -309,19 +301,22 @@ class DataProcessor:
             cell2 = sdict["cell2"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-
+            
+            data.o_pos = pos.clone()
+            data.o_z = atomic_numbers.clone()
+            
             cd_matrix, cell_offsets = get_cutoff_distance_matrix(
                 pos,
                 cell,
                 self.r,
                 self.n_neighbors,
                 device=self.device,
-                remove_virtual_edges=True,
-                vn=atomic_numbers,
             )
-
-            data.o_pos = sdict["opos"]
-            data.o_z = sdict["oz"]
+            
+            # VIRTUAL NODE MODIFICATION
+            vpos, virtual_z = generate_virtual_nodes(cell2, 3, self.device)
+            pos = torch.cat([pos, vpos], dim=0)
+            atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
 
@@ -363,10 +358,12 @@ class DataProcessor:
                     )
                 )
         composition = Compose(transforms_list)
-        # apply transforms
-        for data in tqdm(data_list, disable=self.disable_tqdm):
-            composition(data)
 
+        # apply transforms
+        for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
+            data_list[i] = composition(data)
+
+        # TODO remove this for non-debugging
         clean_up(data_list, ["edge_descriptor"])
 
         return data_list

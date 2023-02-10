@@ -39,15 +39,9 @@ class VirtualNodeGraph(Data):
         edge_attr_both: OptTensor = None,
         n_vv_nodes: OptTensor = None,
         n_rv_nodes: OptTensor = None,
-        n_both_nodes: OptTensor = None,
-        
-        o_pos: OptTensor = None,
-        o_z: OptTensor = None,
+        n_both_nodes: OptTensor = None,        
     ):
         super().__init__()
-        
-        self.o_pos = o_pos
-        self.o_z = o_z
 
         self.x = x
         self.edge_index = edge_index
@@ -82,6 +76,9 @@ class VirtualNodeGraph(Data):
         self.n_vv_nodes = n_vv_nodes
         self.n_rv_nodes = n_rv_nodes
         self.n_both_nodes = n_both_nodes
+        
+        for key, item in kwargs.items():
+            setattr(self, key, item)
 
     def __inc__(self, key, value, *args, **kwargs):
         if "rv" in key:
