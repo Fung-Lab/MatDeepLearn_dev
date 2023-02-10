@@ -10,6 +10,9 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.preprocessor.graph_data import VirtualNodeGraph
 
+# FIXME temp imports
+from matdeeplearn.preprocessor.helpers import generate_virtual_nodes, custom_node_edge_feats, get_cutoff_distance_matrix
+from torch_geometric.utils import dense_to_sparse
 
 @registry.register_model("CGCNN_VN")
 class CGCNN_VN(BaseModel):
@@ -226,7 +229,8 @@ class CGCNN_VN(BaseModel):
 
     def forward(self, data: VirtualNodeGraph):
         # Pre-GNN dense layers for each node type
-        pre_lin_out = {}
+        out_embeddings = {}
+    
         for key, pre_lin_list in self.pre_lin_lists.items():
             for j in range(0, len(pre_lin_list)):
                 if j == 0:
@@ -237,7 +241,7 @@ class CGCNN_VN(BaseModel):
                 else:
                     curr_out = pre_lin_list[j](curr_out)
                 curr_out = getattr(F, self.act_fn)(curr_out)
-            pre_lin_out[key] = curr_out
+            out_embeddings[key] = curr_out
 
         # GNN layers, perform MP only on the real nodes
         for j in range(0, len(self.conv_list)):
@@ -275,25 +279,26 @@ class CGCNN_VN(BaseModel):
             else:
                 if self.batch_norm:
                     out = self.conv_list[j](
-                        pre_lin_out[mp_choice] if j == 0 else out,
+                        out_embeddings[mp_choice],
                         edge_index_use,
                         edge_attr_use.float(),
                     )
                     out = self.bn_list[j](out)
                 else:
                     out = self.conv_list[j](
-                        pre_lin_out[mp_choice] if j == 0 else out,
+                        out_embeddings[mp_choice],
                         edge_index_use,
                         edge_attr_use.float(),
                     )
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
+            out_embeddings[mp_choice] = out
 
         # Post-GNN dense layers
         if self.pool_order == "early":
             # virtual node pooling scheme
             out = self.virtual_node_pool(
                 data,
-                out,
+                out_embeddings[self.mp_pattern[-1]], # use last layer for now
             )
             for j in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[j](out)

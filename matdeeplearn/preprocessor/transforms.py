@@ -79,6 +79,10 @@ class VirtualNodes(object):
             "u",
             "cell_offsets",
             "y",
+            
+            "xb",
+            "eab",
+            "eib"
         ]
 
     def __call__(self, data: Data) -> Data:
@@ -93,9 +97,8 @@ class VirtualNodes(object):
             data.cell2, self.virtual_box_increment, self.device
         )
 
-        # append virtual nodes positions and atomic numbers
-        data.rv_pos = data.pos
-        data.zv = data.z
+        data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
+        data.zv = torch.cat((data.o_z, virtual_z), dim=0)
 
         if "x_both" in self.mp_attrs:
             # original method
@@ -184,7 +187,6 @@ class VirtualNodes(object):
             data.edge_index_vv, data.edge_attr_vv = remove_self_loops(
                 data.edge_index_vv, data.edge_attr_vv
             )
-            data.n_vv_nodes = torch.tensor([len(data.x_vv)])
         if "x_rv" in self.mp_attrs:
             data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
                 data.edge_index_rv, data.edge_attr_rv
@@ -197,7 +199,7 @@ class VirtualNodes(object):
         for attr in list(data.__dict__.get("_store").keys()):
             if attr not in self.mp_attrs and attr not in self.keep_attrs:
                 data.__dict__.get("_store")[attr] = None
-                
+
         return data
 
         # return VirtualNodeGraph(

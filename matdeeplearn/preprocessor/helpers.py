@@ -511,7 +511,7 @@ def generate_virtual_nodes(
 
     # get lengths and angles for unit parallelpiped
     a, b, c, alpha, beta, gamma = (
-        cell if isinstance(cell, list) else lattice_matrix_to_params(cell)
+        cell if isinstance(cell, list) else torch.split(cell, 1)
     )
 
     # obtain fractional spacings from 0 to 1 of the virtual atoms
