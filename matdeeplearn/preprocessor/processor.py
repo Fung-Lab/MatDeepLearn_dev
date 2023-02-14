@@ -18,7 +18,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_node_features,
     get_cutoff_distance_matrix,
     generate_virtual_nodes,
-    custom_node_edge_feats
+    custom_node_edge_feats,
 )
 
 
@@ -291,7 +291,7 @@ class DataProcessor:
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
-        
+
         # find the virtual nodes transform (workaround for now)
         for t in self.transforms:
             if t.get("name") == "VirtualNodes":
@@ -307,10 +307,10 @@ class DataProcessor:
             cell2 = sdict["cell2"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-            
+
             data.o_pos = pos.clone()
             data.o_z = atomic_numbers.clone()
-            
+
             cd_matrix, cell_offsets = get_cutoff_distance_matrix(
                 pos,
                 cell,
@@ -318,9 +318,13 @@ class DataProcessor:
                 self.n_neighbors,
                 device=self.device,
             )
-            
+
             # virtual node generation (workaround for now)
-            vpos, virtual_z = generate_virtual_nodes(cell2, virtual_nodes_transform["args"].get("virtual_box_increment"), self.device)
+            vpos, virtual_z = generate_virtual_nodes(
+                cell2,
+                virtual_nodes_transform["args"].get("virtual_box_increment"),
+                self.device,
+            )
             pos = torch.cat([pos, vpos], dim=0)
             atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 

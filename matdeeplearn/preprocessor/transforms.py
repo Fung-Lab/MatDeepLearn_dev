@@ -1,11 +1,10 @@
 import torch
 from torch_geometric.data import Data
 from typing import List
-from torch_geometric.utils import dense_to_sparse, remove_self_loops
+from torch_geometric.utils import dense_to_sparse
 from torch_sparse import coalesce
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.graph_data import VirtualNodeGraph
 from matdeeplearn.preprocessor.helpers import (
     compute_bond_angles,
     custom_node_edge_feats,
@@ -51,7 +50,7 @@ class VirtualNodes(object):
         n_neighbors: int = 50,
         cutoff: float = 5,
         edge_steps: int = 50,
-        mp_attrs: List[str] = ["x_both", "edge_index_both", "edge_attr_both"],
+        mp_attrs: List[str] = ["rv", "rr", "vv"],
     ):
         self.virtual_box_increment = virtual_box_increment
         self.vv_cutoff = vv_cutoff
@@ -69,28 +68,22 @@ class VirtualNodes(object):
             "x",
             "edge_index",
             "edge_attr",
-            "zv",
+            "pos",
             "z",
             "cell",
             "cell2",
-            "pos",
             "structure_id",
             "distances",
             "u",
             "cell_offsets",
             "y",
-            
-            "xb",
-            "eab",
-            "eib"
         ]
 
     def __call__(self, data: Data) -> Data:
         # make sure n_neigbhors for node embeddings were specified equally for all nodes
-        # TODO find better way to assert, perhaps read from config file
-        # assert (
-        #     self.vv_neighbors == self.rv_neighbors == self.rr_neighbors
-        # ), "n_neighbors must be the same for all node types"
+        assert (
+            self.vv_neighbors == self.rv_neighbors == self.n_neighbors
+        ), "n_neighbors must be the same for all node types"
 
         # NOTE use cell2 instead of cell for correct VN generation
         vpos, virtual_z = generate_virtual_nodes(
@@ -98,117 +91,90 @@ class VirtualNodes(object):
         )
 
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
-        data.zv = torch.cat((data.o_z, virtual_z), dim=0)
+        data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
-        if "x_both" in self.mp_attrs:
-            # original method
-            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-                data.rv_pos,
-                data.cell,
-                self.cutoff,
-                self.n_neighbors,
-                self.device,
-                remove_virtual_edges=True,
-                vn=data.zv,
+        cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+            data.rv_pos,
+            data.cell,
+            self.cutoff,
+            self.n_neighbors,
+            self.device,
+        )
+
+        edge_index, edge_weight = dense_to_sparse(cd_matrix)
+
+        data.x, data.edge_attr = custom_node_edge_feats(
+            data.z,
+            len(data.z),
+            self.n_neighbors,
+            edge_weight,
+            edge_index,
+            self.edge_steps,
+            self.cutoff,
+            self.device,
+        )
+
+        data.cell_offsets = cell_offsets
+
+        # create edge indices for different MP routines
+        rv_edge_mask = torch.argwhere(
+            (data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)
+        )
+        vr_edge_mask = torch.argwhere(
+            (data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] != 100)
+        )
+        rr_edge_mask = torch.argwhere(
+            (data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)
+        )
+        vv_edge_mask = torch.argwhere(
+            (data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] == 100)
+        )
+
+        if "vr" in self.mp_attrs:
+            data.edge_index_vr = torch.index_select(
+                edge_index, 1, vr_edge_mask.squeeze(1)
+            )
+            data.edge_attr_vr = torch.index_select(
+                data.edge_attr, 0, vr_edge_mask.squeeze(1)
             )
 
-            data.edge_index_both, edge_weight_both = dense_to_sparse(cd_matrix)
-
-            # original method without specific cutoffs
-            data.x_both, data.edge_attr_both = custom_node_edge_feats(
-                data.zv,
-                len(data.zv),
-                self.n_neighbors,
-                edge_weight_both,
-                data.edge_index_both,
-                self.edge_steps,
-                self.cutoff,
-                self.device,
+        if "rv" in self.mp_attrs:
+            data.edge_index_rv = torch.index_select(
+                edge_index, 1, rv_edge_mask.squeeze(1)
+            )
+            data.edge_attr_rv = torch.index_select(
+                data.edge_attr, 0, rv_edge_mask.squeeze(1)
             )
 
-            data.cell_offsets = cell_offsets
-
-        if "x_vv" in self.mp_attrs:
-            # use cutoffs to determine edge attributes
-            cd_matrix_vv, _ = get_cutoff_distance_matrix(
-                vpos, data.cell, self.vv_cutoff, self.vv_neighbors, self.device
+        if "rr" in self.mp_attrs:
+            data.edge_index_rr = torch.index_select(
+                edge_index, 1, rr_edge_mask.squeeze(1)
             )
-            data.edge_index_vv, edge_weight_vv = dense_to_sparse(cd_matrix_vv)
-
-            # create node and edge attributes
-            data.x_vv, data.edge_attr_vv = custom_node_edge_feats(
-                virtual_z,
-                len(virtual_z),
-                self.vv_neighbors,
-                edge_weight_vv,
-                data.edge_index_vv,
-                self.edge_steps,
-                self.vv_cutoff,
-                self.device,
+            data.edge_attr_rr = torch.index_select(
+                data.edge_attr, 0, rr_edge_mask.squeeze(1)
             )
 
-        if "x_rv" in self.mp_attrs:
-            cd_matrix_rv, _ = get_cutoff_distance_matrix(
-                data.rv_pos, data.cell, self.rv_cutoff, self.rv_neighbors, self.device
+        if "vv" in self.mp_attrs:
+            data.edge_index_vv = torch.index_select(
+                edge_index, 1, vv_edge_mask.squeeze(1)
             )
-            edge_index_rv, edge_weight_rv = dense_to_sparse(cd_matrix_rv)
-
-            data.x_rv, data.edge_attr_rv = custom_node_edge_feats(
-                data.zv,
-                len(data.zv),
-                self.rv_neighbors,
-                edge_weight_rv,
-                edge_index_rv,
-                self.edge_steps,
-                self.rv_cutoff,
-                self.device,
+            data.edge_attr_vv = torch.index_select(
+                data.edge_attr, 0, vv_edge_mask.squeeze(1)
             )
-
-        if "x_rv" in self.mp_attrs or "x_vr" in self.mp_attrs:
-            rv_edge_mask = torch.argwhere(data.zv[edge_index_rv[0]] == 100)
-            vr_edge_mask = torch.argwhere(data.zv[edge_index_rv[0]] != 100)
-            rr_edge_mask = torch.argwhere(
-                (data.zv[edge_index_rv[0]] != 100) & (data.zv[edge_index_rv[1]] != 100)
-            )
-
-            # create real->virtual directional edges
-            data.edge_index_rv = torch.clone(edge_index_rv)
-            data.edge_index_rv[0, rv_edge_mask] = edge_index_rv[1, rv_edge_mask]
-            # find real->real directional edges for removal
-            data.edge_index_rv[0, rr_edge_mask] = edge_index_rv[1, rr_edge_mask]
-            # create virtual->real directional edges
-            data.edge_index_vr = torch.clone(edge_index_rv)
-            data.edge_index_vr[0, vr_edge_mask] = edge_index_rv[1, vr_edge_mask]
-
-        # remove self loops
-        # TODO check if this is necessary for VV interactions
-
-        if "x_vv" in self.mp_attrs:
-            data.edge_index_vv, data.edge_attr_vv = remove_self_loops(
-                data.edge_index_vv, data.edge_attr_vv
-            )
-        if "x_rv" in self.mp_attrs:
-            data.edge_index_rv, data.edge_attr_rv = remove_self_loops(
-                data.edge_index_rv, data.edge_attr_rv
-            )
-            data.n_rv_nodes = torch.tensor([len(data.x_rv)])
-        if "x_vr" in self.mp_attrs:
-            data.edge_index_vr, _ = remove_self_loops(data.edge_index_vr)            
 
         # remove unnecessary attributes to reduce memory overhead
+        edge_index_attrs = [f"edge_index_{s}" for s in self.mp_attrs]
+        edge_attr_attrs = [f"edge_attr_{s}" for s in self.mp_attrs]
+
         for attr in list(data.__dict__.get("_store").keys()):
-            if attr not in self.mp_attrs and attr not in self.keep_attrs:
+            if (
+                attr not in edge_index_attrs
+                and attr not in edge_attr_attrs
+                and attr not in self.keep_attrs
+            ):
                 data.__dict__.get("_store")[attr] = None
 
         return data
-
-        # return VirtualNodeGraph(
-        #     **{
-        #         key: item
-        #         for key, item in data.__dict__.get("_store").items()
-        #         if item is not None
-        #     }
-        # )
 
 
 @registry.register_transform("NumNodeTransform")

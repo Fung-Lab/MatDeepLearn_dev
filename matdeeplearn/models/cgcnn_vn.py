@@ -4,15 +4,12 @@ import torch
 import torch.nn.functional as F
 from torch.nn import BatchNorm1d
 from torch_geometric.nn import CGConv, Set2Set
+from torch_geometric.data import Data
 
 import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-from matdeeplearn.preprocessor.graph_data import VirtualNodeGraph
 
-# FIXME temp imports
-from matdeeplearn.preprocessor.helpers import generate_virtual_nodes, custom_node_edge_feats, get_cutoff_distance_matrix
-from torch_geometric.utils import dense_to_sparse
 
 @registry.register_model("CGCNN_VN")
 class CGCNN_VN(BaseModel):
@@ -30,7 +27,12 @@ class CGCNN_VN(BaseModel):
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
         node_pool_choice="x_both",
-        mp_pattern: List[str] = ["x_both", "x_both", "x_both", "x_both"],
+        mp_pattern: List[List[str]] = [
+            ["rv", "rr"],
+            ["rv", "rr"],
+            ["rv", "rr"],
+            ["rv", "rr"],
+        ],
         atomic_numbers_for_pool: str = "zv",
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
@@ -82,7 +84,7 @@ class CGCNN_VN(BaseModel):
             self.output_dim = len(data[0][self.target_attr])
 
         # setup layers
-        self.pre_lin_lists = self._setup_pre_gnn_layers()
+        self.pre_lin_list = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
 
@@ -97,11 +99,7 @@ class CGCNN_VN(BaseModel):
         # virtual node pooling scheme
         self.virtual_node_pool = getattr(pooling, self.virtual_pool)(
             self.pool,
-            **{
-                "pool_choice": self.pool_choice,
-                "node_pool_choice": self.node_pool_choice,
-                "atomic_numbers_for_pool": self.atomic_numbers_for_pool,
-            },
+            pool_choice=self.pool_choice,
         )
 
     @property
@@ -110,22 +108,17 @@ class CGCNN_VN(BaseModel):
 
     def _setup_pre_gnn_layers(self) -> torch.nn.ModuleList:
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
-        pre_lin_lists = torch.nn.ModuleDict()
+        pre_lin_list = torch.nn.ModuleList()
 
-        for key in set(self.mp_pattern):
-            pre_lin_list = torch.nn.ModuleList()
+        if self.pre_fc_count > 0:
+            for i in range(self.pre_fc_count):
+                if i == 0:
+                    lin_r = torch.nn.Linear(self.num_features, self.dim1)
+                else:
+                    lin_r = torch.nn.Linear(self.dim1, self.dim1)
+                pre_lin_list.append(lin_r)
 
-            if self.pre_fc_count > 0:
-                for i in range(self.pre_fc_count):
-                    if i == 0:
-                        lin_r = torch.nn.Linear(self.num_features, self.dim1)
-                    else:
-                        lin_r = torch.nn.Linear(self.dim1, self.dim1)
-                    pre_lin_list.append(lin_r)
-
-            pre_lin_lists[key] = pre_lin_list
-
-        return pre_lin_lists
+        return pre_lin_list
 
     def _setup_gnn_layers(self):
         """Sets up GNN layers."""
@@ -227,78 +220,64 @@ class CGCNN_VN(BaseModel):
 
         return post_lin_list, lin_out
 
-    def forward(self, data: VirtualNodeGraph):
+    def forward(self, data: Data):
         # Pre-GNN dense layers for each node type
-        out_embeddings = {}
-    
-        for key, pre_lin_list in self.pre_lin_lists.items():
-            for j in range(0, len(pre_lin_list)):
-                if j == 0:
-                    node_attr = getattr(data, key)
-                    # (bug) ensure layers from dictionary are on right device
-                    pre_lin_list[j].to(node_attr.device)
-                    curr_out = pre_lin_list[j](node_attr.float())
-                else:
-                    curr_out = pre_lin_list[j](curr_out)
-                curr_out = getattr(F, self.act_fn)(curr_out)
-            out_embeddings[key] = curr_out
+        for j in range(0, len(self.pre_lin_list)):
+            if j == 0:
+                out = self.pre_lin_list[j](data.x.float())
+            else:
+                out = self.pre_lin_list[j](out)
+            out = getattr(F, self.act_fn)(out)
 
         # GNN layers, perform MP only on the real nodes
         for j in range(0, len(self.conv_list)):
             # which nodes to engage in MP at this layer
             mp_choice = self.mp_pattern[j]
-            # use the correct edge_index for MP at this layer
-            if mp_choice == "x_both":
-                edge_index_use, edge_attr_use = (
-                    data.edge_index_both,
-                    data.edge_attr_both,
-                )
-            elif mp_choice == "x_rv":
-                edge_index_use, edge_attr_use = data.edge_index_rv, data.edge_attr_rv
-            elif mp_choice == "x_vv":
-                edge_index_use, edge_attr_use = data.edge_index_vv, data.edge_attr_vv
-            elif mp_choice == "x_vr":
-                edge_index_use, edge_attr_use = data.edge_index_vr, data.edge_attr_rv
-            elif mp_choice == "x":
-                edge_index_use, edge_attr_use = data.edge_index, data.edge_attr
 
-            if len(self.pre_lin_lists[mp_choice]) == 0 and j == 0:
+            # use the correct edge_indexes and edge_attrs for MP at this layer
+            edge_index_use = torch.cat(
+                [getattr(data, f"edge_index_{mp}") for mp in mp_choice], dim=1
+            )
+            edge_attr_use = torch.cat(
+                [getattr(data, f"edge_attr_{mp}") for mp in mp_choice], dim=0
+            )
+
+            if len(self.pre_lin_list) == 0 and j == 0:
                 if self.batch_norm:
                     out = self.conv_list[j](
-                        getattr(data, mp_choice),
+                        data.x,
                         edge_index_use,
                         edge_attr_use.float(),
                     )
                     out = self.bn_list[j](out)
                 else:
                     out = self.conv_list[j](
-                        getattr(data, mp_choice),
+                        data.x,
                         edge_index_use,
                         edge_attr_use.float(),
                     )
             else:
                 if self.batch_norm:
                     out = self.conv_list[j](
-                        out_embeddings[mp_choice],
+                        out,
                         edge_index_use,
                         edge_attr_use.float(),
                     )
                     out = self.bn_list[j](out)
                 else:
                     out = self.conv_list[j](
-                        out_embeddings[mp_choice],
+                        out,
                         edge_index_use,
                         edge_attr_use.float(),
                     )
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
-            out_embeddings[mp_choice] = out
 
         # Post-GNN dense layers
         if self.pool_order == "early":
             # virtual node pooling scheme
             out = self.virtual_node_pool(
                 data,
-                out_embeddings[self.mp_pattern[-1]], # use last layer for now
+                out,
             )
             for j in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[j](out)

@@ -56,28 +56,17 @@ class AtomicNumberPooling(nn.Module):
         """
         super().__init__()
         self.pooling = getattr(torch_geometric.nn, pool)
-        self.node_pool_choice = kwargs.get("node_pool_choice", "x_both")
-        self.atomic_numbers = kwargs.get("atomic_numbers_for_pool", None)
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
+        # pool as before, but now each element within a graph is pooled separately
         elem_pool = torch.zeros((out.shape[0], out.shape[1] * 100), device=out.device)
         indices = torch.arange(
             start=0, end=out.shape[1], step=1, device=out.device
         ).repeat(out.shape[0], 1)
         indices = indices + (
-            (getattr(data, self.atomic_numbers) - 1) * out.shape[1]
+            (data.z - 1) * out.shape[1]
         ).unsqueeze(dim=1).repeat(1, out.shape[1])
         elem_pool.scatter_(dim=1, index=indices, src=out)
 
-        # pool as before, but now each element within a graph is pooled separately
-        if self.node_pool_choice == "x_rv":
-            batch = data.x_rv_batch
-        elif self.node_pool_choice == "x_vv":
-            batch = data.x_vv_batch
-        elif self.node_pool_choice == "x_both":
-            batch = data.x_both_batch
-        else:
-            batch = data.batch
-
-        out = self.pooling(elem_pool, batch)
+        out = self.pooling(elem_pool, data.batch)
         return out

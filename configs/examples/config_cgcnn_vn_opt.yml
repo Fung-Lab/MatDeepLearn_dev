@@ -15,7 +15,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "Running without use of virtual nodes"
+    notes: ""
     tags: ["test"]
     log_artifacts:
       - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml"
@@ -47,9 +47,7 @@ model:
     pool: "global_mean_pool"
     virtual_pool: "AtomicNumberPooling"
     pool_choice: "virtual"
-    node_pool_choice: "x_both"
-    mp_pattern: ["x_both", "x_both", "x_both", "x_both"]
-    atomic_numbers_for_pool: "zv"
+    mp_pattern: [["rv", "rr"], ["rv", "rr"], ["rv", "rr"], ["rv", "rr"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -95,7 +93,7 @@ dataset:
         n_neighbors: 50
         cutoff: 5
         edge_steps: 50
-        mp_attrs: ["x_both", "edge_attr_both", "edge_index_both"]
+        mp_attrs: ["rr", "rv"]
       otf: False
   # use again for passing into global config
   batch_nodes: ["x_both"]
