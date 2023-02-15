@@ -5,7 +5,8 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from ase import io
+import ase
+from ase import io, Atoms, neighborlist
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
@@ -33,6 +34,7 @@ def process_data(dataset_config):
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
+    all_neighbors = dataset_config["all_neighbors"]
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -49,6 +51,7 @@ def process_data(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
+        all_neighbors=all_neighbors,
         device=device,
     )
     processor.process()
@@ -70,6 +73,7 @@ class DataProcessor:
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
+        all_neighbors: bool = False,
         device: str = "cpu",
     ) -> None:
         """
@@ -136,6 +140,7 @@ class DataProcessor:
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
+        self.all_neighbors = all_neighbors
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -287,18 +292,53 @@ class DataProcessor:
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-
-            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-                pos,
-                cell,
-                self.r,
-                self.n_neighbors,
-                image_selfloop=self.image_selfloop,
-                device=self.device,
-            )
-
-            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-
+            
+            if self.all_neighbors == False:
+                cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+                    pos,
+                    cell,
+                    self.r,
+                    self.n_neighbors,
+                    image_selfloop=self.image_selfloop,
+                    device=self.device,
+                )
+                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+            elif self.all_neighbors == True:
+                cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+                    pos,
+                    cell,
+                    self.r,
+                    self.n_neighbors,
+                    image_selfloop=self.image_selfloop,
+                    device=self.device,
+                )
+                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+                
+                first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
+                # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
+                bad_edge = first_idex == second_idex
+                bad_edge &= np.all(shifts == 0, axis=1)
+                keep_edge = ~bad_edge
+                first_idex = first_idex[keep_edge]
+                second_idex = second_idex[keep_edge]
+                rij = rij[keep_edge] 
+                rij_vec = rij_vec[keep_edge]
+                shifts = shifts[keep_edge]
+                # get closest n neighbors
+                if len(rij) > self.n_neighbors:
+                    _, topk_indices = torch.topk(torch.tensor(rij), self.n_neighbors, largest=False, sorted=False)
+                    first_idex = first_idex[topk_indices]
+                    second_idex = second_idex[topk_indices]
+                    rij = rij[topk_indices] 
+                    rij_vec = rij_vec[topk_indices]
+                    shifts = shifts[topk_indices]    
+                                  
+                edge_indices = torch.stack([torch.LongTensor(torch.tensor(first_idex)), torch.LongTensor(torch.tensor(second_idex))], dim=0)
+                edge_vec = torch.tensor(rij_vec).float()
+                edge_weights = torch.tensor(rij).float()   
+                cell_offsets = torch.tensor(shifts).int()                
+                
+                
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell

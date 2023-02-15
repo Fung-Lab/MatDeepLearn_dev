@@ -55,16 +55,16 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
+  src: "/net/csefiles/coc-fung-cluster/Victor/Datasets/Pt_data_npj/raw/"
   # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  target_path: "/net/csefiles/coc-fung-cluster/Victor/Datasets/Pt_data_npj/targets.csv"
   # Path to save processed data.pt file
-  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  pt_path: "data/"
   transforms:
     - name: GetY
       args:
         index: 0
-      otf: False # Optional parameter, default is False
+      otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -75,9 +75,10 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   cutoff_radius : 8.0
-  n_neighbors : 12
+  n_neighbors : 250
   edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
+  all_neighbors : False

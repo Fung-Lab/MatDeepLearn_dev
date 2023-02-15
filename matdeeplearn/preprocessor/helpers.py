@@ -201,7 +201,7 @@ def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
 
 
 def get_cutoff_distance_matrix(
-    pos, cell, r, n_neighbors, device, image_selfloop, offset_number=1
+    pos, cell, r, n_neighbors, device, image_selfloop, offset_number=3
 ):
     """
     get the distance matrix
@@ -309,8 +309,8 @@ def generate_node_features(input_data, n_neighbors, device):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
         data.x = node_reps[data.z - 1].view(-1, n_features)
 
-    for i, data in enumerate(input_data):
-        input_data[i] = one_hot_degree(data, n_neighbors + 1)
+    #for i, data in enumerate(input_data):
+    #    input_data[i] = one_hot_degree(data, n_neighbors + 1)
 
 
 def generate_edge_features(input_data, edge_steps, r, device):
