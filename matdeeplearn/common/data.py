@@ -58,6 +58,28 @@ def dataset_split(
 
     return train_dataset, val_dataset, test_dataset
 
+def get_otf_transforms(transform_list: List[dict]):
+    """
+    get on the fly specific transforms
+
+    Parameters
+    ----------
+
+    transform_list: transformation function/classes to be applied
+    """
+
+    transforms = []
+    # set transform method
+    for transform in transform_list:
+        if transform.get("otf", False):
+            transforms.append(
+                registry.get_transform_class(
+                    transform["name"],
+                    **transform.get("args", {})
+                )
+            )
+            
+    return transforms
 
 def get_dataset(
     data_path,
@@ -78,21 +100,8 @@ def get_dataset(
     transform_list: transformation function/classes to be applied
     """
 
-    # Ensure GetY exists to prevent downstream model errors
-    assert "GetY" in [
-        tf["name"] for tf in transform_list
-    ], "The target transform GetY is required in config."
-
-    transforms = []
-    # set transform method
-    for transform in transform_list:
-        if transform.get("otf", False):
-            transforms.append(
-                registry.get_transform_class(
-                    transform["name"],
-                    **({} if transform["args"] is None else transform["args"])
-                )
-            )
+    # get on the fly transforms for use on dataset access
+    otf_transforms = get_otf_transforms(transform_list)
 
     # check if large dataset is needed
     if large_dataset:
@@ -100,7 +109,7 @@ def get_dataset(
     else:
         Dataset = StructureDataset
 
-    composition = Compose(transforms) if len(transforms) > 1 else transforms[0]
+    composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
 
     dataset = Dataset(data_path, processed_data_path="", transform=composition)
 
