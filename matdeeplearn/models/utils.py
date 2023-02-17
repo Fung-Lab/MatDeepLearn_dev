@@ -7,6 +7,7 @@ from torch_geometric.nn import MessagePassing
 from torch_cluster import radius_graph
 from functools import wraps
 import warnings
+from torch_scatter import scatter, segment_coo, segment_csr
 
 
 def visualize_basis(basis_type, num_rbf=50, cutoff_lower=0, cutoff_upper=5):
@@ -58,14 +59,14 @@ def compute_neighbors(data, edge_index):
     # segment_coo assumes sorted index
     ones = edge_index[1].new_ones(1).expand_as(edge_index[1])
     num_neighbors = segment_coo(
-        ones, edge_index[1], dim_size=data.natoms.sum()
+        ones, edge_index[1], dim_size=data.n_atoms.sum()
     )
 
     # Get number of neighbors per image
     image_indptr = torch.zeros(
-        data.natoms.shape[0] + 1, device=data.pos.device, dtype=torch.long
+        data.n_atoms.shape[0] + 1, device=data.pos.device, dtype=torch.long
     )
-    image_indptr[1:] = torch.cumsum(data.natoms, dim=0)
+    image_indptr[1:] = torch.cumsum(data.n_atoms, dim=0)
     neighbors = segment_csr(num_neighbors, image_indptr)
     return neighbors
 def get_pbc_distances(
@@ -116,7 +117,7 @@ def radius_graph_pbc(
 ):
     #From OCPModels
     device = data.pos.device
-    batch_size = len(data.natoms)
+    batch_size = len(data.n_atoms)
 
     if hasattr(data, "pbc"):
         data.pbc = torch.atleast_2d(data.pbc)
@@ -134,7 +135,7 @@ def radius_graph_pbc(
     atom_pos = data.pos
 
     # Before computing the pairwise distances between atoms, first create a list of atom indices to compare for the entire batch
-    num_atoms_per_image = data.natoms
+    num_atoms_per_image = data.n_atoms
     num_atoms_per_image_sqr = (num_atoms_per_image**2).long()
 
     # index offset between images
@@ -185,7 +186,6 @@ def radius_graph_pbc(
     # Note that the unit cell volume V = a1 * (a2 x a3) and that
     # (a2 x a3) / V is also the reciprocal primitive vector
     # (crystallographer's definition).
-
     cross_a2a3 = torch.cross(data.cell[:, 1], data.cell[:, 2], dim=-1)
     cell_vol = torch.sum(data.cell[:, 0] * cross_a2a3, dim=-1, keepdim=True)
 
@@ -264,7 +264,7 @@ def radius_graph_pbc(
     atom_distance_sqr = torch.masked_select(atom_distance_sqr, mask)
 
     mask_num_neighbors, num_neighbors_image = get_max_neighbors_mask(
-        natoms=data.natoms,
+        natoms=data.n_atoms,
         index=index1,
         atom_distance=atom_distance_sqr,
         max_num_neighbors_threshold=max_num_neighbors_threshold,

@@ -13,15 +13,15 @@ from torch_geometric.nn import radius_graph
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
 
-from ocpmodels.common.registry import registry
-from ocpmodels.common.utils import (
+from matdeeplearn.common.registry import registry
+from matdeeplearn.models.utils import (
     compute_neighbors,
     conditional_grad,
     get_pbc_distances,
     radius_graph_pbc,
 )
-from ocpmodels.models.base import BaseModel
-from ocpmodels.modules.scaling.compat import load_scales_compat
+from matdeeplearn.models.ocpbase import BaseModel
+from matdeeplearn.models.gemnet.layers.compat import load_scales_compat
 
 from .layers.atom_update_block import OutputBlock
 from .layers.base_layers import Dense
@@ -105,23 +105,23 @@ class GemNetT(BaseModel):
 
     def __init__(
         self,
-        num_atoms: Optional[int],
-        bond_feat_dim: int,
-        num_targets: int,
-        num_spherical: int,
-        num_radial: int,
-        num_blocks: int,
-        emb_size_atom: int,
-        emb_size_edge: int,
-        emb_size_trip: int,
-        emb_size_rbf: int,
-        emb_size_cbf: int,
-        emb_size_bil_trip: int,
-        num_before_skip: int,
-        num_after_skip: int,
-        num_concat: int,
-        num_atom: int,
-        regress_forces: bool = True,
+        #num_atoms: Optional[int],
+        #bond_feat_dim: int,
+        num_targets: int = 1,
+        num_spherical: int = 7,
+        num_radial: int = 6,
+        num_blocks: int = 4,
+        emb_size_atom: int = 128,
+        emb_size_edge: int = 128,
+        emb_size_trip: int = 64,
+        emb_size_rbf: int = 16,
+        emb_size_cbf: int = 16,
+        emb_size_bil_trip: int = 32,
+        num_before_skip: int = 1,
+        num_after_skip: int = 1,
+        num_concat: int = 1,
+        num_atom: int = 2,
+        regress_forces: bool = False,
         direct_forces: bool = False,
         cutoff: float = 6.0,
         max_neighbors: int = 50,
@@ -129,12 +129,13 @@ class GemNetT(BaseModel):
         envelope: dict = {"name": "polynomial", "exponent": 5},
         cbf: dict = {"name": "spherical_harmonics"},
         extensive: bool = True,
-        otf_graph: bool = False,
-        use_pbc: bool = True,
+        otf_graph: bool = True,
+        use_pbc: bool = False,
         output_init: str = "HeOrthogonal",
         activation: str = "swish",
         num_elements: int = 83,
         scale_file: Optional[str] = None,
+        **kwargs,
     ):
         super().__init__()
         self.num_targets = num_targets
@@ -424,7 +425,7 @@ class GemNetT(BaseModel):
         return edge_index, cell_offsets, neighbors, edge_dist, edge_vector
 
     def generate_interaction_graph(self, data):
-        num_atoms = data.atomic_numbers.size(0)
+        num_atoms = data.z.size(0)
 
         (
             edge_index,
@@ -491,9 +492,10 @@ class GemNetT(BaseModel):
 
     @conditional_grad(torch.enable_grad())
     def forward(self, data):
+        print(data.cell.size())
         pos = data.pos
         batch = data.batch
-        atomic_numbers = data.atomic_numbers.long()
+        atomic_numbers = data.z.long()
 
         if self.regress_forces and not self.direct_forces:
             pos.requires_grad_(True)
@@ -570,7 +572,7 @@ class GemNetT(BaseModel):
                     F_st_vec,
                     idx_t,
                     dim=0,
-                    dim_size=data.atomic_numbers.size(0),
+                    dim_size=data.z.size(0),
                     reduce="add",
                 )  # (nAtoms, num_targets, 3)
                 F_t = F_t.squeeze(1)  # (nAtoms, 3)
@@ -594,8 +596,14 @@ class GemNetT(BaseModel):
 
             return E_t, F_t  # (nMolecules, num_targets), (nAtoms, 3)
         else:
+            if E_t.shape[1] == 1:
+                return E_t.view(-1)
             return E_t
 
+    @property
+    def target_attr(self):
+        return "y"
+    
     @property
     def num_params(self):
         return sum(p.numel() for p in self.parameters())

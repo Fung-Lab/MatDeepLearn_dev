@@ -193,7 +193,6 @@ def get_cutoff_distance_matrix(pos, cell, r, n_neighbors, device, image_selfloop
         n_neighbors: int
             max number of neighbors to be considered
     """
-
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
     distance_matrix, min_indices, atom_rij = get_distances(pos, cells, device=device)
 

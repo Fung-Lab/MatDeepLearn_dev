@@ -17,12 +17,12 @@ from matdeeplearn.models.utils import (
     get_pbc_distances,
     radius_graph_pbc,
 )
-from matdeeplearn.models.base import BaseModel
+from matdeeplearn.models.ocpbase import BaseModel
 from matdeeplearn.models.gemnet.layers.base_layers import ScaledSiLU
 from matdeeplearn.models.gemnet.layers.embedding_block import AtomEmbedding
 from matdeeplearn.models.gemnet.layers.radial_basis import RadialBasis
-from matdeeplearn.models.gemnet.layers.scaling import ScaleFactor
-from matdeeplearn.models.gemnet.layers.scaling.compat import load_scales_compat
+from matdeeplearn.models.gemnet.layers.scale_factor import ScaleFactor
+from matdeeplearn.models.gemnet.layers.compat import load_scales_compat
 
 from .utils import get_edge_id, repeat_blocks
 
@@ -37,8 +37,8 @@ class PaiNN(BaseModel):
     def __init__(
         self,
         num_atoms,
-        bond_feat_dim,
-        num_targets,
+        #bond_feat_dim,
+        num_targets=1,
         hidden_channels=512,
         num_layers=6,
         num_rbf=128,
@@ -46,12 +46,13 @@ class PaiNN(BaseModel):
         max_neighbors=50,
         rbf: dict = {"name": "gaussian"},
         envelope: dict = {"name": "polynomial", "exponent": 5},
-        regress_forces=True,
+        regress_forces=False,
         direct_forces=True,
-        use_pbc=True,
+        use_pbc=False,
         otf_graph=True,
         num_elements=83,
         scale_file: Optional[str] = None,
+        **kwargs,
     ):
         super(PaiNN, self).__init__()
 
@@ -343,7 +344,7 @@ class PaiNN(BaseModel):
     def forward(self, data):
         pos = data.pos
         batch = data.batch
-        z = data.atomic_numbers.long()
+        z = data.z.long()
 
         if self.regress_forces and not self.direct_forces:
             pos = pos.requires_grad_(True)
@@ -384,7 +385,6 @@ class PaiNN(BaseModel):
 
         per_atom_energy = self.out_energy(x).squeeze(1)
         energy = scatter(per_atom_energy, batch, dim=0)
-
         if self.regress_forces:
             if self.direct_forces:
                 forces = self.out_forces(x, vec)

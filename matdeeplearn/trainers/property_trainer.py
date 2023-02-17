@@ -167,6 +167,7 @@ class PropertyTrainer(BaseTrainer):
             target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
 
         predictions = np.column_stack((ids, target, predict))
+        
 
         self.save_results(
             predictions, f"{split}_predictions.csv", node_level_predictions

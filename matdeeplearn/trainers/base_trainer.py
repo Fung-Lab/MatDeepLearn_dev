@@ -140,9 +140,11 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_model(model_config, dataset):
         """Loads the model if from a config file."""
-
         model_cls = registry.get_model_class(model_config["name"])
-        model = model_cls(data=dataset, **model_config)
+        if model_config["name"] == "painn":
+            model = model_cls(data=dataset, num_atoms=dataset.data.n_atoms, **model_config)
+        else:
+            model = model_cls(data=dataset, **model_config)
         return model
 
     @staticmethod

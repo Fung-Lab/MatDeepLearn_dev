@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch_geometric.nn import radius_graph
 
-from ocpmodels.common.utils import (
+from matdeeplearn.models.utils import (
     compute_neighbors,
     conditional_grad,
     get_pbc_distances,

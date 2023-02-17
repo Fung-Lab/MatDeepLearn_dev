@@ -8,7 +8,7 @@ LICENSE file in the root directory of this source tree.
 import torch
 from torch_scatter import scatter
 
-from ocpmodels.modules.scaling import ScaleFactor
+from matdeeplearn.models.gemnet.layers.scale_factor import ScaleFactor
 
 from ..initializers import he_orthogonal_init
 from .base_layers import Dense, ResidualLayer

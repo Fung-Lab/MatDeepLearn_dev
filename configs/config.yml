@@ -21,7 +21,7 @@ task:
 
 
 model:
-  name: dimenetplusplus
+  name: painn
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -41,8 +41,8 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 600
-  lr: 0.002
+  max_epochs: 250
+  lr: 0.0005
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -61,11 +61,11 @@ dataset:
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
   #Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
   #Format of data files (limit to those supported by ASE)
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)
