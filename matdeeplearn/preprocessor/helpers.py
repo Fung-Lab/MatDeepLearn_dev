@@ -23,7 +23,6 @@ def prof_ctx():
 
     logging.debug(prof.key_averages().table(sort_by="cuda_memory_usage", row_limit=10))
 
-
 def threshold_sort(all_distances, r, n_neighbors):
     # A = all_distances.clone().detach()
     A = all_distances
@@ -177,7 +176,7 @@ def get_distances(
     )
     atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices).squeeze()
 
-    return min_atomic_distances, min_indices
+    return min_atomic_distances, min_indices, atom_rij
 
 
 def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
@@ -222,9 +221,8 @@ def get_cutoff_distance_matrix(
         n_neighbors: int
             max number of neighbors to be considered
     """
-
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
-    distance_matrix, min_indices = get_distances(pos, cells, device=device)
+    distance_matrix, min_indices, atom_rij = get_distances(pos, cells, device=device)
 
     cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
 
@@ -247,7 +245,7 @@ def get_cutoff_distance_matrix(
     # get cells for edges except for self loops
     cell_offsets[:n_edges, :] = all_cell_offsets[cutoff_distance_matrix != 0]
 
-    return cutoff_distance_matrix, cell_offsets
+    return cutoff_distance_matrix, cell_offsets, atom_rij
 
 
 def add_selfloop(
@@ -324,7 +322,7 @@ def generate_edge_features(input_data, edge_steps, r, device):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
         )
-
+        
 
 def triplets(edge_index, cell_offsets, num_nodes):
     """

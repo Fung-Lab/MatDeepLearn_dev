@@ -292,9 +292,8 @@ class DataProcessor:
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-            
             if self.all_neighbors == False:
-                cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+                cd_matrix, cell_offsets, atom_rij = get_cutoff_distance_matrix(
                     pos,
                     cell,
                     self.r,
@@ -303,6 +302,8 @@ class DataProcessor:
                     device=self.device,
                 )
                 edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+                if(atom_rij.dim() > 1):
+                  edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
             elif self.all_neighbors == True:
                 cd_matrix, cell_offsets = get_cutoff_distance_matrix(
                     pos,
@@ -338,7 +339,6 @@ class DataProcessor:
                 edge_weights = torch.tensor(rij).float()   
                 cell_offsets = torch.tensor(shifts).int()                
                 
-                
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
@@ -346,6 +346,7 @@ class DataProcessor:
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
+            data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor = {}

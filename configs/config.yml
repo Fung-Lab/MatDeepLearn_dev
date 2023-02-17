@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: painn
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -28,7 +28,7 @@ model:
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
-  pool: "global_mean_pool"
+  pool: "global_max_pool"
   pool_order: "early"
   batch_norm: True
   batch_track_stats: True
@@ -38,7 +38,7 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -55,11 +55,11 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/net/csefiles/coc-fung-cluster/Victor/Datasets/Pt_data_npj/raw/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
   # Path to target file within data_path
-  target_path: "/net/csefiles/coc-fung-cluster/Victor/Datasets/Pt_data_npj/targets.csv"
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
   # Path to save processed data.pt file
-  pt_path: "data/"
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
   transforms:
     - name: GetY
       args:
