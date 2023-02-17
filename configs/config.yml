@@ -1,24 +1,19 @@
-
 trainer: property
 
 task:
   # run_mode: train
   identifier: "my_train_job"
-
   reprocess: False
-
-
   parallel: True
+  # seed=0 means random initalization
   seed: 0
-  #seed=0 means random initalization
-
-
+  # Defaults to run directory if not specified
+  # save_dir: "."
+  # checkpoint_dir: "."
   write_output: True
   parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
-
-
 
 model:
   name: painn
@@ -27,7 +22,7 @@ model:
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
-  #model attributes
+  # model attributes
   dim1: 100
   dim2: 150
   pre_fc_count: 1
@@ -42,8 +37,9 @@ model:
 
 optim:
   max_epochs: 250
+  max_checkpoint_epochs: 0
   lr: 0.0005
-  #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
@@ -57,33 +53,32 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
-  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
-  # dataset_type: "inmemory"
-  #Path to data files
+  processed: False
+  # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
-  #Path to target file within data_path
+  # Path to target file within data_path
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
-  #Path to save processed data.pt file
+  # Path to save processed data.pt file
   pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
-  #Format of data files (limit to those supported by ASE)
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: True # Optional parameter, default is False
+  # Format of data files (limit to those supported by ASE)
   data_format: "json"
-  #Method of obtaining atom idctionary: available:(onehot)
+  # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes: []
-  #Print out processing info
+  # Print out processing info
   verbose: True
-
-  #Loading dataset params
-  #Index of target column in targets.csv
-  target_index: 0
-
-  #graph specific settings
+  # Index of target column in targets.csv
+  # graph specific settings
   cutoff_radius : 8.0
-  n_neighbors : 12
+  n_neighbors : 250
   edge_steps : 50
-
-  #Ratios for train/val/test split out of a total of 1
+  # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
+  all_neighbors : False

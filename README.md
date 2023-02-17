@@ -13,7 +13,7 @@
       conda env create -f env.yaml
       conda activate matdeeplearn
       ```
-   
+
    2. CPU-only machines:
 
       1. M1 Macs (see https://github.com/pyg-team/pytorch_geometric/issues/4549):
