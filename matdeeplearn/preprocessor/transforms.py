@@ -1,6 +1,5 @@
 import torch
 from torch_geometric.data import Data
-from typing import List
 from torch_geometric.utils import dense_to_sparse
 from torch_sparse import coalesce
 
@@ -43,22 +42,13 @@ class VirtualNodes(object):
     def __init__(
         self,
         virtual_box_increment: float = 3.0,
-        vv_cutoff: float = 3,
-        vv_neighbors: int = 50,
-        rv_cutoff: float = 3,
-        rv_neighbors: int = 50,
-        n_neighbors: int = 50,
-        cutoff: float = 5,
         edge_steps: int = 50,
-        mp_attrs: List[str] = ["rv", "rr", "vv"],
+        mp_attrs: list[dict] = [
+            {"name": "rv", "cutoff": 5.0, "neighbors": 50},
+            {"name": "rr", "cutoff": 5.0, "neighbors": 50},
+        ],
     ):
         self.virtual_box_increment = virtual_box_increment
-        self.vv_cutoff = vv_cutoff
-        self.vv_neighbors = vv_neighbors
-        self.rv_cutoff = rv_cutoff
-        self.rv_neighbors = rv_neighbors
-        self.n_neighbors = n_neighbors
-        self.cutoff = cutoff
         self.edge_steps = edge_steps
         self.mp_attrs = mp_attrs
         # processing is done on cpu
@@ -80,9 +70,8 @@ class VirtualNodes(object):
         ]
 
     def __call__(self, data: Data) -> Data:
-        # make sure n_neigbhors for node embeddings were specified equally for all nodes
         assert (
-            self.vv_neighbors == self.rv_neighbors == self.n_neighbors
+            len(set([attr["neighbors"] for attr in self.mp_attrs])) == 1
         ), "n_neighbors must be the same for all node types"
 
         # NOTE use cell2 instead of cell for correct VN generation
@@ -93,73 +82,67 @@ class VirtualNodes(object):
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
+        # compute maximum cutoff for edge features
+        def argmax(arr: list[dict], key: str):
+            return max(enumerate(arr), key=lambda x: x.get(key))[0]
+
+        max_idx = argmax(self.mp_attrs, "cutoff")
+        max_cutoff, max_neighbors = (
+            self.mp_attrs[max_idx]["cutoff"],
+            self.mp_attrs[max_idx]["neighbors"],
+        )
+
+        # compute attributes with initial cutoff
         cd_matrix, cell_offsets = get_cutoff_distance_matrix(
             data.rv_pos,
             data.cell,
-            self.cutoff,
-            self.n_neighbors,
+            max_cutoff,
+            max_neighbors,
             self.device,
         )
-
         edge_index, edge_weight = dense_to_sparse(cd_matrix)
 
+        # compute embeddings
         data.x, data.edge_attr = custom_node_edge_feats(
             data.z,
             len(data.z),
-            self.n_neighbors,
+            max_neighbors,
             edge_weight,
             edge_index,
             self.edge_steps,
-            self.cutoff,
+            max_cutoff,
             self.device,
         )
-
         data.cell_offsets = cell_offsets
 
         # create edge indices for different MP routines
-        rv_edge_mask = torch.argwhere(
+        masks = {}
+        masks["rv"] = torch.argwhere(
             (data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)
         )
-        vr_edge_mask = torch.argwhere(
+        masks["vr"] = torch.argwhere(
             (data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] != 100)
         )
-        rr_edge_mask = torch.argwhere(
+        masks["rr"] = torch.argwhere(
             (data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)
         )
-        vv_edge_mask = torch.argwhere(
+        masks["vv"] = torch.argwhere(
             (data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] == 100)
         )
 
-        if "vr" in self.mp_attrs:
-            data.edge_index_vr = torch.index_select(
-                edge_index, 1, vr_edge_mask.squeeze(1)
+        # create subsets of edges
+        for attr in self.mp_attrs:
+            setattr(
+                data,
+                f"edge_index_{attr['name']}",
+                torch.index_select(edge_index, 1, masks.get(attr["name"]).squeeze(1)),
             )
-            data.edge_attr_vr = torch.index_select(
-                data.edge_attr, 0, vr_edge_mask.squeeze(1)
-            )
-
-        if "rv" in self.mp_attrs:
-            data.edge_index_rv = torch.index_select(
-                edge_index, 1, rv_edge_mask.squeeze(1)
-            )
-            data.edge_attr_rv = torch.index_select(
-                data.edge_attr, 0, rv_edge_mask.squeeze(1)
-            )
-
-        if "rr" in self.mp_attrs:
-            data.edge_index_rr = torch.index_select(
-                edge_index, 1, rr_edge_mask.squeeze(1)
-            )
-            data.edge_attr_rr = torch.index_select(
-                data.edge_attr, 0, rr_edge_mask.squeeze(1)
-            )
-
-        if "vv" in self.mp_attrs:
-            data.edge_index_vv = torch.index_select(
-                edge_index, 1, vv_edge_mask.squeeze(1)
-            )
-            data.edge_attr_vv = torch.index_select(
-                data.edge_attr, 0, vv_edge_mask.squeeze(1)
+            setattr(
+                data,
+                f"edge_attr_{attr['name']}",
+                torch.index_select(
+                    data.edge_attr, 1, masks.get(attr["name"]).squeeze(1)
+                ),
             )
 
         # remove unnecessary attributes to reduce memory overhead
