@@ -11,7 +11,7 @@ import sympy as sym
 import torch
 from scipy.special import binom
 
-from ocpmodels.modules.scaling import ScaleFactor
+from matdeeplearn.models.gemnet.layers.scale_factor import ScaleFactor
 
 from .basis_utils import bessel_basis
 
