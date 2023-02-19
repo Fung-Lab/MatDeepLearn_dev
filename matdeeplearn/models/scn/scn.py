@@ -72,11 +72,11 @@ class SphericalChannelNetwork(BaseModel):
 
     def __init__(
         self,
-        num_atoms,  # not used
-        bond_feat_dim,  # not used
-        num_targets,  # not used
-        use_pbc=True,
-        regress_forces=True,
+        #num_atoms,  # not used
+        #bond_feat_dim,  # not used
+        #num_targets,  # not used
+        use_pbc=False,
+        regress_forces=False,
         otf_graph=False,
         max_num_neighbors=20,
         cutoff=8.0,
@@ -96,8 +96,9 @@ class SphericalChannelNetwork(BaseModel):
         distance_function="gaussian",
         basis_width_scalar=1.0,
         distance_resolution=0.02,
-        show_timing_info=True,
+        show_timing_info=False,
         direct_forces=True,
+        **kwargs,
     ):
         super().__init__()
 
@@ -109,7 +110,7 @@ class SphericalChannelNetwork(BaseModel):
             )
             raise ImportError
 
-        assert e3nn.__version__ == "0.2.6"
+        #assert e3nn.__version__ == "0.2.6"
 
         self.regress_forces = regress_forces
         self.use_pbc = use_pbc
@@ -249,7 +250,7 @@ class SphericalChannelNetwork(BaseModel):
     def forward(self, data):
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
-        self.batch_size = len(data.natoms)
+        self.batch_size = len(data.n_atoms)
         # torch.autograd.set_detect_anomaly(True)
 
         start_time = time.time()
@@ -275,7 +276,7 @@ class SphericalChannelNetwork(BaseModel):
 
     # restructure forward helper for conditional grad
     def _forward_helper(self, data):
-        atomic_numbers = data.atomic_numbers.long()
+        atomic_numbers = data.z.long()
         num_atoms = len(atomic_numbers)
         pos = data.pos
 
@@ -405,7 +406,7 @@ class SphericalChannelNetwork(BaseModel):
         node_energy = self.energy_fc3(node_energy)
         node_energy = node_energy.view(-1, self.num_sphere_samples, 1)
         node_energy = torch.sum(node_energy, dim=1) / self.num_sphere_samples
-        energy = torch.zeros(len(data.natoms), device=pos.device)
+        energy = torch.zeros(len(data.n_atoms), device=pos.device)
         energy.index_add_(0, data.batch, node_energy.view(-1))
 
         # Force estimation
@@ -508,7 +509,7 @@ class SphericalChannelNetwork(BaseModel):
         device = edge_distance.device
         # Create an index map to map distances from atom_distance to distance_sort
         # index_sort_map assumes index to be sorted
-        output, num_neighbors = torch.unique(edge_index[1], return_counts=True)
+        output, num_neighbors = torch.unique(edge_index[0], return_counts=True)
         index_neighbor_offset = (
             torch.cumsum(num_neighbors, dim=0) - num_neighbors
         )
@@ -517,7 +518,7 @@ class SphericalChannelNetwork(BaseModel):
         )
 
         index_sort_map = (
-            edge_index[1] * max_num_neighbors
+            edge_index[0] * max_num_neighbors
             + torch.arange(len(edge_distance), device=device)
             - index_neighbor_offset_expand
         )
