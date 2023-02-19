@@ -18,7 +18,6 @@ from matdeeplearn.preprocessor.helpers import (
     generate_node_features,
     get_cutoff_distance_matrix,
     generate_virtual_nodes,
-    custom_node_edge_feats,
 )
 
 

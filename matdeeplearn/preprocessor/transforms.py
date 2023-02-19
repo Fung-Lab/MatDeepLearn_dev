@@ -6,9 +6,11 @@ from torch_sparse import coalesce
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     compute_bond_angles,
-    custom_node_edge_feats,
+    custom_node_feats,
+    custom_edge_feats,
     generate_virtual_nodes,
     get_cutoff_distance_matrix,
+    get_mask,
 )
 
 """
@@ -82,68 +84,53 @@ class VirtualNodes(object):
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
-        # compute maximum cutoff for edge features
-        def argmax(arr: list[dict], key: str):
-            return max(enumerate(arr), key=lambda x: x.get(key))[0]
-
-        max_idx = argmax(self.mp_attrs, "cutoff")
-        max_cutoff, max_neighbors = (
-            self.mp_attrs[max_idx]["cutoff"],
-            self.mp_attrs[max_idx]["neighbors"],
-        )
-
-        # compute attributes with initial cutoff
-        cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-            data.rv_pos,
-            data.cell,
-            max_cutoff,
-            max_neighbors,
-            self.device,
-        )
-        edge_index, edge_weight = dense_to_sparse(cd_matrix)
-
-        # compute embeddings
-        data.x, data.edge_attr = custom_node_edge_feats(
-            data.z,
-            len(data.z),
-            max_neighbors,
-            edge_weight,
-            edge_index,
-            self.edge_steps,
-            max_cutoff,
-            self.device,
-        )
-        data.cell_offsets = cell_offsets
-
-        # create edge indices for different MP routines
-        masks = {}
-        masks["rv"] = torch.argwhere(
-            (data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)
-        )
-        masks["vr"] = torch.argwhere(
-            (data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] != 100)
-        )
-        masks["rr"] = torch.argwhere(
-            (data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)
-        )
-        masks["vv"] = torch.argwhere(
-            (data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] == 100)
-        )
-
-        # create subsets of edges
+        # create edges
         for attr in self.mp_attrs:
+            cd_matrix, _ = get_cutoff_distance_matrix(
+                data.rv_pos,
+                data.cell,
+                attr["cutoff"],
+                attr["neighbors"],
+                self.device,
+            )
+
+            edge_index, edge_weight = dense_to_sparse(cd_matrix)
+            edge_attr = custom_edge_feats(
+                edge_weight, self.edge_steps, attr["cutoff"], self.device
+            )
+
+            # apply mask to compute desired edges for interaction
+            src_mask, dst_mask = get_mask(
+                attr["name"], data, edge_index[0], edge_index[1]
+            )
+
             setattr(
                 data,
                 f"edge_index_{attr['name']}",
-                torch.index_select(edge_index, 1, masks.get(attr["name"]).squeeze(1)),
+                torch.index_select(edge_index, 1, src_mask & dst_mask),
             )
             setattr(
                 data,
                 f"edge_attr_{attr['name']}",
-                torch.index_select(
-                    data.edge_attr, 1, masks.get(attr["name"]).squeeze(1)
-                ),
+                torch.index_select(edge_attr, 0, src_mask & dst_mask),
             )
+
+        # compute node embeddings
+        participating_edges = torch.cat(
+            [
+                getattr(data, ei)
+                for ei in [f"edge_index_{attr['name']}" for attr in self.mp_attrs]
+            ],
+            dim=0
+        )
+
+        data.x = custom_node_feats(
+            data.z,
+            participating_edges,
+            len(data.z),
+            self.mp_attrs[0]["neighbors"], # any neighbor suffices
+            self.device,
+        )
 
         # remove unnecessary attributes to reduce memory overhead
         edge_index_attrs = [f"edge_index_{s}" for s in self.mp_attrs]

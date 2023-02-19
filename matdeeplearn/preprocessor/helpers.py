@@ -25,6 +25,37 @@ def prof_ctx():
     logging.debug(prof.key_averages().table(sort_by="cuda_memory_usage", row_limit=10))
 
 
+def argmax(arr: list[dict], key: str) -> int:
+    """List of Dict argmax utility function
+
+    Args:
+        arr (list[dict]): _description_
+        key (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    return max(enumerate(arr), key=lambda x: x.get(key))[0]
+
+
+def get_mask(
+    pattern: str, data: Data, src: torch.Tensor, dest: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    patterns = {
+        "rv": (data.z[src] != 100, data.z[dest] == 100),
+        "rr": (data.z[src] != 100, data.z[dest] != 100),
+        "vr": (data.z[src] == 100, data.z[dest] != 100),
+        "vv": (data.z[src] == 100, data.z[dest] == 100),
+    }
+
+    assert pattern in patterns.keys(), f"pattern {pattern} not found"
+
+    cond1, cond2 = patterns.get("pattern")
+
+    mask = torch.argwhere(data.z[src] != 100), torch.argwhere(data.z[dest] == 100)
+    return mask
+
+
 def threshold_sort(all_distances, r, n_neighbors):
     # A = all_distances.clone().detach()
     A = all_distances
@@ -389,6 +420,49 @@ def custom_node_edge_feats(
     edge_attr = distance_gaussian(edge_descriptor / r)
 
     return x, edge_attr
+
+
+def custom_node_feats(
+    atomic_numbers,
+    edge_index,
+    num_nodes,
+    n_neighbors,
+    device,
+    cat=True,
+    in_degree=False,
+):
+    # generate node_features
+    node_reps = torch.from_numpy(
+        load_node_representation(),
+    ).to(device)
+
+    x = node_reps[atomic_numbers - 1].view(-1, node_reps.shape[1])
+
+    idx = edge_index[1 if in_degree else 0]
+    deg = degree(idx, num_nodes, dtype=torch.long)
+    deg = F.one_hot(deg, num_classes=n_neighbors + 1).to(torch.float)
+
+    if x is not None and cat:
+        x = x.view(-1, 1) if x.dim() == 1 else x
+        x = torch.cat([x, deg.to(x.dtype)], dim=-1)
+    else:
+        x = deg
+
+    return x
+
+
+def custom_edge_feats(
+    edge_descriptor,
+    edge_steps,
+    r,
+    device,
+):
+    # generate edge_features
+    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
+    # perform normalization and feature generation in one step
+    edge_attr = distance_gaussian(edge_descriptor / r)
+
+    return edge_attr
 
 
 def lattice_params_to_matrix_torch(lengths, angles):
