@@ -855,7 +855,7 @@ class GemNetOC(BaseModel):
         if max_neighbors is not None:
             edge_mask, subgraph["num_neighbors"] = get_max_neighbors_mask(
                 natoms=data.n_atoms,
-                index=subgraph["edge_index"][1],
+                index=subgraph["edge_index"][0],
                 atom_distance=subgraph["distance"],
                 max_num_neighbors_threshold=max_neighbors,
             )
