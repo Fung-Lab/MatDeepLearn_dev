@@ -36,7 +36,7 @@ class PaiNN(BaseModel):
 
     def __init__(
         self,
-        num_atoms,
+        #num_atoms,
         #bond_feat_dim,
         num_targets=1,
         hidden_channels=512,
