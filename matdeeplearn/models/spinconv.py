@@ -37,11 +37,11 @@ except Exception:
 class spinconv(BaseModel):
     def __init__(
         self,
-        num_atoms,  # not used
-        bond_feat_dim,  # not used
-        num_targets,
-        use_pbc=True,
-        regress_forces=True,
+        #num_atoms,  # not used
+        #bond_feat_dim,  # not used
+        num_targets=1,
+        use_pbc=False,
+        regress_forces=False,
         otf_graph=False,
         hidden_channels=32,
         mid_hidden_channels=200,
@@ -64,6 +64,7 @@ class spinconv(BaseModel):
         readout="add",
         num_rand_rotations=5,
         scale_distances=True,
+        **kwargs,
     ):
         super(spinconv, self).__init__()
 
@@ -187,7 +188,7 @@ class spinconv(BaseModel):
     def forward(self, data):
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
-        self.batch_size = len(data.natoms)
+        self.batch_size = len(data.n_atoms)
 
         pos = data.pos
         if self.regress_forces:
@@ -222,7 +223,8 @@ class spinconv(BaseModel):
                     torch.cuda.max_memory_allocated() / 1000000,
                 )
             )
-
+        if outputs.shape[1] == 1:
+            return outputs.view(-1)
         return outputs
 
     # restructure forward helper for conditional grad
@@ -233,8 +235,8 @@ class spinconv(BaseModel):
         # Initialize messages
         ###############################################################
 
-        source_element = data.atomic_numbers[edge_index[0, :]].long()
-        target_element = data.atomic_numbers[edge_index[1, :]].long()
+        source_element = data.z[edge_index[0, :]].long()
+        target_element = data.z[edge_index[1, :]].long()
 
         x_dist = self.dist_block(edge_distance, source_element, target_element)
 
@@ -285,7 +287,7 @@ class spinconv(BaseModel):
         energy = scatter(x, edge_index[1], dim=0, dim_size=data.num_nodes) / (
             self.max_num_neighbors / 2.0 + 1.0
         )
-        atomic_numbers = data.atomic_numbers.long()
+        atomic_numbers = data.z.long()
         energy = self.energyembeddingblock(
             energy, atomic_numbers, atomic_numbers
         )
@@ -305,7 +307,7 @@ class spinconv(BaseModel):
                 forces = self._compute_forces_random_rotations(
                     x,
                     self.num_random_rotations,
-                    data.atomic_numbers.long(),
+                    data.z.long(),
                     edge_index,
                     edge_distance_vec,
                     data.batch,
@@ -444,8 +446,11 @@ class spinconv(BaseModel):
         length = len(edge_distance)
 
         # Assuming the edges are consecutive based on the target index
+        #target_node_index, neigh_count = torch.unique_consecutive(
+        #    edge_index[1], return_counts=True
+        #)
         target_node_index, neigh_count = torch.unique_consecutive(
-            edge_index[1], return_counts=True
+            edge_index[0], return_counts=True
         )
         max_neighbors = torch.max(neigh_count)
 
@@ -454,7 +459,6 @@ class spinconv(BaseModel):
         target_neigh_count.index_copy_(
             0, target_node_index.long(), neigh_count
         )
-
         # Create a list of edges for each atom
         index_offset = (
             torch.cumsum(target_neigh_count, dim=0) - target_neigh_count
@@ -654,8 +658,11 @@ class spinconv(BaseModel):
 
         # Assuming the edges are consecutive based on the target index
         target_node_index, neigh_count = torch.unique_consecutive(
-            edge_index[1], return_counts=True
+            edge_index[0], return_counts=True
         )
+        #target_node_index, neigh_count = torch.unique_consecutive(
+        #    edge_index[1], return_counts=True
+        #)
         max_neighbors = torch.max(neigh_count)
         target_neigh_count = torch.zeros(self.num_atoms, device=device).long()
         target_neigh_count.index_copy_(

@@ -49,7 +49,7 @@ class PaiNN(BaseModel):
         regress_forces=False,
         direct_forces=True,
         use_pbc=False,
-        otf_graph=True,
+        otf_graph=False,
         num_elements=83,
         scale_file: Optional[str] = None,
         **kwargs,
@@ -356,6 +356,9 @@ class PaiNN(BaseModel):
             edge_vector,
             id_swap,
         ) = self.generate_graph_values(data)
+        edge_index = data.edge_index
+        edge_dist = data.distances
+        edge_vector = data.edge_vec
 
         assert z.dim() == 1 and z.dtype == torch.long
 

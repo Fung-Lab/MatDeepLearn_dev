@@ -305,15 +305,15 @@ class DataProcessor:
                 if(atom_rij.dim() > 1):
                   edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
             elif self.all_neighbors == True:
-                cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-                    pos,
-                    cell,
-                    self.r,
-                    self.n_neighbors,
-                    image_selfloop=self.image_selfloop,
-                    device=self.device,
-                )
-                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+                #cd_matrix, cell_offsets, _ = get_cutoff_distance_matrix(
+                #    pos,
+                #    cell,
+                #    self.r,
+                #    self.n_neighbors,
+                #    image_selfloop=self.image_selfloop,
+                #    device=self.device,
+                #)
+                #edge_indices, edge_weights = dense_to_sparse(cd_matrix)
                 
                 first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
                 # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)

@@ -64,7 +64,7 @@ def compute_neighbors(data, edge_index):
 
     # Get number of neighbors per image
     image_indptr = torch.zeros(
-        data.n_atoms.shape[0] + 1, device=data.pos.device, dtype=torch.long
+        data.n_atoms.shape[0] + 1, device=data.n_atoms.device, dtype=torch.long
     )
     image_indptr[1:] = torch.cumsum(data.n_atoms, dim=0)
     neighbors = segment_csr(num_neighbors, image_indptr)
@@ -186,7 +186,15 @@ def radius_graph_pbc(
     # Note that the unit cell volume V = a1 * (a2 x a3) and that
     # (a2 x a3) / V is also the reciprocal primitive vector
     # (crystallographer's definition).
-    cross_a2a3 = torch.cross(data.cell[:, 1], data.cell[:, 2], dim=-1)
+    #mat1 = data.cell[:, 1]
+    #mat1 = torch.stack([mat1, torch.zeros(300, device=device)], dim=1)
+    #mat2 = data.cell[:, 2]
+    #mat2 = torch.stack([mat2, torch.zeros(300, device=device)], dim=1)
+    #print(mat1.size())
+    #A = torch.cross(s_pad[:, index_list], s_pad[:, index_list_plus], dim=2)
+    mat1 = data.cell[:, 1]
+    mat2 = data.cell[:, 2]
+    cross_a2a3 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
     cell_vol = torch.sum(data.cell[:, 0] * cross_a2a3, dim=-1, keepdim=True)
 
     if pbc[0]:
@@ -196,14 +204,20 @@ def radius_graph_pbc(
         rep_a1 = data.cell.new_zeros(1)
 
     if pbc[1]:
-        cross_a3a1 = torch.cross(data.cell[:, 2], data.cell[:, 0], dim=-1)
+        mat1 = data.cell[:, 2]
+        mat2 = data.cell[:, 0]
+        #cross_a3a1 = torch.cross(data.cell[:, 2], data.cell[:, 0], dim=-1)
+        cross_a3a1 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
         inv_min_dist_a2 = torch.norm(cross_a3a1 / cell_vol, p=2, dim=-1)
         rep_a2 = torch.ceil(radius * inv_min_dist_a2)
     else:
         rep_a2 = data.cell.new_zeros(1)
 
     if pbc[2]:
-        cross_a1a2 = torch.cross(data.cell[:, 0], data.cell[:, 1], dim=-1)
+        mat1 = data.cell[:, 0]
+        mat2 = data.cell[:, 1]
+        #cross_a1a2 = torch.cross(data.cell[:, 0], data.cell[:, 1], dim=-1)
+        cross_a1a2 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
         inv_min_dist_a3 = torch.norm(cross_a1a2 / cell_vol, p=2, dim=-1)
         rep_a3 = torch.ceil(radius * inv_min_dist_a3)
     else:
@@ -232,7 +246,10 @@ def radius_graph_pbc(
     )
 
     # Compute the x, y, z positional offsets for each cell in each image
+    data.cell = data.cell.unsqueeze(2)
     data_cell = torch.transpose(data.cell, 1, 2)
+    print(data_cell.size())
+    print(unit_cell_batch.size())
     pbc_offsets = torch.bmm(data_cell, unit_cell_batch)
     pbc_offsets_per_atom = torch.repeat_interleave(
         pbc_offsets, num_atoms_per_image_sqr, dim=0
