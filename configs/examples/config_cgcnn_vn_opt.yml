@@ -84,14 +84,14 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        vv_cutoff: 6
-        vv_neighbors: 50
-        rv_cutoff: 6
-        rv_neighbors: 50
-        n_neighbors: 50
-        cutoff: 5
         edge_steps: 50
-        mp_attrs: ["rr", "rv"]
+        mp_attrs:
+          - name: "rv"
+            cutoff: 5.0
+            neighbors: 50
+          - name: "rr"
+            cutoff: 5.0
+            neighbors: 50
       otf: False
   # use again for passing into global config
   batch_nodes: ["x_both"]
