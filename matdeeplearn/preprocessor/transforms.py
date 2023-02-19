@@ -6,8 +6,8 @@ from torch_sparse import coalesce
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     compute_bond_angles,
-    custom_node_feats,
     custom_edge_feats,
+    custom_node_feats,
     generate_virtual_nodes,
     get_cutoff_distance_matrix,
     get_mask,
@@ -45,20 +45,25 @@ class VirtualNodes(object):
         self,
         virtual_box_increment: float = 3.0,
         edge_steps: int = 50,
-        mp_attrs: list[dict] = [
-            {"name": "rv", "cutoff": 5.0, "neighbors": 50},
-            {"name": "rr", "cutoff": 5.0, "neighbors": 50},
-        ],
+        attrs=["rv", "rr"],
+        rv_cutoff=5.0,
+        rr_cutoff=5.0,
+        neighbors=50,
     ):
         self.virtual_box_increment = virtual_box_increment
         self.edge_steps = edge_steps
-        self.mp_attrs = mp_attrs
+        self.attrs = attrs
+        self.rv_cutoff = rv_cutoff
+        self.rr_cutoff = rr_cutoff
+        self.neighbors = neighbors
         # processing is done on cpu
         self.device = torch.device("cpu")
         # attrs that remain the same for all cases
         self.keep_attrs = [
             "x",
             "pos",
+            "edge_index",
+            "edge_attr",
             "z",
             "cell",
             "cell2",
@@ -69,10 +74,6 @@ class VirtualNodes(object):
         ]
 
     def __call__(self, data: Data) -> Data:
-        assert (
-            len(set([attr["neighbors"] for attr in self.mp_attrs])) == 1
-        ), "n_neighbors must be the same for all node types"
-
         # NOTE use cell2 instead of cell for correct VN generation
         vpos, virtual_z = generate_virtual_nodes(
             data.cell2, self.virtual_box_increment, self.device
@@ -82,31 +83,34 @@ class VirtualNodes(object):
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
         # create edges
-        for attr in self.mp_attrs:
+        for attr in self.attrs["attrs"]:
             cd_matrix, _ = get_cutoff_distance_matrix(
                 data.rv_pos,
                 data.cell,
-                attr["cutoff"],
-                attr["neighbors"],
+                getattr(self, f"{attr}_cutoff"),
+                self.neighbors,
                 self.device,
             )
 
             edge_index, edge_weight = dense_to_sparse(cd_matrix)
             edge_attr = custom_edge_feats(
-                edge_weight, self.edge_steps, attr["cutoff"], self.device
+                edge_weight,
+                self.edge_steps,
+                getattr(self, f"{attr}_cutoff"),
+                self.device,
             )
 
             # apply mask to compute desired edges for interaction
-            mask = get_mask(attr["name"], data, edge_index[0], edge_index[1])
+            mask = get_mask(attr, data, edge_index[0], edge_index[1])
 
             setattr(
                 data,
-                f"edge_index_{attr['name']}",
+                f"edge_index_{attr}",
                 torch.index_select(edge_index, 1, mask),
             )
             setattr(
                 data,
-                f"edge_attr_{attr['name']}",
+                f"edge_attr_{attr}",
                 torch.index_select(edge_attr, 0, mask),
             )
 
@@ -114,7 +118,7 @@ class VirtualNodes(object):
         participating_edges = torch.cat(
             [
                 getattr(data, ei)
-                for ei in [f"edge_index_{attr['name']}" for attr in self.mp_attrs]
+                for ei in [f"edge_index_{attr}" for attr in self.mp_attrs["attrs"]]
             ],
             dim=1,
         )
@@ -123,13 +127,17 @@ class VirtualNodes(object):
             data.z,
             participating_edges,
             len(data.z),
-            self.mp_attrs[0]["neighbors"],  # any neighbor suffices
+            self.mp_attrs["neighbors"],  # any neighbor suffices
             self.device,
         )
 
+        # make original edge_attr and edge_index sentinel values for object compatibility
+        data.edge_attr = torch.zeros(1, self.edge_steps)
+        data.edge_index = torch.zeros(1, 2)
+
         # remove unnecessary attributes to reduce memory overhead
-        edge_index_attrs = [f"edge_index_{s['name']}" for s in self.mp_attrs]
-        edge_attr_attrs = [f"edge_attr_{s['name']}" for s in self.mp_attrs]
+        edge_index_attrs = [f"edge_index_{s['name']}" for s in self.mp_attrs["attrs"]]
+        edge_attr_attrs = [f"edge_attr_{s['name']}" for s in self.mp_attrs["attrs"]]
 
         for attr in list(data.__dict__.get("_store").keys()):
             if (

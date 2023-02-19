@@ -125,6 +125,7 @@ class CGCNN_VN(BaseModel):
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for _ in range(self.gc_count):
+            print("GCDIM: ", self.gc_dim, self.num_edge_features)
             conv = CGConv(
                 self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
             )

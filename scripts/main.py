@@ -1,5 +1,10 @@
 import logging
+import os
 import pprint
+from datetime import datetime
+
+import torch
+import wandb
 
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
@@ -39,6 +44,59 @@ class Runner:  # submitit.helpers.Checkpointable):
         # return submitit.helpers.DelayedSubmission(new_runner, self.config)
 
 
+def wandb_setup(config):
+    metadata = config["task"]["wandb"].get("metadata", {})
+    _wandb_config = {
+        "metadata": metadata,
+    }
+
+    timestamp = torch.tensor(datetime.now().timestamp())
+
+    # wandb hyperparameter sweep setup
+    # sweep_config = config["task"]["wandb"]["sweep_config"]
+
+    # if sweep_config and sweep_config.get("sweep", False):
+    #     sweep_path = sweep_config.get("sweep_path", None)
+    #     with open(sweep_path, "r") as ymlfile:
+    #         sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+
+    #     params = sweep_config.get("parameters", {})
+
+    #     sweep_id = wandb.sweep(
+    #         sweep_config,
+    #         project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
+    #     )
+
+    # update config with model hyperparams
+    _wandb_config.update(config["model"]["hyperparams"])
+    # update config with processing hyperparams
+    _wandb_config.update(config["dataset"]["transforms"])
+
+    wandb.init(
+        settings=wandb.Settings(start_method="fork"),
+        project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
+        entity=config["task"]["wandb"].get("wandb_entity", "fung-lab"),
+        name=datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S"),
+        notes=config["task"]["wandb"].get("notes", None),
+        tags=config["task"]["wandb"].get("tags", None),
+        config=_wandb_config,
+    )
+
+    wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
+
+    # create wandb artifacts
+    for i, artifact in enumerate(wandb_artifacts):
+        # TODO fix this temporary workaround to log artifacts
+        # run.log_artifact(
+        #     artifact["path"], name=artifact["name"], type=artifact["type"]
+        # )
+        if not os.path.exists(artifact["path"]):
+            raise ValueError(
+                f"Artifact {artifact['path']} does not exist. Please check the path."
+            )
+        wandb.save(artifact["path"])
+
+
 if __name__ == "__main__":
     # setup_logging()
     root_logger = logging.getLogger()
@@ -47,6 +105,10 @@ if __name__ == "__main__":
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
+
+    # wandb setup process, initiate a run
+    if args.use_wandb:
+        wandb_setup(config)
 
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])

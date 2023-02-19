@@ -120,7 +120,7 @@ class BaseTrainer(ABC):
             dataset
         """
         dataset = cls._load_dataset(config["dataset"])
-        model = cls._load_model(config["model"], dataset)
+        model = cls._load_model(config["model"], dataset, config["task"]["wandb"])
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset)
         train_loader, val_loader, test_loader = cls._load_dataloader(
@@ -172,9 +172,8 @@ class BaseTrainer(ABC):
         return dataset
 
     @staticmethod
-    def _load_model(model_config, dataset):
+    def _load_model(model_config, dataset, sweep_config: dict):
         """Loads the model if from a config file."""
-
         model_cls = registry.get_model_class(model_config["name"])
         model = model_cls(data=dataset, **model_config["hyperparams"])
         return model

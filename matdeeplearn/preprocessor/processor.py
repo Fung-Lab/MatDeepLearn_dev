@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import wandb
 import torch
 from ase import io
 from torch_geometric.data import Data, InMemoryDataset
@@ -52,6 +53,7 @@ def process_data(dataset_config):
         verbose=verbose,
         device=device,
     )
+
     processor.process()
 
 
@@ -292,12 +294,7 @@ class DataProcessor:
         logging.info("Getting torch_geometric.data.Data() objects.")
 
         # find the virtual nodes transform (workaround for now)
-        try:
-            virtual_nodes_transform = self.transforms[
-                [t["name"] for t in self.transforms].index("VirtualNodes")
-            ]
-        except ValueError:
-            virtual_nodes_transform = None
+        virtual_nodes_transform = "VirtualNodes" in [t["name"] for t in self.transforms]
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
@@ -324,7 +321,8 @@ class DataProcessor:
             if virtual_nodes_transform:
                 vpos, virtual_z = generate_virtual_nodes(
                     cell2,
-                    virtual_nodes_transform["args"].get("virtual_box_increment"),
+                    # sweep, TODO figure out a cleaner solution
+                    wandb.config.get("virtual_box_increment"),
                     self.device,
                 )
                 pos = torch.cat([pos, vpos], dim=0)
@@ -363,6 +361,11 @@ class DataProcessor:
         logging.info("Applying transforms.")
         transforms_list = []
         for transform in self.transforms:
+            # go through dict and overwrite with wandb config for sweep purposes
+            for key in transform["args"]:
+                if key in wandb.config:
+                    transform["args"][key] = wandb.config[key]
+
             if not transform["otf"]:
                 transforms_list.append(
                     registry.get_transform_class(
