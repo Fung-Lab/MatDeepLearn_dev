@@ -50,9 +50,10 @@ def get_mask(
 
     assert pattern in patterns.keys(), f"pattern {pattern} not found"
 
-    cond1, cond2 = patterns.get("pattern")
+    # get specific binary MP conditions
+    cond1, cond2 = patterns.get(pattern)
 
-    mask = torch.argwhere(data.z[src] != 100), torch.argwhere(data.z[dest] == 100)
+    mask = torch.argwhere(cond1 & cond2).squeeze(1)
     return mask
 
 

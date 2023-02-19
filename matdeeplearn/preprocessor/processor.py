@@ -292,10 +292,12 @@ class DataProcessor:
         logging.info("Getting torch_geometric.data.Data() objects.")
 
         # find the virtual nodes transform (workaround for now)
-        for t in self.transforms:
-            if t.get("name") == "VirtualNodes":
-                virtual_nodes_transform = t
-                break
+        try:
+            virtual_nodes_transform = self.transforms[
+                [t["name"] for t in self.transforms].index("VirtualNodes")
+            ]
+        except ValueError:
+            virtual_nodes_transform = None
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
@@ -319,13 +321,14 @@ class DataProcessor:
             )
 
             # virtual node generation (workaround for now)
-            vpos, virtual_z = generate_virtual_nodes(
-                cell2,
-                virtual_nodes_transform["args"].get("virtual_box_increment"),
-                self.device,
-            )
-            pos = torch.cat([pos, vpos], dim=0)
-            atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
+            if virtual_nodes_transform:
+                vpos, virtual_z = generate_virtual_nodes(
+                    cell2,
+                    virtual_nodes_transform["args"].get("virtual_box_increment"),
+                    self.device,
+                )
+                pos = torch.cat([pos, vpos], dim=0)
+                atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
 

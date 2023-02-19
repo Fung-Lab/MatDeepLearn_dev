@@ -58,14 +58,11 @@ class VirtualNodes(object):
         # attrs that remain the same for all cases
         self.keep_attrs = [
             "x",
-            "edge_index",
-            "edge_attr",
             "pos",
             "z",
             "cell",
             "cell2",
             "structure_id",
-            "distances",
             "u",
             "cell_offsets",
             "y",
@@ -100,19 +97,17 @@ class VirtualNodes(object):
             )
 
             # apply mask to compute desired edges for interaction
-            src_mask, dst_mask = get_mask(
-                attr["name"], data, edge_index[0], edge_index[1]
-            )
+            mask = get_mask(attr["name"], data, edge_index[0], edge_index[1])
 
             setattr(
                 data,
                 f"edge_index_{attr['name']}",
-                torch.index_select(edge_index, 1, src_mask & dst_mask),
+                torch.index_select(edge_index, 1, mask),
             )
             setattr(
                 data,
                 f"edge_attr_{attr['name']}",
-                torch.index_select(edge_attr, 0, src_mask & dst_mask),
+                torch.index_select(edge_attr, 0, mask),
             )
 
         # compute node embeddings
@@ -121,20 +116,20 @@ class VirtualNodes(object):
                 getattr(data, ei)
                 for ei in [f"edge_index_{attr['name']}" for attr in self.mp_attrs]
             ],
-            dim=0
+            dim=1,
         )
 
         data.x = custom_node_feats(
             data.z,
             participating_edges,
             len(data.z),
-            self.mp_attrs[0]["neighbors"], # any neighbor suffices
+            self.mp_attrs[0]["neighbors"],  # any neighbor suffices
             self.device,
         )
 
         # remove unnecessary attributes to reduce memory overhead
-        edge_index_attrs = [f"edge_index_{s}" for s in self.mp_attrs]
-        edge_attr_attrs = [f"edge_attr_{s}" for s in self.mp_attrs]
+        edge_index_attrs = [f"edge_index_{s['name']}" for s in self.mp_attrs]
+        edge_attr_attrs = [f"edge_attr_{s['name']}" for s in self.mp_attrs]
 
         for attr in list(data.__dict__.get("_store").keys()):
             if (
