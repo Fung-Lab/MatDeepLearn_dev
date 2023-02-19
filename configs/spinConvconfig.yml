@@ -1,0 +1,98 @@
+trainer: property
+
+task:
+  # run_mode: train
+  identifier: "my_train_job"
+  reprocess: False
+  parallel: True
+  # seed=0 means random initalization
+  seed: 0
+  # Defaults to run directory if not specified
+  # save_dir: "."
+  # checkpoint_dir: "."
+  write_output: True
+  parallel: True
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+
+model:
+  name: spinconv
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
+  # model attributes
+  num_targets: 1
+  use_pbc: False
+  regress_forces: False
+  otf_graph: False
+  hidden_channels: 32
+  mid_hidden_channels: 200
+  num_interactions: 1
+  num_basis_functions: 200
+  basis_width_scalar: 1.0
+  max_num_neighbors: 20
+  sphere_size_lat: 15
+  sphere_size_long: 9
+  cutoff: 10.0
+  distance_block_scalar_max: 2.0
+  max_num_elements: 90
+  embedding_size: 32
+  show_timing_info: False
+  sphere_message: "fullconv"
+  output_message: "fullconv"
+  lmax: False
+  force_estimator: "random"
+  model_ref_number: 0
+  readout: "add"
+  num_rand_rotations: 5
+  scale_distances: True
+
+optim:
+  max_epochs: 250
+  max_checkpoint_epochs: 0
+  lr: 0.0005
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+
+  batch_size: 100
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: False
+  # Path to data files
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  # Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  # Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: True # Optional parameter, default is False
+  # Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  # Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  # Print out processing info
+  verbose: True
+  # Index of target column in targets.csv
+  # graph specific settings
+  cutoff_radius : 8.0
+  n_neighbors : 250
+  edge_steps : 50
+  # Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
+  all_neighbors : False
