@@ -426,6 +426,8 @@ class PaiNN(BaseModel):
                 )
                 return energy, forces
         else:
+            if energy.shape[1] == 1:
+                return energy.view(-1)
             return energy
 
     @property
