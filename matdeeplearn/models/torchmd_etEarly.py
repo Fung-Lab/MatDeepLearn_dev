@@ -195,7 +195,6 @@ class TorchMD_ET(nn.Module):
             vec = vec + dvec
         x = self.out_norm(x)
         x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-        print(x.size())
         for i in range(0, len(self.post_lin_list)):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.activation)(x)
