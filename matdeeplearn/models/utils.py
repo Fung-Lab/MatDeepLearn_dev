@@ -57,9 +57,9 @@ def compute_neighbors(data, edge_index):
     #From OCPModels
     # Get number of neighbors
     # segment_coo assumes sorted index
-    ones = edge_index[1].new_ones(1).expand_as(edge_index[1])
+    ones = edge_index[0].new_ones(1).expand_as(edge_index[0])
     num_neighbors = segment_coo(
-        ones, edge_index[1], dim_size=data.n_atoms.sum()
+        ones, edge_index[0], dim_size=data.n_atoms.sum()
     )
 
     # Get number of neighbors per image
