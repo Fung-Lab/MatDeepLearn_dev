@@ -70,7 +70,7 @@ def wandb_setup(config):
     # update config with model hyperparams
     _wandb_config.update(config["model"]["hyperparams"])
     # update config with processing hyperparams
-    _wandb_config.update(config["dataset"]["transforms"])
+    _wandb_config.update({"transforms": config["dataset"]["transforms"]})
 
     wandb.init(
         settings=wandb.Settings(start_method="fork"),

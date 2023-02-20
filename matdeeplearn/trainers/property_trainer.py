@@ -56,7 +56,7 @@ class PropertyTrainer(BaseTrainer):
             model_config,
             opt_config,
             dataset_config,
-            use_wandb
+            use_wandb,
         )
 
         # allow CLI to override config file

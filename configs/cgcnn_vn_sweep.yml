@@ -10,7 +10,7 @@ parameters:
     pool:
         values: ['global_mean_pool', 'global_max_pool', 'global_add_pool']
     virtual_pool:
-        values: ['AtomicNumberPooling', 'AtomicNumberPooling']
+        values: ['AtomicNumberPooling', 'AtomicNumberPooling', 'None']
     virtual_box_increment: 
       min: 1.0
       max: 5.0

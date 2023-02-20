@@ -3,6 +3,7 @@ from typing import List
 import torch
 import torch.nn.functional as F
 from torch.nn import BatchNorm1d
+import torch_geometric
 from torch_geometric.nn import CGConv, Set2Set
 from torch_geometric.data import Data
 
@@ -97,9 +98,13 @@ class CGCNN_VN(BaseModel):
             self.lin_out_2 = torch.nn.Linear(self.output_dim * 2, self.output_dim)
 
         # virtual node pooling scheme
-        self.virtual_node_pool = getattr(pooling, self.virtual_pool)(
-            self.pool,
-            pool_choice=self.pool_choice,
+        self.virtual_node_pool = (
+            getattr(pooling, self.virtual_pool)(
+                self.pool,
+                pool_choice=self.pool_choice,
+            )
+            if self.virtual_pool != ""
+            else None
         )
 
     @property
@@ -125,7 +130,6 @@ class CGCNN_VN(BaseModel):
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for _ in range(self.gc_count):
-            print("GCDIM: ", self.gc_dim, self.num_edge_features)
             conv = CGConv(
                 self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
             )
@@ -275,11 +279,15 @@ class CGCNN_VN(BaseModel):
 
         # Post-GNN dense layers
         if self.pool_order == "early":
-            # virtual node pooling scheme
-            out = self.virtual_node_pool(
-                data,
-                out,
-            )
+            # virtual node pooling scheme if chosen
+            if self.virtual_node_pool is not None:
+                out = self.virtual_node_pool(
+                    data,
+                    out,
+                )
+            else:
+                out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
+
             for j in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[j](out)
                 out = getattr(F, self.act_fn)(out)

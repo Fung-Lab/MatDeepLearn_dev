@@ -83,7 +83,7 @@ class VirtualNodes(object):
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
         # create edges
-        for attr in self.attrs["attrs"]:
+        for attr in self.attrs:
             cd_matrix, _ = get_cutoff_distance_matrix(
                 data.rv_pos,
                 data.cell,
@@ -116,10 +116,7 @@ class VirtualNodes(object):
 
         # compute node embeddings
         participating_edges = torch.cat(
-            [
-                getattr(data, ei)
-                for ei in [f"edge_index_{attr}" for attr in self.mp_attrs["attrs"]]
-            ],
+            [getattr(data, ei) for ei in [f"edge_index_{attr}" for attr in self.attrs]],
             dim=1,
         )
 
@@ -127,7 +124,7 @@ class VirtualNodes(object):
             data.z,
             participating_edges,
             len(data.z),
-            self.mp_attrs["neighbors"],  # any neighbor suffices
+            self.neighbors,  # any neighbor suffices
             self.device,
         )
 
@@ -136,8 +133,8 @@ class VirtualNodes(object):
         data.edge_index = torch.zeros(1, 2)
 
         # remove unnecessary attributes to reduce memory overhead
-        edge_index_attrs = [f"edge_index_{s['name']}" for s in self.mp_attrs["attrs"]]
-        edge_attr_attrs = [f"edge_attr_{s['name']}" for s in self.mp_attrs["attrs"]]
+        edge_index_attrs = [f"edge_index_{s}" for s in self.attrs]
+        edge_attr_attrs = [f"edge_attr_{s}" for s in self.attrs]
 
         for attr in list(data.__dict__.get("_store").keys()):
             if (
@@ -150,8 +147,8 @@ class VirtualNodes(object):
         return data
 
 
-@registry.register_transform("NumNodeTransform")
-class NumNodeTransform(object):
+@registry.register_transform("NumNodes")
+class NumNodes(object):
     """
     Adds the number of nodes to the data object
     """

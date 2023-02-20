@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-baseline"
+  identifier: "cgcnn_vn-without-vn"
   reprocess: False
   parallel: True
   seed: 0
@@ -48,9 +48,9 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool"
-    virtual_pool: "AtomicNumberPooling"
+    virtual_pool: ""
     pool_choice: "virtual"
-    mp_pattern: [["rv", "rr"], ["rv", "rr"], ["rv", "rr"], ["rv", "rr"]]
+    mp_pattern: [["rr"], ["rr"], ["rr"], ["rr"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -59,7 +59,7 @@ model:
     dropout_rate: 0.0
 
 optim:
-  max_epochs: 100
+  max_epochs: 500
   lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
@@ -73,7 +73,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
@@ -88,13 +88,13 @@ dataset:
       args:
         virtual_box_increment: 3
         edge_steps: 50
-        attrs: ["rv", "rr"]
-        rv_cutoff: 7.0
-        rr_cutoff: 2.0
+        attrs: ["rr"]
+        rr_cutoff: 5.0
         neighbors: 50
       otf: False
     - name: NumNodes
-      otf: False
+      args: {}
+      otf: True
   # use again for passing into global config
   data_format: "json"
   node_representation: "onehot"
