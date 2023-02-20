@@ -39,6 +39,9 @@ model:
   num_before_skip: 1
   num_after_skip: 2
   num_output_layers: 3
+  num_post_layers: 1
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
 
 optim:
   max_epochs: 250
