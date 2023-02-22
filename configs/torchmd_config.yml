@@ -33,12 +33,12 @@ model:
   rbf_type: "expnorm"
   trainable_rbf: True
   activation: "silu"
-  neighbor_embedding: False
+  neighbor_embedding: True
   cutoff_lower: 0.0
-  cutoff_upper: 5.0
+  cutoff_upper: 8.0
   max_z: 100
   max_num_neighbors: 32
-  aggr: "add"
+  aggr: "mean"
 
 optim:
   max_epochs: 600

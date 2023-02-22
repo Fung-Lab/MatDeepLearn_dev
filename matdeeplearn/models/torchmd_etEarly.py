@@ -175,10 +175,10 @@ class TorchMD_ET(nn.Module):
 
         x = self.embedding(data.z)
 
-        edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
-        assert (
-            edge_vec is not None
-        ), "Distance module did not return directional information"
+        #edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
+        #assert (
+        #    edge_vec is not None
+        #), "Distance module did not return directional information"
 
         edge_attr = self.distance_expansion(data.edge_weight)
         mask = data.edge_index[0] != data.edge_index[1]

@@ -57,9 +57,9 @@ def compute_neighbors(data, edge_index):
     #From OCPModels
     # Get number of neighbors
     # segment_coo assumes sorted index
-    ones = edge_index[0].new_ones(1).expand_as(edge_index[0])
+    ones = edge_index[1].new_ones(1).expand_as(edge_index[1])
     num_neighbors = segment_coo(
-        ones, edge_index[0], dim_size=data.n_atoms.sum()
+        ones, edge_index[1], dim_size=data.n_atoms.sum()
     )
 
     # Get number of neighbors per image
@@ -286,10 +286,10 @@ def radius_graph_pbc(
     #mat2 = torch.stack([mat2, torch.zeros(300, device=device)], dim=1)
     #print(mat1.size())
     #A = torch.cross(s_pad[:, index_list], s_pad[:, index_list_plus], dim=2)
-    #cross_a2a3 = torch.cross(data.cell[:, 1], data.cell[:, 2], dim=-1)
-    mat1 = data.cell[:, 1]
-    mat2 = data.cell[:, 2]
-    cross_a2a3 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
+    cross_a2a3 = torch.cross(data.cell[:, 1], data.cell[:, 2], dim=-1)
+    #mat1 = data.cell[:, 1]
+    #mat2 = data.cell[:, 2]
+    #cross_a2a3 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
     cell_vol = torch.sum(data.cell[:, 0] * cross_a2a3, dim=-1, keepdim=True)
 
     if pbc[0]:
@@ -301,8 +301,8 @@ def radius_graph_pbc(
     if pbc[1]:
         mat1 = data.cell[:, 2]
         mat2 = data.cell[:, 0]
-        #cross_a3a1 = torch.cross(data.cell[:, 2], data.cell[:, 0], dim=-1)
-        cross_a3a1 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
+        cross_a3a1 = torch.cross(data.cell[:, 2], data.cell[:, 0], dim=-1)
+        #cross_a3a1 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
         inv_min_dist_a2 = torch.norm(cross_a3a1 / cell_vol, p=2, dim=-1)
         rep_a2 = torch.ceil(radius * inv_min_dist_a2)
     else:
@@ -311,8 +311,8 @@ def radius_graph_pbc(
     if pbc[2]:
         mat1 = data.cell[:, 0]
         mat2 = data.cell[:, 1]
-        #cross_a1a2 = torch.cross(data.cell[:, 0], data.cell[:, 1], dim=-1)
-        cross_a1a2 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
+        cross_a1a2 = torch.cross(data.cell[:, 0], data.cell[:, 1], dim=-1)
+        #cross_a1a2 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
         inv_min_dist_a3 = torch.norm(cross_a1a2 / cell_vol, p=2, dim=-1)
         rep_a3 = torch.ceil(radius * inv_min_dist_a3)
     else:
@@ -576,7 +576,7 @@ class Distance(nn.Module):
 
         # make sure we didn't miss any neighbors due to max_num_neighbors
         assert not (
-            torch.unique(edge_index[0], return_counts=True)[1] > self.max_num_neighbors
+            torch.unique(edge_index[1], return_counts=True)[1] > self.max_num_neighbors
         ).any(), (
             "The neighbor search missed some atoms due to max_num_neighbors being too low. "
             "Please increase this parameter to include the maximum number of atoms within the cutoff."
