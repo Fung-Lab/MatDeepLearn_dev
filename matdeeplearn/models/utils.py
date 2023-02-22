@@ -7,6 +7,7 @@ from torch_geometric.nn import MessagePassing
 from torch_cluster import radius_graph
 from functools import wraps
 import warnings
+import numpy as np
 from torch_scatter import scatter, segment_coo, segment_csr
 
 
