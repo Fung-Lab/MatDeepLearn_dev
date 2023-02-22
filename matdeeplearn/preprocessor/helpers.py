@@ -155,6 +155,8 @@ def get_distances(
     pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
     pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
     print(pos2.size())
+    print(n_cells)
+    print(n_atoms)
     offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
     pos2 = pos2 + offsets
 
