@@ -35,7 +35,7 @@ model:
   direct_forces: True
   use_pbc: True
   otf_graph: True
-  num_elements: 83
+  num_elements: 100
   scale_file: 
   num_post_layers: 1
   post_hidden_channels: 64
@@ -45,7 +45,7 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.0005
+  lr: 0.00005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
