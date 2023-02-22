@@ -24,9 +24,9 @@ model:
   self_loop: True
   # model attributes
   num_targets: 1
-  use_pbc: False
+  use_pbc: True
   regress_forces: False
-  otf_graph: False
+  otf_graph: True
   hidden_channels: 32
   mid_hidden_channels: 200
   num_interactions: 1
