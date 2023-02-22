@@ -343,8 +343,7 @@ def radius_graph_pbc(
     # Compute the x, y, z positional offsets for each cell in each image
     data.cell = data.cell.unsqueeze(2)
     data_cell = torch.transpose(data.cell, 1, 2)
-    print(data_cell.size())
-    print(unit_cell_batch.size())
+    data_cell = torch.squeeze(data_cell, 1)
     pbc_offsets = torch.bmm(data_cell, unit_cell_batch)
     pbc_offsets_per_atom = torch.repeat_interleave(
         pbc_offsets, num_atoms_per_image_sqr, dim=0
