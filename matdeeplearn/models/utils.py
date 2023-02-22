@@ -286,6 +286,7 @@ def radius_graph_pbc(
     #mat2 = torch.stack([mat2, torch.zeros(300, device=device)], dim=1)
     #print(mat1.size())
     #A = torch.cross(s_pad[:, index_list], s_pad[:, index_list_plus], dim=2)
+    #cross_a2a3 = torch.cross(data.cell[:, 1], data.cell[:, 2], dim=-1)
     mat1 = data.cell[:, 1]
     mat2 = data.cell[:, 2]
     cross_a2a3 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])

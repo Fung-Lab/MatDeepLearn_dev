@@ -42,6 +42,7 @@ model:
   num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_mean_pool"
+  activation: "relu"
 
 optim:
   max_epochs: 250

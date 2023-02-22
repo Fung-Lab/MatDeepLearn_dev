@@ -1,6 +1,8 @@
 
 import torch
 from torch import nn
+import torch.nn.functional as F
+import torch_geometric.nn
 from torch_geometric.nn import radius_graph
 from torch_geometric.nn.inits import glorot_orthogonal
 
@@ -331,6 +333,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         num_post_layers=1,
         post_hidden_channels=64,
         pool="global_mean_pool",
+        activation="relu",
         **kwargs,
     ):
         self.num_targets = num_targets
@@ -342,7 +345,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
 
         super(DimeNetPlusPlusWrap, self).__init__(
             hidden_channels=hidden_channels,
-            out_channels=num_targets,
+            out_channels=hidden_channels,
             num_blocks=num_blocks,
             int_emb_size=int_emb_size,
             basis_emb_size=basis_emb_size,
@@ -358,6 +361,8 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         self.num_post_layers = num_post_layers
         self.post_hidden_channels = post_hidden_channels
         self.post_lin_list = nn.ModuleList()
+        self.pool = pool
+        self.activation = activation
         for i in range(self.num_post_layers):
             if i == 0:
                 self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
@@ -422,7 +427,11 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         ):
             x = interaction_block(x, rbf, sbf, idx_kj, idx_ji)
             P += output_block(x, rbf, i, num_nodes=pos.size(0))
-        print(P.size())
+        
+        energy = getattr(torch_geometric.nn, self.pool)(P, data.batch)
+        for i in range(0, len(self.post_lin_list)):
+            energy = self.post_lin_list[i](energy)
+            energy = getattr(F, self.activation)(energy)
         #energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
 
         return energy
