@@ -361,9 +361,6 @@ class PaiNN(BaseModel):
         index = torch.tensor([torch.where(inverse == value)[0][0] for value in torch.unique(inverse)])
         edge_dist = edge_dist[index]
         edge_vector = edge_vector[index]
-        print(edge_dist.size())
-        print(edge_vector.size())
-        print(edge_index.size())
         #edge_index = data.edge_index
         #edge_dist = data.distances
         #edge_vector = data.edge_vec
