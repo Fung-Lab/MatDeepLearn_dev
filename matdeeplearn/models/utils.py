@@ -381,9 +381,9 @@ def radius_graph_pbc(
         unit_cell = unit_cell.view(-1, 3)
 
     edge_index = torch.stack((index2, index1))
-    print(edge_index[0].size())
-    print(edge_index[1].size())
     edge_index = edge_index[:,edge_index[0] != edge_index[1]]
+    edge_index = edge_index.unique_consecutive(dim=1)
+    print(edge_index.size())
 
     return edge_index, unit_cell, num_neighbors_image
 
