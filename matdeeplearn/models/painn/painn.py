@@ -356,6 +356,8 @@ class PaiNN(BaseModel):
             edge_vector,
             id_swap,
         ) = self.generate_graph_values(data)
+        edge_index = edge_index[:,edge_index[0] != edge_index[1]]
+        edge_index = edge_index.unique_consecutive(dim=1)
         print(data.edge_index.size())
         print(edge_index.size())
         print(data.edge_index)
