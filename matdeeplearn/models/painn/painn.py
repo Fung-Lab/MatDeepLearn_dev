@@ -358,10 +358,6 @@ class PaiNN(BaseModel):
         ) = self.generate_graph_values(data)
         edge_index = edge_index[:,edge_index[0] != edge_index[1]]
         edge_index = edge_index.unique_consecutive(dim=1)
-        print(data.edge_index.size())
-        print(edge_index.size())
-        print(data.edge_index)
-        print(edge_index)
         #edge_index = data.edge_index
         #edge_dist = data.distances
         #edge_vector = data.edge_vec
@@ -464,6 +460,8 @@ class PaiNNMessage(MessagePassing):
 
         # TODO(@abhshkdz): Nans out with AMP here during backprop. Debug / fix.
         rbfh = self.rbf_proj(edge_rbf)
+        print(edge_rbf.size())
+        print(rbfh).size()
 
         # propagate_type: (xh: Tensor, vec: Tensor, rbfh_ij: Tensor, r_ij: Tensor)
         dx, dvec = self.propagate(
