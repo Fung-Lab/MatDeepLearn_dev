@@ -463,8 +463,6 @@ class PaiNNMessage(MessagePassing):
 
         # TODO(@abhshkdz): Nans out with AMP here during backprop. Debug / fix.
         rbfh = self.rbf_proj(edge_rbf)
-        print(edge_rbf.size())
-        print(rbfh.size())
 
         # propagate_type: (xh: Tensor, vec: Tensor, rbfh_ij: Tensor, r_ij: Tensor)
         dx, dvec = self.propagate(
