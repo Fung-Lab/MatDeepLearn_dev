@@ -61,10 +61,6 @@ dataset:
   # Path to save processed data.pt file
   pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
 
-  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
-  # target_path: ""
-  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/"
-
   transforms:
     - name: GetY
       args:
