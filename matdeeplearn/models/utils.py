@@ -281,16 +281,7 @@ def radius_graph_pbc(
     # Note that the unit cell volume V = a1 * (a2 x a3) and that
     # (a2 x a3) / V is also the reciprocal primitive vector
     # (crystallographer's definition).
-    #mat1 = data.cell[:, 1]
-    #mat1 = torch.stack([mat1, torch.zeros(300, device=device)], dim=1)
-    #mat2 = data.cell[:, 2]
-    #mat2 = torch.stack([mat2, torch.zeros(300, device=device)], dim=1)
-    #print(mat1.size())
-    #A = torch.cross(s_pad[:, index_list], s_pad[:, index_list_plus], dim=2)
     cross_a2a3 = torch.cross(data.cell[:, 1], data.cell[:, 2], dim=-1)
-    #mat1 = data.cell[:, 1]
-    #mat2 = data.cell[:, 2]
-    #cross_a2a3 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
     cell_vol = torch.sum(data.cell[:, 0] * cross_a2a3, dim=-1, keepdim=True)
 
     if pbc[0]:
@@ -303,7 +294,6 @@ def radius_graph_pbc(
         mat1 = data.cell[:, 2]
         mat2 = data.cell[:, 0]
         cross_a3a1 = torch.cross(data.cell[:, 2], data.cell[:, 0], dim=-1)
-        #cross_a3a1 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
         inv_min_dist_a2 = torch.norm(cross_a3a1 / cell_vol, p=2, dim=-1)
         rep_a2 = torch.ceil(radius * inv_min_dist_a2)
     else:
@@ -313,7 +303,6 @@ def radius_graph_pbc(
         mat1 = data.cell[:, 0]
         mat2 = data.cell[:, 1]
         cross_a1a2 = torch.cross(data.cell[:, 0], data.cell[:, 1], dim=-1)
-        #cross_a1a2 = torch.sum(mat1[:-1] * mat2[1:]) - torch.sum(mat1[1:] * mat2[:-1])
         inv_min_dist_a3 = torch.norm(cross_a1a2 / cell_vol, p=2, dim=-1)
         rep_a3 = torch.ceil(radius * inv_min_dist_a3)
     else:
@@ -392,6 +381,7 @@ def radius_graph_pbc(
         unit_cell = unit_cell.view(-1, 3)
 
     edge_index = torch.stack((index2, index1))
+    edge_index = edge_index[:,edge_index[0] != edge_index[1]]
 
     return edge_index, unit_cell, num_neighbors_image
 
