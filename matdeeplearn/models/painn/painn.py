@@ -356,6 +356,10 @@ class PaiNN(BaseModel):
             edge_vector,
             id_swap,
         ) = self.generate_graph_values(data)
+        print(data.edge_index.size())
+        print(edge_index.size())
+        print(data.edge_index)
+        print(edge_index)
         #edge_index = data.edge_index
         #edge_dist = data.distances
         #edge_vector = data.edge_vec
