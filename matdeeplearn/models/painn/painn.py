@@ -357,7 +357,13 @@ class PaiNN(BaseModel):
             id_swap,
         ) = self.generate_graph_values(data)
         edge_index = edge_index[:,edge_index[0] != edge_index[1]]
-        edge_index = edge_index.unique_consecutive(dim=1)
+        edge_index, inverse = edge_index.unique_consecutive(return_inverse=True, dim=1)
+        index = torch.tensor([torch.where(inverse == value)[0][0] for value in torch.unique(inverse)])
+        edge_dist = edge_dist[index]
+        edge_vector = edge_vector[index]
+        print(edge_dist.size())
+        print(edge_vector.size())
+        print(edge_index.size())
         #edge_index = data.edge_index
         #edge_dist = data.distances
         #edge_vector = data.edge_vec
@@ -461,7 +467,7 @@ class PaiNNMessage(MessagePassing):
         # TODO(@abhshkdz): Nans out with AMP here during backprop. Debug / fix.
         rbfh = self.rbf_proj(edge_rbf)
         print(edge_rbf.size())
-        print(rbfh).size()
+        print(rbfh.size())
 
         # propagate_type: (xh: Tensor, vec: Tensor, rbfh_ij: Tensor, r_ij: Tensor)
         dx, dvec = self.propagate(
