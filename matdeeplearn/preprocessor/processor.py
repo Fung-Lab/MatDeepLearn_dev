@@ -315,7 +315,7 @@ class DataProcessor:
                 #)
                 #edge_indices, edge_weights = dense_to_sparse(cd_matrix)
                 
-                first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
+                first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell.squeeze()), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
                 # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
                 bad_edge = first_idex == second_idex
                 bad_edge &= np.all(shifts == 0, axis=1)
@@ -348,7 +348,6 @@ class DataProcessor:
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
-            print(data.cell_offsets.size())
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked

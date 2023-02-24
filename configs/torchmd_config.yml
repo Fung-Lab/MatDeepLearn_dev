@@ -67,6 +67,11 @@ dataset:
   #Path to save processed data.pt file
   pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
   #Format of data files (limit to those supported by ASE)
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: True # Optional parameter, default is False
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
