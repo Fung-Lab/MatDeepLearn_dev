@@ -113,15 +113,18 @@ class PropertyTrainer(BaseTrainer):
             # Save current model
             self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
-            # Evaluate on validation set if it exists
-            if self.val_loader:
+            # Evaluate on validation set AND test set if it exists
+            if self.val_loader and self.test_loader:
                 val_metrics = self.validate()
+                test_metrics = self.validate(split="test")
 
                 # Train loop timings
                 self.epoch_time = time.time() - epoch_start_time
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
-                    self._log_metrics(val_metrics)
+                    self._log_metrics(
+                        val_metrics=val_metrics, test_metrics=test_metrics
+                    )
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if (
@@ -220,24 +223,27 @@ class PropertyTrainer(BaseTrainer):
 
         return metrics
 
-    def _log_metrics(self, val_metrics=None):
-        if not val_metrics:
+    def _log_metrics(self, val_metrics=None, test_metrics=None):
+        if not val_metrics and not test_metrics:
             logging.info(f"epoch: {self.epoch}, learning rate: {self.scheduler.lr}")
             logging.info(self.metrics[type(self.loss_fn).__name__]["metric"])
         else:
             train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
+
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
+            test_loss = test_metrics[type(self.loss_fn).__name__]["metric"]
 
             log_kwargs = {
                 "epoch": int(self.epoch - 1),
                 "lr": self.scheduler.lr,
                 "train_loss": train_loss,
                 "val_loss": val_loss,
+                "test_loss": test_loss,
                 "epoch_time": self.epoch_time,
             }
 
             logging.info(
-                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
+                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Test Error: {:.5f}, Time per epoch (s): {:.5f}".format(
                     *log_kwargs.values()
                 )
             )
