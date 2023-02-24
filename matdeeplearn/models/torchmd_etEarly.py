@@ -195,9 +195,10 @@ class TorchMD_ET(nn.Module):
             vec = vec + dvec
         x = self.out_norm(x)
         x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-        for i in range(0, len(self.post_lin_list)):
+        for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.activation)(x)
+        x = self.post_lin_list[-1](x)
         #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
         #x = self.pool.reduce(x, data.batch)
         if x.shape[1] == 1:
