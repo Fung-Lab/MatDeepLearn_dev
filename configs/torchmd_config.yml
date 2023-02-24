@@ -39,10 +39,13 @@ model:
   max_z: 100
   max_num_neighbors: 32
   aggr: "mean"
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
 
 optim:
   max_epochs: 250
-  lr: 0.0005
+  lr: 0.002
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -85,7 +88,7 @@ dataset:
 
   #graph specific settings
   cutoff_radius : 8.0
-  n_neighbors : 12
+  n_neighbors : 250
   edge_steps : 50
 
   #Ratios for train/val/test split out of a total of 1
