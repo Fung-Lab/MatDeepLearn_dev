@@ -210,7 +210,7 @@ def get_distances(
     )
     atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices).squeeze()
 
-    return min_atomic_distances, min_indices
+    return min_atomic_distances, min_indices, atom_rij
 
 
 def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
@@ -279,9 +279,8 @@ def get_cutoff_distance_matrix(
         n_neighbors: int
             max number of neighbors to be considered
     """
-
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
-    distance_matrix, min_indices = get_distances(pos, cells, device=device)
+    distance_matrix, min_indices, atom_rij = get_distances(pos, cells, device=device)
 
     if remove_virtual_edges:
         distance_matrix = control_virtual_edges(distance_matrix, vn)
@@ -307,7 +306,7 @@ def get_cutoff_distance_matrix(
     # get cells for edges except for self loops
     cell_offsets[:n_edges, :] = all_cell_offsets[cutoff_distance_matrix != 0]
 
-    return cutoff_distance_matrix, cell_offsets
+    return cutoff_distance_matrix, cell_offsets, atom_rij
 
 
 def add_selfloop(

@@ -1,4 +1,5 @@
 import warnings
+from typing import List
 
 import torch
 from torch.utils.data import random_split
@@ -60,7 +61,7 @@ def dataset_split(
 
 def get_dataset(
     data_path,
-    transform_list: list = [],
+    transform_list: List[dict] = [],
     large_dataset=False,
 ):
     """
