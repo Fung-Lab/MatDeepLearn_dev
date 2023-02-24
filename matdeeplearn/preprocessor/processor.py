@@ -348,6 +348,7 @@ class DataProcessor:
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
+            print(data.cell_offsets.size())
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
