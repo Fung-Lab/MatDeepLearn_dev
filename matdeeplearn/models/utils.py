@@ -645,14 +645,14 @@ class GatedEquivariantBlock(nn.Module):
             vec1_buffer.size(0), vec1_buffer.size(2), device=vec1_buffer.device
         )
         mask = (vec1_buffer != 0).view(vec1_buffer.size(0), -1).any(dim=1)
-        #if not mask.all():
-        #    warnings.warn(
-        #        (
-        #            f"Skipping gradients for {(~mask).sum()} atoms due to vector features being zero. "
-        #            "This is likely due to atoms being outside the cutoff radius of any other atom. "
-        #            "These atoms will not interact with any other atom unless you change the cutoff."
-        #        )
-        #    )
+        if not mask.all():
+            warnings.warn(
+                (
+                    f"Skipping gradients for {(~mask).sum()} atoms due to vector features being zero. "
+                    "This is likely due to atoms being outside the cutoff radius of any other atom. "
+                    "These atoms will not interact with any other atom unless you change the cutoff."
+                )
+            )
         vec1[mask] = torch.norm(vec1_buffer[mask], dim=-2)
 
         vec2 = self.vec2_proj(v)
