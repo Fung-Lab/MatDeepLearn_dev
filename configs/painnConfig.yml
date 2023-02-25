@@ -33,8 +33,8 @@ model:
   envelope:  {"name": "polynomial", "exponent": 5}
   regress_forces: False
   direct_forces: True
-  use_pbc: True
-  otf_graph: True
+  use_pbc: False
+  otf_graph: False
   num_elements: 100
   scale_file: 
   num_post_layers: 1
@@ -88,4 +88,4 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  all_neighbors : False
+  all_neighbors : True

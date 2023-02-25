@@ -358,9 +358,9 @@ class PaiNN(BaseModel):
         ) = self.generate_graph_values(data)
 
         
-        #edge_index = data.edge_index
-        #edge_dist = data.distances
-        #edge_vector = data.edge_vec
+        edge_index = data.edge_index
+        edge_dist = data.distances
+        edge_vector = data.edge_vec
 
         assert z.dim() == 1 and z.dtype == torch.long
 
