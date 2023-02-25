@@ -33,12 +33,15 @@ model:
   rbf_type: "expnorm"
   trainable_rbf: True
   activation: "silu"
+  attn_activation: "silu"
+  num_heads: 8
+  distance_influence: "both"
   neighbor_embedding: True
   cutoff_lower: 0.0
   cutoff_upper: 8.0
   max_z: 100
   max_num_neighbors: 32
-  aggr: "add"
+  aggr: "mean"
   num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_mean_pool"
