@@ -28,7 +28,7 @@ model:
   num_layers: 6
   num_rbf: 128
   cutoff: 8.0
-  max_neighbors: 50
+  max_neighbors: 250
   rbf:  {"name": "gaussian"}
   envelope:  {"name": "polynomial", "exponent": 5}
   regress_forces: False

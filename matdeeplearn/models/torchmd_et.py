@@ -71,6 +71,7 @@ class TorchMD_ET(nn.Module):
         cutoff_upper=5.0,
         max_z=100,
         max_num_neighbors=32,
+        aggr="add",
         **kwargs
     ):
         super(TorchMD_ET, self).__init__()
@@ -137,6 +138,7 @@ class TorchMD_ET(nn.Module):
                 attn_activation,
                 cutoff_lower,
                 cutoff_upper,
+                aggr,
             ).jittable()
             self.attention_layers.append(layer)
 
@@ -218,8 +220,9 @@ class EquivariantMultiHeadAttention(MessagePassing):
         attn_activation,
         cutoff_lower,
         cutoff_upper,
+        aggregation,
     ):
-        super(EquivariantMultiHeadAttention, self).__init__(aggr="add", node_dim=0)
+        super(EquivariantMultiHeadAttention, self).__init__(aggr=aggregation, node_dim=0)
         assert hidden_channels % num_heads == 0, (
             f"The number of hidden channels ({hidden_channels}) "
             f"must be evenly divisible by the number of "

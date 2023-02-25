@@ -356,11 +356,7 @@ class PaiNN(BaseModel):
             edge_vector,
             id_swap,
         ) = self.generate_graph_values(data)
-        edge_index = edge_index[:,edge_index[0] != edge_index[1]]
-        edge_index, inverse = edge_index.unique_consecutive(return_inverse=True, dim=1)
-        index = torch.tensor([torch.where(inverse == value)[0][0] for value in torch.unique(inverse)])
-        edge_dist = edge_dist[index]
-        edge_vector = edge_vector[index]
+        
         #edge_index = data.edge_index
         #edge_dist = data.distances
         #edge_vector = data.edge_vec
