@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: painnEarlyAll
+  name: painnEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -33,8 +33,8 @@ model:
   envelope:  {"name": "polynomial", "exponent": 5}
   regress_forces: False
   direct_forces: True
-  use_pbc: False
-  otf_graph: False
+  use_pbc: True
+  otf_graph: True
   num_elements: 100
   scale_file: 
   num_post_layers: 3
