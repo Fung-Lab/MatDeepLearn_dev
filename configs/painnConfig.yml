@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: painnAll
+  name: painnEarlyAll
   load_model: False
   save_model: True
   model_path: "my_model.pth"
