@@ -39,7 +39,7 @@ model:
   max_z: 100
   max_num_neighbors: 32
   aggr: "add"
-  num_post_layers: 1
+  num_post_layers: 3
   post_hidden_channels: 64
   pool: "global_mean_pool"
 
