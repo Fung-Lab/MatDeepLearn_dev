@@ -174,6 +174,8 @@ class TorchMD_ET(nn.Module):
         self,
         data
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        print(data.edge_index)
+        print(data.edge_index.size())
 
         x = self.embedding(data.z)
 
