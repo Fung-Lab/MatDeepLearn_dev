@@ -12,6 +12,7 @@ from matdeeplearn.preprocessor.helpers import (
     get_cutoff_distance_matrix,
     get_mask,
 )
+from matdeeplearn.common.graph_data import CustomData
 
 """
 here resides the transform classes needed for data processing
@@ -84,12 +85,13 @@ class VirtualNodes(object):
 
         # create edges
         for attr in self.attrs:
-            cd_matrix, _ = get_cutoff_distance_matrix(
+            cd_matrix, _, _ = get_cutoff_distance_matrix(
                 data.rv_pos,
                 data.cell,
                 getattr(self, f"{attr}_cutoff"),
                 self.neighbors,
                 self.device,
+                use_atom_rij=False
             )
 
             edge_index, edge_weight = dense_to_sparse(cd_matrix)
@@ -144,7 +146,23 @@ class VirtualNodes(object):
             ):
                 data.__dict__.get("_store")[attr] = None
 
-        return data
+        # compile all generated edges
+        edge_kwargs = {
+            attr: getattr(data, attr) for attr in edge_index_attrs + edge_attr_attrs
+        }
+
+        return CustomData(
+            pos=data.pos,
+            cell=data.cell,
+            cell2=data.cell2,
+            y=data.y,
+            z=data.z,
+            u=data.u,
+            x=data.x,
+            edge_index=data.edge_index,
+            edge_attr=data.edge_attr,
+            **edge_kwargs
+        )
 
 
 @registry.register_transform("NumNodes")

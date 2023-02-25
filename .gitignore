@@ -173,7 +173,7 @@ dmypy.json
 server/
 
 # tests
-testing/*
+# testing/*
 test*.py
 test*.ipynb
 

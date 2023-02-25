@@ -1,0 +1,6 @@
+python main.py --config_path="/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml" --run_mode="train" --use_wandb=False
+salloc --nodes 1 --qos interactive --time 01:00:00 --constraint gpu --gpus 1 --account=m3641
+rm -rf ../matdeeplearn/trainers/.ipynb_checkpoints
+rm -rf ../matdeeplearn/models/.ipynb_checkpoints
+
+salloc -C gpu -t 60 -c 10 -G 1 -q interactive -A

@@ -13,6 +13,10 @@ from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
+import cProfile
+from pstats import SortKey
+import pstats
+
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
@@ -37,6 +41,7 @@ def process_data(dataset_config):
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
     all_neighbors = dataset_config["all_neighbors"]
+    use_wandb = dataset_config.get("use_sweep_params", False)
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -53,10 +58,8 @@ def process_data(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
-<<<<<<< HEAD
-=======
         all_neighbors=all_neighbors,
->>>>>>> origin/all_neighbors
+        use_wandb=use_wandb,
         device=device,
     )
 
@@ -80,6 +83,7 @@ class DataProcessor:
         additional_attributes: list = [],
         verbose: bool = True,
         all_neighbors: bool = False,
+        use_wandb: bool = False,
         device: str = "cpu",
     ) -> None:
         """
@@ -107,12 +111,9 @@ class DataProcessor:
                 step size for creating Gaussian basis for edges
                 used in torch.linspace
 
-<<<<<<< HEAD
             otf: bool
                 default False. Whether or not to transform the data on the fly.
 
-=======
->>>>>>> origin/all_neighbors
             transforms: list
                 default []. List of transforms to apply to the data.
 
@@ -153,6 +154,7 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.all_neighbors = all_neighbors
+        self.use_wandb = use_wandb
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -304,19 +306,22 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
-<<<<<<< HEAD
         # find the virtual nodes transform (workaround for now)
         transforms = [
-            (i, t["name"]) for (i, t) in enumerate(wandb.config.get("transforms"))
+            (i, t)
+            for (i, t) in enumerate(
+                wandb.config.get("transforms") if self.use_wandb else self.transforms
+            )
         ]
         virtual_nodes_transform = None
         for i, t in transforms:
-            if t == "VirtualNodes":
-                virtual_nodes_transform = wandb.config.get("transforms")[i]
-            break
+            if t.get("name") == "VirtualNodes":
+                virtual_nodes_transform = t
+                break
+        
+        pr = cProfile.Profile()
+        pr.enable()
 
-=======
->>>>>>> origin/all_neighbors
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
             data = data_list[i]
@@ -326,81 +331,82 @@ class DataProcessor:
             cell2 = sdict["cell2"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-<<<<<<< HEAD
 
             data.o_pos = pos.clone()
             data.o_z = atomic_numbers.clone()
 
-            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+            cd_matrix, cell_offsets, _ = get_cutoff_distance_matrix(
                 pos,
                 cell,
                 self.r,
                 self.n_neighbors,
+                image_selfloop=self.image_selfloop,
                 device=self.device,
+                use_atom_rij=False
             )
+            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+
+            # if not self.all_neighbors:
+            #     if atom_rij.dim() > 1:
+            #         edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
+            # elif self.all_neighbors:
+            #     (
+            #         first_idex,
+            #         second_idex,
+            #         rij,
+            #         rij_vec,
+            #         shifts,
+            #     ) = ase.neighborlist.primitive_neighbor_list(
+            #         "ijdDS",
+            #         (True, True, True),
+            #         ase.geometry.complete_cell(cell),
+            #         pos.numpy(),
+            #         cutoff=self.r,
+            #         self_interaction=False,
+            #         use_scaled_positions=False,
+            #     )
+
+            #     # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
+            #     bad_edge = first_idex == second_idex
+            #     bad_edge &= np.all(shifts == 0, axis=1)
+            #     keep_edge = ~bad_edge
+            #     first_idex = first_idex[keep_edge]
+            #     second_idex = second_idex[keep_edge]
+            #     rij = rij[keep_edge]
+            #     rij_vec = rij_vec[keep_edge]
+            #     shifts = shifts[keep_edge]
+            #     # get closest n neighbors
+            #     if len(rij) > self.n_neighbors:
+            #         _, topk_indices = torch.topk(
+            #             torch.tensor(rij), self.n_neighbors, largest=False, sorted=False
+            #         )
+            #         first_idex = first_idex[topk_indices]
+            #         second_idex = second_idex[topk_indices]
+            #         rij = rij[topk_indices]
+            #         rij_vec = rij_vec[topk_indices]
+            #         shifts = shifts[topk_indices]
+
+            #     edge_indices = torch.stack(
+            #         [
+            #             torch.LongTensor(torch.tensor(first_idex)),
+            #             torch.LongTensor(torch.tensor(second_idex)),
+            #         ],
+            #         dim=0,
+            #     )
+            #     edge_vec = torch.tensor(rij_vec).float()
+            #     edge_weights = torch.tensor(rij).float()
+            #     cell_offsets = torch.tensor(shifts).int()
 
             # virtual node generation (workaround for now)
             if virtual_nodes_transform:
                 vpos, virtual_z = generate_virtual_nodes(
                     cell2,
-                    # get from config to allow sweep
                     virtual_nodes_transform.get("virtual_box_increment", 3.0),
                     self.device,
                 )
                 pos = torch.cat([pos, vpos], dim=0)
                 atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
-            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-
-=======
-            if self.all_neighbors == False:
-                cd_matrix, cell_offsets, atom_rij = get_cutoff_distance_matrix(
-                    pos,
-                    cell,
-                    self.r,
-                    self.n_neighbors,
-                    image_selfloop=self.image_selfloop,
-                    device=self.device,
-                )
-                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-                if(atom_rij.dim() > 1):
-                  edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
-            elif self.all_neighbors == True:
-                cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-                    pos,
-                    cell,
-                    self.r,
-                    self.n_neighbors,
-                    image_selfloop=self.image_selfloop,
-                    device=self.device,
-                )
-                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-                
-                first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
-                # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
-                bad_edge = first_idex == second_idex
-                bad_edge &= np.all(shifts == 0, axis=1)
-                keep_edge = ~bad_edge
-                first_idex = first_idex[keep_edge]
-                second_idex = second_idex[keep_edge]
-                rij = rij[keep_edge] 
-                rij_vec = rij_vec[keep_edge]
-                shifts = shifts[keep_edge]
-                # get closest n neighbors
-                if len(rij) > self.n_neighbors:
-                    _, topk_indices = torch.topk(torch.tensor(rij), self.n_neighbors, largest=False, sorted=False)
-                    first_idex = first_idex[topk_indices]
-                    second_idex = second_idex[topk_indices]
-                    rij = rij[topk_indices] 
-                    rij_vec = rij_vec[topk_indices]
-                    shifts = shifts[topk_indices]    
-                                  
-                edge_indices = torch.stack([torch.LongTensor(torch.tensor(first_idex)), torch.LongTensor(torch.tensor(second_idex))], dim=0)
-                edge_vec = torch.tensor(rij_vec).float()
-                edge_weights = torch.tensor(rij).float()   
-                cell_offsets = torch.tensor(shifts).int()                
-                
->>>>>>> origin/all_neighbors
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
@@ -409,7 +415,7 @@ class DataProcessor:
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
-            data.edge_vec = edge_vec
+            # data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor = {}
@@ -423,6 +429,14 @@ class DataProcessor:
                 for attr in self.additional_attributes:
                     data.__setattr__(attr, sdict[attr])
 
+            if i == 200: break
+
+        pr.disable()
+        stats = pstats.Stats(pr)
+        stats.sort_stats('tottime').print_stats(10)
+
+        exit(0)
+
         logging.info("Generating node features...")
         generate_node_features(data_list, self.n_neighbors, device=self.device)
 
@@ -430,14 +444,14 @@ class DataProcessor:
         generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         # compile non-otf transforms
-<<<<<<< HEAD
         logging.info("Applying transforms.")
         transforms_list = []
         for transform in self.transforms:
             # go through dict and overwrite with wandb config for sweep purposes
-            for key in transform["args"]:
-                if key in wandb.config:
-                    transform["args"][key] = wandb.config[key]
+            if self.use_wandb:
+                for key in transform["args"]:
+                    if key in wandb.config:
+                        transform["args"][key] = wandb.config[key]
 
             if not transform["otf"]:
                 transforms_list.append(
@@ -450,30 +464,6 @@ class DataProcessor:
         # apply transforms
         for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
             data_list[i] = composition(data)
-=======
-        logging.debug("Applying transforms.")
-
-        # Ensure GetY exists to prevent downstream model errors
-        assert "GetY" in [
-            tf["name"] for tf in self.transforms
-        ], "The target transform GetY is required in config."
-
-        transforms_list = []
-        for transform in self.transforms:
-            if not transform.get("otf", False):
-                transforms_list.append(
-                    registry.get_transform_class(
-                        transform["name"],
-                        **({} if transform["args"] is None else transform["args"])
-                    )
-                )
-
-        composition = Compose(transforms_list)
-
-        # apply transforms
-        for data in data_list:
-            composition(data)
->>>>>>> origin/all_neighbors
 
         clean_up(data_list, ["edge_descriptor"])
 

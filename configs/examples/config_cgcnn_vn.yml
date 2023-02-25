@@ -50,7 +50,7 @@ model:
     pool: "global_mean_pool"
     virtual_pool: ""
     pool_choice: "virtual"
-    mp_pattern: [["rr"], ["rr"], ["rr"], ["rr"]]
+    mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -73,7 +73,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
@@ -88,13 +88,14 @@ dataset:
       args:
         virtual_box_increment: 3
         edge_steps: 50
-        attrs: ["rr"]
+        attrs: ["rr", "rv"]
         rr_cutoff: 5.0
+        rv_cutoff: 5.0
         neighbors: 50
       otf: False
-    - name: NumNodes
-      args: {}
-      otf: True
+  # use for passing into global config
+  all_neighbors: False
+  use_sweep_params: False
   # use again for passing into global config
   data_format: "json"
   node_representation: "onehot"
