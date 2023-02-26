@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_ocAll
+  name: gemnet_ocEarlyAll
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -51,7 +51,7 @@ model:
   direct_forces: False
   use_pbc: False
   scale_backprop_forces: False
-  cutoff: 6.0
+  cutoff: 12.0
   cutoff_qint: 
   cutoff_aeaint: 
   cutoff_aint: 
