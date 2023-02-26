@@ -49,7 +49,7 @@ model:
   num_global_out_layers: 2
   regress_forces: False
   direct_forces: False
-  use_pbc: True
+  use_pbc: False
   scale_backprop_forces: False
   cutoff: 6.0
   cutoff_qint: 
@@ -75,7 +75,7 @@ model:
   scale_basis: False
   qint_tags: [0, 1, 2]
   num_elements: 100
-  otf_graph: True
+  otf_graph: False
   scale_file:
   num_post_layers: 3
   post_hidden_channels: 64
