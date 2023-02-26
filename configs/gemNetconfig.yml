@@ -49,7 +49,7 @@ model:
   num_global_out_layers: 2
   regress_forces: False
   direct_forces: False
-  use_pbc: False
+  use_pbc: True
   scale_backprop_forces: False
   cutoff: 6.0
   cutoff_qint: 
@@ -74,8 +74,8 @@ model:
   atom_interaction: False
   scale_basis: False
   qint_tags: [0, 1, 2]
-  num_elements: 83
-  otf_graph: False
+  num_elements: 100
+  otf_graph: True
   scale_file:
 
 optim:
@@ -96,7 +96,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False
+  processed: True
   # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   # Path to target file within data_path
