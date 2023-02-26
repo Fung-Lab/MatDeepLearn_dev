@@ -26,7 +26,7 @@ model:
   num_targets: 1
   hidden_channels: 512
   num_layers: 6
-  num_rbf: 128
+  num_rbf: 256
   cutoff: 12.0
   max_neighbors: 250
   rbf:  {"name": "gaussian"}
@@ -38,7 +38,7 @@ model:
   num_elements: 100
   scale_file: 
   num_post_layers: 3
-  post_hidden_channels: 128
+  post_hidden_channels: 64
   pool: "global_mean_pool"
   activation: "relu"
 
