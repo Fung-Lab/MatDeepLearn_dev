@@ -1296,16 +1296,17 @@ class GemNetOC(BaseModel):
             # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
             xs_E.append(x_E)
             xs_F.append(x_F)
-
+        print(xs_E.size())
         # Global output block for final predictions
         x_E = self.out_mlp_E(torch.cat(xs_E, dim=-1))
+        print(xs_E.size())
         if self.direct_forces:
             x_F = self.out_mlp_F(torch.cat(xs_F, dim=-1))
         with torch.cuda.amp.autocast(False):
             E_t = self.out_energy(x_E.float())
             if self.direct_forces:
                 F_st = self.out_forces(x_F.float())
-
+        print(E_t.size())
         nMolecules = torch.max(batch) + 1
         if self.extensive:
             E_t = scatter_det(
@@ -1315,7 +1316,7 @@ class GemNetOC(BaseModel):
             E_t = scatter_det(
                 E_t, batch, dim=0, dim_size=nMolecules, reduce="mean"
             )  # (nMolecules, num_targets)
-
+        print(E_t.size())
         if self.regress_forces:
             if self.direct_forces:
                 if self.forces_coupled:  # enforce F_st = F_ts
