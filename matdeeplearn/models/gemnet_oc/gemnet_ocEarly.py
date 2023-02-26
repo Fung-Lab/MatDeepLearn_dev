@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch_geometric.nn
-import torch.functional as F
+import torch.nn.functional as F
 from torch_geometric.nn import radius_graph
 from torch_scatter import scatter, segment_coo
 
