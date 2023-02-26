@@ -128,4 +128,4 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  all_neighbors : False
+  all_neighbors : True
