@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_oc
+  name: gemnet_ocEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -77,6 +77,10 @@ model:
   num_elements: 100
   otf_graph: True
   scale_file:
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
+  act: "relu"
 
 optim:
   max_epochs: 250
