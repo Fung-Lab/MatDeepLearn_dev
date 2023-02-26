@@ -1296,10 +1296,9 @@ class GemNetOC(BaseModel):
             # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
             xs_E.append(x_E)
             xs_F.append(x_F)
-        print(xs_E.size())
         # Global output block for final predictions
         x_E = self.out_mlp_E(torch.cat(xs_E, dim=-1))
-        print(xs_E.size())
+        print(x_E.size())
         if self.direct_forces:
             x_F = self.out_mlp_F(torch.cat(xs_F, dim=-1))
         with torch.cuda.amp.autocast(False):
