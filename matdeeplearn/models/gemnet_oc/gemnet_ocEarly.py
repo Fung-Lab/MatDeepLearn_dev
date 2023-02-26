@@ -1323,7 +1323,7 @@ class GemNetOC(BaseModel):
         for i in range(0, len(self.post_lin_list)):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.act)(x)
-        x_E = x
+        E_t = x
         
         #with torch.cuda.amp.autocast(False):
         #    E_t = self.out_energy(x_E.float())
