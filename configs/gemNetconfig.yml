@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_ocEarlyAll
+  name: gemnet_ocEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -49,7 +49,7 @@ model:
   num_global_out_layers: 2
   regress_forces: False
   direct_forces: False
-  use_pbc: False
+  use_pbc: True
   scale_backprop_forces: False
   cutoff: 12.0
   cutoff_qint: 
@@ -75,7 +75,7 @@ model:
   scale_basis: False
   qint_tags: [0, 1, 2]
   num_elements: 100
-  otf_graph: False
+  otf_graph: True
   scale_file:
   num_post_layers: 3
   post_hidden_channels: 64
