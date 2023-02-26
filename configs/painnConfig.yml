@@ -39,7 +39,7 @@ model:
   scale_file: 
   num_post_layers: 3
   post_hidden_channels: 64
-  pool: "global_sum_pool"
+  pool: "global_add_pool"
   activation: "relu"
 
 optim:
