@@ -200,7 +200,7 @@ def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
 
 
 def get_cutoff_distance_matrix(
-    pos, cell, r, n_neighbors, device, image_selfloop, offset_number=3
+    pos, cell, r, n_neighbors, device, image_selfloop, offset_number=1
 ):
     """
     get the distance matrix

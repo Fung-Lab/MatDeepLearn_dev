@@ -10,6 +10,7 @@ from ase import io, Atoms, neighborlist
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
+from torch_scatter import scatter_min
 from tqdm import tqdm
 
 from matdeeplearn.common.registry import registry
@@ -292,53 +293,58 @@ class DataProcessor:
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
+
+            #Compute graph using ASE method     
+            first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell), pos.numpy(), cutoff=self.r, self_interaction=True, use_scaled_positions=False)            
+            # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
+            bad_edge = first_idex == second_idex
+            bad_edge &= np.all(shifts == 0, axis=1)
+            keep_edge = ~bad_edge
+            first_idex = first_idex[keep_edge]
+            second_idex = second_idex[keep_edge]
+            rij = rij[keep_edge] 
+            rij_vec = rij_vec[keep_edge]
+            shifts = shifts[keep_edge]
+                              
+            first_idex = torch.tensor(first_idex).long()   
+            second_idex = torch.tensor(second_idex).long()  
+            edge_indices = torch.stack([first_idex, second_idex], dim=0)
+            edge_weights = torch.tensor(rij).float()   
+            edge_vec = torch.tensor(rij_vec).float()
+            cell_offsets = torch.tensor(shifts).int()            
+            
             if self.all_neighbors == False:
-                cd_matrix, cell_offsets, atom_rij = get_cutoff_distance_matrix(
-                    pos,
-                    cell,
-                    self.r,
-                    self.n_neighbors,
-                    image_selfloop=self.image_selfloop,
-                    device=self.device,
-                )
-                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-                if(atom_rij.dim() > 1):
-                  edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
-            elif self.all_neighbors == True:
-                cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-                    pos,
-                    cell,
-                    self.r,
-                    self.n_neighbors,
-                    image_selfloop=self.image_selfloop,
-                    device=self.device,
-                )
-                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-                
-                first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
-                # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
-                bad_edge = first_idex == second_idex
-                bad_edge &= np.all(shifts == 0, axis=1)
-                keep_edge = ~bad_edge
-                first_idex = first_idex[keep_edge]
-                second_idex = second_idex[keep_edge]
-                rij = rij[keep_edge] 
-                rij_vec = rij_vec[keep_edge]
-                shifts = shifts[keep_edge]
+                            
+                #select minimum distances from full ASE neighborlist
+                num_cols = pos.shape[0]
+                indices_1d = edge_indices[0] * num_cols + edge_indices[1]        
+                out, argmin = scatter_min(edge_weights, indices_1d)
+                #remove placeholder values from scatter_min 
+                empty = argmin == edge_indices.shape[1]
+                argmin = argmin[~empty]
+                out = out[~empty]
+                 
+                edge_indices = edge_indices[:, argmin]
+                edge_weights = edge_weights[argmin]
+                edge_vec = edge_vec[argmin, :]                
+                cell_offsets = cell_offsets[argmin, :]
+
                 # get closest n neighbors
-                if len(rij) > self.n_neighbors:
-                    _, topk_indices = torch.topk(torch.tensor(rij), self.n_neighbors, largest=False, sorted=False)
+                if len(edge_weights) > self.n_neighbors:
+                    _, topk_indices = torch.topk(edge_weights, self.n_neighbors, largest=False, sorted=False)
+                    if len(topk_indices) < len(first_idex):
+                        logging.warning(f"Atoms in structure {structure_id} have more neighbors than n_neighbors. Consider increasing the number to avoid missing neighbors.")                
                     first_idex = first_idex[topk_indices]
                     second_idex = second_idex[topk_indices]
-                    rij = rij[topk_indices] 
-                    rij_vec = rij_vec[topk_indices]
-                    shifts = shifts[topk_indices]    
-                                  
-                edge_indices = torch.stack([torch.LongTensor(torch.tensor(first_idex)), torch.LongTensor(torch.tensor(second_idex))], dim=0)
-                edge_vec = torch.tensor(rij_vec).float()
-                edge_weights = torch.tensor(rij).float()   
-                cell_offsets = torch.tensor(shifts).int()                
-                
+                    edge_indices = edge_indices[:, topk_indices]
+                    edge_weights = edge_weights[topk_indices] 
+                    edge_vec = edge_vec[topk_indices]
+                    cell_offsets = cell_offsets[topk_indices]  
+                  
+            elif self.all_neighbors == True:               
+                pass  
+
+                                         
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
