@@ -49,7 +49,7 @@ from .utils import (
 )
 
 
-@registry.register_model("gemnet_oc")
+@registry.register_model("gemnet_ocAll")
 class GemNetOC(BaseModel):
     """
     Arguments
