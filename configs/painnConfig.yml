@@ -24,7 +24,7 @@ model:
   self_loop: True
   # model attributes
   num_targets: 1
-  hidden_channels: 1024
+  hidden_channels: 512
   num_layers: 6
   num_rbf: 128
   cutoff: 12.0
@@ -38,7 +38,7 @@ model:
   num_elements: 100
   scale_file: 
   num_post_layers: 3
-  post_hidden_channels: 64
+  post_hidden_channels: 128
   pool: "global_mean_pool"
   activation: "relu"
 
