@@ -55,7 +55,7 @@ model:
   cutoff_qint: 
   cutoff_aeaint: 
   cutoff_aint: 
-  max_neighbors: 50
+  max_neighbors: 250
   max_neighbors_qint:
   max_neighbors_aeaint:
   max_neighbors_aint:
