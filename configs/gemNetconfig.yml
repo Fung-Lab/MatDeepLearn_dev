@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_ocEarlyAll
+  name: gemnet_oc
   load_model: False
   save_model: True
   model_path: "my_model.pth"
