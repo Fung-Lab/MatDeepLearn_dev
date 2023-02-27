@@ -51,7 +51,7 @@ model:
   direct_forces: False
   use_pbc: True
   scale_backprop_forces: False
-  cutoff: 8.0
+  cutoff: 6.0
   cutoff_qint: 
   cutoff_aeaint: 
   cutoff_aint: 
