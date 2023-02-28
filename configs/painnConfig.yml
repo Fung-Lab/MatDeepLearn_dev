@@ -27,8 +27,8 @@ model:
   hidden_channels: 512
   num_layers: 6
   num_rbf: 128
-  cutoff: 6.0
-  max_neighbors: 250
+  cutoff: 5.0
+  max_neighbors: 50
   rbf:  {"name": "gaussian"}
   envelope:  {"name": "polynomial", "exponent": 5}
   regress_forces: False
