@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from torch_geometric.data import Data
-from torch_geometric.typing import OptTensor, SparseTensor
+from torch_geometric.typing import OptTensor
 from typing import Optional
-import re
 
 
 class CustomData(Data):

@@ -74,7 +74,7 @@ class VirtualNodes(object):
             "y",
         ]
 
-    def __call__(self, data: Data) -> Data:
+    def __call__(self, data: Data) -> CustomData:
         # NOTE use cell2 instead of cell for correct VN generation
         vpos, virtual_z = generate_virtual_nodes(
             data.cell2, self.virtual_box_increment, self.device
@@ -85,13 +85,15 @@ class VirtualNodes(object):
 
         # create edges
         for attr in self.attrs:
+            # TODO: optimize this by using the same cutoff distance matrix for all edges or incorporating all_neighbors efficient computation
+            # causes a large slowdown during processing since we recompute the same matrix for each edge type
             cd_matrix, _, _ = get_cutoff_distance_matrix(
                 data.rv_pos,
                 data.cell,
                 getattr(self, f"{attr}_cutoff"),
                 self.neighbors,
                 self.device,
-                use_atom_rij=False
+                use_atom_rij=False,
             )
 
             edge_index, edge_weight = dense_to_sparse(cd_matrix)
@@ -161,7 +163,10 @@ class VirtualNodes(object):
             x=data.x,
             edge_index=data.edge_index,
             edge_attr=data.edge_attr,
-            **edge_kwargs
+            cell_offsets=data.cell_offsets,
+            structure_id=data.structure_id,
+            n_atoms=len(data.x),
+            **edge_kwargs,
         )
 
 

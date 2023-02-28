@@ -1,14 +1,16 @@
 import itertools
+import logging
 from pathlib import Path
 
+import ase
 import numpy as np
 import torch
 import torch.nn.functional as F
 from ase import Atoms
 from torch_geometric.data.data import Data
 from torch_geometric.utils import add_self_loops, degree
+from torch_scatter import scatter_min, segment_coo, segment_csr
 from torch_sparse import SparseTensor
-from torch_scatter import segment_coo, segment_csr
 
 
 def argmax(arr: list[dict], key: str) -> int:
@@ -54,6 +56,7 @@ def threshold_sort(all_distances, r, n_neighbors):
     N = len(A) - n_neighbors - 1
     if N > 0:
         _, indices = torch.topk(A, N)
+        print(indices.shape)
         A = torch.scatter(
             A,
             1,
@@ -213,6 +216,8 @@ def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
                     the number of offsets for the unit cell
                     if == 0: no PBC
                     if == 1: 27-cell offsets (3x3x3)
+                    if == 2: 125-cell offsets (5x5x5)
+                    etc.
     """
 
     _range = np.arange(-offset_number, offset_number + 1)
@@ -245,7 +250,7 @@ def get_cutoff_distance_matrix(
     n_neighbors,
     device,
     image_selfloop=False,
-    offset_number=3,
+    offset_number=1,  # TODO make this a parameter
     remove_virtual_edges=False,
     vn: torch.Tensor = None,
     use_atom_rij=False,
@@ -659,6 +664,89 @@ def generate_virtual_nodes_ase(structure, device: torch.device):
     return pos, atomic_numbers
 
 
+def calculate_edges_all_neighbors(
+    all_neighbors: bool,
+    r: float,
+    n_neighbors: int,
+    structure_id: str,
+    cell: torch.Tensor,
+    pos: torch.Tensor,
+):
+    # Compute graph using ASE method
+    (
+        first_idex,
+        second_idex,
+        rij,
+        rij_vec,
+        shifts,
+    ) = ase.neighborlist.primitive_neighbor_list(
+        "ijdDS",
+        (True, True, True),
+        ase.geometry.complete_cell(cell),
+        pos.numpy(),
+        cutoff=r,
+        self_interaction=True,
+        use_scaled_positions=False,
+    )
+
+    # Eliminate true self-edges that don't cross periodic boundaries
+    # (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
+    bad_edge = first_idex == second_idex
+    bad_edge &= np.all(shifts == 0, axis=1)
+    keep_edge = ~bad_edge
+    first_idex = first_idex[keep_edge]
+    second_idex = second_idex[keep_edge]
+    rij = rij[keep_edge]
+    rij_vec = rij_vec[keep_edge]
+    shifts = shifts[keep_edge]
+
+    first_idex = torch.tensor(first_idex).long()
+    second_idex = torch.tensor(second_idex).long()
+    edge_index = torch.stack([first_idex, second_idex], dim=0)
+    edge_weights = torch.tensor(rij).float()
+    edge_vec = torch.tensor(rij_vec).float()
+    cell_offsets = torch.tensor(shifts).int()
+
+    if not all_neighbors:
+        # select minimum distances from full ASE neighborlist
+        num_cols = pos.shape[0]
+        indices_1d = edge_index[0] * num_cols + edge_index[1]
+        out, argmin = scatter_min(edge_weights, indices_1d)
+        # remove placeholder values from scatter_min
+        empty = argmin == edge_index.shape[1]
+        argmin = argmin[~empty]
+        out = out[~empty]
+
+        edge_index = edge_index[:, argmin]
+        edge_weights = edge_weights[argmin]
+        edge_vec = edge_vec[argmin, :]
+        cell_offsets = cell_offsets[argmin, :]
+
+        # get closest n neighbors
+        if len(edge_weights) > n_neighbors:
+            _, topk_indices = torch.topk(
+                edge_weights, n_neighbors, largest=False, sorted=False
+            )
+            if len(topk_indices) < len(first_idex):
+                logging.warning(
+                    f"Atoms in structure {structure_id} have more neighbors than n_neighbors. Consider increasing the number to avoid missing neighbors."
+                )
+
+            first_idex = first_idex[topk_indices]
+            second_idex = second_idex[topk_indices]
+            edge_index = edge_index[:, topk_indices]
+            edge_weights = edge_weights[topk_indices]
+            edge_vec = edge_vec[topk_indices]
+            cell_offsets = cell_offsets[topk_indices]
+
+    elif all_neighbors:
+        pass
+
+    edge_index = torch.stack([first_idex, second_idex], dim=0)
+
+    return edge_index, cell_offsets, edge_weights, edge_vec
+
+
 def radius_graph_pbc(
     radius: float,
     max_num_neighbors_threshold: int,
@@ -669,8 +757,7 @@ def radius_graph_pbc(
 ):
     """
     Calculate the radius graph for a given structure with periodic boundary conditions, including all neighbors for each atom
-    Taken from https://github.com/Open-Catalyst-Project/ocp/blob/main/ocpmodels/common/utils.py
-
+    From https://github.com/Open-Catalyst-Project/ocp/blob/main/ocpmodels/common/utils.py
     Args:
         radius (float): _description_
         max_num_neighbors_threshold (int): _description_
@@ -685,19 +772,6 @@ def radius_graph_pbc(
 
     device = pos.device
     batch_size = len(n_atoms)
-
-    # N/A for our purposes
-    # if hasattr(data, "pbc"):
-    #     data.pbc = torch.atleast_2d(data.pbc)
-    #     for i in range(3):
-    #         if not torch.any(data.pbc[:, i]).item():
-    #             pbc[i] = False
-    #         elif torch.all(data.pbc[:, i]).item():
-    #             pbc[i] = True
-    #         else:
-    #             raise RuntimeError(
-    #                 "Different structures in the batch have different PBC configurations. This is not currently supported."
-    #             )
 
     # position of the atoms
     atom_pos = pos
@@ -841,13 +915,16 @@ def radius_graph_pbc(
 
 def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_threshold):
     """
+    From https://github.com/Open-Catalyst-Project/ocp/blob/main/ocpmodels/common/utils.py
     Give a mask that filters out edges so that each atom has at most
     `max_num_neighbors_threshold` neighbors.
     Assumes that `index` is sorted.
-    From
     """
     device = natoms.device
     num_atoms = natoms.sum()
+
+    # sort index
+    index = index.sort()[0]
 
     # Get number of neighbors
     # segment_coo assumes sorted index
@@ -910,6 +987,62 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
     mask_num_neighbors.index_fill_(0, index_sort, True)
 
     return mask_num_neighbors, num_neighbors_image
+
+
+def get_pbc_distances(
+    pos,
+    edge_index,
+    cell,
+    cell_offsets,
+    neighbors,
+    return_offsets=False,
+    return_distance_vec=False,
+):
+    """From https://github.com/Open-Catalyst-Project/ocp/blob/main/ocpmodels/common/utils.py
+
+    Args:
+        pos (_type_): _description_
+        edge_index (_type_): _description_
+        cell (_type_): _description_
+        cell_offsets (_type_): _description_
+        neighbors (_type_): _description_
+        return_offsets (bool, optional): _description_. Defaults to False.
+        return_distance_vec (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        _type_: _description_
+    """
+    row, col = edge_index
+
+    # this is r_ij or edge_vec
+    distance_vectors = pos[row] - pos[col]
+
+    # correct for pbc
+    neighbors = neighbors.to(cell.device)
+    cell = torch.repeat_interleave(cell, neighbors, dim=0)
+    offsets = cell_offsets.float().view(-1, 1, 3).bmm(cell.float()).view(-1, 3)
+    distance_vectors += offsets
+
+    # compute distances
+    distances = distance_vectors.norm(dim=-1)
+
+    # redundancy: remove zero distances
+    nonzero_idx = torch.arange(len(distances), device=distances.device)[distances != 0]
+    edge_index = edge_index[:, nonzero_idx]
+    distances = distances[nonzero_idx]
+
+    out = {
+        "edge_index": edge_index,
+        "distances": distances,
+    }
+
+    if return_distance_vec:
+        out["distance_vec"] = distance_vectors[nonzero_idx]
+
+    if return_offsets:
+        out["offsets"] = offsets[nonzero_idx]
+
+    return out
 
 
 def triplets(edge_index, cell_offsets, num_nodes):

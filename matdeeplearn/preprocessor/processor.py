@@ -4,27 +4,20 @@ import os
 
 import numpy as np
 import pandas as pd
-import wandb
 import torch
-import ase
-from ase import io, Atoms, neighborlist
+import wandb
+from ase import io
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
-import cProfile
-from pstats import SortKey
-import pstats
-
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (
-    clean_up,
-    generate_edge_features,
-    generate_node_features,
-    get_cutoff_distance_matrix,
-    generate_virtual_nodes,
-)
+from matdeeplearn.preprocessor.helpers import (clean_up,
+                                               generate_edge_features,
+                                               generate_node_features,
+                                               generate_virtual_nodes,
+                                               get_cutoff_distance_matrix)
 
 
 def process_data(dataset_config):
@@ -318,9 +311,6 @@ class DataProcessor:
             if t.get("name") == "VirtualNodes":
                 virtual_nodes_transform = t
                 break
-        
-        pr = cProfile.Profile()
-        pr.enable()
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             target_val = y[i]
@@ -342,60 +332,9 @@ class DataProcessor:
                 self.n_neighbors,
                 image_selfloop=self.image_selfloop,
                 device=self.device,
-                use_atom_rij=False
+                use_atom_rij=False,
             )
             edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-
-            # if not self.all_neighbors:
-            #     if atom_rij.dim() > 1:
-            #         edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
-            # elif self.all_neighbors:
-            #     (
-            #         first_idex,
-            #         second_idex,
-            #         rij,
-            #         rij_vec,
-            #         shifts,
-            #     ) = ase.neighborlist.primitive_neighbor_list(
-            #         "ijdDS",
-            #         (True, True, True),
-            #         ase.geometry.complete_cell(cell),
-            #         pos.numpy(),
-            #         cutoff=self.r,
-            #         self_interaction=False,
-            #         use_scaled_positions=False,
-            #     )
-
-            #     # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
-            #     bad_edge = first_idex == second_idex
-            #     bad_edge &= np.all(shifts == 0, axis=1)
-            #     keep_edge = ~bad_edge
-            #     first_idex = first_idex[keep_edge]
-            #     second_idex = second_idex[keep_edge]
-            #     rij = rij[keep_edge]
-            #     rij_vec = rij_vec[keep_edge]
-            #     shifts = shifts[keep_edge]
-            #     # get closest n neighbors
-            #     if len(rij) > self.n_neighbors:
-            #         _, topk_indices = torch.topk(
-            #             torch.tensor(rij), self.n_neighbors, largest=False, sorted=False
-            #         )
-            #         first_idex = first_idex[topk_indices]
-            #         second_idex = second_idex[topk_indices]
-            #         rij = rij[topk_indices]
-            #         rij_vec = rij_vec[topk_indices]
-            #         shifts = shifts[topk_indices]
-
-            #     edge_indices = torch.stack(
-            #         [
-            #             torch.LongTensor(torch.tensor(first_idex)),
-            #             torch.LongTensor(torch.tensor(second_idex)),
-            #         ],
-            #         dim=0,
-            #     )
-            #     edge_vec = torch.tensor(rij_vec).float()
-            #     edge_weights = torch.tensor(rij).float()
-            #     cell_offsets = torch.tensor(shifts).int()
 
             # virtual node generation (workaround for now)
             if virtual_nodes_transform:
@@ -415,11 +354,9 @@ class DataProcessor:
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
-            # data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
 
             data.edge_descriptor = {}
-            # data.edge_descriptor["mask"] = cd_matrix_masked
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
@@ -428,14 +365,6 @@ class DataProcessor:
             if self.additional_attributes:
                 for attr in self.additional_attributes:
                     data.__setattr__(attr, sdict[attr])
-
-            if i == 200: break
-
-        pr.disable()
-        stats = pstats.Stats(pr)
-        stats.sort_stats('tottime').print_stats(10)
-
-        exit(0)
 
         logging.info("Generating node features...")
         generate_node_features(data_list, self.n_neighbors, device=self.device)
