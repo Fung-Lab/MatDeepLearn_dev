@@ -222,11 +222,11 @@ class eSCN(BaseModel):
 
     @conditional_grad(torch.enable_grad())
     def forward(self, data):
-        self.batch_size = len(data.natoms)
+        self.batch_size = len(data.n_atoms)
         self.dtype = data.pos.dtype
 
         start_time = time.time()
-        atomic_numbers = data.atomic_numbers.long()
+        atomic_numbers = data.z.long()
         num_atoms = len(atomic_numbers)
         pos = data.pos
 
@@ -339,7 +339,7 @@ class eSCN(BaseModel):
         # Energy estimation
         ###############################################################
         node_energy = self.energy_block(x_pt)
-        energy = torch.zeros(len(data.natoms), device=pos.device)
+        energy = torch.zeros(len(data.n_atoms), device=pos.device)
         energy.index_add_(0, data.batch, node_energy.view(-1))
         # Scale energy to help balance numerical precision w.r.t. forces
         energy = energy * 0.001
