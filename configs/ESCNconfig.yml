@@ -27,9 +27,9 @@ model:
   regress_forces: False
   otf_graph: True
   max_num_neighbors: 50
-  cutoff: 8.0
+  cutoff: 6.0
   max_num_elements: 100
-  num_layers: 8
+  num_layers: 6
   lmax_list: [6]
   mmax_list: [2]
   sphere_channels: 128
