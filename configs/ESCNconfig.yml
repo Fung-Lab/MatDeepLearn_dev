@@ -40,7 +40,7 @@ model:
   distance_function: "gaussian"
   basis_width_scalar: 1.0
   distance_resolution: 0.02
-  show_timing_info: True
+  show_timing_info: False
 
 optim:
   max_epochs: 250
