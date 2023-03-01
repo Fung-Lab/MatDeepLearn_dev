@@ -86,6 +86,7 @@ class eSCN(BaseModel):
         basis_width_scalar=1.0,
         distance_resolution=0.02,
         show_timing_info=True,
+        **kwargs
     ):
         super().__init__()
 
