@@ -333,7 +333,7 @@ def get_distances(
 
 
 def get_cutoff_distance_matrix(
-    pos, cell, r, n_neighbors, device, image_selfloop, offset_number=3
+    pos, cell, r, n_neighbors, device, offset_number=3
 ):
     """
     get the distance matrix
