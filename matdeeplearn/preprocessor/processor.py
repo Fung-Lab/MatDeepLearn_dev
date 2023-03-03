@@ -340,14 +340,14 @@ class DataProcessor:
             edge_vec = edge_gen_out["edge_vec"]
 
             # virtual node generation (workaround for now)
-            if virtual_nodes_transform:
-                vpos, virtual_z = generate_virtual_nodes(
-                    cell2,
-                    virtual_nodes_transform.get("virtual_box_increment", 3.0),
-                    self.device,
-                )
-                pos = torch.cat([pos, vpos], dim=0)
-                atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
+            #if virtual_nodes_transform:
+            #    vpos, virtual_z = generate_virtual_nodes(
+            #        cell2,
+            #        virtual_nodes_transform.get("virtual_box_increment", 3.0),
+            #        self.device,
+            #    )
+            #    pos = torch.cat([pos, vpos], dim=0)
+            #    atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
