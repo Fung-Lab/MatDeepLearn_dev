@@ -59,10 +59,7 @@ def calculate_edges_master(
             r,
             n_neighbors,
             device,
-            experimental=experimental_distance,
             offset_number=offset_number,
-            remove_virtual_edges=remove_virtual_edges,
-            vn=z,
         )
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
