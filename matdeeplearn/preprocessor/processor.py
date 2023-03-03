@@ -306,7 +306,7 @@ class DataProcessor:
 
             edge_gen_out = calculate_edges_master(
                 self.edge_calc_method,
-                False,
+                self.all_neighbors,
                 self.r,
                 self.n_neighbors,
                 self.num_offsets,
