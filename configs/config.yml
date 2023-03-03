@@ -67,7 +67,7 @@ dataset:
         offset_number: 1
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE)
-  all_neighbors : False
+  all_neighbors : True
   # one of mdl, ase, ocp
   edge_calc_method: "ocp"
   data_format: "json"
