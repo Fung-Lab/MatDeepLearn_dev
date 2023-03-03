@@ -68,8 +68,8 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE)
   all_neighbors : False
-  # one of MDL, ASE, OCP
-  edge_calc_method: "OCP"
+  # one of mdl, ase, ocp
+  edge_calc_method: "ocp"
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
