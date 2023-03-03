@@ -13,11 +13,11 @@ task:
 models:
   - model: DOSPredict
 #    config_path: "configs/examples/DOSPredict_MP_data.yaml"
-    config_path: "/global/cfs/projectdirs/m3641/Sarah/MatDeepLearn/configs/examples/DOSPredict_MP_data.yaml"
+    config_path: "/global/cfs/projectdirs/m3641/Sarah/MatDeepLearn_dev/configs/examples/DOSPredict_MP_data.yaml"
     run_mode: "train"
     seed: 0
   - model: CGCNN_CNN
 #    config_path: "configs/examples/CGCNN_CNN_MP_data.yaml"
-    config_path: "/global/cfs/projectdirs/m3641/Sarah/MatDeepLearn/configs/examples/CGCNN_CNN_MP_data.yaml"
+    config_path: "/global/cfs/projectdirs/m3641/Sarah/MatDeepLearn_dev/configs/examples/CGCNN_CNN_MP_data.yaml"
     run_mode: "train"
     seed: 0
