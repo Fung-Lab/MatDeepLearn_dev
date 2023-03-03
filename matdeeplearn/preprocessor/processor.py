@@ -241,12 +241,12 @@ class DataProcessor:
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
-            cell2 = s["cell2"]
+            #cell2 = s["cell2"]
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
             d["cell"] = cell
-            d["cell2"] = cell2
+            #d["cell2"] = cell2
             d["atomic_numbers"] = atomic_numbers
             d["structure_id"] = s["structure_id"]
 
@@ -312,7 +312,7 @@ class DataProcessor:
 
             pos = sdict["positions"]
             cell = sdict["cell"]
-            cell2 = sdict["cell2"]
+            #cell2 = sdict["cell2"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
 
@@ -352,7 +352,7 @@ class DataProcessor:
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
-            data.cell2 = cell2
+            #data.cell2 = cell2
             data.y = torch.Tensor(np.array([target_val]))
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
