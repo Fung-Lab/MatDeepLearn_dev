@@ -64,8 +64,12 @@ dataset:
     - name: GetY
       args:
         index: 0
+        offset_number: 1
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE)
+  all_neighbors : False
+  # one of MDL, ASE, OCP
+  edge_calc_method: "mdl"
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
@@ -74,11 +78,14 @@ dataset:
   verbose: True
   # Index of target column in targets.csv
   # graph specific settings
-  cutoff_radius : 8.0
-  n_neighbors : 250
-  edge_steps : 50
+  preprocess_params:
+    cutoff_radius : 5.0
+    n_neighbors : 50
+    num_offsets: 1
+    edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  all_neighbors : False
+  
+
