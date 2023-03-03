@@ -3,8 +3,8 @@ import time
 
 import numpy as np
 import torch
-import wandb
 
+import wandb
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
@@ -135,11 +135,31 @@ class PropertyTrainer(BaseTrainer):
         predict, target = None, None
         ids = []
         node_level_predictions = False
+        _metrics_predict = {}
+        out_lst = []
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
 
-            # if out is a tuple, then it's scaled data
+            loss = self._compute_loss(out, batch)
+            _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
+            self._metrics_predict = self.evaluator.update(
+                "loss", loss.item(), _metrics_predict
+            )
+
             if type(out) == tuple:
+                # line up the node-level output with graphs
+                scaled = out[0]
+                scaling_factor = out[1]
+                # TODO: change to get actual batch size
+                for batch_id in range(140):
+                    element_ids = (batch.batch == batch_id).nonzero(as_tuple=True)
+                    scaled_out = scaled[element_ids]
+                    scaling_factor_out = scaling_factor[element_ids]
+
+                    if scaled_out.nelement() > 0:
+                        out_lst.append((scaled_out, scaling_factor_out))
+
+                # if out is a tuple, then it's scaled data
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
             batch_p = out.data.cpu().numpy()
@@ -168,7 +188,9 @@ class PropertyTrainer(BaseTrainer):
             predictions, f"{split}_predictions.csv", node_level_predictions
         )
 
-        return predictions
+        predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
+        logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
+        return out_lst, predict_loss
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
