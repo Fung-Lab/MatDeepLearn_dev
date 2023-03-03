@@ -78,7 +78,7 @@ dataset:
   verbose: True
   # Index of target column in targets.csv
   # graph specific settings
-  preprocess_params:
+  #preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 50
     num_offsets: 1
