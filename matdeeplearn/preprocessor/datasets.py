@@ -1,6 +1,6 @@
 import os
-
 import torch
+import torch.utils.data
 from torch_geometric.data import InMemoryDataset
 
 
@@ -28,6 +28,14 @@ class StructureDataset(InMemoryDataset):
             )
         else:
             self.data, self.slices = torch.load(self.processed_paths[0])
+
+    def __setitem__(self, idx, value):
+        data = self.get(self.indices()[idx])
+        # data.y = value
+        # data.scaled = value
+        data.scaled = value[0]
+        data.scaling_factor = value[1]
+        return data
 
     @property
     def raw_file_names(self):
