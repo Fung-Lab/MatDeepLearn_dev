@@ -56,7 +56,6 @@ def process_data(dataset_config):
         additional_attributes=additional_attributes,
         verbose=verbose,
         all_neighbors=all_neighbors,
-        all_neighbors=all_neighbors,
         edge_calc_method=edge_calc_method,
         device=device,
     )
