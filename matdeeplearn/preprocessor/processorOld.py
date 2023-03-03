@@ -340,22 +340,14 @@ class DataProcessor:
                 cell_offsets = torch.tensor(shifts).int()                
                 
             data.n_atoms = len(atomic_numbers)
-            print(data.n_atoms)
             data.pos = pos
-            print(data.pos.size())
             data.cell = cell
-            print(data.cell.size())
             data.y = torch.Tensor(np.array([target_val]))
             data.z = atomic_numbers
-            print(data.z.size())
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
-            print(data.edge_index.size())
-            print(data.edge_weight.size())
             data.edge_vec = edge_vec
-            print(data.edge_vec.size())
             data.cell_offsets = cell_offsets
-            print(data.cell_offsets.size())
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
