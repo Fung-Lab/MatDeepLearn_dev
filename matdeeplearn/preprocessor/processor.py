@@ -335,6 +335,14 @@ class DataProcessor:
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
+            print(data.n_atoms)
+            print(data.pos.size())
+            print(data.cell.size())
+            print(data.z.size())
+            print(data.edge_index.size())
+            print(data.edge_weight.size())
+            print(data.edge_vec.size())
+            print(data.cell_offsets.size())
 
             # add additional attributes
             if self.additional_attributes:
