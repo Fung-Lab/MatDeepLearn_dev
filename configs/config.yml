@@ -79,10 +79,10 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   #preprocess_params:
-    cutoff_radius : 5.0
-    n_neighbors : 50
-    num_offsets: 1
-    edge_steps : 50
+  cutoff_radius : 5.0
+  n_neighbors : 50
+  num_offsets: 1
+  edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
