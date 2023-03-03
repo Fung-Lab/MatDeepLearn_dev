@@ -92,9 +92,12 @@ dataset:
         rr_cutoff: 5.0
         rv_cutoff: 5.0
         neighbors: 50
+        offset_number: 1
       otf: False
   # use for passing into global config
   all_neighbors: False
+  # one of MDL, ASE, OCP
+  edge_calc_method: "mdl"
   use_sweep_params: False
   # use again for passing into global config
   data_format: "json"
@@ -106,6 +109,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 50
+    num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8

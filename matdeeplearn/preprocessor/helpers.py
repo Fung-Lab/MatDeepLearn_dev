@@ -1,16 +1,104 @@
 import itertools
-import logging
+import os
+import sys
+from itertools import combinations, product
 from pathlib import Path
+from typing import Literal
 
 import ase
 import numpy as np
+import pandas
 import torch
 import torch.nn.functional as F
 from ase import Atoms
 from torch_geometric.data.data import Data
-from torch_geometric.utils import add_self_loops, degree
+from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
 from torch_scatter import scatter_min, segment_coo, segment_csr
 from torch_sparse import SparseTensor
+
+
+def calculate_edges_master(
+    method: Literal["ase", "ocp", "mdl"],
+    all_neighbors: bool,
+    r: float,
+    n_neighbors: int,
+    offset_number: int,
+    structure_id: str,
+    cell: torch.Tensor,
+    pos: torch.Tensor,
+    z: torch.Tensor,
+    remove_virtual_edges: bool = False,
+    experimental_distance: bool = False,
+    device: torch.device = torch.device("cpu"),
+) -> dict[str, torch.Tensor]:
+    """Generates edges using one of three methods (ASE, OCP, or MDL implementations) due to limitations of each method.
+
+    Args:
+        all_neighbors (bool): Whether or not to use all neighbors (ASE method)
+                or only the n_neighbors closest neighbors.
+                OCP based on all_neighbors and MDL based on original without considering all.
+        r (float): cutoff radius
+        n_neighbors (int): number of neighbors to consider
+        structure_id (str): structure id
+        cell (torch.Tensor): unit cell
+        pos (torch.Tensor): positions of atom in unit cell
+    """
+
+    if method == "ase" or method == "ocp":
+        assert (method == "ase" and all_neighbors) or (
+            method == "ocp" and all_neighbors
+        ), "OCP and ASE methods only support all_neighbors=True"
+        if method == "ase":
+            raise Warning("ASE does not take into account n_neighbors")
+
+    out = dict()
+
+    if method == "mdl":
+        cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
+            pos,
+            cell,
+            r,
+            n_neighbors,
+            device,
+            experimental=experimental_distance,
+            offset_number=offset_number,
+            remove_virtual_edges=remove_virtual_edges,
+            vn=z,
+        )
+
+        edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
+
+    elif method == "ase":
+        edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
+            all_neighbors, r, n_neighbors, structure_id, cell, pos, z
+        )
+
+    elif method == "ocp":
+        edge_index, cell_offsets, neighbors = radius_graph_pbc(
+            r, n_neighbors, pos, cell, torch.tensor([len(pos)])
+        )
+
+        ocp_out = get_pbc_distances(
+            pos,
+            edge_index,
+            cell,
+            cell_offsets,
+            neighbors,
+            return_offsets=True,
+            return_distance_vec=True,
+        )
+
+        edge_index = ocp_out["edge_index"]
+        edge_weights = ocp_out["distances"]
+        cell_offsets = ocp_out["offsets"]
+        edge_vec = ocp_out["distance_vec"]
+
+    out["edge_index"] = edge_index
+    out["edge_weights"] = edge_weights
+    out["cell_offsets"] = cell_offsets
+    out["edge_vec"] = edge_vec
+
+    return out
 
 
 def argmax(arr: list[dict], key: str) -> int:
@@ -24,6 +112,25 @@ def argmax(arr: list[dict], key: str) -> int:
         _type_: _description_
     """
     return max(enumerate(arr), key=lambda x: x.get(key))[0]
+
+
+def subsets(arr: set) -> list:
+    subsets = []
+    [subsets.extend(list(combinations(arr, n))) for n in range(len(arr) + 1)]
+    return subsets[1:]
+
+
+def generate_mp_combos(mp_attrs: dict, num_layers) -> list:
+    return [
+        list([list(y) for y in x])
+        for x in product(subsets(mp_attrs), repeat=num_layers)
+    ]
+
+
+def get_mae_from_preds():
+    df = pandas.read_csv(os.path.join(sys.argv[1], "test_predictions.csv"))
+    # pred_comp = df.filter(["target", "prediction"])
+    return np.abs(df["target"] - df["prediction"]).mean()
 
 
 def get_mask(
@@ -45,7 +152,7 @@ def get_mask(
     return mask
 
 
-def threshold_sort(all_distances, r, n_neighbors):
+def threshold_sort(all_distances: torch.Tensor, r: float, n_neighbors: int):
     # A = all_distances.clone().detach()
     A = all_distances
 
@@ -55,14 +162,35 @@ def threshold_sort(all_distances, r, n_neighbors):
     # keep n_neighbors only
     N = len(A) - n_neighbors - 1
     if N > 0:
-        _, indices = torch.topk(A, N)
-        print(indices.shape)
-        A = torch.scatter(
-            A,
-            1,
-            indices,
-            torch.zeros(len(A), len(A), device=all_distances.device, dtype=torch.float),
-        )
+        if all_distances.dim() > 2:
+            # TODO WIP experimental method with 3D distance tensor
+            A = A.reshape(len(A), -1)
+            _, indices = torch.topk(A, k=N, dim=1)
+            A = torch.scatter(
+                A,
+                1,
+                indices,
+                torch.zeros_like(
+                    A,
+                    device=all_distances.device,
+                    dtype=torch.float,
+                ),
+            )
+            # return A to original shape
+            A = A.reshape(len(A), len(A), -1)
+        else:
+            _, indices = torch.topk(A, k=N, dim=1)
+            A = torch.scatter(
+                A,
+                1,
+                indices,
+                torch.zeros(
+                    len(A),
+                    len(A),
+                    device=all_distances.device,
+                    dtype=torch.float,
+                ),
+            )
 
     A[A > r] = 0
     return A
@@ -148,62 +276,6 @@ def clean_up(data_list, attr_list):
             delattr(data, attr)
 
 
-def get_distances(
-    positions: torch.Tensor,
-    offsets: torch.Tensor,
-    device: str = "cpu",
-    mic: bool = True,
-    use_atom_rij: bool = False,
-):
-    """
-    Get pairwise atomic distances
-
-    Parameters
-        positions:  torch.Tensor
-                    positions of atoms in a unit cell
-
-        offsets:    torch.Tensor
-                    offsets for the unit cell
-
-        device:     str
-                    torch device type
-
-        mic:        bool
-                    minimum image convention
-    """
-
-    # convert numpy array to torch tensors
-    n_atoms = len(positions)
-    n_cells = len(offsets)
-
-    pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
-    pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
-    offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
-    pos2 = pos2 + offsets
-
-    # calculate pairwise distances
-    atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
-
-    # set diagonal of the (0,0,0) unit cell to infinity
-    # this allows us to get the minimum self-loop distance
-    # of an atom to itself in all other images
-    # origin_unit_cell_idx = 13
-    # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float("inf"))
-
-    # get minimum
-    min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
-    expanded_min_indices = min_indices.clone().detach()
-
-    if use_atom_rij:
-        atom_rij = pos1 - pos2
-        expanded_min_indices = expanded_min_indices[..., None, None].expand(
-            -1, -1, 1, atom_rij.size(3)
-        )
-        atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices).squeeze()
-
-    return min_atomic_distances, min_indices, atom_rij if use_atom_rij else None
-
-
 def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
     """
     Get the periodic boundary condition (PBC) offsets for a unit cell
@@ -222,6 +294,7 @@ def get_pbc_cells(cell: torch.Tensor, offset_number: int, device: str = "cpu"):
 
     _range = np.arange(-offset_number, offset_number + 1)
     offsets = [list(x) for x in itertools.product(_range, _range, _range)]
+    # offsets = torch.cartesian_prod([_range, _range, _range]).to(device).type(torch.float)
     offsets = torch.tensor(offsets, device=device, dtype=torch.float)
     return offsets @ cell, offsets
 
@@ -239,8 +312,129 @@ def control_virtual_edges(distance_matrix, an):
     """
 
     indices = np.argwhere(an == 100).squeeze(1)
-    distance_matrix[indices, :] = 0
+    distance_matrix[indices, :] = torch.zeros(distance_matrix.shape[2])
     return distance_matrix
+
+
+def get_distances(
+    positions: torch.Tensor,
+    offsets: torch.Tensor,
+    device: str = "cpu",
+):
+    """
+    Get pairwise atomic distances
+
+    Parameters
+        positions:  torch.Tensor
+                    positions of atoms in a unit cell
+
+        offsets:    torch.Tensor
+                    offsets for the unit cell
+
+        all_neighbors:  bool
+                        whether or not to use MIC, which does not account for neighboring cells
+
+        device:     str
+                    torch device type
+
+    """
+
+    # convert numpy array to torch tensors
+    n_atoms = len(positions)
+    n_cells = len(offsets)
+
+    pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
+    pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
+
+    offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
+    pos2 = pos2 + offsets
+
+    # calculate pairwise distances
+    atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
+
+    # set diagonal of the (0,0,0) unit cell to infinity
+    # this allows us to get the minimum self-loop distance
+    # of an atom to itself in all other images
+    # origin_unit_cell_idx = 13
+    # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float("inf"))
+    atom_rij = pos1 - pos2
+
+    min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
+    expanded_min_indices = min_indices.clone().detach()
+
+    expanded_min_indices = expanded_min_indices[..., None, None].expand(
+        -1, -1, 1, atom_rij.size(3)
+    )
+
+    atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices)
+
+    return min_atomic_distances, min_indices, atom_rij
+
+
+def get_distances_experimental(
+    positions: torch.Tensor,
+    offsets: torch.Tensor,
+    all_neighbors: bool = False,
+    device: str = "cpu",
+):
+    """
+    Get pairwise atomic distances
+
+    Parameters
+        positions:  torch.Tensor
+                    positions of atoms in a unit cell
+
+        offsets:    torch.Tensor
+                    offsets for the unit cell
+
+        all_neighbors:  bool
+                        whether or not to use MIC, which does not account for neighboring cells
+
+        device:     str
+                    torch device type
+
+    """
+
+    # convert numpy array to torch tensors
+    n_atoms = len(positions)
+    n_cells = len(offsets)
+
+    pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
+    pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
+
+    offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
+    pos2 = pos2 + offsets
+
+    # calculate pairwise distances
+    atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
+
+    # set diagonal of the (0,0,0) unit cell to infinity
+    # this allows us to get the minimum self-loop distance
+    # of an atom to itself in all other images
+    # origin_unit_cell_idx = 13
+    # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float("inf"))
+    atom_rij = pos1 - pos2
+
+    if all_neighbors:
+        all_indices = torch.arange(
+            0, np.prod(atomic_distances.shape), device=device
+        ).view_as(atomic_distances)
+
+        return atomic_distances, all_indices, atom_rij
+    else:
+        min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
+        expanded_min_indices = min_indices.clone().detach()
+
+        expanded_min_indices = expanded_min_indices[..., None, None].expand(
+            -1, -1, 1, atom_rij.size(3)
+        )
+
+        atom_rij = torch.gather(atom_rij, dim=2, index=expanded_min_indices)
+
+        min_atomic_distances = min_atomic_distances.reshape(n_atoms, n_atoms, 1)
+        min_indices = min_indices.view_as(min_atomic_distances)
+
+        return min_atomic_distances, min_indices, atom_rij
 
 
 def get_cutoff_distance_matrix(
@@ -250,10 +444,10 @@ def get_cutoff_distance_matrix(
     n_neighbors,
     device,
     image_selfloop=False,
-    offset_number=1,  # TODO make this a parameter
+    experimental=False,
+    offset_number=1,
     remove_virtual_edges=False,
     vn: torch.Tensor = None,
-    use_atom_rij=False,
 ):
     """
     get the distance matrix
@@ -273,10 +467,32 @@ def get_cutoff_distance_matrix(
 
         n_neighbors: int
             max number of neighbors to be considered
+
+        device: str
+            torch device type
+
+        image_selfloop: bool
+            whether or not to include self loops in the distance matrix
+
+        experimental: bool
+            whether or not to use experimental method for calculating distances
+
+        offset_number: int
+            number of unit cells to consider in each direction
+
+        remove_virtual_edges: bool
+            whether or not to remove virtual edges from the distance matrix
+
+        vn : torch.Tensor
+            virtual node atomic indices
     """
     cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
-    distance_matrix, min_indices, atom_rij = get_distances(
-        pos, cells, device=device, use_atom_rij=use_atom_rij
+
+    # can calculate distances using WIP experimental method or current implementation (MIC)
+    distance_matrix, min_indices, atom_rij = (
+        get_distances(pos, cells, device=device)
+        if not experimental
+        else get_distances_experimental(pos, cells, all_neighbors=True, device=device)
     )
 
     if remove_virtual_edges:
@@ -300,6 +516,7 @@ def get_cutoff_distance_matrix(
     # thus initialize a zero matrix of (M+N, 3) for cell offsets
     n_edges = torch.count_nonzero(cutoff_distance_matrix).item()
     cell_offsets = torch.zeros(n_edges + len(pos), 3, dtype=torch.float)
+
     # get cells for edges except for self loops
     cell_offsets[:n_edges, :] = all_cell_offsets[cutoff_distance_matrix != 0]
 
@@ -664,7 +881,7 @@ def generate_virtual_nodes_ase(structure, device: torch.device):
     return pos, atomic_numbers
 
 
-def calculate_edges_all_neighbors(
+def calculate_edges_ase(
     all_neighbors: bool,
     r: float,
     n_neighbors: int,
@@ -688,6 +905,9 @@ def calculate_edges_all_neighbors(
         self_interaction=True,
         use_scaled_positions=False,
     )
+
+    if not all_neighbors:
+        raise NotImplementedError("Only all_neighbors=True is supported for now.")
 
     # Eliminate true self-edges that don't cross periodic boundaries
     # (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
@@ -727,10 +947,13 @@ def calculate_edges_all_neighbors(
             _, topk_indices = torch.topk(
                 edge_weights, n_neighbors, largest=False, sorted=False
             )
-            if len(topk_indices) < len(first_idex):
-                logging.warning(
-                    f"Atoms in structure {structure_id} have more neighbors than n_neighbors. Consider increasing the number to avoid missing neighbors."
-                )
+
+            # if len(topk_indices) < len(first_idex):
+            #     logging.warning(
+            #         f"Atoms in structure {structure_id} have more neighbors than n_neighbors. Consider increasing the number to avoid missing neighbors."
+            #     )
+
+            # TODO convert back to sparse representation
 
             first_idex = first_idex[topk_indices]
             second_idex = second_idex[topk_indices]
@@ -738,9 +961,6 @@ def calculate_edges_all_neighbors(
             edge_weights = edge_weights[topk_indices]
             edge_vec = edge_vec[topk_indices]
             cell_offsets = cell_offsets[topk_indices]
-
-    elif all_neighbors:
-        pass
 
     edge_index = torch.stack([first_idex, second_idex], dim=0)
 

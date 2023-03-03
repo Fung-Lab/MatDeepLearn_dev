@@ -9,15 +9,16 @@ import wandb
 from ase import io
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
-from torch_geometric.utils import dense_to_sparse
 from tqdm import tqdm
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (clean_up,
-                                               generate_edge_features,
-                                               generate_node_features,
-                                               generate_virtual_nodes,
-                                               get_cutoff_distance_matrix)
+from matdeeplearn.preprocessor.helpers import (
+    clean_up,
+    generate_edge_features,
+    generate_node_features,
+    generate_virtual_nodes,
+    calculate_edges_master,
+)
 
 
 def process_data(dataset_config):
@@ -26,6 +27,7 @@ def process_data(dataset_config):
     pt_path = dataset_config.get("pt_path", None)
     cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
     n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
+    num_offsets = dataset_config["preprocess_params"]["num_offsets"]
     edge_steps = dataset_config["preprocess_params"]["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
@@ -34,6 +36,7 @@ def process_data(dataset_config):
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
     all_neighbors = dataset_config["all_neighbors"]
+    edge_calc_method = dataset_config.get("edge_calc_method", "mdl")
     use_wandb = dataset_config.get("use_sweep_params", False)
     device: str = dataset_config.get("device", "cpu")
 
@@ -43,6 +46,7 @@ def process_data(dataset_config):
         pt_path=pt_path,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
+        num_offsets=num_offsets,
         edge_steps=edge_steps,
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
@@ -52,6 +56,7 @@ def process_data(dataset_config):
         additional_attributes=additional_attributes,
         verbose=verbose,
         all_neighbors=all_neighbors,
+        edge_calc_method=edge_calc_method,
         use_wandb=use_wandb,
         device=device,
     )
@@ -67,6 +72,7 @@ class DataProcessor:
         pt_path: str,
         r: float,
         n_neighbors: int,
+        num_offsets: int,
         edge_steps: int,
         transforms: list = [],
         data_format: str = "json",
@@ -76,6 +82,7 @@ class DataProcessor:
         additional_attributes: list = [],
         verbose: bool = True,
         all_neighbors: bool = False,
+        edge_calc_method: str = "mdl",
         use_wandb: bool = False,
         device: str = "cpu",
     ) -> None:
@@ -139,6 +146,7 @@ class DataProcessor:
         self.pt_path = pt_path
         self.r = r
         self.n_neighbors = n_neighbors
+        self.num_offsets = num_offsets
         self.edge_steps = edge_steps
         self.data_format = data_format
         self.image_selfloop = image_selfloop
@@ -147,6 +155,7 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.all_neighbors = all_neighbors
+        self.edge_calc_method = edge_calc_method
         self.use_wandb = use_wandb
         self.device = device
         self.transforms = transforms
@@ -154,10 +163,10 @@ class DataProcessor:
 
     def src_check(self):
         if self.target_file_path:
-            print("ASE wrap")
+            logging.debug("ASE wrap")
             return self.ase_wrap()
         else:
-            print("JSON wrap")
+            logging.debug("JSON wrap")
             return self.json_wrap()
 
     def ase_wrap(self):
@@ -325,16 +334,25 @@ class DataProcessor:
             data.o_pos = pos.clone()
             data.o_z = atomic_numbers.clone()
 
-            cd_matrix, cell_offsets, _ = get_cutoff_distance_matrix(
-                pos,
-                cell,
+            edge_gen_out = calculate_edges_master(
+                self.edge_calc_method,
+                False,
                 self.r,
                 self.n_neighbors,
-                image_selfloop=self.image_selfloop,
+                self.num_offsets,
+                structure_id,
+                cell,
+                pos,
+                atomic_numbers,
+                remove_virtual_edges=False,
+                experimental_distance=False,
                 device=self.device,
-                use_atom_rij=False,
             )
-            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+
+            edge_indices = edge_gen_out["edge_index"]
+            edge_weights = edge_gen_out["edge_weights"]
+            cell_offsets = edge_gen_out["cell_offsets"]
+            edge_vec = edge_gen_out["edge_vec"]
 
             # virtual node generation (workaround for now)
             if virtual_nodes_transform:
@@ -359,6 +377,7 @@ class DataProcessor:
             data.edge_descriptor = {}
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
+            data.edge_vec = edge_vec
             data.structure_id = [[structure_id] * len(data.y)]
 
             # add additional attributes

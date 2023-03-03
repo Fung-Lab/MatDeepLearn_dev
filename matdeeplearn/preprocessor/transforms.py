@@ -3,16 +3,14 @@ from torch_geometric.data import Data
 from torch_geometric.utils import dense_to_sparse
 from torch_sparse import coalesce
 
-from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (
-    compute_bond_angles,
-    custom_edge_feats,
-    custom_node_feats,
-    generate_virtual_nodes,
-    get_cutoff_distance_matrix,
-    get_mask,
-)
 from matdeeplearn.common.graph_data import CustomData
+from matdeeplearn.common.registry import registry
+from matdeeplearn.preprocessor.helpers import (compute_bond_angles,
+                                               custom_edge_feats,
+                                               custom_node_feats,
+                                               generate_virtual_nodes,
+                                               get_cutoff_distance_matrix,
+                                               get_mask)
 
 """
 here resides the transform classes needed for data processing
@@ -50,6 +48,7 @@ class VirtualNodes(object):
         rv_cutoff=5.0,
         rr_cutoff=5.0,
         neighbors=50,
+        offset_number=1,
     ):
         self.virtual_box_increment = virtual_box_increment
         self.edge_steps = edge_steps
@@ -57,6 +56,7 @@ class VirtualNodes(object):
         self.rv_cutoff = rv_cutoff
         self.rr_cutoff = rr_cutoff
         self.neighbors = neighbors
+        self.offset_number = offset_number
         # processing is done on cpu
         self.device = torch.device("cpu")
         # attrs that remain the same for all cases
@@ -93,7 +93,9 @@ class VirtualNodes(object):
                 getattr(self, f"{attr}_cutoff"),
                 self.neighbors,
                 self.device,
-                use_atom_rij=False,
+                experimental=False,
+                offset_number=self.offset_number,
+                remove_virtual_edges=False
             )
 
             edge_index, edge_weight = dense_to_sparse(cd_matrix)
