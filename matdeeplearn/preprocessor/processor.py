@@ -319,10 +319,7 @@ class DataProcessor:
             edge_weights = edge_gen_out["edge_weights"]
             cell_offsets = edge_gen_out["cell_offsets"]
             edge_vec = edge_gen_out["edge_vec"]
-            print(edge_vec.size())
-            print(edge_indices.size())
-            print(edge_vec.dim())
-            if(edge_vec.dim() > 1):
+            if(edge_vec.dim() > 2):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
                 
             data.n_atoms = len(atomic_numbers)
