@@ -68,7 +68,7 @@ dataset:
   # Format of data files (limit to those supported by ASE)
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ase"
+  edge_calc_method: "mdl"
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"

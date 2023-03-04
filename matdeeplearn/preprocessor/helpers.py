@@ -61,6 +61,7 @@ def calculate_edges_master(
             device,
             offset_number=offset_number,
         )
+        print(edge_vec.size())
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
     
