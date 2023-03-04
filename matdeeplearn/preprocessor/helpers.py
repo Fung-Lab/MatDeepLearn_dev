@@ -68,6 +68,9 @@ def calculate_edges_master(
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
 
+        # get into correct shape for model stage
+        edge_vec = edge_vec[edge_index[0], edge_index[1]]
+
     elif method == "ase":
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
             all_neighbors, r, n_neighbors, structure_id, cell, pos, z
@@ -357,7 +360,7 @@ def get_distances(
     # of an atom to itself in all other images
     # origin_unit_cell_idx = 13
     # atomic_distances[:,:,origin_unit_cell_idx].fill_diagonal_(float("inf"))
-    atom_rij = pos1 - pos2
+    atom_rij = (pos1 - pos2).squeeze(2)
 
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
     expanded_min_indices = min_indices.clone().detach()
