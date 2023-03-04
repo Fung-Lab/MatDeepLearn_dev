@@ -64,7 +64,6 @@ dataset:
     - name: GetY
       args:
         index: 0
-        offset_number: 1
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE)
   all_neighbors : True
