@@ -66,7 +66,7 @@ def calculate_edges_master(
 
     elif method == "ase":
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
-            all_neighbors, r, n_neighbors, structure_id, cell, pos, z
+            all_neighbors, r, n_neighbors, structure_id, cell, pos
         )
 
     elif method == "ocp":
