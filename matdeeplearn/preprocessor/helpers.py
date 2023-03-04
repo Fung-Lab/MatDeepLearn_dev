@@ -47,8 +47,8 @@ def calculate_edges_master(
         assert (method == "ase" and all_neighbors) or (
             method == "ocp" and all_neighbors
         ), "OCP and ASE methods only support all_neighbors=True"
-        if method == "ase":
-            raise Warning("ASE does not take into account n_neighbors")
+        #if method == "ase":
+        #    raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
 
