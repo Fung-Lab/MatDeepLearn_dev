@@ -321,6 +321,8 @@ def get_distances(
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
     expanded_min_indices = min_indices.clone().detach()
+    print(pos1.size())
+    print(pos2.size())
 
     atom_rij = (pos1 - pos2).squeeze(2)
     expanded_min_indices = expanded_min_indices[..., None, None].expand(
