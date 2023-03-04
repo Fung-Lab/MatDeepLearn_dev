@@ -51,7 +51,7 @@ def calculate_edges_master(
         #    raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
-
+    print(cell.size())
     if method == "mdl":
         cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
             pos,
@@ -63,7 +63,7 @@ def calculate_edges_master(
         )
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
-
+    
     elif method == "ase":
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
             all_neighbors, r, n_neighbors, structure_id, cell, pos
