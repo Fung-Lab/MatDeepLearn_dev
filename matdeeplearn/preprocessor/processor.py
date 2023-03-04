@@ -321,6 +321,7 @@ class DataProcessor:
             edge_vec = edge_gen_out["edge_vec"]
             print(edge_vec.size())
             print(edge_indices.size())
+            print(edge_vec.dim())
             if(edge_vec.dim() > 1):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
                 
