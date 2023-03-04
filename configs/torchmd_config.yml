@@ -80,7 +80,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ocp"
+  edge_calc_method: "ase"
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
