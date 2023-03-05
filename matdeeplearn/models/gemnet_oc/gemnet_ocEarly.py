@@ -792,8 +792,6 @@ class GemNetOC(BaseModel):
             [edge_index_directed, edge_index_directed.flip(0)],
             dim=1,
         )
-        print(graph["num_neighbors"].size())
-        print(graph["num_neighbors"])
         # Count remaining edges per image
         batch_edge = torch.repeat_interleave(
             torch.arange(
@@ -802,6 +800,7 @@ class GemNetOC(BaseModel):
             ),
             graph["num_neighbors"],
         )
+        print(batch_edge.size())
         batch_edge = batch_edge[mask]
         # segment_coo assumes sorted batch_edge
         # Factor 2 since this is only one half of the edges
