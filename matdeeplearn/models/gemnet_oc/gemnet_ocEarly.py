@@ -766,8 +766,6 @@ class GemNetOC(BaseModel):
         # Generate mask
         mask_sep_atoms = graph["edge_index"][0] < graph["edge_index"][1]
         # Distinguish edges between the same (periodic) atom by ordering the cells
-        print(graph["cell_offset"].size())
-        print(graph["edge_index"].size())
         cell_earlier = (
             (graph["cell_offset"][:, 0] < 0)
             | (
@@ -915,6 +913,8 @@ class GemNetOC(BaseModel):
         edge_dist = data.distances
         distance_vec = data.edge_vec
         cell_offsets = data.cell_offsets
+        print(data.edge_index.size())
+        print(data.cell_offsets.size())
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         edge_vector = -distance_vec / edge_dist[:, None]
