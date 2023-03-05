@@ -89,7 +89,7 @@ class BaseModel(nn.Module):
             cell_offset_distances = torch.zeros_like(
                 cell_offsets, device=data.pos.device
             )
-            neighbors = compute_neighbors(data, edge_index)
+            neighbors = compute_neighbors(data, data.edge_index)
 
         return (
             edge_index,
