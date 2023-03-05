@@ -766,6 +766,8 @@ class GemNetOC(BaseModel):
         # Generate mask
         mask_sep_atoms = graph["edge_index"][0] < graph["edge_index"][1]
         # Distinguish edges between the same (periodic) atom by ordering the cells
+        print(graph["cell_offset"].size())
+        print(graph["edge_index"].size())
         cell_earlier = (
             (graph["cell_offset"][:, 0] < 0)
             | (
