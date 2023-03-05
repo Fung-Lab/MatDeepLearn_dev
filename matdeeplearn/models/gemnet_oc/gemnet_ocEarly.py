@@ -908,7 +908,6 @@ class GemNetOC(BaseModel):
             max_neighbors=max_neighbors,
             otf_graph=otf_graph,
         )
-        print(num_neighbors.size())
         edge_index = data.edge_index
         edge_dist = data.distances
         distance_vec = data.edge_vec
