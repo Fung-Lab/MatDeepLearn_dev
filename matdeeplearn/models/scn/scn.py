@@ -512,7 +512,7 @@ class SphericalChannelNetwork(BaseModel):
         device = edge_distance.device
         # Create an index map to map distances from atom_distance to distance_sort
         # index_sort_map assumes index to be sorted
-        output, num_neighbors = torch.unique(edge_index[0], return_counts=True)
+        output, num_neighbors = torch.unique(edge_index[1], return_counts=True)
         index_neighbor_offset = (
             torch.cumsum(num_neighbors, dim=0) - num_neighbors
         )
@@ -521,7 +521,7 @@ class SphericalChannelNetwork(BaseModel):
         )
 
         index_sort_map = (
-            edge_index[0] * max_num_neighbors
+            edge_index[1] * max_num_neighbors
             + torch.arange(len(edge_distance), device=device)
             - index_neighbor_offset_expand
         )

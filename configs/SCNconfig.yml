@@ -26,7 +26,7 @@ model:
   use_pbc: False
   regress_forces: False
   otf_graph: False
-  max_num_neighbors: 20
+  max_num_neighbors: 250
   cutoff: 8.0
   max_num_elements: 90
   num_interactions: 8
