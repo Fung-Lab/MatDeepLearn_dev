@@ -765,6 +765,8 @@ class GemNetOC(BaseModel):
 
         # Generate mask
         mask_sep_atoms = graph["edge_index"][0] < graph["edge_index"][1]
+        print(graph["edge_index"].size())
+        print(graph["cell_offset"].size())
         # Distinguish edges between the same (periodic) atom by ordering the cells
         cell_earlier = (
             (graph["cell_offset"][:, 0] < 0)
@@ -883,8 +885,6 @@ class GemNetOC(BaseModel):
                 subgraph["cell_offset"] = subgraph["cell_offset"][edge_mask]
                 subgraph["distance"] = subgraph["distance"][edge_mask]
                 subgraph["vector"] = subgraph["vector"][edge_mask]
-        print(subgraph["edge_index"].size())
-        print(subgraph["cell_offset"].size())
 
         empty_image = subgraph["num_neighbors"] == 0
         if torch.any(empty_image):
