@@ -320,8 +320,6 @@ class DataProcessor:
             cell_offsets = edge_gen_out["cell_offsets"]
             edge_vec = edge_gen_out["edge_vec"]
             neighbors = edge_gen_out["neighbors"]
-            print(edge_indices.size())
-            print(cell_offsets.size())
             if(edge_vec.dim() > 2):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
                 
