@@ -51,6 +51,7 @@ def calculate_edges_master(
         #    raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
+    neighbors = None
 
     if method == "mdl":
         cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
@@ -88,11 +89,13 @@ def calculate_edges_master(
         edge_weights = ocp_out["distances"]
         cell_offsets = ocp_out["offsets"]
         edge_vec = ocp_out["distance_vec"]
+        neighbors = ocp_out["neighbors"]
 
     out["edge_index"] = edge_index
     out["edge_weights"] = edge_weights
     out["cell_offsets"] = cell_offsets
     out["edge_vec"] = edge_vec
+    out["neighbors"] = neighbors
 
     return out
 

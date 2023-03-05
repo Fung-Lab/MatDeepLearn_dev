@@ -319,6 +319,7 @@ class DataProcessor:
             edge_weights = edge_gen_out["edge_weights"]
             cell_offsets = edge_gen_out["cell_offsets"]
             edge_vec = edge_gen_out["edge_vec"]
+            neighbors = edge_gen_out["neighbors"]
             if(edge_vec.dim() > 2):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
                 
@@ -331,6 +332,7 @@ class DataProcessor:
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
+            data.neighbors = neighbors
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
