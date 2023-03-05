@@ -89,7 +89,6 @@ def calculate_edges_master(
         edge_weights = ocp_out["distances"]
         cell_offsets = ocp_out["offsets"]
         edge_vec = ocp_out["distance_vec"]
-        neighbors = ocp_out["neighbors"]
 
     out["edge_index"] = edge_index
     out["edge_weights"] = edge_weights
