@@ -23,9 +23,9 @@ model:
   edge_steps: 50
   self_loop: True
   # model attributes
-  use_pbc: True
+  use_pbc: False
   regress_forces: False
-  otf_graph: True
+  otf_graph: False
   max_num_neighbors: 50
   cutoff: 6.0
   max_num_elements: 100

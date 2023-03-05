@@ -283,14 +283,17 @@ class SphericalChannelNetwork(BaseModel):
         num_atoms = len(atomic_numbers)
         pos = data.pos
 
-        (
-            edge_index,
-            edge_distance,
-            edge_distance_vec,
-            cell_offsets,
-            _,  # cell offset distances
-            neighbors,
-        ) = self.generate_graph(data)
+        #(
+        #    edge_index,
+        #    edge_distance,
+        #    edge_distance_vec,
+        #    cell_offsets,
+        #    _,  # cell offset distances
+        #    neighbors,
+        #) = self.generate_graph(data)
+        edge_index = data.edge_index
+        edge_distance = data.distances
+        edge_distance_vec = data.edge_vec
 
         ###############################################################
         # Initialize data structures

@@ -194,14 +194,17 @@ class spinconv(BaseModel):
         if self.regress_forces:
             pos = pos.requires_grad_(True)
 
-        (
-            edge_index,
-            edge_distance,
-            edge_distance_vec,
-            cell_offsets,
-            _,  # cell offset distances
-            neighbors,
-        ) = self.generate_graph(data)
+        #(
+        #    edge_index,
+        #    edge_distance,
+        #    edge_distance_vec,
+        #    cell_offsets,
+        #    _,  # cell offset distances
+        #    neighbors,
+        #) = self.generate_graph(data)
+        edge_index = data.edge_index
+        edge_distance = data.distances
+        edge_distance_vec = data.edge_vec
 
         edge_index, edge_distance, edge_distance_vec = self._filter_edges(
             edge_index,
