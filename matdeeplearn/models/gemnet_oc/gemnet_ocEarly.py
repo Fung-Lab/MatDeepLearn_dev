@@ -883,6 +883,8 @@ class GemNetOC(BaseModel):
                 subgraph["cell_offset"] = subgraph["cell_offset"][edge_mask]
                 subgraph["distance"] = subgraph["distance"][edge_mask]
                 subgraph["vector"] = subgraph["vector"][edge_mask]
+        print(subgraph["edge_index"].size())
+        print(subgraph["cell_offset"].size())
 
         empty_image = subgraph["num_neighbors"] == 0
         if torch.any(empty_image):
@@ -1049,8 +1051,6 @@ class GemNetOC(BaseModel):
             ]
             qint_graph["distance"] = qint_graph["distance"][qint_tag_mask]
             qint_graph["vector"] = qint_graph["vector"][qint_tag_mask, :]
-            print(qint_graph["edge_index"].size())
-            print(qint_graph["cell_offset"].size())
             del qint_graph["num_neighbors"]
         else:
             qint_graph = {}
