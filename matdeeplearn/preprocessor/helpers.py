@@ -380,7 +380,7 @@ def get_cutoff_distance_matrix(
     cell_offsets = torch.zeros(n_edges + len(pos), 3, dtype=torch.float)
     # get cells for edges except for self loops
     cell_offsets[:n_edges, :] = all_cell_offsets[cutoff_distance_matrix != 0]
-    print(cell_offsets)
+    cell_offsets = cell_offsets[:n_edges]
     
 
     return cutoff_distance_matrix, cell_offsets, atom_rij
