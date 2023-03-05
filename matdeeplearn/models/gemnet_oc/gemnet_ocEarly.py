@@ -765,8 +765,6 @@ class GemNetOC(BaseModel):
 
         # Generate mask
         mask_sep_atoms = graph["edge_index"][0] < graph["edge_index"][1]
-        print(graph["edge_index"].size())
-        print(graph["cell_offset"].size())
         # Distinguish edges between the same (periodic) atom by ordering the cells
         cell_earlier = (
             (graph["cell_offset"][:, 0] < 0)
@@ -794,7 +792,8 @@ class GemNetOC(BaseModel):
             [edge_index_directed, edge_index_directed.flip(0)],
             dim=1,
         )
-
+        print(graph["num_neighbors"].size())
+        print(graph["num_neighbors"])
         # Count remaining edges per image
         batch_edge = torch.repeat_interleave(
             torch.arange(
