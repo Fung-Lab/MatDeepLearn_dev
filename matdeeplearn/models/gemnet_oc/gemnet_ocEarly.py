@@ -910,9 +910,6 @@ class GemNetOC(BaseModel):
             otf_graph=otf_graph,
         )
         edge_index = data.edge_index
-        sorted_indices = torch.argsort(edge_index[1])
-        data.edge_index = edge_index[:, sorted_indices]
-        edge_index = data.edge_index
         edge_dist = data.distances
         distance_vec = data.edge_vec
         cell_offsets = data.cell_offsets
@@ -1249,6 +1246,9 @@ class GemNetOC(BaseModel):
         batch = data.batch
         atomic_numbers = data.z.long()
         num_atoms = atomic_numbers.shape[0]
+        edge_index = data.edge_index
+        sorted_indices = torch.argsort(edge_index[1])
+        data.edge_index = edge_index[:, sorted_indices]
 
         if self.regress_forces and not self.direct_forces:
             pos.requires_grad_(True)
