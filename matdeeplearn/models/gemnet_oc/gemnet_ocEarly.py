@@ -913,8 +913,6 @@ class GemNetOC(BaseModel):
         edge_dist = data.distances
         distance_vec = data.edge_vec
         cell_offsets = data.cell_offsets
-        print(data.edge_index.size())
-        print(data.cell_offsets.size())
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         edge_vector = -distance_vec / edge_dist[:, None]
@@ -1051,6 +1049,8 @@ class GemNetOC(BaseModel):
             ]
             qint_graph["distance"] = qint_graph["distance"][qint_tag_mask]
             qint_graph["vector"] = qint_graph["vector"][qint_tag_mask, :]
+            print(qint_graph["edge_index"].size())
+            print(qint_graph["cell_offset"].size())
             del qint_graph["num_neighbors"]
         else:
             qint_graph = {}
