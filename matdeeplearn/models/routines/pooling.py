@@ -62,10 +62,10 @@ class AtomicNumberPooling(nn.Module):
         elem_pool = torch.zeros((out.shape[0], out.shape[1] * 100), device=out.device)
         indices = torch.arange(
             start=0, end=out.shape[1], step=1, device=out.device
-    ).repeat(out.shape[0], 1)
-        indices = indices + (
-            (data.z - 1) * out.shape[1]
-        ).unsqueeze(dim=1).repeat(1, out.shape[1])
+        ).repeat(out.shape[0], 1)
+        indices = indices + ((data.z - 1) * out.shape[1]).unsqueeze(dim=1).repeat(
+            1, out.shape[1]
+        )
         elem_pool.scatter_(dim=1, index=indices, src=out)
 
         out = self.pooling(elem_pool, data.batch)

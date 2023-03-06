@@ -18,10 +18,11 @@ from matdeeplearn.preprocessor.helpers import (
     generate_node_features,
     generate_virtual_nodes,
     calculate_edges_master,
+    PerfTimer,
 )
 
 
-def process_data(dataset_config):
+def process_data(dataset_config, wandb_config):
     root_path = dataset_config["src"]
     target_path = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
@@ -37,8 +38,11 @@ def process_data(dataset_config):
     verbose: bool = dataset_config.get("verbose", True)
     all_neighbors = dataset_config["all_neighbors"]
     edge_calc_method = dataset_config.get("edge_calc_method", "mdl")
-    use_wandb = dataset_config.get("use_sweep_params", False)
     device: str = dataset_config.get("device", "cpu")
+
+    # wandb config
+    use_sweep_params = wandb_config["sweep"].get("do_sweep", False)
+    use_wandb = wandb_config.get("use_wandb", False)
 
     processor = DataProcessor(
         root_path=root_path,
@@ -57,6 +61,7 @@ def process_data(dataset_config):
         verbose=verbose,
         all_neighbors=all_neighbors,
         edge_calc_method=edge_calc_method,
+        use_sweep_params=use_sweep_params,
         use_wandb=use_wandb,
         device=device,
     )
@@ -83,6 +88,7 @@ class DataProcessor:
         verbose: bool = True,
         all_neighbors: bool = False,
         edge_calc_method: str = "mdl",
+        use_sweep_params: bool = False,
         use_wandb: bool = False,
         device: str = "cpu",
     ) -> None:
@@ -156,6 +162,7 @@ class DataProcessor:
         self.verbose = verbose
         self.all_neighbors = all_neighbors
         self.edge_calc_method = edge_calc_method
+        self.use_sweep_params = use_sweep_params
         self.use_wandb = use_wandb
         self.device = device
         self.transforms = transforms
@@ -312,7 +319,7 @@ class DataProcessor:
         transforms = [
             (i, t)
             for (i, t) in enumerate(
-                wandb.config.get("transforms") if self.use_wandb else self.transforms
+                wandb.config.get("transforms") if self.use_sweep_params else self.transforms
             )
         ]
         virtual_nodes_transform = None
@@ -322,68 +329,72 @@ class DataProcessor:
                 break
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
-            target_val = y[i]
-            data = data_list[i]
+            with PerfTimer() as t:
+                target_val = y[i]
+                data = data_list[i]
 
-            pos = sdict["positions"]
-            cell = sdict["cell"]
-            cell2 = sdict["cell2"]
-            atomic_numbers = sdict["atomic_numbers"]
-            structure_id = sdict["structure_id"]
+                pos = sdict["positions"]
+                cell = sdict["cell"]
+                cell2 = sdict["cell2"]
+                atomic_numbers = sdict["atomic_numbers"]
+                structure_id = sdict["structure_id"]
 
-            data.o_pos = pos.clone()
-            data.o_z = atomic_numbers.clone()
+                data.o_pos = pos.clone()
+                data.o_z = atomic_numbers.clone()
 
-            edge_gen_out = calculate_edges_master(
-                self.edge_calc_method,
-                False,
-                self.r,
-                self.n_neighbors,
-                self.num_offsets,
-                structure_id,
-                cell,
-                pos,
-                atomic_numbers,
-                remove_virtual_edges=False,
-                experimental_distance=False,
-                device=self.device,
-            )
-
-            edge_indices = edge_gen_out["edge_index"]
-            edge_weights = edge_gen_out["edge_weights"]
-            cell_offsets = edge_gen_out["cell_offsets"]
-            edge_vec = edge_gen_out["edge_vec"]
-
-            # virtual node generation (workaround for now)
-            if virtual_nodes_transform:
-                vpos, virtual_z = generate_virtual_nodes(
-                    cell2,
-                    virtual_nodes_transform.get("virtual_box_increment", 3.0),
-                    self.device,
+                edge_gen_out = calculate_edges_master(
+                    self.edge_calc_method,
+                    self.all_neighbors,
+                    self.r,
+                    self.n_neighbors,
+                    self.num_offsets,
+                    structure_id,
+                    cell,
+                    pos,
+                    atomic_numbers,
+                    remove_virtual_edges=False,
+                    experimental_distance=False,
+                    device=self.device,
                 )
-                pos = torch.cat([pos, vpos], dim=0)
-                atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
-            data.n_atoms = len(atomic_numbers)
-            data.pos = pos
-            data.cell = cell
-            data.cell2 = cell2
-            data.y = torch.Tensor(np.array([target_val]))
-            data.z = atomic_numbers
-            data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-            data.edge_index, data.edge_weight = edge_indices, edge_weights
-            data.cell_offsets = cell_offsets
+                edge_indices = edge_gen_out["edge_index"]
+                edge_weights = edge_gen_out["edge_weights"]
+                cell_offsets = edge_gen_out["cell_offsets"]
+                edge_vec = edge_gen_out["edge_vec"]
 
-            data.edge_descriptor = {}
-            data.edge_descriptor["distance"] = edge_weights
-            data.distances = edge_weights
-            data.edge_vec = edge_vec
-            data.structure_id = [[structure_id] * len(data.y)]
+                # virtual node generation (workaround for now)
+                if virtual_nodes_transform:
+                    vpos, virtual_z = generate_virtual_nodes(
+                        cell2,
+                        virtual_nodes_transform.get("virtual_box_increment", 3.0),
+                        self.device,
+                    )
+                    pos = torch.cat([pos, vpos], dim=0)
+                    atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
-            # add additional attributes
-            if self.additional_attributes:
-                for attr in self.additional_attributes:
-                    data.__setattr__(attr, sdict[attr])
+                data.n_atoms = len(atomic_numbers)
+                data.pos = pos
+                data.cell = cell
+                data.cell2 = cell2
+                data.y = torch.Tensor(np.array([target_val]))
+                data.z = atomic_numbers
+                data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+                data.edge_index, data.edge_weight = edge_indices, edge_weights
+                data.cell_offsets = cell_offsets
+
+                data.edge_descriptor = {}
+                data.edge_descriptor["distance"] = edge_weights
+                data.distances = edge_weights
+                data.edge_vec = edge_vec
+                data.structure_id = [[structure_id] * len(data.y)]
+
+                # add additional attributes
+                if self.additional_attributes:
+                    for attr in self.additional_attributes:
+                        data.__setattr__(attr, sdict[attr])
+
+            if self.use_wandb:
+                wandb.log({"process_times": t.elapsed})
 
         logging.info("Generating node features...")
         generate_node_features(data_list, self.n_neighbors, device=self.device)
@@ -396,7 +407,7 @@ class DataProcessor:
         transforms_list = []
         for transform in self.transforms:
             # go through dict and overwrite with wandb config for sweep purposes
-            if self.use_wandb:
+            if self.use_sweep_params:
                 for key in transform["args"]:
                     if key in wandb.config:
                         transform["args"][key] = wandb.config[key]
@@ -411,7 +422,11 @@ class DataProcessor:
 
         # apply transforms
         for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
-            data_list[i] = composition(data)
+            with PerfTimer() as t:
+                data_list[i] = composition(data)
+
+            if self.use_wandb:
+                wandb.log({"transforms_times": t.elapsed})
 
         clean_up(data_list, ["edge_descriptor"])
 

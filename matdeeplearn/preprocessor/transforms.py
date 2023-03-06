@@ -1,16 +1,17 @@
 import torch
 from torch_geometric.data import Data
-from torch_geometric.utils import dense_to_sparse
 from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (compute_bond_angles,
-                                               custom_edge_feats,
-                                               custom_node_feats,
-                                               generate_virtual_nodes,
-                                               get_cutoff_distance_matrix,
-                                               get_mask)
+from matdeeplearn.preprocessor.helpers import (
+    compute_bond_angles,
+    custom_edge_feats,
+    custom_node_feats,
+    generate_virtual_nodes,
+    calculate_edges_master,
+    get_mask,
+)
 
 """
 here resides the transform classes needed for data processing
@@ -49,6 +50,8 @@ class VirtualNodes(object):
         rr_cutoff=5.0,
         neighbors=50,
         offset_number=1,
+        edge_calc_method="mdl",
+        all_neighbors=False,
     ):
         self.virtual_box_increment = virtual_box_increment
         self.edge_steps = edge_steps
@@ -56,6 +59,8 @@ class VirtualNodes(object):
         self.rv_cutoff = rv_cutoff
         self.rr_cutoff = rr_cutoff
         self.neighbors = neighbors
+        self.edge_calc_method = edge_calc_method
+        self.all_neighbors = all_neighbors
         self.offset_number = offset_number
         # processing is done on cpu
         self.device = torch.device("cpu")
@@ -83,26 +88,33 @@ class VirtualNodes(object):
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
-        # create edges
+        # create edges, starting from largest cutoff
         for attr in self.attrs:
-            # TODO: optimize this by using the same cutoff distance matrix for all edges or incorporating all_neighbors efficient computation
-            # causes a large slowdown during processing since we recompute the same matrix for each edge type
-            cd_matrix, _, _ = get_cutoff_distance_matrix(
-                data.rv_pos,
-                data.cell,
-                getattr(self, f"{attr}_cutoff"),
+            cutoff = getattr(self, f"{attr}_cutoff")
+
+            # compute edges
+            edge_gen_out = calculate_edges_master(
+                self.edge_calc_method,
+                self.all_neighbors,
+                cutoff,
                 self.neighbors,
-                self.device,
-                experimental=False,
-                offset_number=self.offset_number,
-                remove_virtual_edges=False
+                self.offset_number,
+                data.structure_id,
+                data.cell,
+                data.pos,
+                data.z,
+                remove_virtual_edges=False,
+                experimental_distance=False,
+                device=self.device,
             )
 
-            edge_index, edge_weight = dense_to_sparse(cd_matrix)
+            edge_index = edge_gen_out["edge_index"]
+            edge_weight = edge_gen_out["edge_weights"]
+
             edge_attr = custom_edge_feats(
                 edge_weight,
                 self.edge_steps,
-                getattr(self, f"{attr}_cutoff"),
+                cutoff,
                 self.device,
             )
 

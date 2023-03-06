@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-without-vn"
+  identifier: "cgcnn_vn-50-neighbor-MDL"
   reprocess: False
   parallel: True
   seed: 0
@@ -47,9 +47,9 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    pool: "global_mean_pool"
-    virtual_pool: ""
-    pool_choice: "virtual"
+    pool: "global_mean_pool" # pooling reduction scheme
+    virtual_pool: "AtomicNumberPooling" # pooling method
+    pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
     mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
     pool_order: "early"
     batch_norm: True
@@ -59,7 +59,7 @@ model:
     dropout_rate: 0.0
 
 optim:
-  max_epochs: 500
+  max_epochs: 100
   lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
@@ -77,7 +77,7 @@ dataset:
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/mdl"
   # transforms
   transforms:
     - name: GetY
@@ -89,10 +89,12 @@ dataset:
         virtual_box_increment: 3
         edge_steps: 50
         attrs: ["rr", "rv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
+        rr_cutoff: 6.0
+        rv_cutoff: 6.0
         neighbors: 50
         offset_number: 1
+        edge_calc_method: "mdl"
+        all_neighbors: False
       otf: False
   # use for passing into global config
   all_neighbors: False

@@ -8,6 +8,7 @@ from typing import Literal
 import ase
 import numpy as np
 import pandas
+from time import perf_counter
 import torch
 import torch.nn.functional as F
 from ase import Atoms
@@ -48,8 +49,6 @@ def calculate_edges_master(
         assert (method == "ase" and all_neighbors) or (
             method == "ocp" and all_neighbors
         ), "OCP and ASE methods only support all_neighbors=True"
-        if method == "ase":
-            raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
 
@@ -77,6 +76,9 @@ def calculate_edges_master(
         )
 
     elif method == "ocp":
+        # OCP requires a different format for the cell
+        cell = cell.view(1, 3, 3)
+
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
             r, n_neighbors, pos, cell, torch.tensor([len(pos)])
         )
@@ -102,6 +104,15 @@ def calculate_edges_master(
     out["edge_vec"] = edge_vec
 
     return out
+
+
+class PerfTimer:
+    def __enter__(self):
+        self.start = perf_counter()
+        return self
+
+    def __exit__(self, *args):
+        self.elapsed = perf_counter() - self.start
 
 
 def argmax(arr: list[dict], key: str) -> int:
@@ -202,6 +213,7 @@ def threshold_sort(all_distances: torch.Tensor, r: float, n_neighbors: int):
 def one_hot_degree(data, max_degree, in_degree=False, cat=True):
     idx, x = data.edge_index[1 if in_degree else 0], data.x
     deg = degree(idx, data.num_nodes, dtype=torch.long)
+
     deg = F.one_hot(deg, num_classes=max_degree + 1).to(torch.float)
 
     if x is not None and cat:
@@ -977,6 +989,7 @@ def radius_graph_pbc(
     cell: torch.Tensor,
     n_atoms: torch.Tensor,
     pbc: list[bool] = [True, True, True],
+    use_thresh: bool = True,
 ):
     """
     Calculate the radius graph for a given structure with periodic boundary conditions, including all neighbors for each atom
@@ -1115,21 +1128,24 @@ def radius_graph_pbc(
     unit_cell = unit_cell.view(-1, 3)
     atom_distance_sqr = torch.masked_select(atom_distance_sqr, mask)
 
-    mask_num_neighbors, num_neighbors_image = get_max_neighbors_mask(
-        natoms=n_atoms,
-        index=index1,
-        atom_distance=atom_distance_sqr,
-        max_num_neighbors_threshold=max_num_neighbors_threshold,
-    )
-
-    if not torch.all(mask_num_neighbors):
-        # Mask out the atoms to ensure each atom has at most max_num_neighbors_threshold neighbors
-        index1 = torch.masked_select(index1, mask_num_neighbors)
-        index2 = torch.masked_select(index2, mask_num_neighbors)
-        unit_cell = torch.masked_select(
-            unit_cell.view(-1, 3), mask_num_neighbors.view(-1, 1).expand(-1, 3)
+    if use_thresh:
+        mask_num_neighbors, num_neighbors_image = get_max_neighbors_mask(
+            natoms=n_atoms,
+            index=index1,
+            atom_distance=atom_distance_sqr,
+            max_num_neighbors_threshold=max_num_neighbors_threshold,
         )
-        unit_cell = unit_cell.view(-1, 3)
+
+        if not torch.all(mask_num_neighbors):
+            # Mask out the atoms to ensure each atom has at most max_num_neighbors_threshold neighbors
+            index1 = torch.masked_select(index1, mask_num_neighbors)
+            index2 = torch.masked_select(index2, mask_num_neighbors)
+            unit_cell = torch.masked_select(
+                unit_cell.view(-1, 3), mask_num_neighbors.view(-1, 1).expand(-1, 3)
+            )
+            unit_cell = unit_cell.view(-1, 3)
+    else:
+        num_neighbors_image = None
 
     edge_index = torch.stack((index2, index1))
 

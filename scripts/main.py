@@ -72,11 +72,13 @@ def wandb_setup(config):
     # update config with processing hyperparams
     _wandb_config.update({"transforms": config["dataset"]["transforms"]})
 
+    timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
+
     wandb.init(
         settings=wandb.Settings(start_method="fork"),
         project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
         entity=config["task"]["wandb"].get("wandb_entity", "fung-lab"),
-        name=datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S"),
+        name=f"{timestamp}-{config['task']['identifier']}",
         notes=config["task"]["wandb"].get("notes", None),
         tags=config["task"]["wandb"].get("tags", None),
         config=_wandb_config,
@@ -86,10 +88,6 @@ def wandb_setup(config):
 
     # create wandb artifacts
     for i, artifact in enumerate(wandb_artifacts):
-        # TODO fix this temporary workaround to log artifacts
-        # run.log_artifact(
-        #     artifact["path"], name=artifact["name"], type=artifact["type"]
-        # )
         if not os.path.exists(artifact["path"]):
             raise ValueError(
                 f"Artifact {artifact['path']} does not exist. Please check the path."
@@ -111,7 +109,7 @@ if __name__ == "__main__":
         wandb_setup(config)
 
     if not config["dataset"]["processed"]:
-        process_data(config["dataset"])
+        process_data(config["dataset"], config["task"]["wandb"])
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster

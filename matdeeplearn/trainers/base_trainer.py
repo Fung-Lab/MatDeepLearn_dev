@@ -24,7 +24,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
-
+from matdeeplearn.common.utils import min_alloc_gpu
 
 @registry.register_trainer("base")
 class BaseTrainer(ABC):
@@ -51,7 +51,7 @@ class BaseTrainer(ABC):
         dataset_config: dict = None,
         use_wandb: bool = False,
     ):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = min_alloc_gpu()
         self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
