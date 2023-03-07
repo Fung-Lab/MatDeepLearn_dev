@@ -189,6 +189,9 @@ class spinconv(BaseModel):
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
         self.batch_size = len(data.n_atoms)
+        edge_index = data.edge_index
+        sorted_indices = torch.argsort(edge_index[1])
+        data.edge_index = edge_index[:, sorted_indices]
 
         pos = data.pos
         if self.regress_forces:
