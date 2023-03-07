@@ -453,7 +453,7 @@ class spinconv(BaseModel):
         #    edge_index[1], return_counts=True
         #)
         target_node_index, neigh_count = torch.unique_consecutive(
-            edge_index[0], return_counts=True
+            edge_index[1], return_counts=True
         )
         max_neighbors = torch.max(neigh_count)
 
@@ -661,7 +661,7 @@ class spinconv(BaseModel):
 
         # Assuming the edges are consecutive based on the target index
         target_node_index, neigh_count = torch.unique_consecutive(
-            edge_index[0], return_counts=True
+            edge_index[1], return_counts=True
         )
         #target_node_index, neigh_count = torch.unique_consecutive(
         #    edge_index[1], return_counts=True
