@@ -11,6 +11,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_virtual_nodes,
     calculate_edges_master,
     get_mask,
+    one_hot_degree,
 )
 
 """
@@ -27,13 +28,25 @@ From PyG:
 class GetY(object):
     """Get the target from the data object."""
 
-    def __init__(self, index=0):
-        self.index = index
+    def __init__(self, **kwargs: dict):
+        self.index = kwargs.get("index", 0)
 
     def __call__(self, data: Data):
         # Specify target.
         if self.index != -1:
             data.y = data.y[0][self.index]
+        return data
+
+
+@registry.register_transform("DegreeNodeAttr")
+class DegreeNodeAttr(object):
+    """Add degree as node attribute."""
+
+    def __init__(self, **kwargs: dict):
+        self.n_neighbors = kwargs.get("n_neighbors")
+
+    def __call__(self, data: Data):
+        one_hot_degree(data, self.n_neighbors)
         return data
 
 
@@ -43,26 +56,8 @@ class VirtualNodes(object):
 
     def __init__(
         self,
-        virtual_box_increment: float = 3.0,
-        edge_steps: int = 50,
-        attrs=["rv", "rr"],
-        rv_cutoff=5.0,
-        rr_cutoff=5.0,
-        neighbors=50,
-        offset_number=1,
-        edge_calc_method="mdl",
-        all_neighbors=False,
+        **kwargs,
     ):
-        self.virtual_box_increment = virtual_box_increment
-        self.edge_steps = edge_steps
-        self.attrs = attrs
-        self.rv_cutoff = rv_cutoff
-        self.rr_cutoff = rr_cutoff
-        self.neighbors = neighbors
-        self.edge_calc_method = edge_calc_method
-        self.all_neighbors = all_neighbors
-        self.offset_number = offset_number
-        # processing is done on cpu
         self.device = torch.device("cpu")
         # attrs that remain the same for all cases
         self.keep_attrs = [
@@ -78,27 +73,28 @@ class VirtualNodes(object):
             "cell_offsets",
             "y",
         ]
+        self.kwargs = kwargs
 
     def __call__(self, data: Data) -> CustomData:
         # NOTE use cell2 instead of cell for correct VN generation
         vpos, virtual_z = generate_virtual_nodes(
-            data.cell2, self.virtual_box_increment, self.device
+            data.cell2, self.kwargs.get("virtual_box_increment"), self.device
         )
 
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
         # create edges, starting from largest cutoff
-        for attr in self.attrs:
-            cutoff = getattr(self, f"{attr}_cutoff")
+        for attr in self.kwargs.get("attrs"):
+            cutoff = self.kwargs.get(f"{attr}_cutoff")
 
             # compute edges
             edge_gen_out = calculate_edges_master(
-                self.edge_calc_method,
-                self.all_neighbors,
+                self.kwargs.get("edge_calc_method"),
+                self.kwargs.get("all_neighbors"),
                 cutoff,
-                self.neighbors,
-                self.offset_number,
+                self.kwargs.get("n_neighbors"),
+                self.kwargs.get("num_offsets"),
                 data.structure_id,
                 data.cell,
                 data.pos,
@@ -113,7 +109,7 @@ class VirtualNodes(object):
 
             edge_attr = custom_edge_feats(
                 edge_weight,
-                self.edge_steps,
+                self.kwargs.get("edge_steps"),
                 cutoff,
                 self.device,
             )
@@ -134,7 +130,10 @@ class VirtualNodes(object):
 
         # compute node embeddings
         participating_edges = torch.cat(
-            [getattr(data, ei) for ei in [f"edge_index_{attr}" for attr in self.attrs]],
+            [
+                getattr(data, ei)
+                for ei in [f"edge_index_{attr}" for attr in self.kwargs.get("attrs")]
+            ],
             dim=1,
         )
 
@@ -142,17 +141,18 @@ class VirtualNodes(object):
             data.z,
             participating_edges,
             len(data.z),
-            self.neighbors,  # any neighbor suffices
+            self.kwargs.get("neighbors"),  # any neighbor suffices
             self.device,
+            use_degree=self.kwargs.get("use_degree", False),
         )
 
         # make original edge_attr and edge_index sentinel values for object compatibility
-        data.edge_attr = torch.zeros(1, self.edge_steps)
+        data.edge_attr = torch.zeros(1, self.kwargs.get("edge_steps"))
         data.edge_index = torch.zeros(1, 2)
 
         # remove unnecessary attributes to reduce memory overhead
-        edge_index_attrs = [f"edge_index_{s}" for s in self.attrs]
-        edge_attr_attrs = [f"edge_attr_{s}" for s in self.attrs]
+        edge_index_attrs = [f"edge_index_{s}" for s in self.kwargs.get("attrs")]
+        edge_attr_attrs = [f"edge_attr_{s}" for s in self.kwargs.get("attrs")]
 
         for attr in list(data.__dict__.get("_store").keys()):
             if (

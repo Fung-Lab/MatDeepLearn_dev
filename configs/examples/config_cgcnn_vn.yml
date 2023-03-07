@@ -87,17 +87,12 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        edge_steps: 50
         attrs: ["rr", "rv"]
         rr_cutoff: 6.0
         rv_cutoff: 6.0
-        neighbors: 50
-        offset_number: 1
         edge_calc_method: "mdl"
-        all_neighbors: False
       otf: False
   # use for passing into global config
-  all_neighbors: False
   # one of MDL, ASE, OCP
   edge_calc_method: "mdl"
   use_sweep_params: False
@@ -113,6 +108,8 @@ dataset:
     n_neighbors : 50
     num_offsets: 1
     edge_steps : 50
+    all_neighbors: False
+    use_degree: False
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05

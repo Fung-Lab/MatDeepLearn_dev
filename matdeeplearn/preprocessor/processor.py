@@ -36,13 +36,18 @@ def process_data(dataset_config, wandb_config):
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
-    all_neighbors = dataset_config["all_neighbors"]
-    edge_calc_method = dataset_config.get("edge_calc_method", "mdl")
+    all_neighbors = dataset_config["preprocess_params"]["all_neighbors"]
+    use_degree = dataset_config["preprocess_params"]["use_degree"]
+    edge_calc_method = dataset_config["preprocess_params"].get(
+        "edge_calc_method", "mdl"
+    )
     device: str = dataset_config.get("device", "cpu")
 
     # wandb config
     use_sweep_params = wandb_config["sweep"].get("do_sweep", False)
     use_wandb = wandb_config.get("use_wandb", False)
+
+    preprocess_kwargs = dataset_config.get("preprocess_params", {})
 
     processor = DataProcessor(
         root_path=root_path,
@@ -60,9 +65,11 @@ def process_data(dataset_config, wandb_config):
         additional_attributes=additional_attributes,
         verbose=verbose,
         all_neighbors=all_neighbors,
+        use_degree=use_degree,
         edge_calc_method=edge_calc_method,
         use_sweep_params=use_sweep_params,
         use_wandb=use_wandb,
+        preprocess_kwargs=preprocess_kwargs,
         device=device,
     )
 
@@ -87,9 +94,11 @@ class DataProcessor:
         additional_attributes: list = [],
         verbose: bool = True,
         all_neighbors: bool = False,
+        use_degree: bool = False,
         edge_calc_method: str = "mdl",
         use_sweep_params: bool = False,
         use_wandb: bool = False,
+        preprocess_kwargs: dict = {},
         device: str = "cpu",
     ) -> None:
         """
@@ -161,9 +170,11 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.all_neighbors = all_neighbors
+        self.use_degree = use_degree
         self.edge_calc_method = edge_calc_method
         self.use_sweep_params = use_sweep_params
         self.use_wandb = use_wandb
+        self.preprocess_kwargs = preprocess_kwargs
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -319,7 +330,9 @@ class DataProcessor:
         transforms = [
             (i, t)
             for (i, t) in enumerate(
-                wandb.config.get("transforms") if self.use_sweep_params else self.transforms
+                wandb.config.get("transforms")
+                if self.use_sweep_params
+                else self.transforms
             )
         ]
         virtual_nodes_transform = None
@@ -397,7 +410,9 @@ class DataProcessor:
                 wandb.log({"process_times": t.elapsed})
 
         logging.info("Generating node features...")
-        generate_node_features(data_list, self.n_neighbors, device=self.device)
+        generate_node_features(
+            data_list, self.n_neighbors, device=self.device, use_degree=self.use_degree
+        )
 
         logging.info("Generating edge features...")
         generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
@@ -415,7 +430,9 @@ class DataProcessor:
             if not transform["otf"]:
                 transforms_list.append(
                     registry.get_transform_class(
-                        transform["name"], **transform.get("args", {})
+                        transform["name"],
+                        # merge config parameters with global processing parameters
+                        **{**transform.get("args", {}), **self.preprocess_kwargs},
                     )
                 )
         composition = Compose(transforms_list)

@@ -2,7 +2,6 @@ import logging
 import time
 
 import numpy as np
-import os
 import torch
 
 import wandb
@@ -34,7 +33,6 @@ class PropertyTrainer(BaseTrainer):
         model_config,
         opt_config,
         dataset_config,
-        use_wandb,
     ):
         super().__init__(
             model,
@@ -56,11 +54,9 @@ class PropertyTrainer(BaseTrainer):
             model_config,
             opt_config,
             dataset_config,
-            use_wandb,
         )
 
-        # allow CLI to override config file
-        self.use_wandb = self.wandb_config.get("use_wandb", False) and use_wandb
+        self.use_wandb = self.wandb_config.get("use_wandb", False)
 
     def train(self):
         # Start training over epochs loop

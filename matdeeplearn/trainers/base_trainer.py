@@ -49,7 +49,6 @@ class BaseTrainer(ABC):
         model_config: dict = None,
         opt_config: dict = None,
         dataset_config: dict = None,
-        use_wandb: bool = False,
     ):
         self.device = min_alloc_gpu()
         self.model = model.to(self.device)
@@ -70,7 +69,6 @@ class BaseTrainer(ABC):
         self.save_dir = save_dir
         self.checkpoint_dir = (checkpoint_dir,)
         self.wandb_config = wandb_config
-        self.use_wandb = use_wandb
 
         self.model_config = model_config
         self.opt_config = opt_config
@@ -156,7 +154,6 @@ class BaseTrainer(ABC):
             model_config=config["model"],
             opt_config=config["optim"],
             dataset_config=config["dataset"],
-            use_wandb=config.get("log_wandb", False),
         )
 
     @staticmethod
@@ -167,6 +164,7 @@ class BaseTrainer(ABC):
         dataset = get_dataset(
             dataset_path,
             transform_list=dataset_config.get("transforms", []),
+            preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
         )
 
         return dataset

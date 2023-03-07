@@ -108,6 +108,11 @@ if __name__ == "__main__":
     if args.use_wandb:
         wandb_setup(config)
 
+    # override config from CLI, useful for quick experiments/debugging purposes
+    config["task"]["wandb"]["use_wandb"] = (
+        args.use_wandb and config["task"]["wandb"]["use_wandb"]
+    )
+
     if not config["dataset"]["processed"]:
         process_data(config["dataset"], config["task"]["wandb"])
 

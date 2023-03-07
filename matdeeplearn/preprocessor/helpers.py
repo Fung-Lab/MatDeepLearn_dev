@@ -584,21 +584,25 @@ def load_node_representation(node_representation="onehot"):
     return loaded_rep
 
 
-def generate_node_features(input_data, n_neighbors, device):
+def generate_node_features(input_data, n_neighbors, use_degree, device):
     node_reps = load_node_representation()
     node_reps = torch.from_numpy(node_reps).to(device)
     n_elements, n_features = node_reps.shape
 
     if isinstance(input_data, Data):
         input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
-        return one_hot_degree(input_data, n_neighbors)
+        if use_degree:
+            return one_hot_degree(input_data, n_neighbors)
+        return input_data
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
         data.x = node_reps[data.z - 1].view(-1, n_features)
 
-    for i, data in enumerate(input_data):
-        input_data[i] = one_hot_degree(data, n_neighbors)
+    if use_degree:
+        for i, data in enumerate(input_data):
+            input_data[i] = one_hot_degree(data, n_neighbors)
+
 
 
 def generate_edge_features(input_data, edge_steps, r, device):
@@ -659,6 +663,7 @@ def custom_node_feats(
     device,
     cat=True,
     in_degree=False,
+    use_degree: bool = False,
 ):
     # generate node_features
     node_reps = torch.from_numpy(
@@ -667,15 +672,17 @@ def custom_node_feats(
 
     x = node_reps[atomic_numbers - 1].view(-1, node_reps.shape[1])
 
-    idx = edge_index[1 if in_degree else 0]
-    deg = degree(idx, num_nodes, dtype=torch.long)
-    deg = F.one_hot(deg, num_classes=n_neighbors + 1).to(torch.float)
+    # only add degree if needed
+    if use_degree:
+        idx = edge_index[1 if in_degree else 0]
+        deg = degree(idx, num_nodes, dtype=torch.long)
+        deg = F.one_hot(deg, num_classes=n_neighbors + 1).to(torch.float)
 
-    if x is not None and cat:
-        x = x.view(-1, 1) if x.dim() == 1 else x
-        x = torch.cat([x, deg.to(x.dtype)], dim=-1)
-    else:
-        x = deg
+        if x is not None and cat:
+            x = x.view(-1, 1) if x.dim() == 1 else x
+            x = torch.cat([x, deg.to(x.dtype)], dim=-1)
+        else:
+            x = deg
 
     return x
 

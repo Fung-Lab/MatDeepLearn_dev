@@ -62,6 +62,7 @@ def dataset_split(
 def get_dataset(
     data_path,
     transform_list: List[dict] = [],
+    preprocess_kwargs: dict = {},
     large_dataset=False,
 ):
     """
@@ -84,7 +85,8 @@ def get_dataset(
         if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(
-                    transform["name"], **transform.get("args", {})
+                    transform["name"],
+                    **{**transform.get("args", {}), **preprocess_kwargs}
                 )
             )
 
