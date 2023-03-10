@@ -286,16 +286,18 @@ class spinconv(BaseModel):
         # Compute the forces and energies from the messages
         ###############################################################
         assert self.force_estimator in ["random", "grad"]
-
+        print(x.size())
         energy = scatter(x, edge_index[1], dim=0, dim_size=data.num_nodes) / (
             self.max_num_neighbors / 2.0 + 1.0
         )
+        print(energy.size())
         atomic_numbers = data.z.long()
         energy = self.energyembeddingblock(
             energy, atomic_numbers, atomic_numbers
         )
+        print(energy.size())
         energy = scatter(energy, data.batch, dim=0)
-
+        print(energy.size())
         if self.regress_forces:
             if self.force_estimator == "grad":
                 forces = -1 * (
