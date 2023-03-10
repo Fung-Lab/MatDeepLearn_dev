@@ -1249,6 +1249,7 @@ class GemNetOC(BaseModel):
         edge_index = data.edge_index
         sorted_indices = torch.argsort(edge_index[1])
         data.edge_index = edge_index[:, sorted_indices]
+        print(data.edge_index.size())
 
         if self.regress_forces and not self.direct_forces:
             pos.requires_grad_(True)
