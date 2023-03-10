@@ -167,7 +167,7 @@ class spinconv(BaseModel):
 
         self.energyembeddingblock = EmbeddingBlock(
             hidden_channels,
-            self.hidden_channels,
+            hidden_channels,
             mid_hidden_channels,
             embedding_size,
             8,
@@ -180,7 +180,7 @@ class spinconv(BaseModel):
         self.post_lin_list = nn.ModuleList()
         for i in range(self.num_post_layers):
             if i == 0:
-                self.post_lin_list.append(nn.Linear(emb_size_atom, post_hidden_channels))
+                self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
             else:
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
         self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))

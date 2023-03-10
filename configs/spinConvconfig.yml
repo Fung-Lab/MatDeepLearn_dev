@@ -48,6 +48,10 @@ model:
   readout: "add"
   num_rand_rotations: 5
   scale_distances: True
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
+  act: "relu"
 
 optim:
   max_epochs: 250
