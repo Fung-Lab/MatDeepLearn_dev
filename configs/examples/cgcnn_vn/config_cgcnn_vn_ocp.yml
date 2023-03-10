@@ -2,9 +2,10 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-baseline"
+  identifier: "cgcnn_vn-all-neighbor-OCP"
   reprocess: False
   parallel: True
+  gpu: "cuda:3"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -18,7 +19,7 @@ task:
     notes: ""
     tags: ["test"]
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
         name: "train config"
         type: "config"
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
@@ -47,10 +48,10 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    pool: "global_mean_pool"
-    virtual_pool: "AtomicNumberPooling"
-    pool_choice: "virtual"
-    mp_pattern: [["rv", "rr"], ["rv", "rr"], ["rv", "rr"], ["rv", "rr"]]
+    pool: "global_mean_pool" # pooling reduction scheme
+    virtual_pool: "AtomicNumberPooling" # pooling method
+    pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
+    mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -77,7 +78,7 @@ dataset:
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -87,14 +88,13 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        edge_steps: 50
-        attrs: ["rv", "rr"]
-        rv_cutoff: 7.0
-        rr_cutoff: 2.0
-        neighbors: 50
+        attrs: ["rr", "rv"]
+        rr_cutoff: 12.0
+        rv_cutoff: 5.0
       otf: False
-    - name: NumNodes
-      otf: False
+  # use for passing into global config
+  # one of MDL, ASE, OCP
+  use_sweep_params: False
   # use again for passing into global config
   data_format: "json"
   node_representation: "onehot"
@@ -104,8 +104,12 @@ dataset:
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
     cutoff_radius : 5.0
-    n_neighbors : 50
+    n_neighbors : 250
+    edge_calc_method: "ocp"
+    num_offsets: 1
     edge_steps : 50
+    all_neighbors: True
+    use_degree: False
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05

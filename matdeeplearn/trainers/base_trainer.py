@@ -43,6 +43,7 @@ class BaseTrainer(ABC):
         max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
+        device: str = None,
         save_dir: str = None,
         checkpoint_dir: str = None,
         wandb_config: dict = None,
@@ -50,7 +51,7 @@ class BaseTrainer(ABC):
         opt_config: dict = None,
         dataset_config: dict = None,
     ):
-        self.device = min_alloc_gpu()
+        self.device = min_alloc_gpu(device)
         self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
@@ -100,6 +101,9 @@ class BaseTrainer(ABC):
             logging.info(
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
             )
+            logging.info(
+                f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), allocated memory: {torch.cuda.memory_allocated(device) * 1e-6} mb"
+            )
             logging.info(f"Dataset used: {self.dataset}")
             logging.debug(self.dataset[0])
             logging.debug(self.dataset[0].x[0])
@@ -130,6 +134,7 @@ class BaseTrainer(ABC):
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
+        device = config["task"].get("gpu", None)
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
@@ -148,6 +153,7 @@ class BaseTrainer(ABC):
             max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
+            device=device,
             save_dir=save_dir,
             checkpoint_dir=checkpoint_dir,
             wandb_config=config["task"].get("wandb"),

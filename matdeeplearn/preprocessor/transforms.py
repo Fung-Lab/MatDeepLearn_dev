@@ -4,15 +4,12 @@ from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (
-    compute_bond_angles,
-    custom_edge_feats,
-    custom_node_feats,
-    generate_virtual_nodes,
-    calculate_edges_master,
-    get_mask,
-    one_hot_degree,
-)
+from matdeeplearn.preprocessor.helpers import (calculate_edges_master,
+                                               compute_bond_angles,
+                                               custom_edge_feats,
+                                               custom_node_feats,
+                                               generate_virtual_nodes,
+                                               get_mask, one_hot_degree)
 
 """
 here resides the transform classes needed for data processing

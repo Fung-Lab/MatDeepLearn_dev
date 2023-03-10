@@ -3,8 +3,8 @@ import time
 
 import numpy as np
 import torch
-
 import wandb
+
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
@@ -27,6 +27,7 @@ class PropertyTrainer(BaseTrainer):
         max_checkpoint_epochs,
         identifier,
         verbosity,
+        device,
         save_dir,
         checkpoint_dir,
         wandb_config,
@@ -48,6 +49,7 @@ class PropertyTrainer(BaseTrainer):
             max_checkpoint_epochs,
             identifier,
             verbosity,
+            device,
             save_dir,
             checkpoint_dir,
             wandb_config,
