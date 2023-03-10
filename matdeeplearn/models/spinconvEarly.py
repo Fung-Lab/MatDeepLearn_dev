@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Embedding, Linear, ModuleList, Sequential
+import torch_geometric.nn
 from torch_geometric.nn import MessagePassing, SchNet, radius_graph
 from torch_scatter import scatter
 
@@ -43,7 +44,7 @@ class spinconv(BaseModel):
         use_pbc=False,
         regress_forces=False,
         otf_graph=False,
-        hidden_channels=32,
+        hidden_channels=64,
         mid_hidden_channels=200,
         num_interactions=1,
         num_basis_functions=200,
@@ -64,6 +65,10 @@ class spinconv(BaseModel):
         readout="add",
         num_rand_rotations=5,
         scale_distances=True,
+        num_post_layers=3,
+        post_hidden_channels=64,
+        pool="global_mean_pool",
+        act = "relu",
         **kwargs,
     ):
         super(spinconv, self).__init__()
@@ -162,13 +167,25 @@ class spinconv(BaseModel):
 
         self.energyembeddingblock = EmbeddingBlock(
             hidden_channels,
-            1,
+            self.hidden_channels,
             mid_hidden_channels,
             embedding_size,
             8,
             self.max_num_elements,
             self.act,
         )
+
+        self.num_post_layers = num_post_layers
+        self.post_hidden_channels = post_hidden_channels
+        self.post_lin_list = nn.ModuleList()
+        for i in range(self.num_post_layers):
+            if i == 0:
+                self.post_lin_list.append(nn.Linear(emb_size_atom, post_hidden_channels))
+            else:
+                self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+        self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
+        self.pool = pool
+        self.act = act
 
         if force_estimator == "random":
             self.force_output_block = ForceOutputBlock(
@@ -286,18 +303,23 @@ class spinconv(BaseModel):
         # Compute the forces and energies from the messages
         ###############################################################
         assert self.force_estimator in ["random", "grad"]
-        print(x.size())
+        
         energy = scatter(x, edge_index[1], dim=0, dim_size=data.num_nodes) / (
             self.max_num_neighbors / 2.0 + 1.0
         )
-        print(energy.size())
+        
         atomic_numbers = data.z.long()
         energy = self.energyembeddingblock(
             energy, atomic_numbers, atomic_numbers
         )
-        print(energy.size())
-        energy = scatter(energy, data.batch, dim=0)
-        print(energy.size())
+        
+        x = getattr(torch_geometric.nn, self.pool)(energy, data.batch)
+        for i in range(0, len(self.post_lin_list)):
+            x = self.post_lin_list[i](x)
+            x = getattr(F, self.act)(x)
+        energy = x
+        #energy = scatter(energy, data.batch, dim=0)
+        
         if self.regress_forces:
             if self.force_estimator == "grad":
                 forces = -1 * (
