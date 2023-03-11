@@ -62,7 +62,7 @@ model:
   forces_coupled: False
   output_init: "HeOrthogonal"
   activation: "silu"
-  quad_interaction: False
+  quad_interaction: True
   atom_edge_interaction: True
   edge_atom_interaction: True
   atom_interaction: True
