@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: painnEarly
+  name: painn
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -37,7 +37,7 @@ model:
   otf_graph: False
   num_elements: 100
   scale_file: 
-  num_post_layers: 1
+  num_post_layers: 3
   post_hidden_channels: 64
   pool: "global_mean_pool"
   activation: "relu"
