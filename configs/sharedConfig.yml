@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_ocEarly
+  name: CGCNN
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -24,57 +24,21 @@ model:
   self_loop: True
   # model attributes
   num_targets: 1
-  num_spherical: 7
-  num_radial: 6
-  num_blocks: 4
-  emb_size_atom: 128
-  emb_size_edge: 128
-  emb_size_trip_in: 128
-  emb_size_trip_out: 64
-  emb_size_trip: 64
-  emb_size_quad_in: 64
-  emb_size_quad_out: 64
-  emb_size_aint_in: 64
-  emb_size_aint_out: 64
-  emb_size_rbf: 16
-  emb_size_cbf: 16
-  emb_size_sbf: 16
-  emb_size_bil_trip: 32
-  num_before_skip: 1
-  num_after_skip: 1
-  num_concat: 1
-  num_atom: 2
-  num_output_afteratom: 1
-  num_atom_emb_layers: 0
-  num_global_out_layers: 2
-  regress_forces: False
-  direct_forces: False
   use_pbc: False
-  scale_backprop_forces: False
-  cutoff: 6.0
-  max_neighbors: 50
-  rbf: {"name": "gaussian"}
-  rbf_spherical:
-  envelope: {"name": "polynomial", "exponent": 5}
-  cbf: {"name": "spherical_harmonics"}
-  sbf: {"name": "spherical_harmonics"}
-  extensive: True
-  forces_coupled: False
-  output_init: "HeOrthogonal"
-  activation: "silu"
-  quad_interaction: False
-  atom_edge_interaction: True
-  edge_atom_interaction: True
-  atom_interaction: True
-  scale_basis: False
-  qint_tags: [0, 1, 2]
-  num_elements: 100
+  regress_forces: False
   otf_graph: False
-  scale_file:
-  num_post_layers: 3
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  batch_norm: True
+  batch_track_stats: True
+  act: "relu"
+  dropout_rate: 0.0
+  num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_mean_pool"
-  act: "relu"
+  cutoff: 8.0
 
 optim:
   max_epochs: 250
@@ -96,12 +60,11 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2d_data_npj/raw/"
-  #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2d_data_npj/targets.csv"
-  #Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2d_data_npj/"
-  #Format of data files (limit to those supported by ASE)
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
+  # Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
+  # Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
   transforms:
     - name: GetY
       args:
@@ -109,7 +72,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "mdl"
+  edge_calc_method: "ocp"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -128,3 +91,5 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
+  
+
