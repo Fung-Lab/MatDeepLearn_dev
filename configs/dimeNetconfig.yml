@@ -64,11 +64,12 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
-  # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  # Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+    src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
+  #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
       args:
