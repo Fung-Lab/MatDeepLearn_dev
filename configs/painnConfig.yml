@@ -45,7 +45,7 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.00025
+  lr: 0.0003
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
