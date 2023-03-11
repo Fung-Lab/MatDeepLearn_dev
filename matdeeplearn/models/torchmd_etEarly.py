@@ -176,7 +176,6 @@ class TorchMD_ET(nn.Module):
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
 
         x = self.embedding(data.z)
-        print(data.edge_index.size())
 
         #edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
         #assert (
