@@ -333,7 +333,6 @@ class DataProcessor:
             data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
             data.neighbors = neighbors
-            print(data.edge_index.size())
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
