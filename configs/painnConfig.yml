@@ -24,10 +24,10 @@ model:
   self_loop: True
   # model attributes
   num_targets: 1
-  hidden_channels: 256
+  hidden_channels: 512
   num_layers: 6
   num_rbf: 128
-  cutoff: 5.0
+  cutoff: 8.0
   max_neighbors: 50
   rbf:  {"name": "gaussian"}
   envelope:  {"name": "polynomial", "exponent": 5}
@@ -37,7 +37,7 @@ model:
   otf_graph: False
   num_elements: 100
   scale_file: 
-  num_post_layers: 3
+  num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_mean_pool"
   activation: "relu"
