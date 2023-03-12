@@ -68,7 +68,7 @@ class spinconv(BaseModel):
         num_post_layers=3,
         post_hidden_channels=64,
         pool="global_mean_pool",
-        act = "relu",
+        activation = "relu",
         **kwargs,
     ):
         super(spinconv, self).__init__()
@@ -185,6 +185,7 @@ class spinconv(BaseModel):
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
         self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
         self.pool = pool
+        self.activation = activation
 
         if force_estimator == "random":
             self.force_output_block = ForceOutputBlock(
@@ -315,7 +316,7 @@ class spinconv(BaseModel):
         x = getattr(torch_geometric.nn, self.pool)(energy, data.batch)
         for i in range(0, len(self.post_lin_list)):
             x = self.post_lin_list[i](x)
-            x = getattr(F, self.pool)(x)
+            x = getattr(F, self.activation)(x)
         energy = x
         #energy = scatter(energy, data.batch, dim=0)
         
