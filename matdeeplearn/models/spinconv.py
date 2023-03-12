@@ -598,10 +598,10 @@ class spinconv(BaseModel):
     def _init_edge_rot_mat(self, data, edge_index, edge_distance_vec):
         device = data.pos.device
         num_atoms = len(data.batch)
-
+        print(edge_distance_vec)
         edge_vec_0 = edge_distance_vec
         edge_vec_0_distance = torch.sqrt(torch.sum(edge_vec_0**2, dim=1))
-        print(edge_vec_0_distance)
+        
         if torch.min(edge_vec_0_distance) < 0.0001:
             print(
                 "Error edge_vec_0_distance: {}".format(
