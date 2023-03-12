@@ -298,8 +298,7 @@ class spinconv(BaseModel):
             energy, atomic_numbers, atomic_numbers
         )
         energy = scatter(energy, data.batch, dim=0)
-        print(energy)
-        print(energy.size())
+        
         if self.regress_forces:
             if self.force_estimator == "grad":
                 forces = -1 * (
@@ -602,7 +601,7 @@ class spinconv(BaseModel):
 
         edge_vec_0 = edge_distance_vec
         edge_vec_0_distance = torch.sqrt(torch.sum(edge_vec_0**2, dim=1))
-
+        print(edge_vec_0_distance)
         if torch.min(edge_vec_0_distance) < 0.0001:
             print(
                 "Error edge_vec_0_distance: {}".format(
