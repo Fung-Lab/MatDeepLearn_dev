@@ -27,8 +27,10 @@ model:
   use_pbc: False
   regress_forces: False
   otf_graph: False
-  dim1: 100
-  dim2: 150
+  num_elements: 100
+  num_blocks: #accounts for num_blocks, heads, and layers
+  hidden_channels: 
+  hidden_channels_2: #for models that have mid layers that call for different channel sizes 
   pre_fc_count: 1
   gc_count: 4
   batch_norm: True

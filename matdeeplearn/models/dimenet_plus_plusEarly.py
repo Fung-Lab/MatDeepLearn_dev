@@ -429,9 +429,12 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
             P += output_block(x, rbf, i, num_nodes=pos.size(0))
         
         energy = getattr(torch_geometric.nn, self.pool)(P, data.batch)
-        for i in range(0, len(self.post_lin_list)):
-            energy = self.post_lin_list[i](energy)
-            energy = getattr(F, self.activation)(energy)
+        x = energy
+        for i in range(0, len(self.post_lin_list) - 1):
+            x = self.post_lin_list[i](x)
+            x = getattr(F, self.activation)(x)
+        x = self.post_lin_list[-1](x)
+        energy = x
         #energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
 
         return energy

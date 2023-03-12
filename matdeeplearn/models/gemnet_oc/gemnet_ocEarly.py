@@ -1327,9 +1327,10 @@ class GemNetOC(BaseModel):
         if self.direct_forces:
             x_F = self.out_mlp_F(torch.cat(xs_F, dim=-1))
         x = getattr(torch_geometric.nn, self.pool)(x_E, batch)
-        for i in range(0, len(self.post_lin_list)):
+        for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
-            x = getattr(F, self.act)(x)
+            x = getattr(F, self.activation)(x)
+        x = self.post_lin_list[-1](x)
         E_t = x
         
         #with torch.cuda.amp.autocast(False):
