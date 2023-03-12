@@ -370,13 +370,13 @@ class PaiNN(BaseModel):
         if self.regress_forces and not self.direct_forces:
             pos = pos.requires_grad_(True)
 
-        (
-            edge_index,
-            neighbors,
-            edge_dist,
-            edge_vector,
-            id_swap,
-        ) = self.generate_graph_values(data)
+        #(
+        #    edge_index,
+        #    neighbors,
+        #    edge_dist,
+        #    edge_vector,
+        #    id_swap,
+        #) = self.generate_graph_values(data)
         edge_index = data.edge_index
         edge_dist = data.distances
         edge_vector = data.edge_vec
