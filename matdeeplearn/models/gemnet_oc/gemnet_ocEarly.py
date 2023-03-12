@@ -1329,7 +1329,7 @@ class GemNetOC(BaseModel):
         x = getattr(torch_geometric.nn, self.pool)(x_E, batch)
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
-            x = getattr(F, self.activation)(x)
+            x = getattr(F, self.act)(x)
         x = self.post_lin_list[-1](x)
         E_t = x
         
