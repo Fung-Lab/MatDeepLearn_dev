@@ -185,7 +185,6 @@ class spinconv(BaseModel):
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
         self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
         self.pool = pool
-        self.act = act
 
         if force_estimator == "random":
             self.force_output_block = ForceOutputBlock(
