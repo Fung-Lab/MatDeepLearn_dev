@@ -315,7 +315,7 @@ class spinconv(BaseModel):
         x = getattr(torch_geometric.nn, self.pool)(energy, data.batch)
         for i in range(0, len(self.post_lin_list)):
             x = self.post_lin_list[i](x)
-            x = getattr(F, self.act)(x)
+            x = getattr(F, self.pool)(x)
         energy = x
         #energy = scatter(energy, data.batch, dim=0)
         
