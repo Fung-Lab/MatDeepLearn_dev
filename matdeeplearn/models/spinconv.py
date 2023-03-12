@@ -298,7 +298,8 @@ class spinconv(BaseModel):
             energy, atomic_numbers, atomic_numbers
         )
         energy = scatter(energy, data.batch, dim=0)
-
+        print(energy)
+        print(energy.size())
         if self.regress_forces:
             if self.force_estimator == "grad":
                 forces = -1 * (

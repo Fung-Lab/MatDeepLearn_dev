@@ -319,7 +319,8 @@ class spinconv(BaseModel):
             x = getattr(F, self.activation)(x)
         energy = x
         #energy = scatter(energy, data.batch, dim=0)
-        
+        print(energy)
+        print(energy.size())
         if self.regress_forces:
             if self.force_estimator == "grad":
                 forces = -1 * (
