@@ -623,22 +623,22 @@ class spinconv(BaseModel):
         edge_vec_0 = edge_distance_vec
         edge_vec_0_distance = torch.sqrt(torch.sum(edge_vec_0**2, dim=1))
 
-        if torch.min(edge_vec_0_distance) < 0.000001:
-            print(
-                "Error edge_vec_0_distance: {}".format(
-                    torch.min(edge_vec_0_distance)
-                )
-            )
+        if torch.min(edge_vec_0_distance) < 0.0001:
+            #print(
+            #    "Error edge_vec_0_distance: {}".format(
+            #        torch.min(edge_vec_0_distance)
+            #    )
+            #)
             (minval, minidx) = torch.min(edge_vec_0_distance, 0)
-            print(
-                "Error edge_vec_0_distance: {} {} {} {} {}".format(
-                    minidx,
-                    edge_index[0, minidx],
-                    edge_index[1, minidx],
-                    data.pos[edge_index[0, minidx]],
-                    data.pos[edge_index[1, minidx]],
-                )
-            )
+            #print(
+            #    "Error edge_vec_0_distance: {} {} {} {} {}".format(
+            #        minidx,
+            #        edge_index[0, minidx],
+            #        edge_index[1, minidx],
+            #        data.pos[edge_index[0, minidx]],
+            #        data.pos[edge_index[1, minidx]],
+            #    )
+            #)
 
         avg_vector = torch.zeros(num_atoms, 3, device=device)
         weight = 0.5 * (
