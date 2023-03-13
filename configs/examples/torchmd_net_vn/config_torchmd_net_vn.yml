@@ -5,6 +5,7 @@ task:
   identifier: "torchmd_net_vn-all-neighbor-OCP"
   reprocess: False
   parallel: True
+  resume_run: False
   gpu: "cuda:0"
   seed: 0
   # seed: 0 means random initalization
@@ -19,7 +20,7 @@ task:
     notes: "TorchMD net modified to support custom pooling routines and virtual nodes"
     tags: ["test"]
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_torchmd_net_vn_ocp.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/torchmd_net_vn/config_torchmd_net_vn.yml"
         name: "train config"
         type: "config"
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/torchmd_net_vn.py"
@@ -59,7 +60,7 @@ model:
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
-    mp_pattern: ["rr"]
+    mp_pattern: ["rr", "rv"]
     aggr: "add"
 
 optim:
@@ -68,7 +69,7 @@ optim:
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 16
+  batch_size: 50
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}

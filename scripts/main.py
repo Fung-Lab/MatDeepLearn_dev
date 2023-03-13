@@ -15,7 +15,7 @@ from matdeeplearn.preprocessor.processor import process_data
 
 # from matdeeplearn.common.utils import setup_logging
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -77,6 +77,11 @@ def wandb_setup(config):
 
     timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
 
+    if config["model"]["load_model"] ^ config["task"]["resume_run"]:
+        raise ValueError(
+            "Must load checkpoint and resume run to log to wandb if either option enabled"
+        )
+
     wandb.init(
         settings=wandb.Settings(start_method="fork"),
         project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
@@ -85,6 +90,7 @@ def wandb_setup(config):
         notes=config["task"]["wandb"].get("notes", None),
         tags=config["task"]["wandb"].get("tags", None),
         config=_wandb_config,
+        resume=config["task"]["resume_run"],
     )
 
     wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])

@@ -174,6 +174,9 @@ class PropertyTrainer(BaseTrainer):
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
 
+            if type(out) == tuple and len(out) == 5:
+                out = out[0]
+
             # if out is a tuple, then it's scaled data
             if type(out) == tuple:
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])

@@ -14,6 +14,7 @@ class BaseTask:
     def setup(self, trainer):
         self.trainer = trainer
         use_checkpoint = self.config["model"]["load_model"]
+
         if use_checkpoint:
             logging.info("Attempting to load most recent checkpoint...")
             self.trainer.load_checkpoint()
