@@ -4,12 +4,15 @@ from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (calculate_edges_master,
-                                               compute_bond_angles,
-                                               custom_edge_feats,
-                                               custom_node_feats,
-                                               generate_virtual_nodes,
-                                               get_mask, one_hot_degree)
+from matdeeplearn.preprocessor.helpers import (
+    calculate_edges_master,
+    compute_bond_angles,
+    custom_edge_feats,
+    custom_node_feats,
+    generate_virtual_nodes,
+    get_mask,
+    one_hot_degree,
+)
 
 """
 here resides the transform classes needed for data processing
@@ -81,7 +84,6 @@ class VirtualNodes(object):
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
-        # create edges, starting from largest cutoff
         for attr in self.kwargs.get("attrs"):
             cutoff = self.kwargs.get(f"{attr}_cutoff")
 
@@ -103,6 +105,8 @@ class VirtualNodes(object):
 
             edge_index = edge_gen_out["edge_index"]
             edge_weight = edge_gen_out["edge_weights"]
+            edge_vec = edge_gen_out["edge_vec"]
+            offsets = edge_gen_out["cell_offsets"]
 
             edge_attr = custom_edge_feats(
                 edge_weight,
@@ -112,20 +116,31 @@ class VirtualNodes(object):
             )
 
             # apply mask to compute desired edges for interaction
-            mask = get_mask(attr, data, edge_index[0], edge_index[1])
+            edge_mask = get_mask(attr, data, edge_index[0], edge_index[1])
 
             setattr(
                 data,
                 f"edge_index_{attr}",
-                torch.index_select(edge_index, 1, mask),
+                torch.index_select(edge_index, 1, edge_mask),
             )
             setattr(
                 data,
                 f"edge_attr_{attr}",
-                torch.index_select(edge_attr, 0, mask),
+                torch.index_select(edge_attr, 0, edge_mask),
+            )
+            setattr(
+                data,
+                f"edge_weights_{attr}",
+                torch.index_select(edge_weight, 0, edge_mask),
+            )
+            setattr(
+                data,
+                f"edge_vec_{attr}",
+                torch.index_select(edge_vec, 0, edge_mask),
             )
 
-        # compute node embeddings
+        setattr(data, "cell_offsets", offsets)
+
         participating_edges = torch.cat(
             [
                 getattr(data, ei)
@@ -134,6 +149,7 @@ class VirtualNodes(object):
             dim=1,
         )
 
+        # compute node embeddings
         data.x = custom_node_feats(
             data.z,
             participating_edges,
@@ -150,18 +166,26 @@ class VirtualNodes(object):
         # remove unnecessary attributes to reduce memory overhead
         edge_index_attrs = [f"edge_index_{s}" for s in self.kwargs.get("attrs")]
         edge_attr_attrs = [f"edge_attr_{s}" for s in self.kwargs.get("attrs")]
+        edge_weight_attrs = [f"edge_weights_{s}" for s in self.kwargs.get("attrs")]
+        edge_vec_attrs = [f"edge_vec_{s}" for s in self.kwargs.get("attrs")]
 
         for attr in list(data.__dict__.get("_store").keys()):
             if (
                 attr not in edge_index_attrs
                 and attr not in edge_attr_attrs
+                and attr not in edge_weight_attrs
+                and attr not in edge_vec_attrs
                 and attr not in self.keep_attrs
             ):
                 data.__dict__.get("_store")[attr] = None
 
         # compile all generated edges
         edge_kwargs = {
-            attr: getattr(data, attr) for attr in edge_index_attrs + edge_attr_attrs
+            attr: getattr(data, attr)
+            for attr in edge_index_attrs
+            + edge_attr_attrs
+            + edge_weight_attrs
+            + edge_vec_attrs
         }
 
         return CustomData(

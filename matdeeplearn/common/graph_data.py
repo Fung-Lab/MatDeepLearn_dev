@@ -26,13 +26,20 @@ class CustomData(Data):
         edge_attr: OptTensor = None,
         edge_index_rr: OptTensor = None,
         edge_attr_rr: OptTensor = None,
+        edge_weights_rr: OptTensor = None,
+        edge_vec_rr: OptTensor = None,
         edge_index_rv: OptTensor = None,
         edge_attr_rv: OptTensor = None,
+        edge_weights_rv: OptTensor = None,
+        edge_vec_rv: OptTensor = None,
         edge_index_vv: OptTensor = None,
         edge_attr_vv: OptTensor = None,
+        edge_weights_vv: OptTensor = None,
+        edge_vec_vv: OptTensor = None,
         edge_index_vr: OptTensor = None,
         edge_attr_vr: OptTensor = None,
-        edge_vec: OptTensor = None,
+        edge_weights_vr: OptTensor = None,
+        edge_vec_vr: OptTensor = None,
         cell_offsets: OptTensor = None,
         distances: OptTensor = None,
         structure_id: Optional[list] = None,
@@ -51,19 +58,26 @@ class CustomData(Data):
         self.u: OptTensor = u
         self.x: OptTensor = x
 
-        # set edges
+        # set edge attributes
         self.edge_index = edge_index
         self.edge_attr = edge_attr
         self.edge_index_rr = edge_index_rr
         self.edge_attr_rr = edge_attr_rr
+        self.edge_weights_rr = edge_weights_rr
+        self.edge_vec_rr = edge_vec_rr
         self.edge_index_rv = edge_index_rv
         self.edge_attr_rv = edge_attr_rv
+        self.edge_weights_rv = edge_weights_rv
+        self.edge_vec_rv = edge_vec_rv
         self.edge_index_vv = edge_index_vv
         self.edge_attr_vv = edge_attr_vv
+        self.edge_weights_vv = edge_weights_vv
+        self.edge_vec_vv = edge_vec_vv
         self.edge_index_vr = edge_index_vr
         self.edge_attr_vr = edge_attr_vr
+        self.edge_weights_vr = edge_weights_vr
+        self.edge_vec_vr = edge_vec_vr
 
-        self.edge_vec: OptTensor = edge_vec
         self.cell_offsets: OptTensor = cell_offsets
         self.distances: OptTensor = distances
         self.structure_id: list = structure_id

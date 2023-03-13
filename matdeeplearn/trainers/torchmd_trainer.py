@@ -10,8 +10,8 @@ from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
 
-@registry.register_trainer("property")
-class PropertyTrainer(BaseTrainer):
+@registry.register_trainer("torchmd")
+class TorchMD(BaseTrainer):
     def __init__(
         self,
         model,
@@ -61,24 +61,17 @@ class PropertyTrainer(BaseTrainer):
         self.use_wandb = self.wandb_config.get("use_wandb", False)
 
     def train(self):
+        if self.train_verbosity:
+            logging.info("Starting regular training")
+            logging.info(
+                f"running for  {self.max_epochs} epochs on {type(self.model).__name__} model"
+            )
+
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
         start_epoch = self.step // len(self.train_loader)
-
-        epochs_to_run = (
-            self.max_checkpoint_epochs + start_epoch
-            if self.max_checkpoint_epochs
-            else self.max_epochs
-        )
-
-        if self.train_verbosity:
-            logging.info("Starting regular training")
-            logging.info(
-                f"running for {epochs_to_run} epochs on {type(self.model).__name__} model"
-            )
-
-        for epoch in range(start_epoch, epochs_to_run):
+        for epoch in range(start_epoch, self.max_epochs):
             epoch_start_time = time.time()
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
@@ -97,11 +90,8 @@ class PropertyTrainer(BaseTrainer):
                 batch = next(train_loader_iter).to(self.device)
 
                 # Compute forward, loss, backward
-                out = self._forward(batch)
-
-                if type(out) == tuple and len(out) == 5:
-                    out = out[0]
-
+                # out = self._forward(batch)
+                out = self._forward(batch.z, batch.pos, batch.batch)[0]
                 loss = self._compute_loss(out, batch)
                 self._backward(loss)
 
@@ -115,8 +105,8 @@ class PropertyTrainer(BaseTrainer):
             # Save current model
             self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
-            # Evaluate on validation set AND test set if it exists
-            if self.val_loader and self.test_loader:
+            # Evaluate on validation set if it exists
+            if self.val_loader:
                 val_metrics = self.validate()
                 test_metrics = self.validate(split="test")
 
@@ -124,9 +114,7 @@ class PropertyTrainer(BaseTrainer):
                 self.epoch_time = time.time() - epoch_start_time
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
-                    self._log_metrics(
-                        val_metrics=val_metrics, test_metrics=test_metrics
-                    )
+                    self._log_metrics(val_metrics, test_metrics)
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if (
@@ -151,11 +139,9 @@ class PropertyTrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             with torch.no_grad():
                 batch = next(loader_iter).to(self.device)
-                out = self._forward(batch.to(self.device))
-
-                if type(out) == tuple and len(out) == 5:
-                    out = out[0]
-
+                batch = batch.to(self.device)
+                # out = self._forward(batch.to(self.device))
+                out = self._forward(batch.z, batch.pos, batch.batch)[0]
                 loss = self._compute_loss(out, batch)
                 # Compute metrics
                 metrics = self._compute_metrics(out, batch, metrics)
@@ -172,14 +158,15 @@ class PropertyTrainer(BaseTrainer):
         ids = []
         node_level_predictions = False
         for i, batch in enumerate(loader):
-            out = self._forward(batch.to(self.device))
-
+            batch = batch.to(self.device)
+            # out = self._forward(batch.to(self.device))
+            out = self._forward(batch.z, batch.pos, batch.batch)[0]
             # if out is a tuple, then it's scaled data
             if type(out) == tuple:
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
             batch_p = out.data.cpu().numpy()
-            batch_t = batch[self.model.target_attr].cpu().numpy()
+            batch_t = batch["y"].cpu().numpy()
 
             batch_ids = np.array(
                 [item for sublist in batch.structure_id for item in sublist]
@@ -206,8 +193,8 @@ class PropertyTrainer(BaseTrainer):
 
         return predictions
 
-    def _forward(self, batch_data):
-        output = self.model(batch_data)
+    def _forward(self, z, pos, batch):
+        output = self.model(z, pos, batch)
         return output
 
     def _compute_loss(self, out, batch_data):
@@ -230,12 +217,11 @@ class PropertyTrainer(BaseTrainer):
         return metrics
 
     def _log_metrics(self, val_metrics=None, test_metrics=None):
-        if not val_metrics and not test_metrics:
+        if not val_metrics:
             logging.info(f"epoch: {self.epoch}, learning rate: {self.scheduler.lr}")
             logging.info(self.metrics[type(self.loss_fn).__name__]["metric"])
         else:
             train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
-
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
             test_loss = test_metrics[type(self.loss_fn).__name__]["metric"]
 
@@ -249,8 +235,8 @@ class PropertyTrainer(BaseTrainer):
             }
 
             logging.info(
-                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Test Error: {:.5f}, Time per epoch (s): {:.5f}".format(
-                    *log_kwargs.values()
+                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
+                    **log_kwargs.values(),
                 )
             )
 

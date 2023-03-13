@@ -2,10 +2,10 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
-from torch.nn import BatchNorm1d
 import torch_geometric
-from torch_geometric.nn import CGConv, Set2Set
+from torch.nn import BatchNorm1d
 from torch_geometric.data import Data
+from torch_geometric.nn import CGConv, Set2Set
 
 import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
@@ -27,14 +27,12 @@ class CGCNN_VN(BaseModel):
         pool="global_mean_pool",
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
-        node_pool_choice="x_both",
         mp_pattern: List[List[str]] = [
             ["rv", "rr"],
             ["rv", "rr"],
             ["rv", "rr"],
             ["rv", "rr"],
         ],
-        atomic_numbers_for_pool: str = "zv",
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
         batch_norm=True,
@@ -50,9 +48,7 @@ class CGCNN_VN(BaseModel):
         self.pool = pool
         self.virtual_pool = virtual_pool
         self.pool_choice = pool_choice
-        self.node_pool_choice = node_pool_choice
         self.mp_pattern = mp_pattern
-        self.atomic_numbers_for_pool = atomic_numbers_for_pool
         self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
         self.act_fn = act_fn
         self.act_nn = act_nn

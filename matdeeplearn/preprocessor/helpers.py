@@ -15,7 +15,40 @@ from ase import Atoms
 from torch_geometric.data.data import Data
 from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
 from torch_scatter import scatter_min, segment_coo, segment_csr
+from torch import scatter
 from torch_sparse import SparseTensor
+from matdeeplearn.common.graph_data import CustomData
+from functools import wraps
+
+
+def conditional_grad(dec):
+    "Decorator to enable/disable grad depending on whether force/energy predictions are being made"
+    # Adapted from https://stackoverflow.com/questions/60907323/accessing-class-property-as-decorator-argument
+    def decorator(func):
+        @wraps(func)
+        def cls_method(self, *args, **kwargs):
+            f = func
+            if self.regress_forces and not getattr(self, "direct_forces", 0):
+                f = dec(func)
+            return f(self, *args, **kwargs)
+
+        return cls_method
+
+    return decorator
+
+
+def scatter_det(*args, **kwargs):
+    from matdeeplearn.common.registry import registry
+
+    if registry.get("set_deterministic_scatter", no_warning=True):
+        torch.use_deterministic_algorithms(mode=True)
+
+    out = scatter(*args, **kwargs)
+
+    if registry.get("set_deterministic_scatter", no_warning=True):
+        torch.use_deterministic_algorithms(mode=False)
+
+    return out
 
 
 def calculate_edges_master(
@@ -162,8 +195,8 @@ def get_mask(
     # get specific binary MP conditions
     cond1, cond2 = patterns.get(pattern)
 
-    mask = torch.argwhere(cond1 & cond2).squeeze(1)
-    return mask
+    edge_mask = torch.argwhere(cond1 & cond2).squeeze(1)
+    return edge_mask
 
 
 def threshold_sort(all_distances: torch.Tensor, r: float, n_neighbors: int):
@@ -602,7 +635,6 @@ def generate_node_features(input_data, n_neighbors, use_degree, device):
     if use_degree:
         for i, data in enumerate(input_data):
             input_data[i] = one_hot_degree(data, n_neighbors)
-
 
 
 def generate_edge_features(input_data, edge_steps, r, device):
@@ -1235,6 +1267,21 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
     return mask_num_neighbors, num_neighbors_image
 
 
+def compute_neighbors(data: CustomData, edge_index):
+    # Get number of neighbors
+    # segment_coo assumes sorted index
+    ones = edge_index[1].new_ones(1).expand_as(edge_index[1])
+    num_neighbors = segment_coo(ones, edge_index[1], dim_size=data.n_atoms.sum())
+
+    # Get number of neighbors per image
+    image_indptr = torch.zeros(
+        data.n_atoms.shape[0] + 1, device=data.pos.device, dtype=torch.long
+    )
+    image_indptr[1:] = torch.cumsum(data.n_atoms, dim=0)
+    neighbors = segment_csr(num_neighbors, image_indptr)
+    return neighbors
+
+
 def get_pbc_distances(
     pos,
     edge_index,
@@ -1357,3 +1404,715 @@ def compute_bond_angles(
     angle = torch.atan2(b, a)
 
     return angle, idx_kj, idx_ji
+
+
+def ragged_range(sizes):
+    """Multiple concatenated ranges.
+
+    Examples
+    --------
+        sizes = [1 4 2 3]
+        Return: [0  0 1 2 3  0 1  0 1 2]
+    """
+    assert sizes.dim() == 1
+    if sizes.sum() == 0:
+        return sizes.new_empty(0)
+
+    # Remove 0 sizes
+    sizes_nonzero = sizes > 0
+    if not torch.all(sizes_nonzero):
+        sizes = torch.masked_select(sizes, sizes_nonzero)
+
+    # Initialize indexing array with ones as we need to setup incremental indexing
+    # within each group when cumulatively summed at the final stage.
+    id_steps = torch.ones(sizes.sum(), dtype=torch.long, device=sizes.device)
+    id_steps[0] = 0
+    insert_index = sizes[:-1].cumsum(0)
+    insert_val = (1 - sizes)[:-1]
+
+    # Assign index-offsetting values
+    id_steps[insert_index] = insert_val
+
+    # Finally index into input array for the group repeated o/p
+    res = id_steps.cumsum(0)
+    return res
+
+
+def repeat_blocks(
+    sizes,
+    repeats,
+    continuous_indexing=True,
+    start_idx=0,
+    block_inc=0,
+    repeat_inc=0,
+):
+    """Repeat blocks of indices.
+    Adapted from https://stackoverflow.com/questions/51154989/numpy-vectorized-function-to-repeat-blocks-of-consecutive-elements
+
+    continuous_indexing: Whether to keep increasing the index after each block
+    start_idx: Starting index
+    block_inc: Number to increment by after each block,
+               either global or per block. Shape: len(sizes) - 1
+    repeat_inc: Number to increment by after each repetition,
+                either global or per block
+
+    Examples
+    --------
+        sizes = [1,3,2] ; repeats = [3,2,3] ; continuous_indexing = False
+        Return: [0 0 0  0 1 2 0 1 2  0 1 0 1 0 1]
+        sizes = [1,3,2] ; repeats = [3,2,3] ; continuous_indexing = True
+        Return: [0 0 0  1 2 3 1 2 3  4 5 4 5 4 5]
+        sizes = [1,3,2] ; repeats = [3,2,3] ; continuous_indexing = True ;
+        repeat_inc = 4
+        Return: [0 4 8  1 2 3 5 6 7  4 5 8 9 12 13]
+        sizes = [1,3,2] ; repeats = [3,2,3] ; continuous_indexing = True ;
+        start_idx = 5
+        Return: [5 5 5  6 7 8 6 7 8  9 10 9 10 9 10]
+        sizes = [1,3,2] ; repeats = [3,2,3] ; continuous_indexing = True ;
+        block_inc = 1
+        Return: [0 0 0  2 3 4 2 3 4  6 7 6 7 6 7]
+        sizes = [0,3,2] ; repeats = [3,2,3] ; continuous_indexing = True
+        Return: [0 1 2 0 1 2  3 4 3 4 3 4]
+        sizes = [2,3,2] ; repeats = [2,0,2] ; continuous_indexing = True
+        Return: [0 1 0 1  5 6 5 6]
+    """
+    assert sizes.dim() == 1
+    assert all(sizes >= 0)
+
+    # Remove 0 sizes
+    sizes_nonzero = sizes > 0
+    if not torch.all(sizes_nonzero):
+        assert block_inc == 0  # Implementing this is not worth the effort
+        sizes = torch.masked_select(sizes, sizes_nonzero)
+        if isinstance(repeats, torch.Tensor):
+            repeats = torch.masked_select(repeats, sizes_nonzero)
+        if isinstance(repeat_inc, torch.Tensor):
+            repeat_inc = torch.masked_select(repeat_inc, sizes_nonzero)
+
+    if isinstance(repeats, torch.Tensor):
+        assert all(repeats >= 0)
+        insert_dummy = repeats[0] == 0
+        if insert_dummy:
+            one = sizes.new_ones(1)
+            zero = sizes.new_zeros(1)
+            sizes = torch.cat((one, sizes))
+            repeats = torch.cat((one, repeats))
+            if isinstance(block_inc, torch.Tensor):
+                block_inc = torch.cat((zero, block_inc))
+            if isinstance(repeat_inc, torch.Tensor):
+                repeat_inc = torch.cat((zero, repeat_inc))
+    else:
+        assert repeats >= 0
+        insert_dummy = False
+
+    # Get repeats for each group using group lengths/sizes
+    r1 = torch.repeat_interleave(
+        torch.arange(len(sizes), device=sizes.device), repeats
+    )
+
+    # Get total size of output array, as needed to initialize output indexing array
+    N = (sizes * repeats).sum()
+
+    # Initialize indexing array with ones as we need to setup incremental indexing
+    # within each group when cumulatively summed at the final stage.
+    # Two steps here:
+    # 1. Within each group, we have multiple sequences, so setup the offsetting
+    # at each sequence lengths by the seq. lengths preceding those.
+    id_ar = torch.ones(N, dtype=torch.long, device=sizes.device)
+    id_ar[0] = 0
+    insert_index = sizes[r1[:-1]].cumsum(0)
+    insert_val = (1 - sizes)[r1[:-1]]
+
+    if isinstance(repeats, torch.Tensor) and torch.any(repeats == 0):
+        diffs = r1[1:] - r1[:-1]
+        indptr = torch.cat((sizes.new_zeros(1), diffs.cumsum(0)))
+        if continuous_indexing:
+            # If a group was skipped (repeats=0) we need to add its size
+            insert_val += segment_csr(sizes[: r1[-1]], indptr, reduce="sum")
+
+        # Add block increments
+        if isinstance(block_inc, torch.Tensor):
+            insert_val += segment_csr(
+                block_inc[: r1[-1]], indptr, reduce="sum"
+            )
+        else:
+            insert_val += block_inc * (indptr[1:] - indptr[:-1])
+            if insert_dummy:
+                insert_val[0] -= block_inc
+    else:
+        idx = r1[1:] != r1[:-1]
+        if continuous_indexing:
+            # 2. For each group, make sure the indexing starts from the next group's
+            # first element. So, simply assign 1s there.
+            insert_val[idx] = 1
+
+        # Add block increments
+        insert_val[idx] += block_inc
+
+    # Add repeat_inc within each group
+    if isinstance(repeat_inc, torch.Tensor):
+        insert_val += repeat_inc[r1[:-1]]
+        if isinstance(repeats, torch.Tensor):
+            repeat_inc_inner = repeat_inc[repeats > 0][:-1]
+        else:
+            repeat_inc_inner = repeat_inc[:-1]
+    else:
+        insert_val += repeat_inc
+        repeat_inc_inner = repeat_inc
+
+    # Subtract the increments between groups
+    if isinstance(repeats, torch.Tensor):
+        repeats_inner = repeats[repeats > 0][:-1]
+    else:
+        repeats_inner = repeats
+    insert_val[r1[1:] != r1[:-1]] -= repeat_inc_inner * repeats_inner
+
+    # Assign index-offsetting values
+    id_ar[insert_index] = insert_val
+
+    if insert_dummy:
+        id_ar = id_ar[1:]
+        if continuous_indexing:
+            id_ar[0] -= 1
+
+    # Set start index now, in case of insertion due to leading repeats=0
+    id_ar[0] += start_idx
+
+    # Finally index into input array for the group repeated o/p
+    res = id_ar.cumsum(0)
+    return res
+
+
+def masked_select_sparsetensor_flat(src, mask):
+    row, col, value = src.coo()
+    row = row[mask]
+    col = col[mask]
+    value = value[mask]
+    return SparseTensor(
+        row=row, col=col, value=value, sparse_sizes=src.sparse_sizes()
+    )
+
+
+def calculate_interatomic_vectors(R, id_s, id_t, offsets_st):
+    """
+    Calculate the vectors connecting the given atom pairs,
+    considering offsets from periodic boundary conditions (PBC).
+
+    Arguments
+    ---------
+        R: Tensor, shape = (nAtoms, 3)
+            Atom positions.
+        id_s: Tensor, shape = (nEdges,)
+            Indices of the source atom of the edges.
+        id_t: Tensor, shape = (nEdges,)
+            Indices of the target atom of the edges.
+        offsets_st: Tensor, shape = (nEdges,)
+            PBC offsets of the edges.
+            Subtract this from the correct direction.
+
+    Returns
+    -------
+        (D_st, V_st): tuple
+            D_st: Tensor, shape = (nEdges,)
+                Distance from atom t to s.
+            V_st: Tensor, shape = (nEdges,)
+                Unit direction from atom t to s.
+    """
+    Rs = R[id_s]
+    Rt = R[id_t]
+    # ReLU prevents negative numbers in sqrt
+    if offsets_st is None:
+        V_st = Rt - Rs  # s -> t
+    else:
+        V_st = Rt - Rs + offsets_st  # s -> t
+    D_st = torch.sqrt(torch.sum(V_st**2, dim=1))
+    V_st = V_st / D_st[..., None]
+    return D_st, V_st
+
+
+def inner_product_clamped(x, y):
+    """
+    Calculate the inner product between the given normalized vectors,
+    giving a result between -1 and 1.
+    """
+    return torch.sum(x * y, dim=-1).clamp(min=-1, max=1)
+
+
+def get_angle(R_ac, R_ab):
+    """Calculate angles between atoms c -> a <- b.
+
+    Arguments
+    ---------
+        R_ac: Tensor, shape = (N, 3)
+            Vector from atom a to c.
+        R_ab: Tensor, shape = (N, 3)
+            Vector from atom a to b.
+
+    Returns
+    -------
+        angle_cab: Tensor, shape = (N,)
+            Angle between atoms c <- a -> b.
+    """
+    # cos(alpha) = (u * v) / (|u|*|v|)
+    x = torch.sum(R_ac * R_ab, dim=-1)  # shape = (N,)
+    # sin(alpha) = |u x v| / (|u|*|v|)
+    y = torch.cross(R_ac, R_ab, dim=-1).norm(dim=-1)  # shape = (N,)
+    y = y.clamp(min=1e-9)  # Avoid NaN gradient for y = (0,0,0)
+
+    angle = torch.atan2(y, x)
+    return angle
+
+
+def vector_rejection(R_ab, P_n):
+    """
+    Project the vector R_ab onto a plane with normal vector P_n.
+
+    Arguments
+    ---------
+        R_ab: Tensor, shape = (N, 3)
+            Vector from atom a to b.
+        P_n: Tensor, shape = (N, 3)
+            Normal vector of a plane onto which to project R_ab.
+
+    Returns
+    -------
+        R_ab_proj: Tensor, shape = (N, 3)
+            Projected vector (orthogonal to P_n).
+    """
+    a_x_b = torch.sum(R_ab * P_n, dim=-1)
+    b_x_b = torch.sum(P_n * P_n, dim=-1)
+    return R_ab - (a_x_b / b_x_b)[:, None] * P_n
+
+
+def get_projected_angle(R_ab, P_n, eps=1e-4):
+    """
+    Project the vector R_ab onto a plane with normal vector P_n,
+    then calculate the angle w.r.t. the (x [cross] P_n),
+    or (y [cross] P_n) if the former would be ill-defined/numerically unstable.
+
+    Arguments
+    ---------
+        R_ab: Tensor, shape = (N, 3)
+            Vector from atom a to b.
+        P_n: Tensor, shape = (N, 3)
+            Normal vector of a plane onto which to project R_ab.
+        eps: float
+            Norm of projection below which to use the y-axis instead of x.
+
+    Returns
+    -------
+        angle_ab: Tensor, shape = (N)
+            Angle on plane w.r.t. x- or y-axis.
+    """
+    R_ab_proj = torch.cross(R_ab, P_n, dim=-1)
+
+    # Obtain axis defining the angle=0
+    x = P_n.new_tensor([[1, 0, 0]]).expand_as(P_n)
+    zero_angle = torch.cross(x, P_n, dim=-1)
+
+    use_y = torch.norm(zero_angle, dim=-1) < eps
+    P_n_y = P_n[use_y]
+    y = P_n_y.new_tensor([[0, 1, 0]]).expand_as(P_n_y)
+    y_cross = torch.cross(y, P_n_y, dim=-1)
+    zero_angle[use_y] = y_cross
+
+    angle = get_angle(zero_angle, R_ab_proj)
+
+    # Flip sign of angle if necessary to obtain clock-wise angles
+    cross = torch.cross(zero_angle, R_ab_proj, dim=-1)
+    flip_sign = torch.sum(cross * P_n, dim=-1) < 0
+    angle[flip_sign] = -angle[flip_sign]
+
+    return angle
+
+
+def mask_neighbors(neighbors, edge_mask):
+    neighbors_old_indptr = torch.cat([neighbors.new_zeros(1), neighbors])
+    neighbors_old_indptr = torch.cumsum(neighbors_old_indptr, dim=0)
+    neighbors = segment_csr(edge_mask.long(), neighbors_old_indptr)
+    return neighbors
+
+
+def get_neighbor_order(num_atoms, index, atom_distance):
+    """
+    Give a mask that filters out edges so that each atom has at most
+    `max_num_neighbors_threshold` neighbors.
+    """
+    device = index.device
+
+    # Get sorted index and inverse sorting
+    # Necessary for index_sort_map
+    index_sorted, index_order = torch.sort(index)
+    index_order_inverse = torch.argsort(index_order)
+
+    # Get number of neighbors
+    ones = index_sorted.new_ones(1).expand_as(index_sorted)
+    num_neighbors = segment_coo(ones, index_sorted, dim_size=num_atoms)
+    max_num_neighbors = num_neighbors.max()
+
+    # Create a tensor of size [num_atoms, max_num_neighbors] to sort the distances of the neighbors.
+    # Fill with infinity so we can easily remove unused distances later.
+    distance_sort = torch.full(
+        [num_atoms * max_num_neighbors], np.inf, device=device
+    )
+
+    # Create an index map to map distances from atom_distance to distance_sort
+    index_neighbor_offset = torch.cumsum(num_neighbors, dim=0) - num_neighbors
+    index_neighbor_offset_expand = torch.repeat_interleave(
+        index_neighbor_offset, num_neighbors
+    )
+    index_sort_map = (
+        index_sorted * max_num_neighbors
+        + torch.arange(len(index_sorted), device=device)
+        - index_neighbor_offset_expand
+    )
+    distance_sort.index_copy_(0, index_sort_map, atom_distance)
+    distance_sort = distance_sort.view(num_atoms, max_num_neighbors)
+
+    # Sort neighboring atoms based on distance
+    distance_sort, index_sort = torch.sort(distance_sort, dim=1)
+
+    # Offset index_sort so that it indexes into index_sorted
+    index_sort = index_sort + index_neighbor_offset.view(-1, 1).expand(
+        -1, max_num_neighbors
+    )
+    # Remove "unused pairs" with infinite distances
+    mask_finite = torch.isfinite(distance_sort)
+    index_sort = torch.masked_select(index_sort, mask_finite)
+
+    # Create indices specifying the order in index_sort
+    order_peratom = torch.arange(max_num_neighbors, device=device)[
+        None, :
+    ].expand_as(mask_finite)
+    order_peratom = torch.masked_select(order_peratom, mask_finite)
+
+    # Re-index to obtain order value of each neighbor in index_sorted
+    order = torch.zeros(len(index), device=device, dtype=torch.long)
+    order[index_sort] = order_peratom
+
+    return order[index_order_inverse]
+
+
+def get_inner_idx(idx, dim_size):
+    """
+    Assign an inner index to each element (neighbor) with the same index.
+    For example, with idx=[0 0 0 1 1 1 1 2 2] this returns [0 1 2 0 1 2 3 0 1].
+    These indices allow reshape neighbor indices into a dense matrix.
+    idx has to be sorted for this to work.
+    """
+    ones = idx.new_ones(1).expand_as(idx)
+    num_neighbors = segment_coo(ones, idx, dim_size=dim_size)
+    inner_idx = ragged_range(num_neighbors)
+    return inner_idx
+
+
+def get_edge_id(edge_idx, cell_offsets, num_atoms):
+    cell_basis = cell_offsets.max() - cell_offsets.min() + 1
+    cell_id = (
+        (
+            cell_offsets
+            * cell_offsets.new_tensor([[1, cell_basis, cell_basis**2]])
+        )
+        .sum(-1)
+        .long()
+    )
+    edge_id = edge_idx[0] + edge_idx[1] * num_atoms + cell_id * num_atoms**2
+    return edge_id
+
+def get_triplets(graph, num_atoms):
+    """
+    Get all input edges b->a for each output edge c->a.
+    It is possible that b=c, as long as the edges are distinct
+    (i.e. atoms b and c stem from different unit cells).
+
+    Arguments
+    ---------
+    graph: dict of torch.Tensor
+        Contains the graph's edge_index.
+    num_atoms: int
+        Total number of atoms.
+
+    Returns
+    -------
+    Dictionary containing the entries:
+        in: torch.Tensor, shape (num_triplets,)
+            Indices of input edge b->a of each triplet b->a<-c
+        out: torch.Tensor, shape (num_triplets,)
+            Indices of output edge c->a of each triplet b->a<-c
+        out_agg: torch.Tensor, shape (num_triplets,)
+            Indices enumerating the intermediate edges of each output edge.
+            Used for creating a padded matrix and aggregating via matmul.
+    """
+    idx_s, idx_t = graph["edge_index"]  # c->a (source=c, target=a)
+    num_edges = idx_s.size(0)
+
+    value = torch.arange(num_edges, device=idx_s.device, dtype=idx_s.dtype)
+    # Possibly contains multiple copies of the same edge (for periodic interactions)
+    adj = SparseTensor(
+        row=idx_t,
+        col=idx_s,
+        value=value,
+        sparse_sizes=(num_atoms, num_atoms),
+    )
+    adj_edges = adj[idx_t]
+
+    # Edge indices (b->a, c->a) for triplets.
+    idx = {}
+    idx["in"] = adj_edges.storage.value()
+    idx["out"] = adj_edges.storage.row()
+
+    # Remove self-loop triplets
+    # Compare edge indices, not atom indices to correctly handle periodic interactions
+    mask = idx["in"] != idx["out"]
+    idx["in"] = idx["in"][mask]
+    idx["out"] = idx["out"][mask]
+
+    # idx['out'] has to be sorted for this
+    idx["out_agg"] = get_inner_idx(idx["out"], dim_size=num_edges)
+
+    return idx
+
+
+def get_mixed_triplets(
+    graph_in,
+    graph_out,
+    num_atoms,
+    to_outedge=False,
+    return_adj=False,
+    return_agg_idx=False,
+):
+    """
+    Get all output edges (ingoing or outgoing) for each incoming edge.
+    It is possible that in atom=out atom, as long as the edges are distinct
+    (i.e. they stem from different unit cells). In edges and out edges stem
+    from separate graphs (hence "mixed") with shared atoms.
+
+    Arguments
+    ---------
+    graph_in: dict of torch.Tensor
+        Contains the input graph's edge_index and cell_offset.
+    graph_out: dict of torch.Tensor
+        Contains the output graph's edge_index and cell_offset.
+        Input and output graphs use the same atoms, but different edges.
+    num_atoms: int
+        Total number of atoms.
+    to_outedge: bool
+        Whether to map the output to the atom's outgoing edges a->c
+        instead of the ingoing edges c->a.
+    return_adj: bool
+        Whether to output the adjacency (incidence) matrix between output
+        edges and atoms adj_edges.
+    return_agg_idx: bool
+        Whether to output the indices enumerating the intermediate edges
+        of each output edge.
+
+    Returns
+    -------
+    Dictionary containing the entries:
+        in: torch.Tensor, shape (num_triplets,)
+            Indices of input edges
+        out: torch.Tensor, shape (num_triplets,)
+            Indices of output edges
+        adj_edges: SparseTensor, shape (num_edges, num_atoms)
+            Adjacency (incidence) matrix between output edges and atoms,
+            with values specifying the input edges.
+            Only returned if return_adj is True.
+        out_agg: torch.Tensor, shape (num_triplets,)
+            Indices enumerating the intermediate edges of each output edge.
+            Used for creating a padded matrix and aggregating via matmul.
+            Only returned if return_agg_idx is True.
+    """
+    idx_out_s, idx_out_t = graph_out["edge_index"]
+    # c->a (source=c, target=a)
+    idx_in_s, idx_in_t = graph_in["edge_index"]
+    num_edges = idx_out_s.size(0)
+
+    value_in = torch.arange(
+        idx_in_s.size(0), device=idx_in_s.device, dtype=idx_in_s.dtype
+    )
+    # This exploits that SparseTensor can have multiple copies of the same edge!
+    adj_in = SparseTensor(
+        row=idx_in_t,
+        col=idx_in_s,
+        value=value_in,
+        sparse_sizes=(num_atoms, num_atoms),
+    )
+    if to_outedge:
+        adj_edges = adj_in[idx_out_s]
+    else:
+        adj_edges = adj_in[idx_out_t]
+
+    # Edge indices (b->a, c->a) for triplets.
+    idx_in = adj_edges.storage.value()
+    idx_out = adj_edges.storage.row()
+
+    # Remove self-loop triplets c->a<-c or c<-a<-c
+    # Check atom as well as cell offset
+    if to_outedge:
+        idx_atom_in = idx_in_s[idx_in]
+        idx_atom_out = idx_out_t[idx_out]
+        cell_offsets_sum = (
+            graph_out["cell_offset"][idx_out] + graph_in["cell_offset"][idx_in]
+        )
+    else:
+        idx_atom_in = idx_in_s[idx_in]
+        idx_atom_out = idx_out_s[idx_out]
+        cell_offsets_sum = (
+            graph_out["cell_offset"][idx_out] - graph_in["cell_offset"][idx_in]
+        )
+    mask = (idx_atom_in != idx_atom_out) | torch.any(
+        cell_offsets_sum != 0, dim=-1
+    )
+
+    idx = {}
+    if return_adj:
+        idx["adj_edges"] = masked_select_sparsetensor_flat(adj_edges, mask)
+        idx["in"] = idx["adj_edges"].storage.value().clone()
+        idx["out"] = idx["adj_edges"].storage.row()
+    else:
+        idx["in"] = idx_in[mask]
+        idx["out"] = idx_out[mask]
+
+    if return_agg_idx:
+        # idx['out'] has to be sorted
+        idx["out_agg"] = get_inner_idx(idx["out"], dim_size=num_edges)
+
+    return idx
+
+
+def get_quadruplets(
+    main_graph,
+    qint_graph,
+    num_atoms,
+):
+    """
+    Get all d->b for each edge c->a and connection b->a
+    Careful about periodic images!
+    Separate interaction cutoff not supported.
+
+    Arguments
+    ---------
+    main_graph: dict of torch.Tensor
+        Contains the main graph's edge_index and cell_offset.
+        The main graph defines which edges are embedded.
+    qint_graph: dict of torch.Tensor
+        Contains the quadruplet interaction graph's edge_index and
+        cell_offset. main_graph and qint_graph use the same atoms,
+        but different edges.
+    num_atoms: int
+        Total number of atoms.
+
+    Returns
+    -------
+    Dictionary containing the entries:
+        triplet_in['in']: torch.Tensor, shape (nTriplets,)
+            Indices of input edge d->b in triplet d->b->a.
+        triplet_in['out']: torch.Tensor, shape (nTriplets,)
+            Interaction indices of output edge b->a in triplet d->b->a.
+        triplet_out['in']: torch.Tensor, shape (nTriplets,)
+            Interaction indices of input edge b->a in triplet c->a<-b.
+        triplet_out['out']: torch.Tensor, shape (nTriplets,)
+            Indices of output edge c->a in triplet c->a<-b.
+        out: torch.Tensor, shape (nQuadruplets,)
+            Indices of output edge c->a in quadruplet
+        trip_in_to_quad: torch.Tensor, shape (nQuadruplets,)
+            Indices to map from input triplet d->b->a
+            to quadruplet d->b->a<-c.
+        trip_out_to_quad: torch.Tensor, shape (nQuadruplets,)
+            Indices to map from output triplet c->a<-b
+            to quadruplet d->b->a<-c.
+        out_agg: torch.Tensor, shape (num_triplets,)
+            Indices enumerating the intermediate edges of each output edge.
+            Used for creating a padded matrix and aggregating via matmul.
+    """
+    idx_s, _ = main_graph["edge_index"]
+    idx_qint_s, _ = qint_graph["edge_index"]
+    # c->a (source=c, target=a)
+    num_edges = idx_s.size(0)
+    idx = {}
+
+    idx["triplet_in"] = get_mixed_triplets(
+        main_graph,
+        qint_graph,
+        num_atoms,
+        to_outedge=True,
+        return_adj=True,
+    )
+    # Input triplets d->b->a
+
+    idx["triplet_out"] = get_mixed_triplets(
+        qint_graph,
+        main_graph,
+        num_atoms,
+        to_outedge=False,
+    )
+    # Output triplets c->a<-b
+
+    # ---------------- Quadruplets -----------------
+    # Repeat indices by counting the number of input triplets per
+    # intermediate edge ba. segment_coo assumes sorted idx['triplet_in']['out']
+    ones = (
+        idx["triplet_in"]["out"]
+        .new_ones(1)
+        .expand_as(idx["triplet_in"]["out"])
+    )
+    num_trip_in_per_inter = segment_coo(
+        ones, idx["triplet_in"]["out"], dim_size=idx_qint_s.size(0)
+    )
+
+    num_trip_out_per_inter = num_trip_in_per_inter[idx["triplet_out"]["in"]]
+    idx["out"] = torch.repeat_interleave(
+        idx["triplet_out"]["out"], num_trip_out_per_inter
+    )
+    idx_inter = torch.repeat_interleave(
+        idx["triplet_out"]["in"], num_trip_out_per_inter
+    )
+    idx["trip_out_to_quad"] = torch.repeat_interleave(
+        torch.arange(
+            len(idx["triplet_out"]["out"]),
+            device=idx_s.device,
+            dtype=idx_s.dtype,
+        ),
+        num_trip_out_per_inter,
+    )
+
+    # Generate input indices by using the adjacency
+    # matrix idx['triplet_in']['adj_edges']
+    idx["triplet_in"]["adj_edges"].set_value_(
+        torch.arange(
+            len(idx["triplet_in"]["in"]),
+            device=idx_s.device,
+            dtype=idx_s.dtype,
+        ),
+        layout="coo",
+    )
+    adj_trip_in_per_trip_out = idx["triplet_in"]["adj_edges"][
+        idx["triplet_out"]["in"]
+    ]
+    # Rows in adj_trip_in_per_trip_out are intermediate edges ba
+    idx["trip_in_to_quad"] = adj_trip_in_per_trip_out.storage.value()
+    idx_in = idx["triplet_in"]["in"][idx["trip_in_to_quad"]]
+
+    # Remove quadruplets with c == d
+    # Triplets should already ensure that a != d and b != c
+    # Compare atom indices and cell offsets
+    idx_atom_c = idx_s[idx["out"]]
+    idx_atom_d = idx_s[idx_in]
+
+    cell_offset_cd = (
+        main_graph["cell_offset"][idx_in]
+        + qint_graph["cell_offset"][idx_inter]
+        - main_graph["cell_offset"][idx["out"]]
+    )
+    mask_cd = (idx_atom_c != idx_atom_d) | torch.any(
+        cell_offset_cd != 0, dim=-1
+    )
+
+    idx["out"] = idx["out"][mask_cd]
+    idx["trip_out_to_quad"] = idx["trip_out_to_quad"][mask_cd]
+    idx["trip_in_to_quad"] = idx["trip_in_to_quad"][mask_cd]
+
+    # idx['out'] has to be sorted for this
+    idx["out_agg"] = get_inner_idx(idx["out"], dim_size=num_edges)
+
+    return idx

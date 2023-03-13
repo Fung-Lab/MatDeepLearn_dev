@@ -2,12 +2,12 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-50-neighbor-mdl"
+  identifier: "gemnet_oc_vn-all-neighbor-OCP"
   reprocess: False
   parallel: True
-  gpu: "cuda:2"
+  gpu: "cuda:1"
   seed: 0
-  # seed=0 means random initalization
+  # seed: 0 means random initalization
   write_output: True
   parallel: True
   # Training print out frequency (print per n number of epochs)
@@ -15,18 +15,18 @@ task:
   wandb:
     use_wandb: True
     wandb_entity: "fung-lab"
-    wandb_project: "cgcnn_vn"
-    notes: ""
+    wandb_project: "gemnet_oc_vn"
+    notes: "TorchMD net modified to support custom pooling routines and virtual nodes"
     tags: ["test"]
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_mdl.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_gemnet_oc_vn_ocp.yml"
         name: "train config"
         type: "config"
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-        name: "cgcnn_vn model"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/gemnet_oc_vn.py"
+        name: "gemnet_oc_vn model"
         type: "model"
     metadata:
-      architecture: "CGCNN_VN"
+      architecture: "gemnet_oc_vn"
       cluster: "fung-cluster"
       dataset: "hMOF-5K"
     sweep:
@@ -34,30 +34,68 @@ task:
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
-  name: CGCNN_VN
+  name: gemnet_oc_vn
   load_model: False
   save_model: True
-  model_path: "cgcnn_vn.pth"
+  model_path: "gemnet_oc_vn.pth"
   # model hyperparams
   hyperparams:
-    edge_steps: 50
-    self_loop: True
-    dim1: 100
-    dim2: 150
-    atomic_intermediate_layer_resolution: 0
-    pre_fc_count: 1
-    gc_count: 4
-    post_fc_count: 3
+    num_targets: 1
+    num_spherical: 7
+    num_radial: 6
+    num_blocks: 4
+    emb_size_atom: 128
+    emb_size_edge: 128
+    emb_size_trip_in: 128
+    emb_size_trip_out: 64
+    emb_size_trip: 64
+    emb_size_quad_in: 64
+    emb_size_quad_out: 64
+    emb_size_aint_in: 64
+    emb_size_aint_out: 64
+    emb_size_rbf: 16
+    emb_size_cbf: 16
+    emb_size_sbf: 16
+    emb_size_bil_trip: 32
+    num_before_skip: 1
+    num_after_skip: 1
+    num_concat: 1
+    num_atom: 2
+    num_output_afteratom: 1
+    num_atom_emb_layers: 0
+    num_global_out_layers: 2
+    regress_forces: False
+    direct_forces: False
+    use_pbc: False
+    scale_backprop_forces: False
+    cutoff: 6.0
+    max_neighbors: 50
+    rbf: {"name": "gaussian"}
+    rbf_spherical:
+    envelope: {"name": "polynomial", "exponent": 5}
+    cbf: {"name": "spherical_harmonics"}
+    sbf: {"name": "spherical_harmonics"}
+    extensive: True
+    forces_coupled: False
+    output_init: "HeOrthogonal"
+    activation: "silu"
+    quad_interaction: False
+    atom_edge_interaction: True
+    edge_atom_interaction: True
+    atom_interaction: True
+    scale_basis: False
+    qint_tags: [0, 1, 2]
+    num_elements: 100
+    otf_graph: False
+    scale_file:
+    num_post_layers: 3
+    post_hidden_channels: 64
+    act: "relu"
+
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
-    mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
-    pool_order: "early"
-    batch_norm: True
-    batch_track_stats: True
-    act_fn: "relu"
-    act_nn: "ReLU"
-    dropout_rate: 0.0
+    mp_pattern: ["rr", "rv"]
 
 optim:
   max_epochs: 100
@@ -78,7 +116,7 @@ dataset:
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/mdl"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY

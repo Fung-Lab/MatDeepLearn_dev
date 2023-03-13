@@ -15,6 +15,9 @@ from matdeeplearn.preprocessor.processor import process_data
 
 # from matdeeplearn.common.utils import setup_logging
 
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+torch.autograd.set_detect_anomaly(True)
+
 
 class Runner:  # submitit.helpers.Checkpointable):
     def __init__(self):
