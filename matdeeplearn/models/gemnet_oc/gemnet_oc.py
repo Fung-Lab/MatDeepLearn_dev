@@ -890,6 +890,10 @@ class GemNetOC(BaseModel):
             max_neighbors=max_neighbors,
             otf_graph=otf_graph,
         )
+        edge_index = data.edge_index
+        edge_dist = data.distances
+        distance_vec = data.edge_vec
+        cell_offsets = data.cell_offsets
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         edge_vector = -distance_vec / edge_dist[:, None]
