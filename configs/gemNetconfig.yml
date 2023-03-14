@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_ocEarly
+  name: gemnet_oc
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -109,7 +109,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ase"
+  edge_calc_method: "mdl"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
