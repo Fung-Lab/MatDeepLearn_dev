@@ -67,11 +67,11 @@ dataset:
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   #Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
   #Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
   #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
@@ -80,7 +80,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ase"
+  edge_calc_method: "ocp"
   data_format: "json"
   #Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
