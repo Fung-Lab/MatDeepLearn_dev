@@ -16,24 +16,42 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: spinconv
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_add_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
+  num_targets: 1
+  use_pbc: False
+  regress_forces: False
+  otf_graph: False
+  hidden_channels: 32
+  mid_hidden_channels: 200
+  num_interactions: 1
+  num_basis_functions: 200
+  basis_width_scalar: 1.0
+  max_num_neighbors: 20
+  sphere_size_lat: 15
+  sphere_size_long: 9
+  cutoff: 10.0
+  distance_block_scalar_max: 2.0
+  max_num_elements: 90
+  embedding_size: 32
+  show_timing_info: False
+  sphere_message: "fullconv"
+  output_message: "fullconv"
+  lmax: False
+  force_estimator: "random"
+  model_ref_number: 0
+  readout: "add"
+  num_rand_rotations: 5
+  scale_distances: True
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
   act: "relu"
-  dropout_rate: 0.0
 
 optim:
   max_epochs: 250
@@ -55,14 +73,12 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
-  src: "/project/Rithwik/2D_data_npj/raw/"
-  # Path to target file within data_path
-  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  # Path to save processed data.pt file
-  #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
       args:
@@ -89,5 +105,3 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  
-

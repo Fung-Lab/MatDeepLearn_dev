@@ -16,24 +16,33 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: dimenetplusplusEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_add_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  num_targets: 1
+  use_pbc: True
+  regress_forces: False
+  hidden_channels: 128
+  num_blocks: 4
+  int_emb_size: 64
+  basis_emb_size: 8
+  out_emb_channels: 256
+  num_spherical: 7
+  num_radial: 6
+  otf_graph: False
+  cutoff: 10.0
+  envelope_exponent: 5
+  num_before_skip: 1
+  num_after_skip: 2
+  num_output_layers: 3
+  num_post_layers: 1
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
+  activation: "relu"
 
 optim:
   max_epochs: 250
@@ -55,14 +64,12 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
-  src: "/project/Rithwik/2D_data_npj/raw/"
-  # Path to target file within data_path
-  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  # Path to save processed data.pt file
-  #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
       args:
@@ -89,5 +96,3 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  
-

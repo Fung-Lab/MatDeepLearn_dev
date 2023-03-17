@@ -18,7 +18,6 @@ from matdeeplearn.preprocessor.helpers import (
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
-    calculate_edges_master,
 )
 
 
@@ -26,10 +25,9 @@ def process_data(dataset_config):
     root_path = dataset_config["src"]
     target_path = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
-    cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
-    n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
-    num_offsets = dataset_config["preprocess_params"]["num_offsets"]
-    edge_steps = dataset_config["preprocess_params"]["edge_steps"]
+    cutoff_radius = dataset_config["cutoff_radius"]
+    n_neighbors = dataset_config["n_neighbors"]
+    edge_steps = dataset_config["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
@@ -37,7 +35,6 @@ def process_data(dataset_config):
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
     all_neighbors = dataset_config["all_neighbors"]
-    edge_calc_method = dataset_config.get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -46,7 +43,6 @@ def process_data(dataset_config):
         pt_path=pt_path,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
-        num_offsets=num_offsets,
         edge_steps=edge_steps,
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
@@ -56,7 +52,6 @@ def process_data(dataset_config):
         additional_attributes=additional_attributes,
         verbose=verbose,
         all_neighbors=all_neighbors,
-        edge_calc_method=edge_calc_method,
         device=device,
     )
     processor.process()
@@ -70,7 +65,6 @@ class DataProcessor:
         pt_path: str,
         r: float,
         n_neighbors: int,
-        num_offsets: int,
         edge_steps: int,
         transforms: list = [],
         data_format: str = "json",
@@ -80,7 +74,6 @@ class DataProcessor:
         additional_attributes: list = [],
         verbose: bool = True,
         all_neighbors: bool = False,
-        edge_calc_method: str = "mdl",
         device: str = "cpu",
     ) -> None:
         """
@@ -140,7 +133,6 @@ class DataProcessor:
         self.pt_path = pt_path
         self.r = r
         self.n_neighbors = n_neighbors
-        self.num_offsets = num_offsets
         self.edge_steps = edge_steps
         self.data_format = data_format
         self.image_selfloop = image_selfloop
@@ -149,7 +141,6 @@ class DataProcessor:
         self.additional_attributes = additional_attributes
         self.verbose = verbose
         self.all_neighbors = all_neighbors
-        self.edge_calc_method = edge_calc_method
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -301,27 +292,52 @@ class DataProcessor:
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-            data.o_pos = pos.clone()
-            data.o_z = atomic_numbers.clone()
-
-            edge_gen_out = calculate_edges_master(
-                self.edge_calc_method,
-                self.all_neighbors,
-                self.r,
-                self.n_neighbors,
-                self.num_offsets,
-                structure_id,
-                cell,
-                pos,
-                atomic_numbers,
-            )
-            edge_indices = edge_gen_out["edge_index"]
-            edge_weights = edge_gen_out["edge_weights"]
-            cell_offsets = edge_gen_out["cell_offsets"]
-            edge_vec = edge_gen_out["edge_vec"]
-            neighbors = edge_gen_out["neighbors"]
-            if(edge_vec.dim() > 2):
-                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
+            if self.all_neighbors == False:
+                cd_matrix, cell_offsets, atom_rij = get_cutoff_distance_matrix(
+                    pos,
+                    cell,
+                    self.r,
+                    self.n_neighbors,
+                    image_selfloop=self.image_selfloop,
+                    device=self.device,
+                )
+                edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+                if(atom_rij.dim() > 1):
+                  edge_vec = atom_rij[edge_indices[0], edge_indices[1]]
+            elif self.all_neighbors == True:
+                #cd_matrix, cell_offsets, _ = get_cutoff_distance_matrix(
+                #    pos,
+                #    cell,
+                #    self.r,
+                #    self.n_neighbors,
+                #    image_selfloop=self.image_selfloop,
+                #    device=self.device,
+                #)
+                #edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+                
+                first_idex, second_idex, rij, rij_vec, shifts = ase.neighborlist.primitive_neighbor_list("ijdDS", (True,True,True), ase.geometry.complete_cell(cell.squeeze()), pos.numpy(), cutoff=self.r, self_interaction=False, use_scaled_positions=False)   
+                # Eliminate true self-edges that don't cross periodic boundaries (https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py)
+                bad_edge = first_idex == second_idex
+                bad_edge &= np.all(shifts == 0, axis=1)
+                keep_edge = ~bad_edge
+                first_idex = first_idex[keep_edge]
+                second_idex = second_idex[keep_edge]
+                rij = rij[keep_edge] 
+                rij_vec = rij_vec[keep_edge]
+                shifts = shifts[keep_edge]
+                # get closest n neighbors
+                if len(rij) > self.n_neighbors:
+                    _, topk_indices = torch.topk(torch.tensor(rij), self.n_neighbors, largest=False, sorted=False)
+                    first_idex = first_idex[topk_indices]
+                    second_idex = second_idex[topk_indices]
+                    rij = rij[topk_indices] 
+                    rij_vec = rij_vec[topk_indices]
+                    shifts = shifts[topk_indices]    
+                                  
+                edge_indices = torch.stack([torch.LongTensor(torch.tensor(first_idex)), torch.LongTensor(torch.tensor(second_idex))], dim=0)
+                edge_vec = torch.tensor(rij_vec).float()
+                edge_weights = torch.tensor(rij).float()   
+                cell_offsets = torch.tensor(shifts).int()                
                 
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
@@ -332,14 +348,12 @@ class DataProcessor:
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
-            data.neighbors = neighbors
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
-            
 
             # add additional attributes
             if self.additional_attributes:

@@ -16,29 +16,36 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: painnEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_add_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  num_targets: 1
+  hidden_channels: 512
+  num_layers: 6
+  num_rbf: 128
+  cutoff: 8.0
+  max_neighbors: 50
+  rbf:  {"name": "gaussian"}
+  envelope:  {"name": "polynomial", "exponent": 5}
+  regress_forces: False
+  direct_forces: True
+  use_pbc: False
+  otf_graph: False
+  num_elements: 100
+  scale_file: 
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
+  activation: "relu"
 
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.0005
+  lr: 0.0002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -55,14 +62,12 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
-  src: "/project/Rithwik/2D_data_npj/raw/"
-  # Path to target file within data_path
-  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  # Path to save processed data.pt file
-  #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
       args:
@@ -89,5 +94,3 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  
-

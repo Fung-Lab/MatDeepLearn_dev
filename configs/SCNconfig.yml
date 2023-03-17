@@ -16,24 +16,36 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: scn
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_add_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  use_pbc: False
+  regress_forces: False
+  otf_graph: False
+  max_num_neighbors: 250
+  cutoff: 8.0
+  max_num_elements: 90
+  num_interactions: 8
+  lmax: 6
+  mmax: 1
+  num_resolutions: 2
+  sphere_channels: 128
+  sphere_channels_reduce: 128
+  hidden_channels: 256
+  num_taps: -1
+  use_grid: True
+  num_bands: 1
+  num_sphere_samples: 128
+  num_basis_functions: 128
+  distance_function: "gaussian"
+  basis_width_scalar: 1.0
+  distance_resolution: 0.02
+  show_timing_info: False
+  direct_forces: True
 
 optim:
   max_epochs: 250
@@ -55,14 +67,12 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
-  src: "/project/Rithwik/2D_data_npj/raw/"
-  # Path to target file within data_path
-  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  # Path to save processed data.pt file
-  #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
+  #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
       args:
@@ -70,7 +80,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ase"
+  edge_calc_method: "ocp"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -89,5 +99,3 @@ dataset:
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  
-

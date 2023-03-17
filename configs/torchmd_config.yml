@@ -1,0 +1,105 @@
+
+trainer: property
+
+task:
+  # run_mode: train
+  identifier: "my_train_job"
+
+  reprocess: False
+
+
+  parallel: True
+  seed: 0
+  #seed=0 means random initalization
+
+
+  write_output: True
+  parallel: True
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+
+
+
+model:
+  name: torchmd_etEarly
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  #model attributes
+  hidden_channels: 128
+  num_filters: 128
+  num_layers: 6
+  num_rbf: 50
+  rbf_type: "expnorm"
+  trainable_rbf: True
+  activation: "silu"
+  attn_activation: "silu"
+  num_heads: 8
+  distance_influence: "both"
+  neighbor_embedding: True
+  cutoff_lower: 0.0
+  cutoff_upper: 8.0
+  max_z: 100
+  max_num_neighbors: 32
+  aggr: "add"
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
+
+optim:
+  max_epochs: 250
+  lr: 0.0005
+  #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+
+  batch_size: 128
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: False # if False, need to preprocessor data and generate .pt file
+  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
+  # dataset_type: "inmemory"
+  #Path to data files
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/raw/"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/Pt_data_npj/targets.csv"
+  #Path to save processed data.pt file
+  pt_path: "/global/homes/r/rithwiks/datasets/Pt_data_npj/"
+  #Format of data files (limit to those supported by ASE)
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: True # Optional parameter, default is False
+  all_neighbors : True
+  # one of mdl, ase, ocp
+  edge_calc_method: "ocp"
+  data_format: "json"
+  #Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  #Print out processing info
+  verbose: True
+
+  #Loading dataset params
+  #Index of target column in targets.csv
+  target_index: 0
+
+  #graph specific settings
+  preprocess_params:
+    cutoff_radius : 5.0
+    n_neighbors : 250
+    num_offsets: 1
+    edge_steps : 50
+
+  #Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
