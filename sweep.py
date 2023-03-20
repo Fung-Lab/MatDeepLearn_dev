@@ -53,8 +53,8 @@ sweep_configuration = {
     }
 sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 
-#if __name__ == "__main__":
-def main():
+if __name__ == "__main__":
+#def main():
     # setup_logging()
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
