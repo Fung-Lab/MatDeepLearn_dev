@@ -39,18 +39,18 @@ class Runner:  # submitit.helpers.Checkpointable):
             self.trainer.logger.mark_preempting()
         # return submitit.helpers.DelayedSubmission(new_runner, self.config)
 sweep_configuration = {
-        'method': 'random',
-        'name': 'sweep',
-        'metric': {'goal': 'minimize', 'name': 'val_loss'},
-        'parameters': 
-        {
-            'learning_rate': {'max': .005, 'min': .00001},
-            'dim1': {'values': [64, 128, 256, 512]},
-            'dim2': {'values': [64, 128, 256, 512]},
-            'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
-            'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
-        }
+    'method': 'random',
+    'name': 'sweep',
+    'metric': {'goal': 'minimize', 'name': 'val_loss'},
+    'parameters': 
+    {
+        'lr': {'max': .005, 'min': .00001},
+        'dim1': {'values': [64, 128, 256, 512]},
+        'dim2': {'values': [64, 128, 256, 512]},
+        'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
+        'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
     }
+}
 sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 
 if __name__ == "__main__":
@@ -67,11 +67,12 @@ if __name__ == "__main__":
         process_data(config["dataset"])
 
     run = wandb.init()
-    config["optim"]["lr"] = wandb.config.learning_rate
-    config["model"]["dim1"] = wandb.config.dim1
-    config["model"]["dim2"] = wandb.config.dim2
-    config["model"]["gc_count"] = wandb.config.gc_count
-    config["model"]["dropout_rate"] = wandb.config.dropout_rate
+    #config["optim"]["lr"] = wandb.config.lr
+    #config["model"]["dim1"] = wandb.config.dim1
+    #config["model"]["dim2"] = wandb.config.dim2
+    #config["model"]["gc_count"] = wandb.config.gc_count
+    #config["model"]["dropout_rate"] = wandb.config.dropout_rate
+    config["optim"]["lr"] = .001
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
