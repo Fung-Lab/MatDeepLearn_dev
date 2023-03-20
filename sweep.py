@@ -53,8 +53,8 @@ sweep_configuration = {
 }
 sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 
-if __name__ == "__main__":
-#def main():
+#if __name__ == "__main__":
+def main():
     # setup_logging()
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
@@ -67,12 +67,11 @@ if __name__ == "__main__":
         process_data(config["dataset"])
 
     run = wandb.init()
-    #config["optim"]["lr"] = wandb.config.lr
-    #config["model"]["dim1"] = wandb.config.dim1
-    #config["model"]["dim2"] = wandb.config.dim2
-    #config["model"]["gc_count"] = wandb.config.gc_count
-    #config["model"]["dropout_rate"] = wandb.config.dropout_rate
-    config["optim"]["lr"] = .001
+    config["optim"]["lr"] = wandb.config.lr
+    config["model"]["dim1"] = wandb.config.dim1
+    config["model"]["dim2"] = wandb.config.dim2
+    config["model"]["gc_count"] = wandb.config.gc_count
+    config["model"]["dropout_rate"] = wandb.config.dropout_rate
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
@@ -81,4 +80,7 @@ if __name__ == "__main__":
     else:  # Run locally
         Runner()(config)
 
-#wandb.agent(sweep_id, function=main, count=4)
+if __name__ == "__main__":
+    main()
+
+wandb.agent(sweep_id, function=main, count=4)
