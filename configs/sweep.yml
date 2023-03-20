@@ -7,10 +7,8 @@ parameters:
   learning_rate:
     min: 0.00005
     max: 0.005
-  optimizer:
-    values: ["adam", "sgd"]
   dim1:
-    values: [64, 128, 256]
+    values: [64, 128, 256, 512]
   dim2:
     values: [64, 128, 256, 512]
   gc_count:
