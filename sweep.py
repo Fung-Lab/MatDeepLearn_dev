@@ -51,7 +51,7 @@ class Runner:  # submitit.helpers.Checkpointable):
         if self.trainer.logger is not None:
             self.trainer.logger.mark_preempting()
         # return submitit.helpers.DelayedSubmission(new_runner, self.config)
-
+args = None
 
 #if __name__ == "__main__":
 def main():
