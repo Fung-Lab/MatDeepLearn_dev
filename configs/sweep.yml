@@ -12,7 +12,7 @@ parameters:
   dim2:
     values: [64, 128, 256, 512]
   gc_count:
-    values: [2, 3, 4, 5, 6]
+    values: [1, 2, 3, 4, 5, 6]
   dropout_rate:
     values: [0, .05, .1, .15, .2, .25]
 early_terminate:
