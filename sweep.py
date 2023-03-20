@@ -10,7 +10,20 @@ import wandb
 # import submitit
 
 # from matdeeplearn.common.utils import setup_logging
-
+sweep_configuration = {
+    'method': 'random',
+    'name': 'sweep',
+    'metric': {'goal': 'minimize', 'name': 'val_loss'},
+    'parameters': 
+    {
+        'lr': {'max': .005, 'min': .00001},
+        'dim1': {'values': [64, 128, 256, 512]},
+        'dim2': {'values': [64, 128, 256, 512]},
+        'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
+        'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
+    }
+}
+sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 
 class Runner:  # submitit.helpers.Checkpointable):
     def __init__(self):
@@ -54,11 +67,11 @@ def main():
         process_data(config["dataset"])
 
     run = wandb.init()
-    config["optim"]["lr"] = wandb.config.parameters.lr
-    config["model"]["dim1"] = wandb.config.parameters.dim1
-    config["model"]["dim2"] = wandb.config.parameters.dim2
-    config["model"]["gc_count"] = wandb.config.parameters.gc_count
-    config["model"]["dropout_rate"] = wandb.config.parameters.dropout_rate
+    config["optim"]["lr"] = wandb.config.lr
+    config["model"]["dim1"] = wandb.config.dim1
+    config["model"]["dim2"] = wandb.config.dim2
+    config["model"]["gc_count"] = wandb.config.gc_count
+    config["model"]["dropout_rate"] = wandb.config.dropout_rate
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
@@ -66,21 +79,7 @@ def main():
 
     else:  # Run locally
         Runner()(config)
-
-if __name__ == "__main__":
-    main()
-sweep_configuration = {
-    'method': 'random',
-    'name': 'sweep',
-    'metric': {'goal': 'minimize', 'name': 'val_loss'},
-    'parameters': 
-    {
-        'lr': {'max': .005, 'min': .00001},
-        'dim1': {'values': [64, 128, 256, 512]},
-        'dim2': {'values': [64, 128, 256, 512]},
-        'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
-        'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
-    }
-}
-sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 wandb.agent(sweep_id, function=main, count=4)
+
+#if __name__ == "__main__":
+#    main()
