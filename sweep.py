@@ -80,4 +80,4 @@ def main():
     else:  # Run locally
         Runner()(config)
 
-wandb.agent(sweep_id, function=main, count=4)
+#wandb.agent(sweep_id, function=main, count=4)
