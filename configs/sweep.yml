@@ -1,0 +1,22 @@
+program: property_trainer.py
+method: random
+metric:
+  name: l1_loss
+  goal: minimize
+parameters:
+  learning_rate:
+    min: 0.00005
+    max: 0.005
+  optimizer:
+    values: ["adam", "sgd"]
+  dim1:
+    values: [64, 128, 256]
+  dim2:
+    values: [64, 128, 256, 512]
+  gc_count:
+    values: [2, 3, 4, 5, 6]
+  dropout_rate:
+    values: [0, .05, .1, .15, .2, .25]
+early_terminate:
+  type: hyperband
+  min_iter: 5
