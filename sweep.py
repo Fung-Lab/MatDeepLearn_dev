@@ -66,7 +66,7 @@ def main():
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])
 
-    run = wandb.init()
+    #run = wandb.init()
     config["optim"]["lr"] = wandb.config.learning_rate
     config["model"]["dim1"] = wandb.config.dim1
     config["model"]["dim2"] = wandb.config.dim2
