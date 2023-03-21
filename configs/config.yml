@@ -28,7 +28,7 @@ model:
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
-  pool: "global_add_pool"
+  pool: "global_mean_pool"
   pool_order: "early"
   batch_norm: True
   batch_track_stats: True

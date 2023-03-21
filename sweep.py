@@ -17,8 +17,8 @@ sweep_configuration = {
     'parameters': 
     {
         'lr': {'max': .005, 'min': .00001},
-        'dim1': {'values': [64, 128, 256, 512]},
-        'dim2': {'values': [64, 128, 256, 512]},
+        'dim1': {'values': [64, 100, 128, 200, 256, 512]},
+        'dim2': {'values': [64, 100, 128, 200, 256, 512]},
         'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
         'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
     }
@@ -79,7 +79,7 @@ def main():
 
     else:  # Run locally
         Runner()(config)
-wandb.agent(sweep_id, function=main, count=8)
+wandb.agent(sweep_id, function=main, count=10)
 
 #if __name__ == "__main__":
 #    main()
