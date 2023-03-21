@@ -20,7 +20,7 @@ sweep_configuration = {
         'hidden_channels': {'values': [64, 100, 128, 200, 256, 512]},
         'num_filters': {'values': [64, 100, 128, 200, 256, 512]},
         'num_layers': {'values': [2, 3, 4, 5, 6, 7, 8]},
-        'cutoff': {'values': {'max': 12.0, 'min': 4.0}},
+        'cutoff_upper': {'values': {'max': 12.0, 'min': 4.0}},
         'num_heads': {'values': {'max': 12, 'min': 4}},
         'num_rbf': {'values': [20, 30, 40, 50, 60, 70, 80]}
     }
@@ -73,7 +73,7 @@ def main():
     config["model"]["hidden_channels"] = wandb.config.hidden_channels
     config["model"]["num_filters"] = wandb.config.num_filters
     config["model"]["num_layers"] = wandb.config.num_layers
-    config["model"]["cutoff_upper"] = wandb.config.cutoff
+    config["model"]["cutoff_upper"] = wandb.config.cutoff_upper
     config["model"]["num_heads"] = wandb.config.num_heads
     config["model"]["num_rbf"] = wandb.config.num_rbf
 
