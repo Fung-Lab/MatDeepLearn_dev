@@ -120,7 +120,7 @@ class PropertyTrainer(BaseTrainer):
 
                 # step scheduler, using validation error
                 self._scheduler_step()
-
+        
         return self.best_model_state
 
     def validate(self, split="val"):

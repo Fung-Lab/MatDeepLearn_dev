@@ -1,4 +1,4 @@
-trainer: sweep
+trainer: property
 
 task:
   # run_mode: train
@@ -36,7 +36,7 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 250
+  max_epochs: 20
   max_checkpoint_epochs: 0
   lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
