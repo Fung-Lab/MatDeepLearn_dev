@@ -119,10 +119,6 @@ class PropertyTrainer(BaseTrainer):
 
                 # step scheduler, using validation error
                 self._scheduler_step()
-        self.model.load_state_dict(self.best_model_state)
-        metric = self.validate("test")
-        print("Test loss: ")
-        print(metric[type(self.loss_fn).__name__]["metric"])
         return self.best_model_state
 
     def validate(self, split="val"):
