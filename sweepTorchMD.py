@@ -17,10 +17,12 @@ sweep_configuration = {
     'parameters': 
     {
         'lr': {'max': .005, 'min': .00001},
-        'dim1': {'values': [64, 100, 128, 200, 256, 512]},
-        'dim2': {'values': [64, 100, 128, 200, 256, 512]},
-        'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
-        'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
+        'hidden_channels': {'values': [64, 100, 128, 200, 256, 512]},
+        'num_filters': {'values': [64, 100, 128, 200, 256, 512]},
+        'num_layers': {'values': [2, 3, 4, 5, 6, 7, 8]},
+        'cutoff': {'values': {'max': 12.0, 'min': 4.0}},
+        'num_heads': {'values': {'max': 12, 'min': 4}},
+        'num_rbf': {'values': [20, 30, 40, 50, 60, 70, 80]}
     }
 }
 sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
@@ -68,10 +70,12 @@ def main():
 
     run = wandb.init()
     config["optim"]["lr"] = wandb.config.lr
-    config["model"]["dim1"] = wandb.config.dim1
-    config["model"]["dim2"] = wandb.config.dim2
-    config["model"]["gc_count"] = wandb.config.gc_count
-    config["model"]["dropout_rate"] = wandb.config.dropout_rate
+    config["model"]["hidden_channels"] = wandb.config.hidden_channels
+    config["model"]["num_filters"] = wandb.config.num_filters
+    config["model"]["num_layers"] = wandb.config.num_layers
+    config["model"]["cutoff_upper"] = wandb.config.cutoff
+    config["model"]["num_heads"] = wandb.config.num_heads
+    config["model"]["num_rbf"] = wandb.config.num_rbf
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
@@ -79,7 +83,7 @@ def main():
 
     else:  # Run locally
         Runner()(config)
-wandb.agent(sweep_id, function=main, count=10)
+wandb.agent(sweep_id, function=main, count=25)
 
 #if __name__ == "__main__":
 #    main()
