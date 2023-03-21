@@ -1,5 +1,5 @@
 
-trainer: property
+trainer: sweep
 
 task:
   # run_mode: train
