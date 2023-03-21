@@ -84,6 +84,8 @@ def calculate_edges_master(
         ), "OCP and ASE methods only support all_neighbors=True"
 
     out = dict()
+    neighbors = torch.empty(0)
+    cell_offset_distances = torch.empty(0)
 
     if method == "mdl":
         cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
@@ -112,8 +114,9 @@ def calculate_edges_master(
         # OCP requires a different format for the cell
         cell = cell.view(1, 3, 3)
 
+        # Calculate neighbors to allow compatibility with models like GemNet_OC
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            r, n_neighbors, pos, cell, torch.tensor([len(pos)])
+            r, n_neighbors, pos, cell, torch.tensor([len(pos)]), use_thresh=True
         )
 
         ocp_out = get_pbc_distances(
@@ -128,13 +131,15 @@ def calculate_edges_master(
 
         edge_index = ocp_out["edge_index"]
         edge_weights = ocp_out["distances"]
-        cell_offsets = ocp_out["offsets"]
+        cell_offset_distances = ocp_out["offsets"]
         edge_vec = ocp_out["distance_vec"]
 
     out["edge_index"] = edge_index
     out["edge_weights"] = edge_weights
     out["cell_offsets"] = cell_offsets
+    out["offsets"] = cell_offset_distances
     out["edge_vec"] = edge_vec
+    out["neighbors"] = neighbors
 
     return out
 
@@ -1271,12 +1276,14 @@ def compute_neighbors(data: CustomData, edge_index):
     # Get number of neighbors
     # segment_coo assumes sorted index
     ones = edge_index[1].new_ones(1).expand_as(edge_index[1])
+
     num_neighbors = segment_coo(ones, edge_index[1], dim_size=data.n_atoms.sum())
 
     # Get number of neighbors per image
     image_indptr = torch.zeros(
         data.n_atoms.shape[0] + 1, device=data.pos.device, dtype=torch.long
     )
+
     image_indptr[1:] = torch.cumsum(data.n_atoms, dim=0)
     neighbors = segment_csr(num_neighbors, image_indptr)
     return neighbors
@@ -1506,9 +1513,7 @@ def repeat_blocks(
         insert_dummy = False
 
     # Get repeats for each group using group lengths/sizes
-    r1 = torch.repeat_interleave(
-        torch.arange(len(sizes), device=sizes.device), repeats
-    )
+    r1 = torch.repeat_interleave(torch.arange(len(sizes), device=sizes.device), repeats)
 
     # Get total size of output array, as needed to initialize output indexing array
     N = (sizes * repeats).sum()
@@ -1532,9 +1537,7 @@ def repeat_blocks(
 
         # Add block increments
         if isinstance(block_inc, torch.Tensor):
-            insert_val += segment_csr(
-                block_inc[: r1[-1]], indptr, reduce="sum"
-            )
+            insert_val += segment_csr(block_inc[: r1[-1]], indptr, reduce="sum")
         else:
             insert_val += block_inc * (indptr[1:] - indptr[:-1])
             if insert_dummy:
@@ -1588,9 +1591,7 @@ def masked_select_sparsetensor_flat(src, mask):
     row = row[mask]
     col = col[mask]
     value = value[mask]
-    return SparseTensor(
-        row=row, col=col, value=value, sparse_sizes=src.sparse_sizes()
-    )
+    return SparseTensor(row=row, col=col, value=value, sparse_sizes=src.sparse_sizes())
 
 
 def calculate_interatomic_vectors(R, id_s, id_t, offsets_st):
@@ -1752,9 +1753,7 @@ def get_neighbor_order(num_atoms, index, atom_distance):
 
     # Create a tensor of size [num_atoms, max_num_neighbors] to sort the distances of the neighbors.
     # Fill with infinity so we can easily remove unused distances later.
-    distance_sort = torch.full(
-        [num_atoms * max_num_neighbors], np.inf, device=device
-    )
+    distance_sort = torch.full([num_atoms * max_num_neighbors], np.inf, device=device)
 
     # Create an index map to map distances from atom_distance to distance_sort
     index_neighbor_offset = torch.cumsum(num_neighbors, dim=0) - num_neighbors
@@ -1781,9 +1780,9 @@ def get_neighbor_order(num_atoms, index, atom_distance):
     index_sort = torch.masked_select(index_sort, mask_finite)
 
     # Create indices specifying the order in index_sort
-    order_peratom = torch.arange(max_num_neighbors, device=device)[
-        None, :
-    ].expand_as(mask_finite)
+    order_peratom = torch.arange(max_num_neighbors, device=device)[None, :].expand_as(
+        mask_finite
+    )
     order_peratom = torch.masked_select(order_peratom, mask_finite)
 
     # Re-index to obtain order value of each neighbor in index_sorted
@@ -1809,15 +1808,13 @@ def get_inner_idx(idx, dim_size):
 def get_edge_id(edge_idx, cell_offsets, num_atoms):
     cell_basis = cell_offsets.max() - cell_offsets.min() + 1
     cell_id = (
-        (
-            cell_offsets
-            * cell_offsets.new_tensor([[1, cell_basis, cell_basis**2]])
-        )
+        (cell_offsets * cell_offsets.new_tensor([[1, cell_basis, cell_basis**2]]))
         .sum(-1)
         .long()
     )
     edge_id = edge_idx[0] + edge_idx[1] * num_atoms + cell_id * num_atoms**2
     return edge_id
+
 
 def get_triplets(graph, num_atoms):
     """
@@ -1960,9 +1957,7 @@ def get_mixed_triplets(
         cell_offsets_sum = (
             graph_out["cell_offset"][idx_out] - graph_in["cell_offset"][idx_in]
         )
-    mask = (idx_atom_in != idx_atom_out) | torch.any(
-        cell_offsets_sum != 0, dim=-1
-    )
+    mask = (idx_atom_in != idx_atom_out) | torch.any(cell_offsets_sum != 0, dim=-1)
 
     idx = {}
     if return_adj:
@@ -2051,11 +2046,7 @@ def get_quadruplets(
     # ---------------- Quadruplets -----------------
     # Repeat indices by counting the number of input triplets per
     # intermediate edge ba. segment_coo assumes sorted idx['triplet_in']['out']
-    ones = (
-        idx["triplet_in"]["out"]
-        .new_ones(1)
-        .expand_as(idx["triplet_in"]["out"])
-    )
+    ones = idx["triplet_in"]["out"].new_ones(1).expand_as(idx["triplet_in"]["out"])
     num_trip_in_per_inter = segment_coo(
         ones, idx["triplet_in"]["out"], dim_size=idx_qint_s.size(0)
     )
@@ -2086,9 +2077,7 @@ def get_quadruplets(
         ),
         layout="coo",
     )
-    adj_trip_in_per_trip_out = idx["triplet_in"]["adj_edges"][
-        idx["triplet_out"]["in"]
-    ]
+    adj_trip_in_per_trip_out = idx["triplet_in"]["adj_edges"][idx["triplet_out"]["in"]]
     # Rows in adj_trip_in_per_trip_out are intermediate edges ba
     idx["trip_in_to_quad"] = adj_trip_in_per_trip_out.storage.value()
     idx_in = idx["triplet_in"]["in"][idx["trip_in_to_quad"]]
@@ -2104,9 +2093,7 @@ def get_quadruplets(
         + qint_graph["cell_offset"][idx_inter]
         - main_graph["cell_offset"][idx["out"]]
     )
-    mask_cd = (idx_atom_c != idx_atom_d) | torch.any(
-        cell_offset_cd != 0, dim=-1
-    )
+    mask_cd = (idx_atom_c != idx_atom_d) | torch.any(cell_offset_cd != 0, dim=-1)
 
     idx["out"] = idx["out"][mask_cd]
     idx["trip_out_to_quad"] = idx["trip_out_to_quad"][mask_cd]

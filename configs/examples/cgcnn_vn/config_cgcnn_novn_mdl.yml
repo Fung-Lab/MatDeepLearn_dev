@@ -4,8 +4,9 @@ task:
   # run_mode: train
   identifier: "cgcnn_vn-novn-MDL"
   reprocess: False
+  resume_run: False
   parallel: True
-  gpu: "cuda:0"
+  gpu: "cuda:2"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -89,7 +90,7 @@ dataset:
       args:
         virtual_box_increment: 3
         attrs: ["rr"]
-        rr_cutoff: 5.0
+        rr_cutoff: 20.0
         rv_cutoff: 5.0
       otf: False
   # use for passing into global config

@@ -20,22 +20,29 @@ from matdeeplearn.models.layers.atom_update_block import OutputBlock
 from matdeeplearn.models.layers.base_layers import Dense, ResidualLayer
 from matdeeplearn.models.layers.compat import load_scales_compat
 from matdeeplearn.models.layers.efficient import BasisEmbedding
-from matdeeplearn.models.layers.embedding_block import (AtomEmbedding,
-                                                        EdgeEmbedding)
+from matdeeplearn.models.layers.embedding_block import AtomEmbedding, EdgeEmbedding
 from matdeeplearn.models.layers.force_scaler import ForceScaler
 from matdeeplearn.models.layers.initializers import get_initializer
 from matdeeplearn.models.layers.interaction_block import InteractionBlock
 from matdeeplearn.models.layers.radial_basis import RadialBasis
-from matdeeplearn.models.layers.spherical_basis import (CircularBasisLayer,
-                                                        SphericalBasisLayer)
-from matdeeplearn.models.ocpbase import BaseModel
-from matdeeplearn.preprocessor.helpers import (conditional_grad, get_angle,
-                                               get_edge_id, get_inner_idx,
-                                               get_max_neighbors_mask,
-                                               get_mixed_triplets,
-                                               get_quadruplets, get_triplets,
-                                               inner_product_clamped,
-                                               mask_neighbors, repeat_blocks)
+from matdeeplearn.models.layers.spherical_basis import (
+    CircularBasisLayer,
+    SphericalBasisLayer,
+)
+from matdeeplearn.models.ocpbase_vn import BaseModel
+from matdeeplearn.preprocessor.helpers import (
+    conditional_grad,
+    get_angle,
+    get_edge_id,
+    get_inner_idx,
+    get_max_neighbors_mask,
+    get_mixed_triplets,
+    get_quadruplets,
+    get_triplets,
+    inner_product_clamped,
+    mask_neighbors,
+    repeat_blocks,
+)
 
 
 @registry.register_model("gemnet_oc_vn")
@@ -228,7 +235,7 @@ class GemNetOC(BaseModel):
         num_elements: int = 83,
         otf_graph: bool = False,
         scale_file: Optional[str] = None,
-        num_post_layers: int =3,
+        num_post_layers: int = 3,
         max_z: int = 100,
         post_hidden_channels=64,
         pool="global_mean_pool",
@@ -888,9 +895,10 @@ class GemNetOC(BaseModel):
                 f"An image has no neighbors: id={data.id[empty_image]}, "
                 f"sid={data.sid[empty_image]}, fid={data.fid[empty_image]}"
             )
+
         return subgraph
 
-    def generate_graph_dict(self, data, cutoff, max_neighbors, mp_attr):
+    def generate_graph_dict(self, data, cutoff, max_neighbors):
         """Generate a radius/nearest neighbor graph."""
         otf_graph = cutoff > 6 or max_neighbors > 50 or self.otf_graph
 
@@ -906,7 +914,7 @@ class GemNetOC(BaseModel):
             cutoff=cutoff,
             max_neighbors=max_neighbors,
             otf_graph=otf_graph,
-            mp_attr=mp_attr,
+            mp_attr=self.mp_pattern,
         )
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
@@ -922,6 +930,7 @@ class GemNetOC(BaseModel):
         }
 
         # Mask interaction edges if required
+
         if otf_graph or np.isclose(cutoff, 6):
             select_cutoff = None
         else:
@@ -978,7 +987,7 @@ class GemNetOC(BaseModel):
             or self.atom_interaction
         ):
             a2a_graph = self.generate_graph_dict(
-                data, self.cutoff_aint, self.max_neighbors_aint, self.mp_pattern
+                data, self.cutoff_aint, self.max_neighbors_aint
             )
             main_graph = self.subselect_graph(
                 data,
@@ -998,7 +1007,7 @@ class GemNetOC(BaseModel):
             )
         else:
             main_graph = self.generate_graph_dict(
-                data, self.cutoff, self.max_neighbors, self.mp_attr
+                data, self.cutoff, self.max_neighbors, self.mp_pattern
             )
             a2a_graph = {}
             a2ee2a_graph = {}

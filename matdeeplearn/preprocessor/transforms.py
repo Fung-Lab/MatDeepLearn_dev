@@ -4,15 +4,12 @@ from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (
-    calculate_edges_master,
-    compute_bond_angles,
-    custom_edge_feats,
-    custom_node_feats,
-    generate_virtual_nodes,
-    get_mask,
-    one_hot_degree,
-)
+from matdeeplearn.preprocessor.helpers import (calculate_edges_master,
+                                               compute_bond_angles,
+                                               custom_edge_feats,
+                                               custom_node_feats,
+                                               generate_virtual_nodes,
+                                               get_mask, one_hot_degree)
 
 """
 here resides the transform classes needed for data processing
@@ -22,7 +19,6 @@ From PyG:
     object and returns a transformed version.
     The data object will be transformed before every access.
 """
-
 
 @registry.register_transform("GetY")
 class GetY(object):
@@ -70,7 +66,9 @@ class VirtualNodes(object):
             "cell2",
             "structure_id",
             "u",
+            "neighbors",
             "cell_offsets",
+            "cell_offset_distances",
             "y",
         ]
         self.kwargs = kwargs
@@ -84,6 +82,7 @@ class VirtualNodes(object):
         data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
         data.z = torch.cat((data.o_z, virtual_z), dim=0)
 
+        # TODO figure out how to resolve neighbors for different MP interactions
         for attr in self.kwargs.get("attrs"):
             cutoff = self.kwargs.get(f"{attr}_cutoff")
 
@@ -106,7 +105,9 @@ class VirtualNodes(object):
             edge_index = edge_gen_out["edge_index"]
             edge_weight = edge_gen_out["edge_weights"]
             edge_vec = edge_gen_out["edge_vec"]
-            offsets = edge_gen_out["cell_offsets"]
+            cell_offsets = edge_gen_out["cell_offsets"]
+            cell_offset_distances = edge_gen_out["offsets"]
+            neighbors = edge_gen_out["neighbors"]
 
             edge_attr = custom_edge_feats(
                 edge_weight,
@@ -138,8 +139,25 @@ class VirtualNodes(object):
                 f"edge_vec_{attr}",
                 torch.index_select(edge_vec, 0, edge_mask),
             )
+            setattr(
+                data,
+                f"cell_offsets_{attr}",
+                torch.index_select(cell_offsets, 0, edge_mask),
+            )
 
-        setattr(data, "cell_offsets", offsets)
+            # in case edge calculation method does not return cell_offset_distances
+            try:
+                setattr(
+                    data,
+                    f"cell_offset_distances_{attr}",
+                    torch.index_select(cell_offset_distances, 0, edge_mask),
+                )
+            except IndexError:
+                setattr(
+                    data,
+                    f"cell_offset_distances_{attr}",
+                    None,
+                )
 
         participating_edges = torch.cat(
             [
@@ -168,28 +186,39 @@ class VirtualNodes(object):
         edge_attr_attrs = [f"edge_attr_{s}" for s in self.kwargs.get("attrs")]
         edge_weight_attrs = [f"edge_weights_{s}" for s in self.kwargs.get("attrs")]
         edge_vec_attrs = [f"edge_vec_{s}" for s in self.kwargs.get("attrs")]
+        cell_offset_attrs = [f"cell_offsets_{s}" for s in self.kwargs.get("attrs")]
+        cell_offset_distance_attrs = [
+            f"cell_offset_distances_{s}" for s in self.kwargs.get("attrs")
+        ]
 
-        for attr in list(data.__dict__.get("_store").keys()):
-            if (
-                attr not in edge_index_attrs
-                and attr not in edge_attr_attrs
-                and attr not in edge_weight_attrs
-                and attr not in edge_vec_attrs
-                and attr not in self.keep_attrs
-            ):
-                data.__dict__.get("_store")[attr] = None
+        if self.kwargs.get("optimize_memory", False):
+            for attr in list(data.__dict__.get("_store").keys()):
+                if (
+                    attr not in edge_index_attrs
+                    and attr not in edge_attr_attrs
+                    and attr not in edge_weight_attrs
+                    and attr not in edge_vec_attrs
+                    and attr not in self.keep_attrs
+                    and attr not in cell_offset_attrs
+                    and attr not in cell_offset_distance_attrs
+                ):
+                    data.__dict__.get("_store")[attr] = None
 
-        # compile all generated edges
+        # compile all generated edges and related attributes
         edge_kwargs = {
             attr: getattr(data, attr)
             for attr in edge_index_attrs
             + edge_attr_attrs
             + edge_weight_attrs
             + edge_vec_attrs
+            + cell_offset_attrs
+            + cell_offset_distance_attrs
+            if hasattr(data, attr)
         }
 
         return CustomData(
             pos=data.pos,
+            neighbors=neighbors,
             cell=data.cell,
             cell2=data.cell2,
             y=data.y,
@@ -198,7 +227,6 @@ class VirtualNodes(object):
             x=data.x,
             edge_index=data.edge_index,
             edge_attr=data.edge_attr,
-            cell_offsets=data.cell_offsets,
             structure_id=data.structure_id,
             n_atoms=len(data.x),
             **edge_kwargs,
@@ -223,7 +251,7 @@ class LineGraphMod(object):
     """
 
     def __call__(self, data: Data):
-        # CODE FROM PYG LINEGRAPH TRANSFORM (DIRECTED)
+        # from PyG linegraph transform
         N = data.num_nodes
         edge_index, edge_attr = data.edge_index, data.edge_attr
         _, edge_attr = coalesce(edge_index, edge_attr, N, N)

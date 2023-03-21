@@ -373,17 +373,22 @@ class DataProcessor:
                 edge_indices = edge_gen_out["edge_index"]
                 edge_weights = edge_gen_out["edge_weights"]
                 cell_offsets = edge_gen_out["cell_offsets"]
+                cell_offset_distances = edge_gen_out["offsets"]
                 edge_vec = edge_gen_out["edge_vec"]
 
                 # virtual node generation (workaround for now)
                 if virtual_nodes_transform:
                     vpos, virtual_z = generate_virtual_nodes(
                         cell2,
-                        virtual_nodes_transform.get("virtual_box_increment", 3.0),
+                        virtual_nodes_transform["args"].get("virtual_box_increment", 3.0),
                         self.device,
                     )
                     pos = torch.cat([pos, vpos], dim=0)
                     atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
+
+                data.neighbors = edge_gen_out["neighbors"]
+                data.cell_offsets = cell_offsets
+                data.cell_offset_distances = cell_offset_distances
 
                 data.n_atoms = len(atomic_numbers)
                 data.pos = pos
@@ -393,7 +398,6 @@ class DataProcessor:
                 data.z = atomic_numbers
                 data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
                 data.edge_index, data.edge_weight = edge_indices, edge_weights
-                data.cell_offsets = cell_offsets
 
                 data.edge_descriptor = {}
                 data.edge_descriptor["distance"] = edge_weights

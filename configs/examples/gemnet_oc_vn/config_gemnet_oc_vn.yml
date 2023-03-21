@@ -16,10 +16,10 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "gemnet_oc_vn"
-    notes: "TorchMD net modified to support custom pooling routines and virtual nodes"
+    notes: "Gemnet_OC modified to support custom pooling routines and virtual nodes"
     tags: ["test"]
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_gemnet_oc_vn_ocp.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_gemnet_oc_vn.yml"
         name: "train config"
         type: "config"
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/gemnet_oc_vn.py"
@@ -66,9 +66,9 @@ model:
     num_global_out_layers: 2
     regress_forces: False
     direct_forces: False
-    use_pbc: False
+    use_pbc: True # important to retain VN compatibility
     scale_backprop_forces: False
-    cutoff: 6.0
+    cutoff: 5.0
     max_neighbors: 50
     rbf: {"name": "gaussian"}
     rbf_spherical:
@@ -127,8 +127,9 @@ dataset:
       args:
         virtual_box_increment: 3
         attrs: ["rr", "rv"]
-        rr_cutoff: 12.0
+        rr_cutoff: 5.0
         rv_cutoff: 5.0
+        optimize_memory: False
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
