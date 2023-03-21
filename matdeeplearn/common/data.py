@@ -83,6 +83,7 @@ def get_otf_transforms(transform_list: List[dict]):
 
 def get_dataset(
     data_path,
+    processed_file_name,
     transform_list: List[dict] = [],
     large_dataset=False,
 ):
@@ -110,8 +111,8 @@ def get_dataset(
         Dataset = StructureDataset
 
     composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
-
-    dataset = Dataset(data_path, processed_data_path="", transform=composition)
+        
+    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
 
     return dataset
 

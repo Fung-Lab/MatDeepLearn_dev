@@ -21,8 +21,8 @@ from matdeeplearn.preprocessor.helpers import (
 
 
 def process_data(dataset_config):
-    root_path = dataset_config["src"]
-    target_path = dataset_config["target_path"]
+    root_path_dict = dataset_config["src"]
+    target_path_dict = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
     cutoff_radius = dataset_config["cutoff_radius"]
     n_neighbors = dataset_config["n_neighbors"]
@@ -36,8 +36,8 @@ def process_data(dataset_config):
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
-        root_path=root_path,
-        target_file_path=target_path,
+        root_path=root_path_dict,
+        target_file_path=target_path_dict,
         pt_path=pt_path,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
@@ -124,8 +124,8 @@ class DataProcessor:
                 if True, certain messages will be printed
         """
 
-        self.root_path = root_path
-        self.target_file_path = target_file_path
+        self.root_path_dict = root_path
+        self.target_file_path_dict = target_file_path
         self.pt_path = pt_path
         self.r = r
         self.n_neighbors = n_neighbors
@@ -257,20 +257,79 @@ class DataProcessor:
         return dict_structures, y
 
     def process(self, save=True):
-        logging.info("Data found at {}".format(self.root_path))
-        logging.info("Processing device: {}".format(self.device))
-
-        dict_structures, y = self.src_check()
-        data_list = self.get_data_list(dict_structures, y)
-        data, slices = InMemoryDataset.collate(data_list)
-
-        if save:
-            if self.pt_path:
-                save_path = os.path.join(self.pt_path, "data.pt")
-
-            torch.save((data, slices), save_path)
-            logging.info("Processed data saved successfully.")
-
+        
+        if isinstance(self.root_path_dict, dict):
+                    
+            self.root_path = self.root_path_dict["train"]
+            if self.target_file_path_dict: 
+                self.target_file_path = self.target_file_path_dict["train"]
+            else: 
+                self.target_file_path = self.target_file_path_dict
+            logging.info("Train dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+    
+            dict_structures, y = self.src_check()
+            data_list = self.get_data_list(dict_structures, y)
+            data, slices = InMemoryDataset.collate(data_list)
+    
+            if save:
+                if self.pt_path:
+                    save_path = os.path.join(self.pt_path, "data_train.pt")    
+                torch.save((data, slices), save_path)
+                logging.info("Processed train data saved successfully.")   
+                
+            self.root_path = self.root_path_dict["val"]
+            if self.target_file_path_dict: 
+                self.target_file_path = self.target_file_path_dict["val"]
+            else: 
+                self.target_file_path = self.target_file_path_dict            
+            logging.info("Train dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+    
+            dict_structures, y = self.src_check()
+            data_list = self.get_data_list(dict_structures, y)
+            data, slices = InMemoryDataset.collate(data_list)
+    
+            if save:
+                if self.pt_path:
+                    save_path = os.path.join(self.pt_path, "data_val.pt")    
+                torch.save((data, slices), save_path)
+                logging.info("Processed val data saved successfully.")   
+                
+            self.root_path = self.root_path_dict["test"]
+            if self.target_file_path_dict: 
+                self.target_file_path = self.target_file_path_dict["test"]
+            else: 
+                self.target_file_path = self.target_file_path_dict                
+            logging.info("Train dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+    
+            dict_structures, y = self.src_check()
+            data_list = self.get_data_list(dict_structures, y)
+            data, slices = InMemoryDataset.collate(data_list)
+    
+            if save:
+                if self.pt_path:
+                    save_path = os.path.join(self.pt_path, "data_test.pt")    
+                torch.save((data, slices), save_path)
+                logging.info("Processed test data saved successfully.")   
+                                                         
+        else: 
+            self.root_path = self.root_path_dict
+            self.target_file_path = self.target_file_path_dict
+            logging.info("Single dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+    
+            dict_structures, y = self.src_check()
+            data_list = self.get_data_list(dict_structures, y)
+            data, slices = InMemoryDataset.collate(data_list)
+    
+            if save:
+                if self.pt_path:
+                    save_path = os.path.join(self.pt_path, "data.pt")    
+                torch.save((data, slices), save_path)
+                logging.info("Processed data saved successfully.")   
+                                
         return data_list
 
     def get_data_list(self, dict_structures, y):

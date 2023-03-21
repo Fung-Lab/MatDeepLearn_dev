@@ -80,4 +80,4 @@ class TorchLossWrapper(nn.Module):
         self.loss_fn = getattr(F, loss_fn)
 
     def forward(self, predictions: torch.Tensor, target: Batch):
-        return self.loss_fn(predictions, target.y)
+        return self.loss_fn(predictions, target)
