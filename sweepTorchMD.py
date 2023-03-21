@@ -16,7 +16,7 @@ sweep_configuration = {
     'metric': {'goal': 'minimize', 'name': 'val_loss'},
     'parameters': 
     {
-        'lr': {'max': .005, 'min': .00001},
+        'lr': {'max': .003, 'min': .00001},
         'hidden_channels': {'values': [32, 64, 128, 256, 512]},
         'num_filters': {'values': [32, 64, 128, 256, 512]},
         'num_layers': {'values': [2, 3, 4, 5, 6, 7, 8]},
