@@ -79,7 +79,7 @@ def main():
 
     else:  # Run locally
         Runner()(config)
-wandb.agent(sweep_id, function=main, count=8)
+wandb.agent(sweep_id, function=main, count=10)
 
 #if __name__ == "__main__":
 #    main()
