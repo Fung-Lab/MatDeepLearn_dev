@@ -20,8 +20,8 @@ sweep_configuration = {
         'hidden_channels': {'values': [64, 100, 128, 200, 256, 512]},
         'num_filters': {'values': [64, 100, 128, 200, 256, 512]},
         'num_layers': {'values': [2, 3, 4, 5, 6, 7, 8]},
-        'cutoff_upper': {'values': {'max': 12.0, 'min': 4.0}},
-        'num_heads': {'values': {'max': 12, 'min': 4}},
+        'cutoff_upper': {'max': 12.0, 'min': 4.0},
+        'num_heads': {'max': 12, 'min': 4},
         'num_rbf': {'values': [20, 30, 40, 50, 60, 70, 80]}
     }
 }
