@@ -22,7 +22,9 @@ sweep_configuration = {
         'num_layers': {'values': [2, 3, 4, 5, 6, 7, 8]},
         'cutoff_upper': {'max': 12.0, 'min': 4.0},
         'num_heads': {'values': [1, 2, 4, 8, 16]},
-        'num_rbf': {'values': [20, 30, 40, 50, 60, 70, 80]}
+        'num_rbf': {'values': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]},
+        'cutoff_radius': {'max': 12.0, 'min': 4.0},
+        'edge_steps': {'values': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]},
     }
 }
 sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
@@ -76,14 +78,15 @@ def main():
     config["model"]["cutoff_upper"] = wandb.config.cutoff_upper
     config["model"]["num_heads"] = wandb.config.num_heads
     config["model"]["num_rbf"] = wandb.config.num_rbf
-
+    config["dataset"]["preprocess_params"]["cutoff_radius"] = wandb.config.cutoff_radius
+    config["dataset"]["preprocess_params"]["edge_steps"] = wandb.config.edge_steps
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
         pass
 
     else:  # Run locally
         Runner()(config)
-wandb.agent(sweep_id, function=main, count=40)
+wandb.agent(sweep_id, function=main, count=100)
 
 #if __name__ == "__main__":
 #    main()
