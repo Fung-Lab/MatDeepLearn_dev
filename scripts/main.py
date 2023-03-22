@@ -42,7 +42,7 @@ class Runner:  # submitit.helpers.Checkpointable):
 if __name__ == "__main__":
     # setup_logging()
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.INFO)
 
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
