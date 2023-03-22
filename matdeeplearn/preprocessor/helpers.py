@@ -432,7 +432,7 @@ def load_node_representation(node_representation="onehot"):
     return loaded_rep
 
 
-def generate_node_features(input_data, n_neighbors, device):
+def generate_node_features(input_data, n_neighbors, device, use_degree=False):
     node_reps = load_node_representation()
     node_reps = torch.from_numpy(node_reps).to(device)
     n_elements, n_features = node_reps.shape
@@ -440,7 +440,9 @@ def generate_node_features(input_data, n_neighbors, device):
 
     if isinstance(input_data, Data):
         input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
-        return one_hot_degree(input_data, n_neighbors)
+        if use_degree:
+            return one_hot_degree(input_data, n_neighbors)
+        return input_data
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1

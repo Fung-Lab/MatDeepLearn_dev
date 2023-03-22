@@ -21,6 +21,8 @@ sweep_configuration = {
         'dim2': {'values': [64, 100, 128, 200, 256, 512]},
         'gc_count': {'values': [1, 2, 3, 4, 5, 6]},
         'dropout_rate': {'values': [0, .05, .1, .15, .2, .25]},
+        'cutoff_radius': {'max': 12.0, 'min': 4.0},
+        'edge_steps': {'values': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]},
     }
 }
 sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
@@ -72,6 +74,8 @@ def main():
     config["model"]["dim2"] = wandb.config.dim2
     config["model"]["gc_count"] = wandb.config.gc_count
     config["model"]["dropout_rate"] = wandb.config.dropout_rate
+    config["dataset"]["preprocess_params"]["cutoff_radius"] = wandb.config.cutoff_radius
+    config["dataset"]["preprocess_params"]["edge_steps"] = wandb.config.edge_steps
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
@@ -79,7 +83,7 @@ def main():
 
     else:  # Run locally
         Runner()(config)
-wandb.agent(sweep_id, function=main, count=25)
+wandb.agent(sweep_id, function=main, count=100)
 
 #if __name__ == "__main__":
 #    main()
