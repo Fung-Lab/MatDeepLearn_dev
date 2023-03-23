@@ -85,13 +85,13 @@ class PropertyTrainer(BaseTrainer):
 
                 # Compute forward, loss, backward
                 out = self._forward(batch)
-                loss = self._compute_loss(out, batch.y)
+                loss = self._compute_loss(out, batch)
                 self._backward(loss)
 
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
                 #  keep option to log metrics per epoch
-                _metrics = self._compute_metrics(out, batch.y, _metrics)
+                _metrics = self._compute_metrics(out, batch, _metrics)
                 self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
 
             # TODO: could add param to eval and save on increments instead of every time
@@ -132,9 +132,9 @@ class PropertyTrainer(BaseTrainer):
             with torch.no_grad():
                 batch = next(loader_iter).to(self.device)
                 out = self._forward(batch.to(self.device))
-                loss = self._compute_loss(out, batch.y)
+                loss = self._compute_loss(out, batch)
                 # Compute metrics
-                metrics = self._compute_metrics(out, batch.y, metrics)
+                metrics = self._compute_metrics(out, batch, metrics)
                 metrics = evaluator.update("loss", loss.item(), metrics)
 
         return metrics
@@ -143,7 +143,7 @@ class PropertyTrainer(BaseTrainer):
     def predict(self, loader, split):
         # TODO: make predict method work as standalone task
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
-        
+
         self.model.eval()
         predict, target = None, None
         ids = []
@@ -151,10 +151,12 @@ class PropertyTrainer(BaseTrainer):
         _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
-            loss = self._compute_loss(out, batch.y)
-            _metrics_predict = self._compute_metrics(out, batch.y, _metrics_predict)
-            self._metrics_predict = self.evaluator.update("loss", loss.item(), _metrics_predict)
-                
+            loss = self._compute_loss(out, batch)
+            _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
+            self._metrics_predict = self.evaluator.update(
+                "loss", loss.item(), _metrics_predict
+            )
+
             # if out is a tuple, then it's scaled data
             if type(out) == tuple:
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
