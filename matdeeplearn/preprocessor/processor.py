@@ -184,6 +184,8 @@ class DataProcessor:
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             ).view(1, 3, 3)
+            if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
+                cell = None
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             d["positions"] = pos
@@ -242,7 +244,12 @@ class DataProcessor:
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+            if "cell" in s:
+                cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+                if cell.shape[0] != 1:
+                    cell = cell.view(1,3,3)
+            else: 
+                cell = None
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -322,6 +329,7 @@ class DataProcessor:
             neighbors = edge_gen_out["neighbors"]
             if(edge_vec.dim() > 2):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
+
                 
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
@@ -331,6 +339,7 @@ class DataProcessor:
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
+            
             data.cell_offsets = cell_offsets
             data.neighbors = neighbors
 
