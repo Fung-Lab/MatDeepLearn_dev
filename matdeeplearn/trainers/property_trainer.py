@@ -131,6 +131,7 @@ class PropertyTrainer(BaseTrainer):
     def predict(self, loader, split):
         # TODO: make predict method work as standalone task
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
+        self.model.eval()
 
         predict, target = None, None
         ids = []
