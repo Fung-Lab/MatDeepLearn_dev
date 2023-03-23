@@ -25,10 +25,10 @@ model:
   save_model: True
   model_path: "my_model.pth"
   #model attributes
-  hidden_channels: 128
+  hidden_channels: 256
   num_filters: 128
-  num_layers: 6
-  num_rbf: 50
+  num_layers: 8
+  num_rbf: 64
   rbf_type: "expnorm"
   trainable_rbf: True
   activation: "silu"
@@ -47,7 +47,7 @@ model:
 
 optim:
   max_epochs: 250
-  lr: 0.0005
+  lr: 0.0004
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
