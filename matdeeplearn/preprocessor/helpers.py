@@ -439,10 +439,10 @@ def generate_node_features(input_data, n_neighbors, device, use_degree=False):
     
 
     if isinstance(input_data, Data):
-        #input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
-        #if use_degree:
-        return one_hot_degree(input_data, n_neighbors)
-        #return input_data
+        input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
+        if use_degree:
+            return one_hot_degree(input_data, n_neighbors)
+        return input_data
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
