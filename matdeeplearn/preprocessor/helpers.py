@@ -53,6 +53,9 @@ def calculate_edges_master(
     out = dict()
     neighbors = None
 
+    if (cell is None):
+        method == "mdl"
+
     if method == "mdl":
         cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
             pos,
