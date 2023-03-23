@@ -73,45 +73,47 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
 
             # after model 1 has run, get model prediction and use for prediction in model 2
             if step == 0:
-                model1_out = self.trainer.predict(
-                    self.trainer.test_loader, split="model1_test"
+
+                # get all the test_loader indices and make new dataloader
+                counter = 0
+                new_data_lst = []
+                for i in test_data.indices:
+                    # for i in range(55):
+                    # print(model1_out[counter])
+                    new_data = dataset.get(i)
+                    new_data_lst.append(new_data)
+                    counter += 1
+                # set batch norm to be false so can do batch_size 1
+                # self.trainer.model.batch_norm = False
+                predict_loader = get_dataloader(
+                    new_data_lst,
+                    batch_size=model_config["optim"]["batch_size"],
+                    sampler=None,
+                    shuffle=False,
                 )
-                # print(test_data[0])
-                # print(test_data[0].scaled)
-                # print(len(model1_out))
-                # print(model1_out[0])
-                # print(model1_out[0][0])
-                # print(model1_out[0][0].shape)
-                # print(model1_out[0][1])
-                # print(model1_out[0][1].shape)
-                # exit()
+                model1_out, _ = self.trainer.predict(
+                    predict_loader, split="model1_test"
+                )
+
+                # model1_out, _ = self.trainer.predict(
+                #     self.trainer.test_loader, split="model1_test"
+                # )
 
             step += 1
 
         # after model 2 runs, use model1_out in model2 predictions (model1_out is (scaled, scaling_factor))
         counter = 0
         new_data_lst = []
-        print(len(test_data.indices))
-        print(len(model1_out))
-        # exit()
         for i in test_data.indices:
-            # for i in range(55):
-            # print(model1_out[counter])
             new_data = dataset.__setitem__(i, model1_out[counter])
             new_data_lst.append(new_data)
             counter += 1
 
-        # create new Dataset from data list
-        # new_dataset = ChainDataset(new_data_lst)
-        print(new_data_lst[0])
-        print(new_data_lst[0].scaled)
-        print(new_data_lst[0].structure_id)
-        print(test_data[0])
-        print(test_data[0].scaled)
-        print(test_data[0].structure_id)
-        # exit()
         test_loader = get_dataloader(
-            new_data_lst, batch_size=model_config["optim"]["batch_size"], sampler=None
+            new_data_lst,
+            batch_size=model_config["optim"]["batch_size"],
+            sampler=None,
+            shuffle=False,
         )
         self.trainer.test_loader = test_loader
 
