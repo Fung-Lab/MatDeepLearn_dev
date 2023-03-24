@@ -20,7 +20,7 @@ task:
 
 
 model:
-  name: torchmd_etEarly
+  name: torchmd_et
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -97,7 +97,7 @@ dataset:
 
   #graph specific settings
   preprocess_params:
-    cutoff_radius : 8.0
+    cutoff_radius : 5.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
