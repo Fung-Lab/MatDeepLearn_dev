@@ -48,6 +48,14 @@ dataset:
 #  src: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw/"
 #  target_path: ""
 #  pt_path: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/processed/MP_DOS_data/"
+
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: False # Optional parameter, default is False
+    # Format of data files (limit to those supported by ASE)
+
   data_format: "json"
   node_representation: "onehot"
   additional_attributes: ["features", "scaled", "scaling_factor"]
