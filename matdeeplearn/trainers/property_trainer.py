@@ -123,7 +123,6 @@ class PropertyTrainer(BaseTrainer):
         metric = self.validate("test")
         test_loss = metric[type(self.loss_fn).__name__]["metric"]
         print("Test loss: " + str(test_loss))
-        wandb.log({'test_loss': test_loss})
         return self.best_model_state
 
     def validate(self, split="val"):
