@@ -205,6 +205,11 @@ class PropertyTrainer(BaseTrainer):
 
         predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
         logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
+
+        # TODO: delete - hack to record model 2 chain output error on wandb
+        if split == "model2_test":
+            wandb.log({"model2_predict_chain_error": predict_loss})
+
         return out_lst, predict_loss
 
     def _forward(self, batch_data):
