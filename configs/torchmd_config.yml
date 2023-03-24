@@ -46,7 +46,7 @@ model:
   pool: "global_mean_pool"
 
 optim:
-  max_epochs: 250
+  max_epochs: 400
   lr: 0.0004
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
