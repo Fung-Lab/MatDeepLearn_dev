@@ -44,7 +44,9 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
             # load previous output and include in next trainer
             if step == 0:
                 dataset = get_dataset(
-                    dataset_config["pt_path"], dataset_config.get("target_index", 0)
+                    dataset_config["pt_path"],
+                    processed_file_name="data.pt",
+                    transform_list=dataset_config.get("transforms", []),
                 )
                 train_data, val_data, test_data = dataset_split(
                     dataset,
