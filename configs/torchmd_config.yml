@@ -103,6 +103,6 @@ dataset:
     edge_steps : 50
 
   #Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
+  train_ratio: 0.8408
+  val_ratio: 0.0764
+  test_ratio: 0.0828
