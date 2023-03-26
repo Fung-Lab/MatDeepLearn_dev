@@ -90,7 +90,7 @@ class BaseTrainer(ABC):
 
         if self.train_verbosity:
             logging.info(
-                f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
+                f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"
             )
             logging.info(f"Dataset used: {self.dataset}")
             logging.debug(self.dataset["train"][0])

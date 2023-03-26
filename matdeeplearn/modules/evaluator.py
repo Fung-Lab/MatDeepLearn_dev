@@ -12,7 +12,6 @@ class Evaluator:
         metrics = prev_metrics
         res = loss_method(prediction, target)
 
-        #print("what", metrics, res, metrics)
         metrics = self.update(type(loss_method).__name__, res.item(), metrics)
 
         return metrics

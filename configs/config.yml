@@ -6,10 +6,10 @@ task:
   reprocess: False
   parallel: False
   # seed=0 means random initalization
-  seed: 42
+  seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  checkpoint_dir: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn_Funggroup/MatDeepLearn_dev/results/2023-03-25-16-53-36-my_train_job/checkpoint/checkpoint.pt"
+  checkpoint_dir: 
   write_output: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
