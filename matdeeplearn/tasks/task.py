@@ -1,7 +1,8 @@
 import logging
 
 from matdeeplearn.common.registry import registry
-
+import torch
+import torch.multiprocessing as mp
 """
 These classes are used for running with a config file via command line
 """
@@ -10,7 +11,8 @@ These classes are used for running with a config file via command line
 class BaseTask:
     def __init__(self, config):
         self.config = config
-
+        self.world_size = torch.cuda.device_count()
+        
     def setup(self, trainer):
         self.trainer = trainer
         use_checkpoint = self.config["model"].get("load_model", False)
@@ -44,7 +46,8 @@ class TrainTask(BaseTask):
 
     def run(self):
         try:
-            self.trainer.train()
+            self.trainer.train()     
+            
         except RuntimeError as e:
             self._process_error(e)
             raise e

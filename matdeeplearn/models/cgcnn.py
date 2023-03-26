@@ -37,6 +37,9 @@ class CGCNN(BaseModel):
         **kwargs
     ):
         super(CGCNN, self).__init__(edge_steps, self_loop)
+        
+        if isinstance(data, torch.utils.data.Subset): 
+            data = data.dataset
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm

@@ -4,20 +4,19 @@ task:
   # run_mode: train
   identifier: "my_train_job"
   reprocess: False
-  parallel: True
+  parallel: False
   # seed=0 means random initalization
-  seed: 0
+  seed: 42
   # Defaults to run directory if not specified
   # save_dir: "."
-  # checkpoint_dir: "."
+  checkpoint_dir: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn_Funggroup/MatDeepLearn_dev/results/2023-03-25-16-53-36-my_train_job/checkpoint/checkpoint.pt"
   write_output: True
-  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
 
 model:
   name: CGCNN
-  load_model: False
+  load_model: True
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
@@ -53,12 +52,14 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
-  src: data/test_data/raw/
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/2D_data_npj/raw"
+  src: {train: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_dev/CDVAE/perov_5_Shailendra/raw_train/data.json", val: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_dev/CDVAE/perov_5_Shailendra/raw_val/data.json", test: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_dev/CDVAE/perov_5_Shailendra/raw_test/data.json"} 
   #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
-  target_path: data/test_data/targets.csv
+  target_path: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/2D_data_npj/targets.csv"
+  target_path:
   #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
   # Path to save processed data.pt file
   pt_path: "data/"
