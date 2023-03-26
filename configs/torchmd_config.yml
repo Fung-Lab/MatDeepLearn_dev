@@ -79,7 +79,7 @@ dataset:
   transforms:
     - name: GetY
       args:
-        index: 0
+        index: 8
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
