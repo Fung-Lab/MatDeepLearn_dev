@@ -4,7 +4,10 @@ task:
   # run_mode: train
   identifier: "cgcnn_vn-50-neighbor-mdl"
   reprocess: False
-  resume_run: False
+  run_id: "0rj1nqqh"
+  run_name: ""
+  # run_name: "cgcnn_vn-50-neighbor-mdl-2023-03-27-12-53-20" 
+  checkpoint_dir: "."
   parallel: True
   gpu: "cuda:1"
   seed: 0
@@ -36,7 +39,7 @@ task:
 
 model:
   name: CGCNN_VN
-  load_model: False
+  load_model: True
   save_model: True
   model_path: "cgcnn_vn.pth"
   # model hyperparams
@@ -61,7 +64,7 @@ model:
     dropout_rate: 0.0
 
 optim:
-  max_epochs: 100
+  max_epochs: 10
   lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
@@ -75,7 +78,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""

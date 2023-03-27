@@ -77,10 +77,8 @@ def wandb_setup(config):
 
     timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
 
-    if config["model"]["load_model"] ^ config["task"]["resume_run"]:
-        raise ValueError(
-            "Must load checkpoint and resume run to log to wandb if either option enabled"
-        )
+    if config["task"]["run_id"] != "" and not config["model"]["load_model"]:
+        raise ValueError("Must load from checkpoint if also resuming wandb run.")
 
     wandb.init(
         settings=wandb.Settings(start_method="fork"),
@@ -90,13 +88,14 @@ def wandb_setup(config):
         notes=config["task"]["wandb"].get("notes", None),
         tags=config["task"]["wandb"].get("tags", None),
         config=_wandb_config,
-        resume=config["task"]["resume_run"],
+        id=config["task"]["run_id"] if config["task"]["run_id"] != "" else None,
+        resume="must" if config["task"]["run_id"] != "" else None,
     )
 
     wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
 
     # create wandb artifacts
-    for i, artifact in enumerate(wandb_artifacts):
+    for _, artifact in enumerate(wandb_artifacts):
         if not os.path.exists(artifact["path"]):
             raise ValueError(
                 f"Artifact {artifact['path']} does not exist. Please check the path."

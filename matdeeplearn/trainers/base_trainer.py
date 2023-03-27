@@ -1,6 +1,5 @@
 import copy
 import csv
-import glob
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -9,6 +8,7 @@ from datetime import datetime
 import torch
 import torch.optim as optim
 from matplotlib import pyplot as plt
+import wandb
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
@@ -25,6 +25,7 @@ from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
 from matdeeplearn.common.utils import min_alloc_gpu
+
 
 @registry.register_trainer("base")
 class BaseTrainer(ABC):
@@ -68,7 +69,6 @@ class BaseTrainer(ABC):
         self.train_verbosity = verbosity
 
         self.save_dir = save_dir
-        self.checkpoint_dir = (checkpoint_dir,)
         self.wandb_config = wandb_config
 
         self.model_config = model_config
@@ -137,7 +137,7 @@ class BaseTrainer(ABC):
         device = config["task"].get("gpu", None)
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
-        checkpoint_dir = config["task"].get("checkpoint_dir", None)
+        checkpoint_dir = config["task"].get("run_name", None)
 
         return cls(
             model=model,
@@ -215,13 +215,19 @@ class BaseTrainer(ABC):
         batch_size = optim_config.get("batch_size")
 
         train_loader = get_dataloader(
-            train_dataset, batch_size=batch_size, sampler=sampler, 
+            train_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
         )
         val_loader = get_dataloader(
-            val_dataset, batch_size=batch_size, sampler=sampler,
+            val_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
         )
         test_loader = get_dataloader(
-            test_dataset, batch_size=batch_size, sampler=sampler,
+            test_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
         )
 
         return train_loader, val_loader, test_loader
@@ -320,6 +326,10 @@ class BaseTrainer(ABC):
         filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
         torch.save(state, filename)
+
+        if wandb.run is not None:
+            wandb.save(filename)
+
         return filename
 
     def save_results(self, output, filename, node_level_predictions=False):
@@ -346,13 +356,18 @@ class BaseTrainer(ABC):
     def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
 
-        if not self.checkpoint_dir:
-            raise ValueError("No checkpoint directory specified in config.")
-
-        checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
-        checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
-
         # Load params from checkpoint
+        if wandb.run.resumed:
+            checkpoint_file = wandb.restore("checkpoint.pt").name
+        else:
+            if not self.checkpoint_dir:
+                raise ValueError("No checkpoint directory specified in config.")
+
+            checkpoint_dir = os.path.join("results", self.checkpoint_dir)
+            checkpoint_file = os.path.join(
+                checkpoint_dir, "checkpoint", "checkpoint.pt"
+            )
+
         checkpoint = torch.load(checkpoint_file)
 
         self.model.load_state_dict(checkpoint["state_dict"])

@@ -2,13 +2,13 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-all-neighbor-OCP"
+  identifier: "torchmd_net_vn-all-neighbor-OCP"
   reprocess: False
-  resume_run: False
   parallel: True
-  gpu: "cuda:2"
+  resume_run: False
+  gpu: "cuda:3"
   seed: 0
-  # seed=0 means random initalization
+  # seed: 0 means random initalization
   write_output: True
   parallel: True
   # Training print out frequency (print per n number of epochs)
@@ -16,18 +16,18 @@ task:
   wandb:
     use_wandb: True
     wandb_entity: "fung-lab"
-    wandb_project: "cgcnn_vn"
-    notes: ""
+    wandb_project: "torchmd_net_vn"
+    notes: "TorchMD net modified to support custom pooling routines and virtual nodes"
     tags: ["test"]
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/torchmd_net_vn/config_torchmd_net_novn.yml"
         name: "train config"
         type: "config"
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-        name: "cgcnn_vn model"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/torchmd_net_vn.py"
+        name: "torchmd_net_vn model"
         type: "model"
     metadata:
-      architecture: "CGCNN_VN"
+      architecture: "torchmd_net_vn"
       cluster: "fung-cluster"
       dataset: "hMOF-5K"
     sweep:
@@ -35,38 +35,41 @@ task:
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
-  name: CGCNN_VN
+  name: torchmd_net_vn
   load_model: False
   save_model: True
-  model_path: "cgcnn_vn.pth"
+  model_path: "torchmd_net_vn.pth"
   # model hyperparams
   hyperparams:
-    edge_steps: 50
-    self_loop: True
-    dim1: 100
-    dim2: 150
-    atomic_intermediate_layer_resolution: 0
-    pre_fc_count: 1
-    gc_count: 4
-    post_fc_count: 3
+    hidden_channels: 128
+    num_layers: 6
+    num_rbf: 50
+    rbf_type: "expnorm"
+    trainable_rbf: True
+    activation: "silu"
+    attn_activation: "silu"
+    neighbor_embedding: True
+    num_heads: 8
+    distance_influence: "both"
+    cutoff_lower: 0.0
+    cutoff_upper: 5.0
+    max_z: 100
+    max_num_neighbors: 250
+    num_post_layers: 1
+    post_hidden_channels: 64
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
-    mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
-    pool_order: "early"
-    batch_norm: True
-    batch_track_stats: True
-    act_fn: "relu"
-    act_nn: "ReLU"
-    dropout_rate: 0.0
+    mp_pattern: ["rr", "rv"]
+    aggr: "add"
 
 optim:
-  max_epochs: 100
+  max_epochs: 250
   lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 100
+  batch_size: 50
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -75,11 +78,11 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp-vn-2"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp-torchmd"
   # transforms
   transforms:
     - name: GetY
@@ -88,7 +91,7 @@ dataset:
       otf: False
     - name: VirtualNodes
       args:
-        virtual_box_increment: 2
+        virtual_box_increment: 3
         attrs: ["rr", "rv"]
         rr_cutoff: 5.0
         rv_cutoff: 5.0
