@@ -51,7 +51,8 @@ def calculate_edges_master(
         #    raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
-    neighbors = None
+    neighbors = torch.empty(0)
+    cell_offset_distances = torch.empty(0)
 
     if (cell is None):
         method == "mdl"
@@ -67,6 +68,9 @@ def calculate_edges_master(
         )
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
+
+        # get into correct shape for model stage
+        edge_vec = edge_vec[edge_index[0], edge_index[1]]
     
     elif method == "ase":
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
@@ -74,6 +78,9 @@ def calculate_edges_master(
         )
 
     elif method == "ocp":
+        # OCP requires a different format for the cell
+        cell = cell.view(1, 3, 3)
+        
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
             r, n_neighbors, pos, cell, torch.tensor([len(pos)])
         )
