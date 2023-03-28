@@ -18,12 +18,12 @@ dataset = QM9(path)
 
 # DimeNet uses the atomization energy for targets U0, U, H, and G, i.e.:
 # 7 -> 12, 8 -> 13, 9 -> 14, 10 -> 15
-idx = torch.tensor([0, 1, 2, 3, 4, 5, 6, 12, 13, 14, 15, 11])
-dataset.data.y = dataset.data.y[:, idx]
+#idx = torch.tensor([0, 1, 2, 3, 4, 5, 6, 12, 13, 14, 15, 11])
+#dataset.data.y = dataset.data.y[:, idx]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-for target in range(12):
+for target in range(7, 9):
     # Skip target \delta\epsilon, since it can be computed via
     # \epsilon_{LUMO} - \epsilon_{HOMO}:
     if target == 4:
