@@ -1,4 +1,4 @@
-trainer: sweep
+trainer: property
 
 task:
   # run_mode: train
