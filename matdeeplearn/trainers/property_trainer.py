@@ -46,6 +46,7 @@ class PropertyTrainer(BaseTrainer):
             save_dir,
             checkpoint_dir,
         )
+        print(dataset.data.y[:, 8])
 
     def train(self):
         # Start training over epochs loop
