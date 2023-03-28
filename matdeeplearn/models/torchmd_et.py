@@ -159,7 +159,6 @@ class TorchMD_ET(nn.Module):
         self,
         data
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        print(data.y.mean())
 
         x = self.embedding(data.z)
 
