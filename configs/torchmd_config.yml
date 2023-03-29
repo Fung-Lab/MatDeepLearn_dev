@@ -20,7 +20,7 @@ task:
 
 
 model:
-  name: torchmd_etEarly
+  name: torchmd_et
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -68,7 +68,7 @@ dataset:
   # Path to data files
   #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
-  src: "/project/Rithwik/MP_data_69K/data.json"
+  src: "/project/Rithwik/MP_data_69K/"
   # Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   target_path: "/project/Rithwik/MP_data_69K/targets.csv"
