@@ -68,14 +68,14 @@ dataset:
   # Path to data files
   #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
-  src: "/project/Rithwik/MP_data_69K/data.json"
+  src: "/project/Rithwik/OC_20/data.json"
   # Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  target_path: "/project/Rithwik/MP_data_69K/targets.csv"
-  #target_path:
+  #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
+  target_path:
   # Path to save processed data.pt file
   #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/MP_data_69K/"
+  pt_path: "/project/Rithwik/OC_20/"
   transforms:
     - name: GetY
       args:
