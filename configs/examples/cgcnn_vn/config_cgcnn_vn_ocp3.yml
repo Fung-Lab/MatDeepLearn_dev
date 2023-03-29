@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:6"
+  gpu: "cuda:3"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,10 +17,10 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "edge_steps=25"
+    notes: "(RR,RV)=(12, 20) with 2A increment (anticipating memory issues)"
     tags: ["test"]
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp3.yml"
         name: "train config"
         type: "config"
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
@@ -66,7 +66,7 @@ optim:
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 100
+  batch_size: 64
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -79,7 +79,7 @@ dataset:
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp-vn-2"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp-vn-3"
   # transforms
   transforms:
     - name: GetY
@@ -90,8 +90,8 @@ dataset:
       args:
         virtual_box_increment: 3
         attrs: ["rr", "rv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
+        rr_cutoff: 12.0
+        rv_cutoff: 20.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
@@ -109,7 +109,7 @@ dataset:
     n_neighbors : 250
     edge_calc_method: "ocp"
     num_offsets: 1
-    edge_steps : 25
+    edge_steps : 50
     all_neighbors: True
     use_degree: False
   # Ratios for train/val/test split out of a total of 1

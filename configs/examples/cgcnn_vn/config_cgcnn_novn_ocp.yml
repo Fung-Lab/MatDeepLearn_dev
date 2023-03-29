@@ -96,6 +96,7 @@ dataset:
   # use for passing into global config
   # one of MDL, ASE, OCP
   use_sweep_params: False
+  apply_pre_transform_processing: True
   # use again for passing into global config
   data_format: "json"
   node_representation: "onehot"

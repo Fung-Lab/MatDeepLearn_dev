@@ -328,7 +328,8 @@ class BaseTrainer(ABC):
         torch.save(state, filename)
 
         if wandb.run is not None:
-            wandb.save(filename)
+            # No need to save the model to W&B at every step
+            wandb.save(filename, policy="end")
 
         return filename
 
@@ -357,9 +358,16 @@ class BaseTrainer(ABC):
         """Loads the model from a checkpoint.pt file"""
 
         # Load params from checkpoint
+        checkpoint_file = None
         if wandb.run.resumed:
-            checkpoint_file = wandb.restore("checkpoint.pt").name
-        else:
+            checkpoint_obj = wandb.restore("checkpoint.pt")
+            if checkpoint_obj:
+                checkpoint_file = checkpoint_obj.name
+            else:
+                logging.info(
+                    "No checkpoint file found in W&B run history. Defaulting to local checkpoint file."
+                )
+        if not checkpoint_file:
             if not self.checkpoint_dir:
                 raise ValueError("No checkpoint directory specified in config.")
 

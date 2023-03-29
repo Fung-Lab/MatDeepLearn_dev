@@ -12,8 +12,11 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 
 
-@registry.register_model("CGCNN_VN")
-class CGCNN_VN(BaseModel):
+@registry.register_model("CGCNN_VN_HG")
+class CGCNN_VN_HG(BaseModel):
+    """Modified virtual-node CGCNN model that implements
+    heterogeneous message-passing for different types of edges."""
+
     def __init__(
         self,
         edge_steps,
@@ -27,12 +30,7 @@ class CGCNN_VN(BaseModel):
         pool="global_mean_pool",
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
-        mp_pattern: List[List[str]] = [
-            ["rv", "rr"],
-            ["rv", "rr"],
-            ["rv", "rr"],
-            ["rv", "rr"],
-        ],
+        mp_pattern: List[str] = ["rr", "rv"],
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
         batch_norm=True,
@@ -41,7 +39,7 @@ class CGCNN_VN(BaseModel):
         act_nn="ReLU",
         dropout_rate=0.0,
     ):
-        super(CGCNN_VN, self).__init__(edge_steps, self_loop)
+        super(CGCNN_VN_HG, self).__init__(edge_steps, self_loop)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -61,11 +59,6 @@ class CGCNN_VN(BaseModel):
         self.post_fc_count = post_fc_count
         self.num_features = data.num_features
         self.num_edge_features = data.num_edge_features
-
-        # make sure mp pattern is valid
-        assert (
-            len(self.mp_pattern) == self.gc_count
-        ), "mp_pattern must be same length as gc_count"
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"

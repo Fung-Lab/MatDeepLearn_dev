@@ -41,6 +41,9 @@ def process_data(dataset_config, wandb_config):
     edge_calc_method = dataset_config["preprocess_params"].get(
         "edge_calc_method", "mdl"
     )
+    apply_pre_transform_processing = dataset_config.get(
+        "apply_pre_transform_processing", True
+    )
     device: str = dataset_config.get("device", "cpu")
 
     # wandb config
@@ -67,6 +70,7 @@ def process_data(dataset_config, wandb_config):
         all_neighbors=all_neighbors,
         use_degree=use_degree,
         edge_calc_method=edge_calc_method,
+        apply_pre_transform_processing=apply_pre_transform_processing,
         use_sweep_params=use_sweep_params,
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
@@ -96,6 +100,7 @@ class DataProcessor:
         all_neighbors: bool = False,
         use_degree: bool = False,
         edge_calc_method: str = "mdl",
+        apply_pre_transform_processing: bool = True,
         use_sweep_params: bool = False,
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
@@ -172,6 +177,7 @@ class DataProcessor:
         self.all_neighbors = all_neighbors
         self.use_degree = use_degree
         self.edge_calc_method = edge_calc_method
+        self.apply_pre_transform_processing = apply_pre_transform_processing
         self.use_sweep_params = use_sweep_params
         self.use_wandb = use_wandb
         self.preprocess_kwargs = preprocess_kwargs
@@ -355,40 +361,51 @@ class DataProcessor:
                 data.o_pos = pos.clone()
                 data.o_z = atomic_numbers.clone()
 
-                edge_gen_out = calculate_edges_master(
-                    self.edge_calc_method,
-                    self.all_neighbors,
-                    self.r,
-                    self.n_neighbors,
-                    self.num_offsets,
-                    structure_id,
-                    cell,
-                    pos,
-                    atomic_numbers,
-                    remove_virtual_edges=False,
-                    experimental_distance=False,
-                    device=self.device,
-                )
+                # only apply basic preprocessing if needed
+                # not used when using virtual nodes,
+                # avoid unnecessary processing overhead
+                if self.apply_pre_transform_processing:
+                    edge_gen_out = calculate_edges_master(
+                        self.edge_calc_method,
+                        self.all_neighbors,
+                        self.r,
+                        self.n_neighbors,
+                        self.num_offsets,
+                        structure_id,
+                        cell,
+                        pos,
+                        atomic_numbers,
+                        remove_virtual_edges=False,
+                        experimental_distance=False,
+                        device=self.device,
+                    )
 
-                edge_indices = edge_gen_out["edge_index"]
-                edge_weights = edge_gen_out["edge_weights"]
-                cell_offsets = edge_gen_out["cell_offsets"]
-                cell_offset_distances = edge_gen_out["offsets"]
-                edge_vec = edge_gen_out["edge_vec"]
+                    edge_indices = edge_gen_out["edge_index"]
+                    edge_weights = edge_gen_out["edge_weights"]
+                    cell_offsets = edge_gen_out["cell_offsets"]
+                    cell_offset_distances = edge_gen_out["offsets"]
+                    edge_vec = edge_gen_out["edge_vec"]
+
+                    data.neighbors = edge_gen_out["neighbors"]
+                    data.cell_offsets = cell_offsets
+                    data.cell_offset_distances = cell_offset_distances
+                    data.edge_index, data.edge_weight = edge_indices, edge_weights
+                    data.distances = edge_weights
+                    data.edge_vec = edge_vec
+                    data.edge_descriptor = {}
+                    data.edge_descriptor["distance"] = edge_weights
 
                 # virtual node generation (workaround for now)
                 if virtual_nodes_transform:
                     vpos, virtual_z = generate_virtual_nodes(
                         cell2,
-                        virtual_nodes_transform["args"].get("virtual_box_increment", 3.0),
+                        virtual_nodes_transform["args"].get(
+                            "virtual_box_increment", 3.0
+                        ),
                         self.device,
                     )
                     pos = torch.cat([pos, vpos], dim=0)
                     atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
-
-                data.neighbors = edge_gen_out["neighbors"]
-                data.cell_offsets = cell_offsets
-                data.cell_offset_distances = cell_offset_distances
 
                 data.n_atoms = len(atomic_numbers)
                 data.pos = pos
@@ -397,12 +414,7 @@ class DataProcessor:
                 data.y = torch.Tensor(np.array([target_val]))
                 data.z = atomic_numbers
                 data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-                data.edge_index, data.edge_weight = edge_indices, edge_weights
 
-                data.edge_descriptor = {}
-                data.edge_descriptor["distance"] = edge_weights
-                data.distances = edge_weights
-                data.edge_vec = edge_vec
                 data.structure_id = [[structure_id] * len(data.y)]
 
                 # add additional attributes
