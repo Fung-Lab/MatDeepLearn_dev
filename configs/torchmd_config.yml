@@ -20,7 +20,7 @@ task:
 
 
 model:
-  name: torchmd_etEarly
+  name: torchmd_et
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -53,7 +53,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 32
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -68,14 +68,14 @@ dataset:
   # Path to data files
   #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/MP_data_69K/raw/"
-  src: "/project/Rithwik/OC_20/data.json"
+  src: "/project/Rithwik/MP_data_69K/data.json"
   # Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
   target_path:
   # Path to save processed data.pt file
   #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/OC_20/"
+  pt_path: "/project/Rithwik/MP_data_69K/"
   transforms:
     - name: GetY
       args:
@@ -97,8 +97,8 @@ dataset:
 
   #graph specific settings
   preprocess_params:
-    cutoff_radius : 8.0
-    n_neighbors : 999
+    cutoff_radius : 5.0
+    n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
 
