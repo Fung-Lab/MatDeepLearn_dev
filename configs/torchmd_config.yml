@@ -20,7 +20,7 @@ task:
 
 
 model:
-  name: torchmd_et
+  name: torchmd_etEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
