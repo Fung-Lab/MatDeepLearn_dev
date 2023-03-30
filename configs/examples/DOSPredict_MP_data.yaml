@@ -24,7 +24,7 @@ model:
   dropout_rate: 0.1
 
 optim:
-  max_epochs: 800
+  max_epochs: 200
   lr: 0.00034
   loss:
     loss_type: "DOSLoss"

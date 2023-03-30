@@ -246,9 +246,9 @@ class BaseTrainer(ABC):
         logging.debug(
             f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
         )
-        # self.predict(self.train_loader, "train")
-        # self.predict(self.val_loader, "val")
-        # self.predict(self.test_loader, "test")
+        self.predict(self.train_loader, "train")
+        self.predict(self.val_loader, "val")
+        self.predict(self.test_loader, "test")
 
     def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
         """Saves the model state dict"""

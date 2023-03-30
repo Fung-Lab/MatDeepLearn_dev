@@ -101,6 +101,9 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
                 # model1_out, _ = self.trainer.predict(
                 #     self.trainer.test_loader, split="model1_test"
                 # )
+            if step == 1:
+                # record model 2 predict
+                self.trainer.predict(predict_loader, split="model2_test")
 
             step += 1
 
@@ -121,7 +124,7 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
         self.trainer.test_loader = test_loader
 
         _, predict_error = self.trainer.predict(
-            self.trainer.test_loader, split="model2_test"
+            self.trainer.test_loader, split="model2_chain_test"
         )
 
     def checkpoint(self, *args, **kwargs):
