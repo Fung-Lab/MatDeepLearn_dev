@@ -140,7 +140,7 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
 if __name__ == "__main__":
     # setup_logging()
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
 
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
