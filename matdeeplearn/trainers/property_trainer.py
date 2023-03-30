@@ -140,8 +140,9 @@ class PropertyTrainer(BaseTrainer):
         out_lst = []
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
-            logging.debug(f"predict out size: {out.size()}")
-            logging.debug(out)
+            if type(out) != tuple:
+                logging.debug(f"predict out size: {out.size()}")
+                logging.debug(out)
 
             loss = self._compute_loss(out, batch)
             _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
