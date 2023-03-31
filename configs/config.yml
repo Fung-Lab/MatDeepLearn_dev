@@ -38,7 +38,7 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.0005
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -89,8 +89,8 @@ dataset:
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8408
-  val_ratio: 0.0764
-  test_ratio: 0.0828
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
   
 
