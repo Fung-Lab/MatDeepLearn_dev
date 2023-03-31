@@ -55,25 +55,25 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
   #src: "/project/Rithwik/2D_data_npj/raw/"
-  src: "/project/Rithwik/OC_20/data.json"
+  #src: "/project/Rithwik/OC_20/data.json"
   # Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
   #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/OC_20/"
+  #pt_path: "/project/Rithwik/OC_20/"
   transforms:
     - name: GetY
       args:
-        index: 8
+        index: 0
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "mdl"
+  edge_calc_method: "ocp"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -85,7 +85,7 @@ dataset:
   # graph specific settings
   preprocess_params:
     cutoff_radius : 8.0
-    n_neighbors : 999
+    n_neighbors : 12
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1

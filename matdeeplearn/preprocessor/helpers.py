@@ -464,7 +464,7 @@ def generate_node_features(input_data, n_neighbors, device, use_degree=False):
     node_reps = load_node_representation()
     node_reps = torch.from_numpy(node_reps).to(device)
     n_elements, n_features = node_reps.shape
-    
+    print(isinstance(input_data, Data))
 
     if isinstance(input_data, Data):
         input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
