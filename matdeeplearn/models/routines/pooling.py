@@ -17,17 +17,17 @@ class RealVirtualPooling(nn.Module):
         self.pool_choice = kwargs.get("pool_choice", "both")
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
-        real_mask = torch.argwhere(data.zv != 100).squeeze(1)
-        virtual_mask = torch.argwhere(data.zv == 100).squeeze(1)
+        real_mask = torch.argwhere(data.z != 100).squeeze(1)
+        virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
 
         if self.pool_choice == "both":
             out_real = self.pooling(
                 torch.index_select(out, 0, real_mask),
-                torch.index_select(data.x_rv_batch, 0, real_mask),
+                torch.index_select(data.batch, 0, real_mask),
             )
             out_virtual = self.pooling(
                 torch.index_select(out, 0, virtual_mask),
-                torch.index_select(data.x_rv_batch, 0, virtual_mask),
+                torch.index_select(data.batch, 0, virtual_mask),
             )
 
             out = torch.cat((out_real, out_virtual), dim=1)
@@ -35,13 +35,13 @@ class RealVirtualPooling(nn.Module):
         elif self.pool_choice == "real":
             out = self.pooling(
                 torch.index_select(out, 0, real_mask),
-                torch.index_select(data.x_rv_batch, 0, real_mask),
+                torch.index_select(data.batch, 0, real_mask),
             )
 
         elif self.pool_choice == "virtual":
             out = self.pooling(
                 torch.index_select(out, 0, virtual_mask),
-                torch.index_select(data.x_rv_batch, 0, virtual_mask),
+                torch.index_select(data.batch, 0, virtual_mask),
             )
 
         return out

@@ -2,11 +2,11 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-all-neighbor-OCP"
+  identifier: "cgcnn_vn_hg"
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:1"
+  gpu: "cuda:7"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,25 +17,13 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "test RV pooling (virtual)"
+    notes: "edge_steps=25, heterogeneous"
     tags: ["test"]
-    track_params:
-      - "model.hyperparams.mp_pattern"
-      - "model.hyperparams.pool"
-      - "model.hyperparams.virtual_pool"
-      - "optim.lr"
-      - "optim.batch_size"
-      - "optim.max_epochs"
-      - "dataset.preprocess_params.num_offsets"
-      - "dataset.preprocess_params.edge_calc_method"
-      - "dataset.preprocess_params.all_neighbors"
-      - "dataset.preprocess_params.edge_steps"
-      - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg.yml"
         name: "train config"
         type: "config"
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
         name: "cgcnn_vn model"
         type: "model"
     metadata:
@@ -47,10 +35,10 @@ task:
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
-  name: CGCNN_VN
+  name: CGCNN_VN_HG
   load_model: False
   save_model: True
-  model_path: "cgcnn_vn.pth"
+  model_path: "cgcnn_vn_hg.pth"
   # model hyperparams
   hyperparams:
     edge_steps: 25
@@ -62,9 +50,9 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "RealVirtualPooling" # pooling method
-    pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
+    virtual_pool: "AtomicNumberPooling" # pooling method
+    pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
+    mp_pattern: ["rr", "rv"]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True

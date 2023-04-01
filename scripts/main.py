@@ -5,6 +5,7 @@ from datetime import datetime
 
 import torch
 import wandb
+import yaml
 
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
@@ -47,6 +48,24 @@ class Runner:  # submitit.helpers.Checkpointable):
         # return submitit.helpers.DelayedSubmission(new_runner, self.config)
 
 
+def get_nested(data, *args):
+    if args and data:
+        element = args[0]
+        if element and element in data:
+            value = data.get(element)
+            return value if len(args) == 1 else get_nested(value, *args[1:])
+
+
+def flatten(my_dict):
+    result = {}
+    for key, value in my_dict.items():
+        if isinstance(value, dict):
+            result.update(flatten(value))
+        else:
+            result[key] = value
+    return result
+
+
 def wandb_setup(config):
     metadata = config["task"]["wandb"].get("metadata", {})
     _wandb_config = {
@@ -56,24 +75,36 @@ def wandb_setup(config):
     timestamp = torch.tensor(datetime.now().timestamp())
 
     # wandb hyperparameter sweep setup
-    # sweep_config = config["task"]["wandb"]["sweep_config"]
+    sweep_config = config["task"]["wandb"].get("sweep_config", None)
 
-    # if sweep_config and sweep_config.get("sweep", False):
-    #     sweep_path = sweep_config.get("sweep_path", None)
-    #     with open(sweep_path, "r") as ymlfile:
-    #         sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+    # TODO: finish sweep integration
+    if sweep_config and sweep_config.get("sweep", False):
+        sweep_path = sweep_config.get("sweep_path", None)
+        with open(sweep_path, "r") as ymlfile:
+            sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
-    #     params = sweep_config.get("parameters", {})
+        params = sweep_config.get("parameters", {})
 
-    #     sweep_id = wandb.sweep(
-    #         sweep_config,
-    #         project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
-    #     )
+        sweep_id = wandb.sweep(
+            sweep_config,
+            project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
+        )
 
-    # update config with model hyperparams
-    _wandb_config.update(config["model"]["hyperparams"])
-    # update config with processing hyperparams
-    _wandb_config.update({"transforms": config["dataset"]["transforms"]})
+    # update config with chosen parameters from config (to avoid clutter)
+    track_params = [
+        p.split(".") for p in config["task"]["wandb"].get("track_params", {})
+    ]
+    track_params = {p[-1]: get_nested(config, *p) for p in track_params}
+    # transform hyperparams
+    transforms = {
+        key: val
+        for d in config["dataset"]["transforms"]
+        for key, val in flatten(d).items()
+        if key != "name" and key != "otf"
+    }
+
+    _wandb_config.update(transforms)
+    _wandb_config.update(track_params)
 
     timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
 

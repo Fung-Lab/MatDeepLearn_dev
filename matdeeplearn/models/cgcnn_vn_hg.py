@@ -73,8 +73,15 @@ class CGCNN_VN_HG(BaseModel):
         else:
             self.output_dim = len(data[0][self.target_attr])
 
+        assert (
+            self.gc_count % len(self.mp_pattern) == 0
+        ), "GC count must be divisible by number of MP patterns to interleave them"
+
         # setup layers
-        self.pre_lin_list = self._setup_pre_gnn_layers()
+        self.pre_lin_virtual, self.pre_lin_real = (
+            self._setup_pre_gnn_layers(),
+            self._setup_pre_gnn_layers(),
+        )
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
 
@@ -100,10 +107,11 @@ class CGCNN_VN_HG(BaseModel):
     def target_attr(self):
         return "y"
 
-    def _setup_pre_gnn_layers(self) -> torch.nn.ModuleList:
-        """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
+    def _setup_pre_gnn_layers(self) -> torch.nn.ModuleDict:
+        """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer).
+        Modified to set up embeddings differently for each type of MP interaction
+        """
         pre_lin_list = torch.nn.ModuleList()
-
         if self.pre_fc_count > 0:
             for i in range(self.pre_fc_count):
                 if i == 0:
@@ -111,10 +119,9 @@ class CGCNN_VN_HG(BaseModel):
                 else:
                     lin_r = torch.nn.Linear(self.dim1, self.dim1)
                 pre_lin_list.append(lin_r)
-
         return pre_lin_list
 
-    def _setup_gnn_layers(self):
+    def _setup_gnn_layers(self) -> tuple[torch.nn.ModuleList, torch.nn.ModuleList]:
         """Sets up GNN layers."""
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
@@ -215,28 +222,52 @@ class CGCNN_VN_HG(BaseModel):
         return post_lin_list, lin_out
 
     def forward(self, data: Data):
-        # Pre-GNN dense layers
-        for j in range(0, len(self.pre_lin_list)):
-            if j == 0:
-                out = self.pre_lin_list[j](data.x.float())
-            else:
-                out = self.pre_lin_list[j](out)
-            out = getattr(F, self.act_fn)(out)
+        # compute masked node feature matrices for real and virtual nodes
+        virtual_node_mask = (
+            (data.z == 100).type(torch.uint8).unsqueeze(1).repeat(1, data.x.shape[-1])
+        )
+        real_node_mask = (
+            (data.z != 100).type(torch.uint8).unsqueeze(1).repeat(1, data.x.shape[-1])
+        )
+        # create separate embedding spaces for real and virtual nodes
+        virtual_features = torch.zeros_like(data.x)
+        real_features = torch.zeros_like(data.x)
 
-        # GNN layers, perform MP on desired edges
+        virtual_features = data.x * virtual_node_mask
+        real_features = data.x * real_node_mask
+
+        # pass each node feature matrix through a separate embedding network
+        for j in range(0, len(self.pre_lin_virtual)):
+            if j == 0:
+                out_v = self.pre_lin_virtual[j](virtual_features.float())
+            else:
+                out_v = self.pre_lin_virtual[j](out_v)
+            out_v = getattr(F, self.act_fn)(out_v)
+
+        for j in range(0, len(self.pre_lin_real)):
+            if j == 0:
+                out_r = self.pre_lin_real[j](real_features.float())
+            else:
+                out_r = self.pre_lin_real[j](out_r)
+            out_r = getattr(F, self.act_fn)(out_r)
+
+        # merge real and virtual node embeddings
+        out = out_v + out_r
+
+        # compute interleaving pattern for MP
+        interleave = self.mp_pattern * (len(self.conv_list) // len(self.mp_pattern))
+
+        # GNN layers, perform MP on desired edges through interleaving
         for j in range(0, len(self.conv_list)):
             # which nodes to engage in MP at this layer
-            mp_choice = self.mp_pattern[j]
-
+            mp_choice = interleave[j]
             # use the correct edge_indexes and edge_attrs for MP at this layer
-            edge_index_use = torch.cat(
-                [getattr(data, f"edge_index_{mp}") for mp in mp_choice], dim=1
-            )
-            edge_attr_use = torch.cat(
-                [getattr(data, f"edge_attr_{mp}") for mp in mp_choice], dim=0
-            )
+            edge_index_use = getattr(data, f"edge_index_{mp_choice}")
+            edge_attr_use = getattr(data, f"edge_attr_{mp_choice}")
 
-            if len(self.pre_lin_list) == 0 and j == 0:
+            if (
+                len(self.pre_lin_virtual) == 0 or len(self.pre_lin_real) == 0
+            ) and j == 0:
                 if self.batch_norm:
                     out = self.conv_list[j](
                         data.x,
@@ -283,7 +314,7 @@ class CGCNN_VN_HG(BaseModel):
             out = self.lin_out(out)
 
         elif self.pool_order == "late":
-            raise NotImplementedError("Late pooling not supported for CGCNN_VN")
+            raise NotImplementedError("Late pooling not supported for CGCNN_VN_HG")
 
         if out.shape[1] == 1:
             return out.view(-1)

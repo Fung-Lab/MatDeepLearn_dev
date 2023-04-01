@@ -424,14 +424,14 @@ class DataProcessor:
 
             if self.use_wandb:
                 wandb.log({"process_times": t.elapsed})
-
-        logging.info("Generating node features...")
-        generate_node_features(
-            data_list, self.n_neighbors, device=self.device, use_degree=self.use_degree
-        )
-
-        logging.info("Generating edge features...")
-        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+                
+        if self.apply_pre_transform_processing:
+            logging.info("Generating node features...")
+            generate_node_features(
+                data_list, self.n_neighbors, device=self.device, use_degree=self.use_degree
+            )
+            logging.info("Generating edge features...")
+            generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         # compile non-otf transforms
         logging.info("Applying transforms.")
