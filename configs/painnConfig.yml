@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: painnEarly
+  name: painn
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -24,11 +24,11 @@ model:
   self_loop: True
   # model attributes
   num_targets: 1
-  hidden_channels: 512
-  num_layers: 6
+  hidden_channels: 128
+  num_layers: 4
   num_rbf: 128
-  cutoff: 8.0
-  max_neighbors: 50
+  cutoff: 5.0
+  max_neighbors: 250
   rbf:  {"name": "gaussian"}
   envelope:  {"name": "polynomial", "exponent": 5}
   regress_forces: False
@@ -45,7 +45,7 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.0002
+  lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -62,11 +62,16 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  #src: "/project/Rithwik/MP_data_69K/raw/"
+  src: "/project/Rithwik/QM9/data.json"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
+  target_path:  
   #Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
+  pt_path: "/project/Rithwik/QM9/"
   #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
@@ -75,7 +80,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ase"
+  edge_calc_method: "mdl"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -86,11 +91,11 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
-    cutoff_radius : 8.0
+    cutoff_radius : 5.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
+  train_ratio: 0.8408
+  val_ratio: 0.0764
+  test_ratio: 0.0828
