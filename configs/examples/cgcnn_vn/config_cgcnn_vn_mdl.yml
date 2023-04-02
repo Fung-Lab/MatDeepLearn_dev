@@ -4,12 +4,12 @@ task:
   # run_mode: train
   identifier: "cgcnn_vn-50-neighbor-mdl"
   reprocess: False
-  run_id: "0rj1nqqh"
+  run_id: ""
   run_name: ""
   # run_name: "cgcnn_vn-50-neighbor-mdl-2023-03-27-12-53-20" 
   checkpoint_dir: "."
   parallel: True
-  gpu: "cuda:1"
+  gpu: "cuda:6"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -39,7 +39,7 @@ task:
 
 model:
   name: CGCNN_VN
-  load_model: True
+  load_model: False
   save_model: True
   model_path: "cgcnn_vn.pth"
   # model hyperparams
@@ -78,7 +78,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
@@ -93,7 +93,7 @@ dataset:
       args:
         virtual_box_increment: 3
         attrs: ["rr", "rv"]
-        rr_cutoff: 20.0
+        rr_cutoff: 12.0
         rv_cutoff: 5.0
       otf: False
   # use for passing into global config

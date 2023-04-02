@@ -349,11 +349,14 @@ class DataProcessor:
             if save:
                 if os.path.exists(self.pt_path):
                     logging.warn("Found existing processed data dir with same name, creating new dir.")
+                    original_path = self.pt_path
                     idx = 1
-                    while os.path.exists(self.pt_path + "_" + str(idx)):
-                        self.pt_path = self.pt_path + "_" + str(idx)
+                    while os.path.exists(original_path + "_" + str(idx)):
                         idx += 1
-                    os.mkdir(self.pt_path, exist_ok=False)
+                        self.pt_path = original_path + "_" + str(idx)
+                    else:
+                        self.pt_path = original_path + "_" + str(idx)
+                    os.mkdir(self.pt_path)
                 if self.pt_path:
                     if not os.path.exists(self.pt_path):
                         os.mkdir(self.pt_path)

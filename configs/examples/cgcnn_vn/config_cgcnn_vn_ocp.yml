@@ -23,6 +23,7 @@ task:
       - "model.hyperparams.mp_pattern"
       - "model.hyperparams.pool"
       - "model.hyperparams.virtual_pool"
+      - "model.hyperparams.gc_count"
       - "optim.lr"
       - "optim.batch_size"
       - "optim.max_epochs"
@@ -64,7 +65,7 @@ model:
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "RealVirtualPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr", "rv"], ["rr", "rv"], ["rr", "rv"], ["rr", "rv"]]
+    mp_pattern: [["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -87,11 +88,11 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/nonsense"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -101,9 +102,10 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        attrs: ["rr", "rv"]
+        attrs: ["rr", "rv", "vv"]
         rr_cutoff: 5.0
         rv_cutoff: 5.0
+        vv_cutoff: 5.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
@@ -119,7 +121,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 50
-    edge_calc_method: "mdl"
+    edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25
     all_neighbors: True

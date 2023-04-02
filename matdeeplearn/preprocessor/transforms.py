@@ -54,7 +54,7 @@ class VirtualNodes(object):
         self,
         **kwargs,
     ):
-        self.device = torch.device("cpu")
+        self.device = torch.device(kwargs.get("device", "cpu"))
         # attrs that remain the same for all cases
         self.keep_attrs = [
             "x",
@@ -79,8 +79,11 @@ class VirtualNodes(object):
             data.cell2, self.kwargs.get("virtual_box_increment"), self.device
         )
 
-        data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
-        data.z = torch.cat((data.o_z, virtual_z), dim=0)
+        try:
+            data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
+            data.z = torch.cat((data.o_z, virtual_z), dim=0)
+        except AttributeError:
+            pass
 
         # TODO figure out how to resolve neighbors for different MP interactions
         for attr in self.kwargs.get("attrs"):

@@ -402,10 +402,9 @@ class BaseTrainer(ABC):
 
     def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
-
         # Load params from checkpoint
         checkpoint_file = None
-        if wandb.run.resumed:
+        if wandb.run and wandb.run.resumed:
             checkpoint_obj = wandb.restore("checkpoint.pt")
             if checkpoint_obj:
                 checkpoint_file = checkpoint_obj.name

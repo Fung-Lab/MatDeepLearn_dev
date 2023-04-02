@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:7"
+  gpu: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,8 +17,21 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "edge_steps=25, heterogeneous"
+    notes: "Try gc_count=8"
     tags: ["test"]
+    track_params:
+      - "model.hyperparams.mp_pattern"
+      - "model.hyperparams.pool"
+      - "model.hyperparams.virtual_pool"
+      - "model.hyperparams.gc_count"
+      - "optim.lr"
+      - "optim.batch_size"
+      - "optim.max_epochs"
+      - "dataset.preprocess_params.num_offsets"
+      - "dataset.preprocess_params.edge_calc_method"
+      - "dataset.preprocess_params.all_neighbors"
+      - "dataset.preprocess_params.edge_steps"
+      - "dataset.preprocess_params.use_degree"
     log_artifacts:
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg.yml"
         name: "train config"
@@ -47,7 +60,7 @@ model:
     dim2: 150
     atomic_intermediate_layer_resolution: 0
     pre_fc_count: 1
-    gc_count: 4
+    gc_count: 8
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
@@ -75,11 +88,11 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp-vn-2"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
