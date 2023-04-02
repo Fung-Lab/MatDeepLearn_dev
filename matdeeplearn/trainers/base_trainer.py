@@ -104,7 +104,8 @@ class BaseTrainer(ABC):
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
             )
             logging.info(
-                f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), allocated memory: {torch.cuda.memory_allocated(device) * 1e-6} mb"
+                f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), \
+                available memory: {1e-6 * (torch.cuda.memory_reserved(device) - torch.cuda.memory_allocated(device))} mb"
             )
             logging.info(f"Dataset used: {self.dataset}")
             logging.debug(self.dataset[0])
@@ -183,7 +184,7 @@ class BaseTrainer(ABC):
         dataset_path = dataset_config["pt_path"]
 
         # search for a metadata match, else use provided path
-        if not dataset_config["processed"]:
+        if dataset_config["processed"]:
             data_dir = pathlib.Path(dataset_path).parent
             found = False
             for proc_dir in data_dir.glob("**/"):
@@ -197,6 +198,7 @@ class BaseTrainer(ABC):
                                 "Found existing processed data with matching metadata. Loading..."
                             )
                             dataset_path = proc_dir
+                            found = True
                             break
                     except FileNotFoundError:
                         continue
