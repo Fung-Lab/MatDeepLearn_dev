@@ -24,7 +24,7 @@ model:
   self_loop: True
   # model attributes
   num_targets: 1
-  use_pbc: True
+  use_pbc: False
   regress_forces: False
   hidden_channels: 128
   num_blocks: 4
@@ -45,7 +45,7 @@ model:
   activation: "relu"
 
 optim:
-  max_epochs: 250
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper

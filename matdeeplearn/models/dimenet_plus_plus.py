@@ -371,12 +371,15 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         #data.neighbors = neighbors
         j, i = data.edge_index
         dist = data.distances
-
-        idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
-            data.edge_index,
-            data.cell_offsets,
-            num_nodes=data.z.size(0),
-        )
+        if (data.cell_offsets == None):
+                _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(data.edge_index, num_nodes=data.z.size(0))
+        else:
+            idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
+                data.edge_index,
+                data.cell_offsets,
+                num_nodes=data.z.size(0),
+            )
+        
         offsets = data.cell_offsets
 
         # Calculate angles.
