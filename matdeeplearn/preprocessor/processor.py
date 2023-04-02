@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import torch
+import pathlib
 import wandb
 from ase import io
 from torch_geometric.data import Data, InMemoryDataset
@@ -185,6 +186,13 @@ class DataProcessor:
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
 
+        # construct metadata signature
+        self.metadata = self.preprocess_kwargs
+        # find non-OTF transforms
+        transforms = [t.get("args") for t in self.transforms if not t.get("otf")]
+        for t_args in transforms:
+            self.metadata.update(t_args)
+
     def src_check(self):
         if self.target_file_path:
             logging.debug("ASE wrap")
@@ -312,19 +320,49 @@ class DataProcessor:
     def process(self, save=True):
         logging.info("Data found at {}".format(self.root_path))
         logging.info("Processing device: {}".format(self.device))
+        logging.info("Checking for existing processed data with matching metadata...")
 
-        dict_structures, y = self.src_check()
-        data_list = self.get_data_list(dict_structures, y)
-        data, slices = InMemoryDataset.collate(data_list)
+        found_existing = False
+        data_dir = pathlib.Path(self.pt_path)
+        for proc_dir in data_dir.glob("**/"):
+            if proc_dir.is_dir():
+                try:
+                    with open(proc_dir / "metadata.json", "r") as f:
+                        metadata = json.load(f)
+                    # check for matching metadata of processed datasets
+                    if metadata == self.metadata:
+                        logging.info(
+                            "Found existing processed data with matching metadata. Loading..."
+                        )
+                        self.save_path = proc_dir / "data.pt"
+                        found_existing = True
+                        break
+                except FileNotFoundError:
+                    continue
 
-        if save:
-            if self.pt_path:
-                save_path = os.path.join(self.pt_path, "data.pt")
+        if not found_existing:
+            logging.info("No existing processed data found. Processing...")
+            dict_structures, y = self.src_check()
+            data_list = self.get_data_list(dict_structures, y)
+            data, slices = InMemoryDataset.collate(data_list)
 
-            torch.save((data, slices), save_path)
-            logging.info("Processed data saved successfully.")
-
-        return data_list
+            if save:
+                if os.path.exists(self.pt_path):
+                    logging.warn("Found existing processed data dir with same name, creating new dir.")
+                    idx = 1
+                    while os.path.exists(self.pt_path + "_" + str(idx)):
+                        self.pt_path = self.pt_path + "_" + str(idx)
+                        idx += 1
+                    os.mkdir(self.pt_path, exist_ok=False)
+                if self.pt_path:
+                    if not os.path.exists(self.pt_path):
+                        os.mkdir(self.pt_path)
+                    save_path = os.path.join(self.pt_path, "data.pt")
+                torch.save((data, slices), save_path)
+                # save metadata
+                with open(os.path.join(self.pt_path, "metadata.json"), "w") as f:
+                    json.dump(self.metadata, f)
+                logging.info("Processed data saved successfully.")
 
     def get_data_list(self, dict_structures, y):
         n_structures = len(dict_structures)
@@ -414,7 +452,6 @@ class DataProcessor:
                 data.y = torch.Tensor(np.array([target_val]))
                 data.z = atomic_numbers
                 data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-
                 data.structure_id = [[structure_id] * len(data.y)]
 
                 # add additional attributes
@@ -424,14 +461,19 @@ class DataProcessor:
 
             if self.use_wandb:
                 wandb.log({"process_times": t.elapsed})
-                
+
         if self.apply_pre_transform_processing:
             logging.info("Generating node features...")
             generate_node_features(
-                data_list, self.n_neighbors, device=self.device, use_degree=self.use_degree
+                data_list,
+                self.n_neighbors,
+                device=self.device,
+                use_degree=self.use_degree,
             )
             logging.info("Generating edge features...")
-            generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+            generate_edge_features(
+                data_list, self.edge_steps, self.r, device=self.device
+            )
 
         # compile non-otf transforms
         logging.info("Applying transforms.")

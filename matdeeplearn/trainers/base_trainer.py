@@ -6,7 +6,9 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import torch
+import json
 import torch.optim as optim
+import pathlib
 from matplotlib import pyplot as plt
 import wandb
 from torch import nn
@@ -121,7 +123,20 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        dataset = cls._load_dataset(config["dataset"])
+        dataset_config = config["dataset"]
+
+        # find a matching dataset metadata signature
+        metadata = dataset_config.get("preprocess_params", {})
+        # find non-OTF transforms
+        transforms = [
+            t.get("args")
+            for t in dataset_config.get("transforms", {})
+            if not t.get("otf")
+        ]
+        for t_args in transforms:
+            metadata.update(t_args)
+
+        dataset = cls._load_dataset(dataset_config, metadata)
         model = cls._load_model(config["model"], dataset, config["task"]["wandb"])
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset)
@@ -163,9 +178,38 @@ class BaseTrainer(ABC):
         )
 
     @staticmethod
-    def _load_dataset(dataset_config):
+    def _load_dataset(dataset_config, metadata):
         """Loads the dataset if from a config file."""
         dataset_path = dataset_config["pt_path"]
+
+        # search for a metadata match, else use provided path
+        if not dataset_config["processed"]:
+            data_dir = pathlib.Path(dataset_path).parent
+            found = False
+            for proc_dir in data_dir.glob("**/"):
+                if proc_dir.is_dir():
+                    try:
+                        with open(proc_dir / "metadata.json", "r") as f:
+                            found_metadata = json.load(f)
+                        # check for matching metadata of processed datasets
+                        if found_metadata == metadata:
+                            logging.info(
+                                "Found existing processed data with matching metadata. Loading..."
+                            )
+                            dataset_path = proc_dir
+                            break
+                    except FileNotFoundError:
+                        continue
+
+            if not found:
+                logging.info(
+                    "No existing processed data with matching metadata found. Defaulting to config..."
+                )
+
+        if not os.path.exists(os.path.join(dataset_path, "data.pt")):
+            raise FileNotFoundError(
+                f"Dataset path {dataset_path} does not exist. Specify processed=False in config to process data."
+            )
 
         dataset = get_dataset(
             dataset_path,

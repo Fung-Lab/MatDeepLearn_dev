@@ -865,7 +865,7 @@ def generate_virtual_nodes(
     ar3 = torch.arange(0, 1, increment / c)
 
     # use meshgrid to obtain x,y,z, coordinates for the virtual atoms
-    xx, yy, zz = torch.meshgrid(ar1[:], ar2[:], ar3[:])
+    xx, yy, zz = torch.meshgrid([ar1[:], ar2[:], ar3[:]], indexing="ij")
     coords = torch.stack([xx.flatten(), yy.flatten(), zz.flatten()], dim=-1)
 
     """
