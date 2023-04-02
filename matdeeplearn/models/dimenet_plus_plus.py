@@ -14,7 +14,7 @@ from torch_geometric.nn.models.dimenet import (
 from torch_geometric.nn.resolver import activation_resolver
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
-from matdeeplearn.preprocessor.helpers import triplets
+from matdeeplearn.preprocessor.helpers import triplets, tripletsOld
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
@@ -377,7 +377,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
                 data.cell_offsets,
                 num_nodes=data.z.size(0),)
         except:
-            _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(data.edge_index, num_nodes=data.z.size(0))
+            _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = tripletsOld(data.edge_index, num_nodes=data.z.size(0))
         
         try:
             offsets = data.cell_offsets
