@@ -490,7 +490,7 @@ def generate_edge_features(input_data, edge_steps, r, device):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
         )
-def triplets(
+def tripletsOld(
     edge_index,
     num_nodes,
 ):
