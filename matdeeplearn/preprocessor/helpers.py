@@ -491,9 +491,9 @@ def generate_edge_features(input_data, edge_steps, r, device):
             input_data[i].edge_descriptor["distance"]
         )
 def triplets(
-    edge_index: Tensor,
-    num_nodes: int,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+    edge_index,
+    num_nodes,
+):
     row, col = edge_index  # j->i
 
     value = torch.arange(row.size(0), device=row.device)
