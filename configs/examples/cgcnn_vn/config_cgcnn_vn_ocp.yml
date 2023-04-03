@@ -88,7 +88,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False # if False, need to preprocessor data and generate .pt file
+  processed: True # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""

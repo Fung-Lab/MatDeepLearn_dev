@@ -323,7 +323,7 @@ class DataProcessor:
         logging.info("Checking for existing processed data with matching metadata...")
 
         found_existing = False
-        data_dir = pathlib.Path(self.pt_path)
+        data_dir = pathlib.Path(self.pt_path).parent
         for proc_dir in data_dir.glob("**/"):
             if proc_dir.is_dir():
                 try:
