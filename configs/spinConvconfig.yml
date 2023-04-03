@@ -28,17 +28,17 @@ model:
   regress_forces: False
   otf_graph: False
   hidden_channels: 32
-  mid_hidden_channels: 200
-  num_interactions: 1
-  num_basis_functions: 200
+  mid_hidden_channels: 256
+  num_interactions: 3
+  num_basis_functions: 512
   basis_width_scalar: 1.0
-  max_num_neighbors: 20
-  sphere_size_lat: 15
-  sphere_size_long: 9
-  cutoff: 10.0
+  max_num_neighbors: 30
+  sphere_size_lat: 12
+  sphere_size_long: 8
+  cutoff: 6.0
   distance_block_scalar_max: 2.0
-  max_num_elements: 90
-  embedding_size: 32
+  max_num_elements: 100
+  embedding_size: 8
   show_timing_info: False
   sphere_message: "fullconv"
   output_message: "fullconv"
@@ -54,7 +54,7 @@ model:
   act: "relu"
 
 optim:
-  max_epochs: 250
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -73,11 +73,16 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  #src: "/project/Rithwik/MP_data_69K/raw/"
+  src: "/project/Rithwik/QM9/data.json"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
+  target_path:  
   #Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
+  pt_path: "/project/Rithwik/QM9/"
   #Format of data files (limit to those supported by ASE)
   transforms:
     - name: GetY
@@ -102,6 +107,6 @@ dataset:
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
+  train_ratio: 0.8408
+  val_ratio: 0.0764
+  test_ratio: 0.0828
