@@ -16,37 +16,41 @@ task:
   verbosity: 5
 
 model:
-  name: ALIGNN
+  name: Matformer
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  alignn_layers: 4
-  gcn_layers: 4
-  atom_input_features: 114
-  edge_input_features: 80
+  conv_layers: 5
+  edge_layers: 0
+  atom_input_features: 92
+  edge_features: 128
   triplet_input_features: 40
-  embedding_features: 64
-  hidden_features: 256
+  node_features: 128
+  fc_layers: 1
+  fc_features: 128
   output_features: 1
-  min_edge_distance: 0.0
-  max_edge_distance: 8.0
-  min_angle: 0.0
-  max_angle: 3.14159274
+  node_layer_head: 4
+  edge_layer_head: 4
+  nn_based: False
   link: "identity"
+  zero_inflated: False
+  use_angle: False
+  angle_lattice: False
+  classification: False
 
 optim:
   max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 64
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -57,15 +61,15 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
   #src: "/project/Rithwik/OC_20/data.json"
   # Path to target file within data_path
-  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  target_path:
+  #target_path:
   # Path to save processed data.pt file
-  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
+  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
   #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
   #pt_path: "/project/Rithwik/OC_20/"
   transforms:
@@ -93,6 +97,6 @@ dataset:
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8665
-  val_ratio: 0.0722
-  test_ratio: 0.0613
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
