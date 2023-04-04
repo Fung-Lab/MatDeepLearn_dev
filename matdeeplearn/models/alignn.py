@@ -35,8 +35,8 @@ class ALIGNN(BaseModel):
         super().__init__()
 
         # utilizing data object
-        atom_input_features = float(data.num_features)
-        edge_input_features = float(data.num_edge_features)
+        atom_input_features = data.num_features
+        edge_input_features = data.num_edge_features
 
         self.atom_embedding = EmbeddingLayer(atom_input_features, hidden_features)
 
@@ -88,6 +88,7 @@ class ALIGNN(BaseModel):
 
     def forward(self, g: Data):
         # initial node features
+        g.x = g.x.to(dtype=torch.float)
         node_feats = self.atom_embedding(g.x)
         # initial bond features
         edge_attr = self.edge_embedding(g.edge_attr)
