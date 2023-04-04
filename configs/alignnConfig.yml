@@ -34,7 +34,7 @@ model:
   min_edge_distance: 0.0
   max_edge_distance: 8.0
   min_angle: 0.0
-  max_angle:
+  max_angle: 3.14159274
   link: "identity"
 
 optim:
