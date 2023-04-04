@@ -35,8 +35,8 @@ class ALIGNN(BaseModel):
         super().__init__()
 
         # utilizing data object
-        atom_input_features = data.num_features
-        edge_input_features = data.num_edge_features
+        atom_input_features = float(data.num_features)
+        edge_input_features = float(data.num_edge_features)
 
         self.atom_embedding = EmbeddingLayer(atom_input_features, hidden_features)
 
