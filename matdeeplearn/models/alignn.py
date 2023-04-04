@@ -16,6 +16,7 @@ from matdeeplearn.models.base_model import BaseModel
 class ALIGNN(BaseModel):
     def __init__(
         self,
+        data,
         alignn_layers: int = 4,
         gcn_layers: int = 4,
         atom_input_features: int = 114,
@@ -34,8 +35,8 @@ class ALIGNN(BaseModel):
         super().__init__()
 
         # utilizing data object
-        # atom_input_features = data.num_features
-        # edge_input_features = data.num_edge_features
+        atom_input_features = data.num_features
+        edge_input_features = data.num_edge_features
 
         self.atom_embedding = EmbeddingLayer(atom_input_features, hidden_features)
 
