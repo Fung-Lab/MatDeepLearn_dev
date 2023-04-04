@@ -93,7 +93,7 @@ def associated_legendre_polynomials(k, zero_m_only=True):
                         ((2 * j - 1) * z * P_l_m[j - 1][i] -
                          (i + j - 1) * P_l_m[j - 2][i]) / (j - i))
 
-    return 
+    return P_l_m
 
 def real_sph_harm(l, zero_m_only=False, spherical_coordinates=True):
     """
