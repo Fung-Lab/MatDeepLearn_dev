@@ -152,6 +152,7 @@ class Matformer(nn.Module):
 
     def forward(self, data) -> torch.Tensor:
         #data, ldata, lattice = data
+        data.x = data.x.to(dtype=torch.float)
         # initial node features: atom feature network...
         lattice = None
         node_features = self.atom_embedding(data.x)
