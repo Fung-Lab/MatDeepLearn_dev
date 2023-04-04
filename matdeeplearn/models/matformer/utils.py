@@ -42,7 +42,7 @@ def spherical_bessel_formulas(n):
         b = sym.diff(a, x) / x
         f += [sym.simplify(b * (-x)**i)]
         a = sym.simplify(b)
-    return 
+    return f
 
 def bessel_basis(n, k):
     zeros = Jn_zeros(n, k)
