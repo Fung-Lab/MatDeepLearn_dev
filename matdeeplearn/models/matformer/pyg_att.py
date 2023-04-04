@@ -12,7 +12,7 @@ from matdeeplearn.models.matformer.utils import angle_emb_mp
 from torch_scatter import scatter
 from matdeeplearn.models.matformer.transformer import MatformerConv
 
-
+@registry.register_model("Matformer")
 class Matformer(nn.Module):
     """att pyg implementation."""
 
@@ -36,6 +36,7 @@ class Matformer(nn.Module):
         use_angle: bool = False,
         angle_lattice: bool = False,
         classification: bool = False,
+        **kwargs
     ):
         """Set up att modules."""
         super().__init__()
@@ -148,9 +149,9 @@ class Matformer(nn.Module):
             self.link = torch.sigmoid
 
     def forward(self, data) -> torch.Tensor:
-        data, ldata, lattice = data
+        #data, ldata, lattice = data
         # initial node features: atom feature network...
-            
+        lattice = None
         node_features = self.atom_embedding(data.x)
         edge_feat = torch.norm(data.edge_attr, dim=1)
         
@@ -172,7 +173,7 @@ class Matformer(nn.Module):
 
 
         # crystal-level readout
-        features = scatter(node_features, data.batch, dim=0, reduce="mean")
+        features = scatter(node_features, data.batch, dim=0, reduce="add")
 
         if self.angle_lattice:
             # features *= F.sigmoid(lattice_emb)
