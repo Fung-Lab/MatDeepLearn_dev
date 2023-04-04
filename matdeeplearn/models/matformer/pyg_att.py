@@ -192,5 +192,6 @@ class Matformer(nn.Module):
             out = self.softmax(out)
 
         return torch.squeeze(out)
-
-
+    @property
+    def target_attr(self):
+        return "y"
