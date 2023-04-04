@@ -29,6 +29,7 @@ class ALIGNN(BaseModel):
         min_angle: float = 0.0,
         max_angle: float = torch.acos(torch.zeros(1)).item() * 2,
         link: Literal["identity", "log", "logit"] = "identity",
+        **kwargs,
     ) -> None:
         super().__init__()
 
