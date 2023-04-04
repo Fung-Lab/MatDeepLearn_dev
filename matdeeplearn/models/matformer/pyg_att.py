@@ -12,6 +12,8 @@ from matdeeplearn.models.matformer.utils import angle_emb_mp
 from torch_scatter import scatter
 from matdeeplearn.models.matformer.transformer import MatformerConv
 
+from matdeeplearn.common.registry import registry
+
 @registry.register_model("Matformer")
 class Matformer(nn.Module):
     """att pyg implementation."""
