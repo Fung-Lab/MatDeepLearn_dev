@@ -24,7 +24,7 @@ class Runner:  # submitit.helpers.Checkpointable):
     def __init__(self):
         self.config = None
 
-    def __call__(self, config):
+    def __call__(self, config, args):
         with new_trainer_context(args=args, config=config) as ctx:
             self.config = ctx.config
             self.task = ctx.task
@@ -82,13 +82,16 @@ def wandb_setup(config):
         sweep_path = sweep_config.get("sweep_path", None)
         with open(sweep_path, "r") as ymlfile:
             sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
-
         params = sweep_config.get("parameters", {})
-
         sweep_id = wandb.sweep(
             sweep_config,
             project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
         )
+        sweep_count = sweep_config.get("count", 3)
+        logging.info(
+            f"Starting sweep with id: {sweep_id} with max count of {sweep_count} runs."
+        )
+        wandb.agent(sweep_id, function=Runner(), count=sweep_count)
 
     # update config with chosen parameters from config (to avoid clutter)
     track_params = [
@@ -134,7 +137,12 @@ def wandb_setup(config):
         wandb.save(artifact["path"])
 
 
-if __name__ == "__main__":
+def main():
+    """Entrypoint for MatDeepLearn inference tasks
+
+    Args:
+        argv (dict): main function arguments
+    """
     # setup_logging()
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
@@ -159,5 +167,10 @@ if __name__ == "__main__":
         # TODO: add setup to submit to cluster
         pass
 
-    else:  # Run locally
-        Runner()(config)
+    # Run locally if we do not perform a sweep
+    elif not config["task"]["wandb"]["sweep"]["do_sweep"]:
+        Runner()(config, args)
+
+
+if __name__ == "__main__":
+    main()

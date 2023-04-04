@@ -88,7 +88,6 @@ class VirtualNodes(object):
         # TODO figure out how to resolve neighbors for different MP interactions
         for attr in self.kwargs.get("attrs"):
             cutoff = self.kwargs.get(f"{attr}_cutoff")
-
             # compute edges
             edge_gen_out = calculate_edges_master(
                 self.kwargs.get("edge_calc_method"),

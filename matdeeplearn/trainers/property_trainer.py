@@ -212,6 +212,11 @@ class PropertyTrainer(BaseTrainer):
 
         predictions = np.column_stack((ids, target, predict))
 
+        # log prediction error for each split to W&B
+        mean_absolute_error = np.mean(np.abs(target - predict))
+        if self.use_wandb:
+            wandb.log({f"{split}_prediction_error": mean_absolute_error})
+
         self.save_results(
             predictions, f"{split}_predictions.csv", node_level_predictions
         )

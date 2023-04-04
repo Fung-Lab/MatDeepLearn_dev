@@ -3,107 +3,22 @@
 program: scripts/main.py
 method: random
 metric:
-    name: val_loss
+    name: test_loss
     goal: minimize
 
 parameters:
-    pool:
-        values: ['global_mean_pool', 'global_max_pool', 'global_add_pool']
-    virtual_pool:
-        values: ['AtomicNumberPooling', 'AtomicNumberPooling', 'None']
-    virtual_box_increment: 
-      min: 1.0
-      max: 5.0
+    # virtual_box_increment: 
+    #   min: 1.0
+    #   max: 5.0
     rv_cutoff:
-      min: 6.0
+      min: 5.0
       max: 12.0
     rr_cutoff: 
-      min: 6.0
+      min: 5.0
       max: 12.0
-    neighbors: 
-      value: 50
-    mp_pattern:
-        values:
-            [
-                [['rr'], ['rr'], ['rr'], ['rr']],
-                [['rr'], ['rr'], ['rr'], ['rv']],
-                [['rr'], ['rr'], ['rr'], ['rr', 'rv']],
-                [['rr'], ['rr'], ['rv'], ['rr']],
-                [['rr'], ['rr'], ['rv'], ['rv']],
-                [['rr'], ['rr'], ['rv'], ['rr', 'rv']],
-                [['rr'], ['rr'], ['rr', 'rv'], ['rr']],
-                [['rr'], ['rr'], ['rr', 'rv'], ['rv']],
-                [['rr'], ['rr'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rr'], ['rv'], ['rr'], ['rr']],
-                [['rr'], ['rv'], ['rr'], ['rv']],
-                [['rr'], ['rv'], ['rr'], ['rr', 'rv']],
-                [['rr'], ['rv'], ['rv'], ['rr']],
-                [['rr'], ['rv'], ['rv'], ['rv']],
-                [['rr'], ['rv'], ['rv'], ['rr', 'rv']],
-                [['rr'], ['rv'], ['rr', 'rv'], ['rr']],
-                [['rr'], ['rv'], ['rr', 'rv'], ['rv']],
-                [['rr'], ['rv'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rr'], ['rr', 'rv'], ['rr'], ['rr']],
-                [['rr'], ['rr', 'rv'], ['rr'], ['rv']],
-                [['rr'], ['rr', 'rv'], ['rr'], ['rr', 'rv']],
-                [['rr'], ['rr', 'rv'], ['rv'], ['rr']],
-                [['rr'], ['rr', 'rv'], ['rv'], ['rv']],
-                [['rr'], ['rr', 'rv'], ['rv'], ['rr', 'rv']],
-                [['rr'], ['rr', 'rv'], ['rr', 'rv'], ['rr']],
-                [['rr'], ['rr', 'rv'], ['rr', 'rv'], ['rv']],
-                [['rr'], ['rr', 'rv'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rv'], ['rr'], ['rr'], ['rr']],
-                [['rv'], ['rr'], ['rr'], ['rv']],
-                [['rv'], ['rr'], ['rr'], ['rr', 'rv']],
-                [['rv'], ['rr'], ['rv'], ['rr']],
-                [['rv'], ['rr'], ['rv'], ['rv']],
-                [['rv'], ['rr'], ['rv'], ['rr', 'rv']],
-                [['rv'], ['rr'], ['rr', 'rv'], ['rr']],
-                [['rv'], ['rr'], ['rr', 'rv'], ['rv']],
-                [['rv'], ['rr'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rv'], ['rv'], ['rr'], ['rr']],
-                [['rv'], ['rv'], ['rr'], ['rv']],
-                [['rv'], ['rv'], ['rr'], ['rr', 'rv']],
-                [['rv'], ['rv'], ['rv'], ['rr']],
-                [['rv'], ['rv'], ['rv'], ['rv']],
-                [['rv'], ['rv'], ['rv'], ['rr', 'rv']],
-                [['rv'], ['rv'], ['rr', 'rv'], ['rr']],
-                [['rv'], ['rv'], ['rr', 'rv'], ['rv']],
-                [['rv'], ['rv'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rv'], ['rr', 'rv'], ['rr'], ['rr']],
-                [['rv'], ['rr', 'rv'], ['rr'], ['rv']],
-                [['rv'], ['rr', 'rv'], ['rr'], ['rr', 'rv']],
-                [['rv'], ['rr', 'rv'], ['rv'], ['rr']],
-                [['rv'], ['rr', 'rv'], ['rv'], ['rv']],
-                [['rv'], ['rr', 'rv'], ['rv'], ['rr', 'rv']],
-                [['rv'], ['rr', 'rv'], ['rr', 'rv'], ['rr']],
-                [['rv'], ['rr', 'rv'], ['rr', 'rv'], ['rv']],
-                [['rv'], ['rr', 'rv'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rr'], ['rr'], ['rr']],
-                [['rr', 'rv'], ['rr'], ['rr'], ['rv']],
-                [['rr', 'rv'], ['rr'], ['rr'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rr'], ['rv'], ['rr']],
-                [['rr', 'rv'], ['rr'], ['rv'], ['rv']],
-                [['rr', 'rv'], ['rr'], ['rv'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rr'], ['rr', 'rv'], ['rr']],
-                [['rr', 'rv'], ['rr'], ['rr', 'rv'], ['rv']],
-                [['rr', 'rv'], ['rr'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rv'], ['rr'], ['rr']],
-                [['rr', 'rv'], ['rv'], ['rr'], ['rv']],
-                [['rr', 'rv'], ['rv'], ['rr'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rv'], ['rv'], ['rr']],
-                [['rr', 'rv'], ['rv'], ['rv'], ['rv']],
-                [['rr', 'rv'], ['rv'], ['rv'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rv'], ['rr', 'rv'], ['rr']],
-                [['rr', 'rv'], ['rv'], ['rr', 'rv'], ['rv']],
-                [['rr', 'rv'], ['rv'], ['rr', 'rv'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rr'], ['rr']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rr'], ['rv']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rr'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rv'], ['rr']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rv'], ['rv']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rv'], ['rr', 'rv']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rr', 'rv'], ['rr']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rr', 'rv'], ['rv']],
-                [['rr', 'rv'], ['rr', 'rv'], ['rr', 'rv'], ['rr', 'rv']]
-            ]
+    vr_cutoff:
+      min: 5.0
+      max: 12.0
+    vv_cutoff:
+      min: 5.0
+      max: 12.0

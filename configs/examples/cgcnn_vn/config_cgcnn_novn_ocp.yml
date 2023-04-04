@@ -2,11 +2,11 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-all-neighbor-OCP"
+  identifier: "cgcnn_novn-all-neighbor-OCP"
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:1"
+  gpu: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,8 +17,8 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "test RV pooling (virtual)"
-    tags: ["test"]
+    notes: "New baseline for no-vn, all-neighbor, OCP"
+    tags: ["baseline"]
     track_params:
       - "model.hyperparams.mp_pattern"
       - "model.hyperparams.pool"
@@ -32,9 +32,6 @@ task:
       - "dataset.preprocess_params.all_neighbors"
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
-      - "dataset.transforms" # need for sweeps
-      - "dataset.preprocess_params" # need for sweeps
-      - "model.hyperparams" # need for sweeps
     log_artifacts:
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
         name: "train config"
@@ -48,7 +45,6 @@ task:
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
-      count: 5
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
@@ -66,10 +62,10 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "RealVirtualPooling" # pooling method
+    pool: "global_mean_pool" # pooling reduction scheme, none for no-vn case
+    virtual_pool: "" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"]]
+    mp_pattern: [["rr"],["rr"],["rr"],["rr"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -106,15 +102,13 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        attrs: ["rr", "rv", "vr", "vv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
-        vv_cutoff: 5.0
+        attrs: ["rr"]
+        rr_cutoff: 40.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
   use_sweep_params: False
-  apply_pre_transform_processing: False
+  apply_pre_transform_processing: True
   # use again for passing into global config
   data_format: "json"
   node_representation: "onehot"
@@ -124,7 +118,7 @@ dataset:
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
     cutoff_radius : 5.0
-    n_neighbors : 50
+    n_neighbors : 250
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25

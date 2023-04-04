@@ -104,7 +104,7 @@ class BaseTrainer(ABC):
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
             )
             logging.info(
-                f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "\
+                f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
                 f"available memory: {1e-6 * torch.cuda.mem_get_info(device)[0]} mb"
             )
             logging.info(f"Dataset used: {self.dataset}")
@@ -138,7 +138,13 @@ class BaseTrainer(ABC):
             metadata.update(t_args)
 
         dataset = cls._load_dataset(dataset_config, metadata)
-        model = cls._load_model(config["model"], dataset, config["task"]["wandb"])
+        model = cls._load_model(
+            config["model"],
+            dataset,
+            wandb.config.get("hyperparams", None)
+            if wandb.run and config["wandb"]["sweep"]["do_sweep"]
+            else None,
+        )
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset)
         train_loader, val_loader, test_loader = cls._load_dataloader(
@@ -221,10 +227,15 @@ class BaseTrainer(ABC):
         return dataset
 
     @staticmethod
-    def _load_model(model_config, dataset, sweep_config: dict):
+    def _load_model(model_config, dataset, sweep_config: dict = None):
         """Loads the model if from a config file."""
         model_cls = registry.get_model_class(model_config["name"])
-        model = model_cls(data=dataset, **model_config["hyperparams"])
+        # use sweep if configured
+        model_params = model_config["hyperparams"] if not sweep_config else sweep_config
+        model = model_cls(
+            data=dataset,
+            **model_params,
+        )
         return model
 
     @staticmethod

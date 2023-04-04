@@ -24,34 +24,36 @@ from matdeeplearn.preprocessor.helpers import (
 
 
 def process_data(dataset_config, wandb_config):
+    # wandb config
+    use_sweep_params = wandb_config["sweep"].get("do_sweep", False)
+    use_wandb = wandb_config.get("use_wandb", False)
+
+    preprocess_kwargs = (
+        dataset_config["preprocess_params"]
+        if not use_sweep_params
+        else wandb.config.get("preprocess_params")
+    )
+
     root_path = dataset_config["src"]
     target_path = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
-    cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
-    n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
-    num_offsets = dataset_config["preprocess_params"]["num_offsets"]
-    edge_steps = dataset_config["preprocess_params"]["edge_steps"]
+    cutoff_radius = preprocess_kwargs["cutoff_radius"]
+    n_neighbors = preprocess_kwargs["n_neighbors"]
+    num_offsets = preprocess_kwargs["num_offsets"]
+    edge_steps = preprocess_kwargs["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
-    all_neighbors = dataset_config["preprocess_params"]["all_neighbors"]
-    use_degree = dataset_config["preprocess_params"]["use_degree"]
-    edge_calc_method = dataset_config["preprocess_params"].get(
-        "edge_calc_method", "mdl"
-    )
+    all_neighbors = preprocess_kwargs["all_neighbors"]
+    use_degree = preprocess_kwargs["use_degree"]
+    edge_calc_method = preprocess_kwargs.get("edge_calc_method", "mdl")
     apply_pre_transform_processing = dataset_config.get(
         "apply_pre_transform_processing", True
     )
     device: str = dataset_config.get("device", "cpu")
-
-    # wandb config
-    use_sweep_params = wandb_config["sweep"].get("do_sweep", False)
-    use_wandb = wandb_config.get("use_wandb", False)
-
-    preprocess_kwargs = dataset_config.get("preprocess_params", {})
 
     processor = DataProcessor(
         root_path=root_path,
@@ -348,7 +350,9 @@ class DataProcessor:
 
             if save:
                 if os.path.exists(self.pt_path):
-                    logging.warn("Found existing processed data dir with same name, creating new dir.")
+                    logging.warn(
+                        "Found existing processed data dir with same name, creating new dir."
+                    )
                     original_path = self.pt_path
                     idx = 1
                     while os.path.exists(original_path + "_" + str(idx)):
@@ -373,7 +377,7 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
-        # find the virtual nodes transform (workaround for now)
+        # replace the provided config transforms with the sweep params if applicable
         transforms = [
             (i, t)
             for (i, t) in enumerate(
@@ -382,6 +386,8 @@ class DataProcessor:
                 else self.transforms
             )
         ]
+
+        # find the virtual nodes transform (clunky workaround for now)
         virtual_nodes_transform = None
         for i, t in transforms:
             if t.get("name") == "VirtualNodes":
@@ -482,12 +488,6 @@ class DataProcessor:
         logging.info("Applying transforms.")
         transforms_list = []
         for transform in self.transforms:
-            # go through dict and overwrite with wandb config for sweep purposes
-            if self.use_sweep_params:
-                for key in transform["args"]:
-                    if key in wandb.config:
-                        transform["args"][key] = wandb.config[key]
-
             if not transform["otf"]:
                 transforms_list.append(
                     registry.get_transform_class(
