@@ -142,7 +142,7 @@ class BaseTrainer(ABC):
             config["model"],
             dataset,
             wandb.config.get("hyperparams", None)
-            if wandb.run and config["wandb"]["sweep"]["do_sweep"]
+            if wandb.run and config["task"]["wandb"]["sweep"]["do_sweep"]
             else None,
         )
         optimizer = cls._load_optimizer(config["optim"], model)

@@ -212,10 +212,21 @@ class PropertyTrainer(BaseTrainer):
 
         predictions = np.column_stack((ids, target, predict))
 
-        # log prediction error for each split to W&B
-        mean_absolute_error = np.mean(np.abs(target - predict))
+        # log prediction errors and parity plots for each split to W&B
         if self.use_wandb:
+            mean_absolute_error = np.mean(np.abs(target - predict))
+            parity = wandb.Table(
+                data=np.column_stack((target, predict)),
+                columns=["target", "prediction"],
+            )
             wandb.log({f"{split}_prediction_error": mean_absolute_error})
+            wandb.log(
+                {
+                    f"{split}_parity_plot": wandb.plot.line(
+                        parity, "target", "prediction", title=f"{split} Parity Plot"
+                    )
+                }
+            )
 
         self.save_results(
             predictions, f"{split}_predictions.csv", node_level_predictions
