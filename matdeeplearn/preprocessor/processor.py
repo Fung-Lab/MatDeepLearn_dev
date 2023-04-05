@@ -243,8 +243,10 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
+            if (len(s["atomic_numbers"]) == 1):
+                print(s)
+                continue
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-            print(s)
             if "cell" in s:
                 cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
                 if cell.shape[0] != 1:
