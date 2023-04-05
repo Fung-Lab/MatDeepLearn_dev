@@ -181,6 +181,7 @@ class DataProcessor:
         for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
+            print(pos)
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             ).view(1, 3, 3)
