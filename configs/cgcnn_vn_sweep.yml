@@ -1,10 +1,10 @@
 # hyperparameter sweep config for CGCNN_VN
-
-program: scripts/main.py
 method: random
 metric:
     name: test_loss
     goal: minimize
+
+count: 5
 
 parameters:
     # virtual_box_increment: 

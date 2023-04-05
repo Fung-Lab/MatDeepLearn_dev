@@ -32,9 +32,6 @@ task:
       - "dataset.preprocess_params.all_neighbors"
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
-      - "dataset.transforms" # need for sweeps
-      - "dataset.preprocess_params" # need for sweeps
-      - "model.hyperparams" # need for sweeps
     log_artifacts:
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
         name: "train config"
@@ -78,7 +75,7 @@ model:
     dropout_rate: 0.0
 
 optim:
-  max_epochs: 2
+  max_epochs: 3
   lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
@@ -92,7 +89,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: True # if False, need to preprocessor data and generate .pt file
+  processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""

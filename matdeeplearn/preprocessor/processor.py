@@ -13,6 +13,7 @@ from torch_geometric.transforms import Compose
 from tqdm import tqdm
 
 from matdeeplearn.common.registry import registry
+from matdeeplearn.common.utils import DictTools
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
@@ -24,15 +25,16 @@ from matdeeplearn.preprocessor.helpers import (
 
 
 def process_data(dataset_config, wandb_config):
-    # wandb config
-    use_sweep_params = wandb_config["sweep"].get("do_sweep", False)
     use_wandb = wandb_config.get("use_wandb", False)
+    # turn lists in config to pure dicts
+    DictTools._convert_to_list(dataset_config)
+    # modify config to reflect sweep parameters if being run
+    if use_wandb and wandb_config["sweep"].get("do_sweep", False):
+        sweep_params = wandb_config["sweep"].get("params", {})
+        for key in sweep_params:
+            DictTools._mod_recurse(dataset_config, key, wandb.config.get("key", None))
 
-    preprocess_kwargs = (
-        dataset_config["preprocess_params"]
-        if not use_sweep_params
-        else wandb.config.get("preprocess_params")
-    )
+    preprocess_kwargs = dataset_config["preprocess_params"]
 
     root_path = dataset_config["src"]
     target_path = dataset_config["target_path"]
@@ -63,7 +65,7 @@ def process_data(dataset_config, wandb_config):
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
         edge_steps=edge_steps,
-        transforms=dataset_config.get("transforms", []),
+        transforms=dataset_config.get("transforms", {}),
         data_format=data_format,
         image_selfloop=image_selfloop,
         self_loop=self_loop,
@@ -74,7 +76,6 @@ def process_data(dataset_config, wandb_config):
         use_degree=use_degree,
         edge_calc_method=edge_calc_method,
         apply_pre_transform_processing=apply_pre_transform_processing,
-        use_sweep_params=use_sweep_params,
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
         device=device,
@@ -93,7 +94,7 @@ class DataProcessor:
         n_neighbors: int,
         num_offsets: int,
         edge_steps: int,
-        transforms: list = [],
+        transforms: dict = [],
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
@@ -104,7 +105,6 @@ class DataProcessor:
         use_degree: bool = False,
         edge_calc_method: str = "mdl",
         apply_pre_transform_processing: bool = True,
-        use_sweep_params: bool = False,
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
         device: str = "cpu",
@@ -137,8 +137,8 @@ class DataProcessor:
             otf: bool
                 default False. Whether or not to transform the data on the fly.
 
-            transforms: list
-                default []. List of transforms to apply to the data.
+            transforms: dict
+                default {}. index-dict of transforms to apply to the data.
 
             data_format: str
                 format of the raw data file
@@ -181,7 +181,6 @@ class DataProcessor:
         self.use_degree = use_degree
         self.edge_calc_method = edge_calc_method
         self.apply_pre_transform_processing = apply_pre_transform_processing
-        self.use_sweep_params = use_sweep_params
         self.use_wandb = use_wandb
         self.preprocess_kwargs = preprocess_kwargs
         self.device = device
@@ -191,7 +190,7 @@ class DataProcessor:
         # construct metadata signature
         self.metadata = self.preprocess_kwargs
         # find non-OTF transforms
-        transforms = [t.get("args") for t in self.transforms if not t.get("otf")]
+        transforms = [t.get("args") for t in self.transforms.values() if not t.get("otf")]
         for t_args in transforms:
             self.metadata.update(t_args)
 
@@ -377,17 +376,9 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
-        # replace the provided config transforms with the sweep params if applicable
-        transforms = [
-            (i, t)
-            for (i, t) in enumerate(
-                wandb.config.get("transforms")
-                if self.use_sweep_params
-                else self.transforms
-            )
-        ]
+        transforms = [(i, t) for (i, t) in enumerate(self.transforms.values())]
 
-        # find the virtual nodes transform (clunky workaround for now)
+        # find the virtual nodes transform (temporary workaround for now)
         virtual_nodes_transform = None
         for i, t in transforms:
             if t.get("name") == "VirtualNodes":
@@ -487,7 +478,7 @@ class DataProcessor:
         # compile non-otf transforms
         logging.info("Applying transforms.")
         transforms_list = []
-        for transform in self.transforms:
+        for transform in self.transforms.values():
             if not transform["otf"]:
                 transforms_list.append(
                     registry.get_transform_class(
@@ -502,7 +493,6 @@ class DataProcessor:
         for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
             with PerfTimer() as t:
                 data_list[i] = composition(data)
-
             if self.use_wandb:
                 wandb.log({"transforms_times": t.elapsed})
 

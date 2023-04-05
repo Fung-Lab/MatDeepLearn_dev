@@ -32,9 +32,6 @@ task:
       - "dataset.preprocess_params.all_neighbors"
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
-      - "dataset.transforms" # need for sweeps
-      - "dataset.preprocess_params" # need for sweeps
-      - "model.hyperparams" # need for sweeps
     log_artifacts:
       - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
         name: "train config"

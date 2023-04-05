@@ -44,3 +44,50 @@ def min_alloc_gpu(device: str = None):
             device = torch.device(f"cuda:{i}")
 
     return device
+
+class DictTools:
+    """Useful static dict tools for working with nested dicts"""
+
+    @staticmethod
+    def _get_nested(data, *args):
+        if args and data:
+            element = args[0]
+            if element and element in data:
+                value = data.get(element)
+                return (
+                    value if len(args) == 1 else DictTools._get_nested(value, *args[1:])
+                )
+
+    @staticmethod
+    def _flatten(my_dict):
+        result = {}
+        for key, value in my_dict.items():
+            if isinstance(value, dict):
+                result.update(DictTools._flatten(value))
+            else:
+                result[key] = value
+        return result
+
+    @staticmethod
+    def _mod_recurse(obj: dict, key: str, item):
+        if key in obj:
+            obj[key] = item
+            return
+        for _, v in obj.items():
+            if isinstance(v, dict):
+                DictTools._mod_recurse(v, key, item)
+
+    @staticmethod
+    def _convert_to_list(obj: dict):
+        """Pointer reinforcement approach"""
+        if not (isinstance(obj, dict) or isinstance(obj, list)):
+            return obj
+        for k, v in obj.items():
+            if isinstance(v, dict):
+                obj[k] = DictTools._convert_to_list(v)
+                return obj
+            elif isinstance(v, list):
+                obj[k] = dict()
+                for i, item in enumerate(v):
+                    obj[k][str(i)] = item
+                return obj
