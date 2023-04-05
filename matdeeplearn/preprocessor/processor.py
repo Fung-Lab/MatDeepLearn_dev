@@ -244,7 +244,6 @@ class DataProcessor:
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
             if (len(s["atomic_numbers"]) == 1):
-                print(s)
                 continue
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             if "cell" in s:
