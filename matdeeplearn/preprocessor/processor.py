@@ -342,6 +342,7 @@ class DataProcessor:
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
             if (i == 0):
+                print(data.n_atoms)
                 print(data.edge_index.size())
             data.cell_offsets = cell_offsets
             data.neighbors = neighbors
