@@ -93,7 +93,6 @@ dataset:
 
   #Loading dataset params
   #Index of target column in targets.csv
-  target_index: 0
 
   #graph specific settings
   preprocess_params:
