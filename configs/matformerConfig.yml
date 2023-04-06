@@ -16,24 +16,30 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: Matformer
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_mean_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  conv_layers: 5
+  edge_layers: 0
+  atom_input_features: 92
+  edge_features: 128
+  triplet_input_features: 40
+  node_features: 128
+  fc_layers: 1
+  fc_features: 128
+  output_features: 1
+  node_layer_head: 4
+  edge_layer_head: 4
+  nn_based: False
+  link: "identity"
+  zero_inflated: False
+  use_angle: False
+  angle_lattice: False
+  classification: False
 
 optim:
   max_epochs: 400
@@ -44,7 +50,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -71,6 +77,8 @@ dataset:
       args:
         index: 13
       otf: True # Optional parameter, default is False
+    - name: LineGraphMod
+      args:        
   all_neighbors : True
   # one of mdl, ase, ocp
   edge_calc_method: "mdl"
@@ -92,5 +100,3 @@ dataset:
   train_ratio: 0.8408
   val_ratio: 0.0764
   test_ratio: 0.0828
-  
-

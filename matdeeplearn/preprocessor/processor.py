@@ -243,6 +243,8 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
+            if (len(s["atomic_numbers"]) == 1):
+                continue
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             if "cell" in s:
                 cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
@@ -339,7 +341,9 @@ class DataProcessor:
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
-            
+            if (i == 0):
+                print(data.n_atoms)
+                print(data.edge_index.size())
             data.cell_offsets = cell_offsets
             data.neighbors = neighbors
 

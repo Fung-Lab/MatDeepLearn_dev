@@ -16,35 +16,37 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: ALIGNN
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_mean_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  alignn_layers: 4
+  gcn_layers: 4
+  atom_input_features: 114
+  edge_input_features: 80
+  triplet_input_features: 40
+  embedding_features: 64
+  hidden_features: 256
+  output_features: 1
+  min_edge_distance: 0.0
+  max_edge_distance: 8.0
+  min_angle: 0.0
+  max_angle: 3.14159274
+  link: "identity"
 
 optim:
   max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -71,6 +73,8 @@ dataset:
       args:
         index: 13
       otf: True # Optional parameter, default is False
+    - name: LineGraphMod
+      args:        
   all_neighbors : True
   # one of mdl, ase, ocp
   edge_calc_method: "mdl"
@@ -92,5 +96,3 @@ dataset:
   train_ratio: 0.8408
   val_ratio: 0.0764
   test_ratio: 0.0828
-  
-

@@ -1,4 +1,4 @@
-trainer: sweep
+trainer: property
 
 task:
   # run_mode: train
@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: gemnet_ocEarly
+  name: gemnet_oc
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -25,20 +25,20 @@ model:
   # model attributes
   num_targets: 1
   num_spherical: 7
-  num_radial: 6
+  num_radial: 128
   num_blocks: 4
   emb_size_atom: 128
   emb_size_edge: 128
   emb_size_trip_in: 128
   emb_size_trip_out: 64
   emb_size_trip: 64
-  emb_size_quad_in: 64
-  emb_size_quad_out: 64
+  emb_size_quad_in: 32
+  emb_size_quad_out: 32
   emb_size_aint_in: 64
   emb_size_aint_out: 64
   emb_size_rbf: 16
   emb_size_cbf: 16
-  emb_size_sbf: 16
+  emb_size_sbf: 32
   emb_size_bil_trip: 32
   num_before_skip: 1
   num_after_skip: 1
@@ -51,7 +51,7 @@ model:
   direct_forces: False
   use_pbc: False
   scale_backprop_forces: False
-  cutoff: 6.0
+  cutoff: 5.0
   max_neighbors: 250
   rbf: {"name": "gaussian"}
   rbf_spherical:
@@ -77,15 +77,15 @@ model:
   act: "relu"
 
 optim:
-  max_epochs: 250
+  max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.0005
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -98,18 +98,21 @@ dataset:
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
-  src: "/project/Rithwik/2D_data_npj/raw/"
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  #src: "/project/Rithwik/2D_data_npj/raw/"
+  src: "/project/Rithwik/QM9/data.json"
   # Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  target_path: "/project/Rithwik/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
+  target_path:
   # Path to save processed data.pt file
-  #pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
+  #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  pt_path: "/project/Rithwik/QM9/"
   transforms:
     - name: GetY
       args:
-        index: 0
+        index: 13
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
@@ -124,11 +127,11 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
-    cutoff_radius : 8.0
+    cutoff_radius : 5.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
+  train_ratio: 0.8408
+  val_ratio: 0.0764
+  test_ratio: 0.0828
