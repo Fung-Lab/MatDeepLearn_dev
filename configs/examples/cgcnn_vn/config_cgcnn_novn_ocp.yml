@@ -103,7 +103,7 @@ dataset:
       args:
         virtual_box_increment: 3
         attrs: ["rr"]
-        rr_cutoff: 40.0
+        rr_cutoff: 50.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP

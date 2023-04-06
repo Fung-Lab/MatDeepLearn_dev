@@ -485,7 +485,6 @@ class DataProcessor:
         transforms_list = []
         for transform in self.transforms.values():
             if not transform["otf"]:
-                print({**transform.get("args", {}), **self.preprocess_kwargs})
                 transforms_list.append(
                     registry.get_transform_class(
                         transform["name"],

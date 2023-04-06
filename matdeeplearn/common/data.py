@@ -81,7 +81,12 @@ def get_dataset(
 
     transforms = []
     # set transform method
-    for transform in transform_list.values():
+    for transform in (
+        # Check for dict instead of list since we required dict for sweep config purposes
+        transform_list.values()
+        if isinstance(transform_list, dict)
+        else transform_list
+    ):
         if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(
@@ -89,15 +94,12 @@ def get_dataset(
                     **{**transform.get("args", {}), **preprocess_kwargs}
                 )
             )
-
     # check if large dataset is needed
     if large_dataset:
         Dataset = LargeStructureDataset
     else:
         Dataset = StructureDataset
-
     composition = Compose(transforms) if len(transforms) > 0 else None
-
     dataset = Dataset(data_path, processed_data_path="", transform=composition)
 
     return dataset
