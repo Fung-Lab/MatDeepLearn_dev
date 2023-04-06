@@ -241,7 +241,7 @@ class TorchMD(BaseTrainer):
             )
 
             # wandb logging
-            if self.use_wandb:
+            if self.use_wandb and self.do_sweep:
                 wandb.log(log_kwargs)
 
             return {

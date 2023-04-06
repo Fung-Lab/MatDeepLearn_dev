@@ -131,7 +131,7 @@ class BaseTrainer(ABC):
         # find non-OTF transforms
         transforms = [
             t.get("args")
-            for t in dataset_config.get("transforms", {})
+            for t in dataset_config.get("transforms", {}).values()
             if not t.get("otf")
         ]
         for t_args in transforms:
@@ -220,7 +220,7 @@ class BaseTrainer(ABC):
 
         dataset = get_dataset(
             dataset_path,
-            transform_list=dataset_config.get("transforms", []),
+            transform_list=dataset_config.get("transforms", {}),
             preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
         )
 

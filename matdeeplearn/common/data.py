@@ -81,7 +81,7 @@ def get_dataset(
 
     transforms = []
     # set transform method
-    for transform in transform_list:
+    for transform in transform_list.values():
         if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(

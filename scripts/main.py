@@ -73,6 +73,7 @@ def wandb_setup(config):
     if config["task"]["run_id"] != "" and not config["model"]["load_model"]:
         raise ValueError("Must load from checkpoint if also resuming wandb run.")
 
+    wandb_id = config["task"]["run_id"] if config["task"]["run_id"] != "" else None
     wandb.init(
         settings=wandb.Settings(start_method="fork"),
         project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
@@ -81,19 +82,17 @@ def wandb_setup(config):
         notes=config["task"]["wandb"].get("notes", None),
         tags=config["task"]["wandb"].get("tags", None),
         config=_wandb_config,
-        id=config["task"]["run_id"] if config["task"]["run_id"] != "" else None,
+        id=wandb_id,
         resume="must" if config["task"]["run_id"] != "" else None,
     )
-
     wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
-
     # create wandb artifacts
     for _, artifact in enumerate(wandb_artifacts):
         if not os.path.exists(artifact["path"]):
             raise ValueError(
                 f"Artifact {artifact['path']} does not exist. Please check the path."
             )
-        wandb.save(artifact["path"])
+    wandb.save(artifact["path"])
 
 
 def main():
@@ -129,13 +128,13 @@ if __name__ == "__main__":
     sweep_params = config["task"]["wandb"].get("sweep", None)
 
     if sweep_params and sweep_params.get("do_sweep", False):
-        sweep_path = sweep_params.get("sweep_path", None)
+        sweep_path = sweep_params.get("sweep_file", None)
         with open(sweep_path, "r") as ymlfile:
             sweep_params = yaml.load(ymlfile, Loader=yaml.FullLoader)
         # udpate config with sweep parameters for downstream use
-        config["task"]["wandb"]["sweep"]["params"] = sweep_params.get(
-            "parameters", {}
-        ).keys()
+        config["task"]["wandb"]["sweep"]["params"] = list(
+            sweep_params.get("parameters", {}).keys()
+        )
         # start sweep
         sweep_id = wandb.sweep(
             sweep_params,

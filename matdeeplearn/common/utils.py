@@ -45,6 +45,7 @@ def min_alloc_gpu(device: str = None):
 
     return device
 
+
 class DictTools:
     """Useful static dict tools for working with nested dicts"""
 
@@ -80,14 +81,14 @@ class DictTools:
     @staticmethod
     def _convert_to_list(obj: dict):
         """Pointer reinforcement approach"""
-        if not (isinstance(obj, dict) or isinstance(obj, list)):
+        if not isinstance(obj, dict):
             return obj
-        for k, v in obj.items():
-            if isinstance(v, dict):
-                obj[k] = DictTools._convert_to_list(v)
-                return obj
-            elif isinstance(v, list):
+        for k, v in obj.items():     
+            if isinstance(v, list):
                 obj[k] = dict()
                 for i, item in enumerate(v):
-                    obj[k][str(i)] = item
+                    obj[k][str(i)] = DictTools._convert_to_list(item)
+                return obj
+            else:
+                obj[k] = DictTools._convert_to_list(v)
                 return obj

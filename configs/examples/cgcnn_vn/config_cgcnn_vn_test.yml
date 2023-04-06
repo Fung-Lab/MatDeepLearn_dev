@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:1"
+  gpu: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -44,8 +44,8 @@ task:
       cluster: "fung-cluster"
       dataset: "hMOF-5K"
     sweep:
-      do_sweep: False
-      count: 5
+      do_sweep: True
+      count: 1
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:

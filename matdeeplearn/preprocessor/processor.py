@@ -26,13 +26,16 @@ from matdeeplearn.preprocessor.helpers import (
 
 def process_data(dataset_config, wandb_config):
     use_wandb = wandb_config.get("use_wandb", False)
-    # turn lists in config to pure dicts
-    DictTools._convert_to_list(dataset_config)
+    # turn transform list into a dict
+    if isinstance(dataset_config["transforms"], list):
+        dataset_config["transforms"] = {
+            str(i): t for i, t in enumerate(dataset_config["transforms"])
+        }
     # modify config to reflect sweep parameters if being run
     if use_wandb and wandb_config["sweep"].get("do_sweep", False):
         sweep_params = wandb_config["sweep"].get("params", {})
         for key in sweep_params:
-            DictTools._mod_recurse(dataset_config, key, wandb.config.get("key", None))
+            DictTools._mod_recurse(dataset_config, key, wandb.config.get(key, None))
 
     preprocess_kwargs = dataset_config["preprocess_params"]
 
@@ -94,7 +97,7 @@ class DataProcessor:
         n_neighbors: int,
         num_offsets: int,
         edge_steps: int,
-        transforms: dict = [],
+        transforms: dict = {},
         data_format: str = "json",
         image_selfloop: bool = True,
         self_loop: bool = True,
@@ -190,7 +193,9 @@ class DataProcessor:
         # construct metadata signature
         self.metadata = self.preprocess_kwargs
         # find non-OTF transforms
-        transforms = [t.get("args") for t in self.transforms.values() if not t.get("otf")]
+        transforms = [
+            t.get("args") for t in self.transforms.values() if not t.get("otf")
+        ]
         for t_args in transforms:
             self.metadata.update(t_args)
 
@@ -480,6 +485,7 @@ class DataProcessor:
         transforms_list = []
         for transform in self.transforms.values():
             if not transform["otf"]:
+                print({**transform.get("args", {}), **self.preprocess_kwargs})
                 transforms_list.append(
                     registry.get_transform_class(
                         transform["name"],
