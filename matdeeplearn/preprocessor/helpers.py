@@ -78,7 +78,6 @@ def calculate_edges_master(
         )
 
     elif method == "ocp":
-        print("occurs")
         # OCP requires a different format for the cell
         cell = cell.view(1, 3, 3)
         
