@@ -560,7 +560,7 @@ def compute_bond_angles(
     """
     # Calculate triplets
     if (offsets is None):
-        idx_i, idx_j, idx_k, idx_kj, idx_ji = tripletsOld(
+        _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = tripletsOld(
         edge_index, num_nodes
         )
     else:
