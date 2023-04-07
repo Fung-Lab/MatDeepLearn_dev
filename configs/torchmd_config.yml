@@ -20,7 +20,7 @@ task:
 
 
 model:
-  name: torchmd_etEarly
+  name: torchmd_et
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -53,7 +53,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 50
+  batch_size: 25
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
