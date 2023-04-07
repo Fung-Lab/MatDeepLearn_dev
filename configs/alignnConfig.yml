@@ -77,7 +77,7 @@ dataset:
       args:        
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "mdl"
+  edge_calc_method: "ocp"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
