@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:6"
+  gpu: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -33,10 +33,12 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg.yml"
+      - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg.yml"
+      # - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg.yml"
         name: "train config"
         type: "config"
-      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
+      - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
+      # - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
         name: "cgcnn_vn model"
         type: "model"
     metadata:
@@ -45,7 +47,7 @@ task:
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
-      sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      sweep_file: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
   name: CGCNN_VN_HG
@@ -60,12 +62,12 @@ model:
     dim2: 150
     atomic_intermediate_layer_resolution: 0
     pre_fc_count: 1
-    gc_count: 8
+    gc_count: 6
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
-    mp_pattern: ["rr", "rv"]
+    mp_pattern: ["rr", "rv", "vv"]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -79,7 +81,7 @@ optim:
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 64
+  batch_size: 100
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -90,9 +92,11 @@ optim:
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
-  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
+  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
+  pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
+  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -102,9 +106,10 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        attrs: ["rr", "rv"]
+        attrs: ["rr", "rv", "vv"]
         rr_cutoff: 12.0
         rv_cutoff: 12.0
+        vv_cutoff: 12.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
