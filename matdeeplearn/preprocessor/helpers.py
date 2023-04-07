@@ -558,22 +558,31 @@ def compute_bond_angles(
     Compute angle between bonds to compute node embeddings for L(g)
     Taken from the DimeNet implementation on OCP
     """
-
     # Calculate triplets
-    idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
-        edge_index, offsets.to(device=edge_index.device), num_nodes
-    )
+    if (offsets is None):
+        idx_i, idx_j, idx_k, idx_kj, idx_ji = tripletsOld(
+        edge_index, num_nodes
+        )
+    else:
+        idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
+            edge_index, offsets.to(device=edge_index.device), num_nodes
+        )
 
     # Calculate angles.
     pos_i = pos[idx_i]
     pos_j = pos[idx_j]
 
-    offsets = offsets.to(pos.device)
-
-    pos_ji, pos_kj = (
-        pos[idx_j] - pos_i + offsets[idx_ji],
-        pos[idx_k] - pos_j + offsets[idx_kj],
-    )
+    if (offsets is not None):
+        offsets = offsets.to(pos.device)
+        pos_ji, pos_kj = (
+            pos[idx_j] - pos_i + offsets[idx_ji],
+            pos[idx_k] - pos_j + offsets[idx_kj],
+        )
+    else:
+        pos_ji, pos_kj = (
+            pos[idx_j] - pos_i,
+            pos[idx_k] - pos_j,
+        )
 
     a = (pos_ji * pos_kj).sum(dim=-1)
     b = torch.cross(pos_ji, pos_kj).norm(dim=-1)

@@ -52,9 +52,14 @@ class LineGraphMod(object):
         _, edge_attr = coalesce(edge_index, edge_attr, N, N)
 
         # compute bond angles
-        angles, idx_kj, idx_ji = compute_bond_angles(
-            data.pos, data.cell_offsets, data.edge_index, data.num_nodes
-        )
+        try:
+            angles, idx_kj, idx_ji = compute_bond_angles(
+                data.pos, data.cell_offsets, data.edge_index, data.num_nodes
+            )
+        except:
+            angles, idx_kj, idx_ji = compute_bond_angles(
+                data.pos, None, data.edge_index, data.num_nodes
+            )
         triplet_pairs = torch.stack([idx_kj, idx_ji], dim=0)
 
         data.edge_index_lg = triplet_pairs
