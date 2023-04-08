@@ -49,9 +49,6 @@ def wandb_setup(config):
     _wandb_config = {
         "metadata": metadata,
     }
-
-    timestamp = torch.tensor(datetime.now().timestamp())
-
     # update config with chosen parameters from config (to avoid clutter)
     track_params = [
         p.split(".") for p in config["task"]["wandb"].get("track_params", {})
@@ -68,10 +65,11 @@ def wandb_setup(config):
     _wandb_config.update(transforms)
     _wandb_config.update(track_params)
 
-    timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
-
     if config["task"]["run_id"] != "" and not config["model"]["load_model"]:
         raise ValueError("Must load from checkpoint if also resuming wandb run.")
+
+    timestamp = torch.tensor(datetime.now().timestamp())
+    timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
 
     wandb_id = config["task"]["run_id"] if config["task"]["run_id"] != "" else None
     wandb.init(
@@ -85,22 +83,21 @@ def wandb_setup(config):
         id=wandb_id,
         resume="must" if config["task"]["run_id"] != "" else None,
     )
-    wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
     # create wandb artifacts
-    for _, artifact in enumerate(wandb_artifacts):
-        if not os.path.exists(artifact["path"]):
-            raise ValueError(
-                f"Artifact {artifact['path']} does not exist. Please check the path."
-            )
-    wandb.save(artifact["path"])
+    if not config["task"]["wandb"]["sweep"]["do_sweep"]:
+        wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
+        for _, artifact in enumerate(wandb_artifacts):
+            if not os.path.exists(artifact["path"]):
+                raise ValueError(
+                    f"Artifact {artifact['path']} does not exist. Please check the path."
+                )
+            else:
+                wandb.save(artifact["path"])
 
 
 def main():
-    """Entrypoint for MatDeepLearn inference tasks
-
-    Args:
-        argv (dict): main function arguments
-    """
+    """Entrypoint for MatDeepLearn inference tasks"""
+    wandb_setup(config)
     if not config["dataset"]["processed"]:
         process_data(config["dataset"], config["task"]["wandb"])
     Runner()(config, args)
@@ -119,28 +116,23 @@ if __name__ == "__main__":
     config["task"]["wandb"]["use_wandb"] = (
         args.use_wandb and config["task"]["wandb"]["use_wandb"]
     )
-
-    # wandb setup process, initiate a run
-    if args.use_wandb:
-        wandb_setup(config)
-
     # wandb hyperparameter sweep setup
     sweep_params = config["task"]["wandb"].get("sweep", None)
 
-    if sweep_params and sweep_params.get("do_sweep", False):
+    if args.use_wandb and sweep_params and sweep_params.get("do_sweep", False):
         sweep_path = sweep_params.get("sweep_file", None)
         with open(sweep_path, "r") as ymlfile:
-            sweep_params = yaml.load(ymlfile, Loader=yaml.FullLoader)
+            sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
         # udpate config with sweep parameters for downstream use
         config["task"]["wandb"]["sweep"]["params"] = list(
-            sweep_params.get("parameters", {}).keys()
+            sweep_config.get("parameters", {}).keys()
         )
         # start sweep
         sweep_id = wandb.sweep(
-            sweep_params,
+            sweep_config,
             project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
         )
-        sweep_count = sweep_params.get("count", 3)
+        sweep_count = sweep_params.get("count", 1)
         logging.info(
             f"Starting sweep with id: {sweep_id} with max count of {sweep_count} runs."
         )

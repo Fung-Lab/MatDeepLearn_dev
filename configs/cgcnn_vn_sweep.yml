@@ -4,18 +4,14 @@ metric:
     name: test_loss
     goal: minimize
 
-count: 1
-
 parameters:
     # virtual_box_increment: 
     #   min: 1.0
     #   max: 5.0
     rv_cutoff:
-      min: 5.0
-      max: 12.0
+      values: [5.0]
     rr_cutoff: 
-      min: 5.0
-      max: 12.0
+      values: [5.0]
     # vr_cutoff:
     #   min: 5.0
     #   max: 12.0

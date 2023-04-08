@@ -72,6 +72,7 @@ class DictTools:
     @staticmethod
     def _mod_recurse(obj: dict, key: str, item):
         if key in obj:
+            print(f"Modifying {key} in {obj} to {item}")
             obj[key] = item
             return
         for _, v in obj.items():
