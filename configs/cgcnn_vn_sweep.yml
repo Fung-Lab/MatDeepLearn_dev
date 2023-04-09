@@ -1,7 +1,7 @@
 # hyperparameter sweep config for CGCNN_VN
 method: random
 metric:
-    name: test_loss
+    name: val_loss
     goal: minimize
 
 parameters:
@@ -9,12 +9,14 @@ parameters:
     #   min: 1.0
     #   max: 5.0
     rv_cutoff:
-      values: [5.0]
+      min: 5.0
+      max: 25.0
     rr_cutoff: 
-      values: [5.0]
-    # vr_cutoff:
-    #   min: 5.0
-    #   max: 12.0
-    # vv_cutoff:
-    #   min: 5.0
-    #   max: 12.0
+      min: 5.0
+      max: 25.0
+    vr_cutoff:
+      min: 5.0
+      max: 25.0
+    vv_cutoff:
+      min: 5.0
+      max: 25.0
