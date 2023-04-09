@@ -17,7 +17,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "gc_count=8 with all interactions"
+    notes: ""
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -44,8 +44,7 @@ task:
         name: "cgcnn_vn model"
         type: "model"
     metadata:
-      architecture: "CGCNN_VN"
-      cluster: "fung-cluster"
+      architecture: "CGCNN_VN_HG"
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
@@ -58,18 +57,18 @@ model:
   model_path: "cgcnn_vn_hg.pth"
   # model hyperparams
   hyperparams:
-    edge_steps: 25
+    edge_steps: 20
     self_loop: True
     dim1: 100
     dim2: 150
     atomic_intermediate_layer_resolution: 0
     pre_fc_count: 1
-    gc_count: 8
+    gc_count: 6
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
-    mp_pattern: ["rr", "rv", "vr", "vv"]
+    mp_pattern: ["rr", "rv", "vv"]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -95,7 +94,7 @@ dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   
-  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k//raw_5k/data.json"
+  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
   # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
   # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   
@@ -114,10 +113,9 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        attrs: ["rr", "rv", "vr", "vv"]
-        rr_cutoff: 12.0
+        attrs: ["rr", "rv", "vv"]
+        rr_cutoff: 5.0
         rv_cutoff: 12.0
-        vr_cutoff: 12.0
         vv_cutoff: 12.0
       otf: False
   # use for passing into global config
@@ -136,7 +134,7 @@ dataset:
     n_neighbors : 250
     edge_calc_method: "ocp"
     num_offsets: 1
-    edge_steps : 25
+    edge_steps : 20
     all_neighbors: True
     use_degree: False
   # Ratios for train/val/test split out of a total of 1
