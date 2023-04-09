@@ -47,7 +47,7 @@ model:
 
 optim:
   max_epochs: 400
-  lr: 0.0002
+  lr: 0.0001
   #Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
