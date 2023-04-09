@@ -16,7 +16,7 @@ task:
   verbosity: 5
 
 model:
-  name: painn
+  name: painnEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -81,7 +81,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ocp"
+  edge_calc_method: "mdl"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
