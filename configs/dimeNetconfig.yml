@@ -34,7 +34,7 @@ model:
   num_spherical: 7
   num_radial: 6
   otf_graph: False
-  cutoff: 5.0
+  cutoff: 8.0
   envelope_exponent: 5
   num_before_skip: 1
   num_after_skip: 2
