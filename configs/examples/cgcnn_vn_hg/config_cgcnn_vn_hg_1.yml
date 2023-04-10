@@ -4,7 +4,7 @@ task:
   # run_mode: train
   identifier: "cgcnn_vn_hg"
   reprocess: False
-  run_id: "46lguozg"
+  run_id: ""
   parallel: True
   gpu: "cuda:0"
   seed: 0
@@ -52,7 +52,7 @@ task:
 
 model:
   name: CGCNN_VN_HG
-  load_model: True
+  load_model: False
   save_model: True
   model_path: "cgcnn_vn_hg.pth"
   # model hyperparams
@@ -63,7 +63,7 @@ model:
     dim2: 150
     atomic_intermediate_layer_resolution: 0
     pre_fc_count: 1
-    gc_count: 6
+    gc_count: 12
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method

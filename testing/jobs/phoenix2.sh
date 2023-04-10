@@ -13,6 +13,6 @@
 cd /storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/scripts
 conda activate matdeeplearn
 
-python main.py --config_path="/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg_1.yml" \
+python main.py --config_path="/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp3.yml" \
     --run_mode="train" \
     --use_wandb=True
