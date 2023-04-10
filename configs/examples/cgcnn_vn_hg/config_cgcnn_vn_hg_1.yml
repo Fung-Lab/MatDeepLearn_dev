@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:0"
+  gpu: "cuda:4"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -33,14 +33,14 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg_1.yml"
+      # - path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg_1.yml"
       # - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg_1.yml"
-      # - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg_1.yml"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg_1.yml"
         name: "train config"
         type: "config"
-      - path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
+      # - path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
       # - path: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
-      # - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
         name: "cgcnn_vn model"
         type: "model"
     metadata:
@@ -48,7 +48,8 @@ task:
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
-      sweep_file: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      # sweep_file: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
   name: CGCNN_VN_HG
@@ -94,15 +95,15 @@ dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   
-  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k//raw_5k/data.json"
+  # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k//raw_5k/data.json"
   # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
-  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   
   target_path: ""
   
-  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
+  # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
   # pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
-  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
 
   # transforms
   transforms:

@@ -55,9 +55,10 @@ def wandb_setup(config):
     ]
     track_params = {p[-1]: DictTools._get_nested(config, *p) for p in track_params}
     # transform hyperparams
+    transforms = config["dataset"]["transforms"]
     transforms = {
         key: val
-        for d in config["dataset"]["transforms"]
+        for d in transforms
         for key, val in DictTools._flatten(d).items()
         if key != "name" and key != "otf"
     }
@@ -93,6 +94,8 @@ def wandb_setup(config):
                 )
             else:
                 wandb.save(artifact["path"])
+    else:
+        wandb.run.name = f"{wandb.run.name}-{wandb.run.id}"
 
 
 def main():

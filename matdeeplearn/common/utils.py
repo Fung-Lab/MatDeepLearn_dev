@@ -72,19 +72,22 @@ class DictTools:
     @staticmethod
     def _mod_recurse(obj: dict, key: str, item):
         if key in obj:
-            print(f"Modifying {key} in {obj} to {item}")
             obj[key] = item
             return
         for _, v in obj.items():
             if isinstance(v, dict):
                 DictTools._mod_recurse(v, key, item)
+            elif isinstance(v, list):
+                for e in v:
+                    if isinstance(e, dict):
+                        DictTools._mod_recurse(e, key, item)
 
     @staticmethod
     def _convert_to_list(obj: dict):
         """Pointer reinforcement approach"""
         if not isinstance(obj, dict):
             return obj
-        for k, v in obj.items():     
+        for k, v in obj.items():
             if isinstance(v, list):
                 obj[k] = dict()
                 for i, item in enumerate(v):

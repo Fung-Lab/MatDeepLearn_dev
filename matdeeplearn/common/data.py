@@ -81,12 +81,7 @@ def get_dataset(
 
     transforms = []
     # set transform method
-    for transform in (
-        # Check for dict instead of list since we required dict for sweep config purposes
-        transform_list.values()
-        if isinstance(transform_list, dict)
-        else transform_list
-    ):
+    for transform in transform_list:
         if transform["otf"]:
             transforms.append(
                 registry.get_transform_class(
