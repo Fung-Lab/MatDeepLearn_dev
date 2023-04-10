@@ -144,11 +144,18 @@ class PropertyTrainer(BaseTrainer):
         # TODO: make predict method work as standalone task
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
+        self.model.eval()
         predict, target = None, None
         ids = []
         node_level_predictions = False
+        _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
+            loss = self._compute_loss(out, batch)
+            _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
+            self._metrics_predict = self.evaluator.update(
+                "loss", loss.item(), _metrics_predict
+            )
 
             # if out is a tuple, then it's scaled data
             if type(out) == tuple:
@@ -179,7 +186,8 @@ class PropertyTrainer(BaseTrainer):
         self.save_results(
             predictions, f"{split}_predictions.csv", node_level_predictions
         )
-
+        predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
+        logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
         return predictions
 
     def _forward(self, batch_data):

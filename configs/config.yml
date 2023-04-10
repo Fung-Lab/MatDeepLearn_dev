@@ -54,12 +54,14 @@ optim:
 
 dataset:
   processed: False
-  # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
-  # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
+  src: data/test_data/raw/
+  #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  target_path: data/test_data/targets.csv
+  #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
   # Path to save processed data.pt file
-  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  pt_path: "data/"
 
   transforms:
     - name: GetY
