@@ -26,11 +26,6 @@ from matdeeplearn.preprocessor.helpers import (
 
 def process_data(dataset_config, wandb_config):
     use_wandb = wandb_config.get("use_wandb", False)
-    # turn transform list into a dict
-    if isinstance(dataset_config["transforms"], list):
-        dataset_config["transforms"] = {
-            str(i): t for i, t in enumerate(dataset_config["transforms"])
-        }
     # modify config to reflect sweep parameters if being run
     if use_wandb and wandb_config["sweep"].get("do_sweep", False):
         sweep_params = wandb_config["sweep"].get("params", {})
@@ -68,7 +63,7 @@ def process_data(dataset_config, wandb_config):
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
         edge_steps=edge_steps,
-        transforms=dataset_config.get("transforms", {}),
+        transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
         self_loop=self_loop,
@@ -194,7 +189,7 @@ class DataProcessor:
         self.metadata = self.preprocess_kwargs
         # find non-OTF transforms
         transforms = [
-            t.get("args") for t in self.transforms.values() if not t.get("otf")
+            t.get("args") for t in self.transforms if not t.get("otf")
         ]
         for t_args in transforms:
             self.metadata.update(t_args)
@@ -381,7 +376,7 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
-        transforms = [(i, t) for (i, t) in enumerate(self.transforms.values())]
+        transforms = [(i, t) for (i, t) in enumerate(self.transforms)]
 
         # find the virtual nodes transform (temporary workaround for now)
         virtual_nodes_transform = None
@@ -483,7 +478,7 @@ class DataProcessor:
         # compile non-otf transforms
         logging.info("Applying transforms.")
         transforms_list = []
-        for transform in self.transforms.values():
+        for transform in self.transforms:
             if not transform["otf"]:
                 transforms_list.append(
                     registry.get_transform_class(
