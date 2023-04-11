@@ -62,7 +62,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 32
+  batch_size: 16
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
