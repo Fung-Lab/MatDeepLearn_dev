@@ -20,7 +20,7 @@ task:
 
 
 model:
-  name: torchmd_et
+  name: torchmd_etEarly
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -53,7 +53,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 20
+  batch_size: 50
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -68,14 +68,15 @@ dataset:
   # Path to data files
   #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
   #src: "/project/Rithwik/MP_data_69K/raw/"
-  src: "/project/Rithwik/MP_data_69K/data.json"
+  #src: "/project/Rithwik/MP_data_69K/data.json"
+  src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
   # Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
   target_path:
   # Path to save processed data.pt file
   #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
-  pt_path: "/project/Rithwik/MP_data_69K/"
+  pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
   transforms:
     - name: GetY
       args:
@@ -102,6 +103,6 @@ dataset:
     edge_steps : 50
 
   #Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8408
-  val_ratio: 0.0764
-  test_ratio: 0.0828
+  train_ratio: 0.8695
+  val_ratio: 0.06525
+  test_ratio: 0.06525
