@@ -55,6 +55,8 @@ class CGCNN(BaseModel):
         # Determine output dimension length
         if data[0][self.target_attr].ndim == 0:
             self.output_dim = 1
+        elif data[0][self.target_attr][0].ndim == 0:
+            self.output_dim = len(data[0][self.target_attr])
         else:
             self.output_dim = len(data[0][self.target_attr][0])
 
