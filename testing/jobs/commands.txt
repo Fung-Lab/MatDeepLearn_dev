@@ -3,4 +3,4 @@ salloc --nodes 1 --qos interactive --time 01:00:00 --constraint gpu --gpus 1 --a
 rm -rf ../matdeeplearn/trainers/.ipynb_checkpoints
 rm -rf ../matdeeplearn/models/.ipynb_checkpoints
 
-salloc -C gpu -t 60 -c 10 -G 1 -q interactive -A
+salloc -A gts-vfung3 -qinferno -N1 --gres=gpu:A100:1 -C A100-80GB -t1:00:00

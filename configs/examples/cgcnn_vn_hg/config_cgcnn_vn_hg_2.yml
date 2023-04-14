@@ -17,7 +17,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "try all MP for HG"
+    notes: "all interactions with higher VV"
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -41,7 +41,8 @@ task:
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
-      sweep_file: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      # sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      sweep_file: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/sweeps/cgcnn_vn_sweep.yml"
 
 model:
   name: CGCNN_VN_HG
@@ -87,7 +88,7 @@ dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
   
-  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
+  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k//raw_5k/data.json"
   # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
   # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   
@@ -108,9 +109,9 @@ dataset:
         virtual_box_increment: 3
         attrs: ["rr", "rv", "vr", "vv"]
         rr_cutoff: 5.0
-        rv_cutoff: 5.0
+        rv_cutoff: 12.0
         vr_cutoff: 5.0
-        vv_cutoff: 5.0
+        vv_cutoff: 12.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP

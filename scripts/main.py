@@ -88,12 +88,13 @@ def wandb_setup(config):
     if not config["task"]["wandb"]["sweep"]["do_sweep"]:
         wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
         for _, artifact in enumerate(wandb_artifacts):
-            if not os.path.exists(artifact["path"]):
+            if not os.path.exists(artifact):
                 raise ValueError(
-                    f"Artifact {artifact['path']} does not exist. Please check the path."
+                    f"Artifact {artifact} does not exist. Please check the path."
                 )
             else:
-                wandb.save(artifact["path"])
+                print(artifact, type(artifact))
+                wandb.save(artifact)
     else:
         wandb.run.name = f"{wandb.run.name}-{wandb.run.id}"
 
@@ -114,6 +115,9 @@ if __name__ == "__main__":
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
+    
+    # add config path as an artifact manually
+    config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
 
     # override config from CLI, useful for quick experiments/debugging purposes
     config["task"]["wandb"]["use_wandb"] = (

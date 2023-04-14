@@ -4,7 +4,7 @@ task:
   # run_mode: train
   identifier: "cgcnn_vn-all-neighbor-OCP"
   reprocess: False
-  run_id: ""
+  run_id: "reduce increment to 2A"
   parallel: True
   gpu: "cuda:0"
   seed: 0
@@ -33,14 +33,8 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      # - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp.yml"
-      - path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp2.yml"
-        name: "train config"
-        type: "config"
-      # - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      - path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-        name: "cgcnn_vn model"
-        type: "model"
+      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
@@ -66,7 +60,7 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "RealVirtualPooling" # pooling method
+    virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
     mp_pattern: [["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"]]
     pool_order: "early"
@@ -106,11 +100,11 @@ dataset:
       otf: False
     - name: VirtualNodes
       args:
-        virtual_box_increment: 3
+        virtual_box_increment: 2
         attrs: ["rr", "rv", "vv"]
-        rr_cutoff: 12.0
+        rr_cutoff: 5.0
         rv_cutoff: 5.0
-        vv_cutoff: 12.0
+        vv_cutoff: 5.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
@@ -128,7 +122,7 @@ dataset:
     n_neighbors : 50
     edge_calc_method: "ocp"
     num_offsets: 1
-    edge_steps : 25
+    edge_steps : 50
     all_neighbors: True
     use_degree: False
   # Ratios for train/val/test split out of a total of 1

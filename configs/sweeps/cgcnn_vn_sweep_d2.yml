@@ -1,0 +1,15 @@
+# hyperparameter sweep config for CGCNN_VN
+method: random
+metric:
+    name: val_loss
+    goal: minimize
+
+parameters:
+    virtual_box_increment: 
+        values: [1.0, 2.0, 3.0, 4.0, 5.0]
+    rr_cutoff:
+        values: [5.0]
+    rv_cutoff:
+        values: [5.0]
+    vv_cutoff:
+        values: [5.0]

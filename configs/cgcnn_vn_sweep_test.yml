@@ -1,9 +1,0 @@
-# hyperparameter sweep config for CGCNN_VN
-method: random
-metric:
-    name: val_loss
-    goal: minimize
-
-parameters:
-    rr_cutoff: 
-      values: [25.0, 30]
