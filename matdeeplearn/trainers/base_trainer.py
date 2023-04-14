@@ -102,15 +102,14 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        
-        
+
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset["train"])
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset["train"])
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"], config["dataset"], dataset, sampler
-        )               
+        )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
@@ -157,9 +156,9 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataset(dataset_config):
         """Loads the dataset if from a config file."""
-        
+
         dataset_path = dataset_config["pt_path"]
-        dataset={}    
+        dataset = {}
         if isinstance(dataset_config["src"], dict):
             dataset["train"] = get_dataset(
                 dataset_path,
@@ -176,8 +175,8 @@ class BaseTrainer(ABC):
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
             )
-                                
-        else:                          
+
+        else:
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
@@ -218,28 +217,32 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataloader(optim_config, dataset_config, dataset, sampler):
 
-        batch_size = optim_config.get("batch_size")    
+        batch_size = optim_config.get("batch_size")
         if isinstance(dataset_config["src"], dict):
             train_loader = get_dataloader(
                 dataset["train"], batch_size=batch_size, sampler=sampler
             )
-            val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=sampler)
+            val_loader = get_dataloader(
+                dataset["val"], batch_size=batch_size, sampler=sampler
+            )
             test_loader = get_dataloader(
                 dataset["test"], batch_size=batch_size, sampler=sampler
             )
-                                
+
         else:
             train_ratio = dataset_config["train_ratio"]
             val_ratio = dataset_config["val_ratio"]
             test_ratio = dataset_config["test_ratio"]
             train_dataset, val_dataset, test_dataset = dataset_split(
                 dataset["train"], train_ratio, val_ratio, test_ratio
-            )            
-    
+            )
+
             train_loader = get_dataloader(
                 train_dataset, batch_size=batch_size, sampler=sampler
             )
-            val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
+            val_loader = get_dataloader(
+                val_dataset, batch_size=batch_size, sampler=sampler
+            )
             test_loader = get_dataloader(
                 test_dataset, batch_size=batch_size, sampler=sampler
             )
@@ -289,9 +292,9 @@ class BaseTrainer(ABC):
         logging.debug(
             f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
         )
-        # self.predict(self.train_loader, "train")
-        # self.predict(self.val_loader, "val")
-        # self.predict(self.test_loader, "test")
+        self.predict(self.train_loader, "train")
+        self.predict(self.val_loader, "val")
+        self.predict(self.test_loader, "test")
 
     def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
         """Saves the model state dict"""
