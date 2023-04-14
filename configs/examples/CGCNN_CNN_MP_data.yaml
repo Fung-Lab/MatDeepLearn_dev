@@ -27,7 +27,7 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 200
+  max_epochs: 600
   lr: 0.001246899
   loss:
     loss_type: "TorchLossWrapper"
