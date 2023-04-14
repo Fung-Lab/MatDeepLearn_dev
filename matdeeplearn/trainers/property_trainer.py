@@ -161,7 +161,7 @@ class PropertyTrainer(BaseTrainer):
             loss = self._compute_loss(out, batch)
             _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
             self._metrics_predict = self.evaluator.update(
-                "loss", loss.item(), _metrics_predict
+                "loss", loss[type(self.loss_fn).__name__].item(), _metrics_predict
             )
 
             if type(out) == tuple:
