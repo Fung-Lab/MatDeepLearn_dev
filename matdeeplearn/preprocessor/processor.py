@@ -307,16 +307,11 @@ class DataProcessor:
             data = data_list[i]
 
             pos = sdict["positions"]
-            pos.to(self.device)
             cell = sdict["cell"]
-            cell.to(self.device)
             atomic_numbers = sdict["atomic_numbers"]
-            atomic_numbers.to(self.device)
             structure_id = sdict["structure_id"]
             data.o_pos = pos.clone()
-            data.o_pos.to(self.device)
             data.o_z = atomic_numbers.clone()
-            data.o_z.to(self.device)
 
             edge_gen_out = calculate_edges_master(
                 self.edge_calc_method,
@@ -328,7 +323,6 @@ class DataProcessor:
                 cell,
                 pos,
                 atomic_numbers,
-                device=self.device
             )
             edge_indices = edge_gen_out["edge_index"]
             edge_weights = edge_gen_out["edge_weights"]
