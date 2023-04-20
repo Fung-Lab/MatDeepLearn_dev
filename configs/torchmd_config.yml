@@ -91,6 +91,7 @@ dataset:
   additional_attributes: []
   #Print out processing info
   verbose: True
+  device: "cuda"
 
   #Loading dataset params
   #Index of target column in targets.csv
