@@ -146,7 +146,7 @@ class PropertyTrainer(BaseTrainer):
                 logging.debug(f"predict out size: {out.size()}")
                 logging.debug(out)
 
-            loss = self._compute_loss(out, batch)
+            loss = self._compute_loss(out, batch)[type(self.loss_fn).__name__]
             _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
             self._metrics_predict = self.evaluator.update(
                 "loss", loss.item(), _metrics_predict
