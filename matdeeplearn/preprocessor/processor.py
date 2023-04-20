@@ -323,6 +323,7 @@ class DataProcessor:
                 cell,
                 pos,
                 atomic_numbers,
+                device=self.device
             )
             edge_indices = edge_gen_out["edge_index"]
             edge_weights = edge_gen_out["edge_weights"]
