@@ -47,7 +47,16 @@ class DOSLoss(nn.Module):
             + features_loss * self.features_weight
         )
 
-        return loss_sum
+        # TODO: return dos_loss and other losses separately
+        loss_dict = {
+            type(self).__name__: loss_sum,
+            "dos_loss": dos_loss,
+            "scaling_loss": scaling_loss,
+            "dos_cumsum_loss": dos_cumsum_loss,
+            "features_loss": features_loss,
+        }
+
+        return loss_dict
 
     def get_dos_features(self, x, dos):
         """get dos features"""
@@ -80,4 +89,4 @@ class TorchLossWrapper(nn.Module):
         self.loss_fn = getattr(F, loss_fn)
 
     def forward(self, predictions: torch.Tensor, target: Batch):
-        return self.loss_fn(predictions, target.y)
+        return {type(self).__name__: self.loss_fn(predictions, target.y)}

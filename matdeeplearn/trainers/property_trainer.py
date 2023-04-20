@@ -73,7 +73,7 @@ class PropertyTrainer(BaseTrainer):
 
                 # Compute forward, loss, backward
                 out = self._forward(batch)
-                loss = self._compute_loss(out, batch)
+                loss = self._compute_loss(out, batch)[type(self.loss_fn).__name__]
                 self._backward(loss)
 
                 # Compute metrics
@@ -123,7 +123,9 @@ class PropertyTrainer(BaseTrainer):
                 loss = self._compute_loss(out, batch)
                 # Compute metrics
                 metrics = self._compute_metrics(out, batch, metrics)
-                metrics = evaluator.update("loss", loss.item(), metrics)
+                metrics = evaluator.update(
+                    "loss", loss[type(self.loss_fn).__name__].item(), metrics
+                )
 
         return metrics
 
@@ -251,6 +253,15 @@ class PropertyTrainer(BaseTrainer):
                     *log_kwargs.values()
                 )
             )
+
+            # TODO: change additional loss values we want to record to something more universal
+            val_loss_dict = {}
+            for key, val in val_metrics.items():
+                if key != f"{type(self.loss_fn).__name__}":
+                    val_loss_dict[f"val_{key}"] = val_metrics[key]["metric"]
+
+            log_kwargs.update(val_loss_dict)
+
             wandb.log(log_kwargs)
 
     def _load_task(self):
