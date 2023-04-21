@@ -66,6 +66,20 @@ def wandb_setup(config):
     _wandb_config.update(transforms)
     _wandb_config.update(track_params)
 
+    # Compute a permutation-invariant hash of the preprocessing parameters for each run
+    preprocess_params = config["dataset"]["preprocess_params"]
+    transforms = config["dataset"]["transforms"]
+    preprocess_hash = 0
+    transform_hash = 0
+
+    for t in transforms:
+        for key, val in DictTools._flatten(t).items():
+            transform_hash += hash(key + str(val))
+    for key, val in DictTools._flatten(preprocess_params).items():
+        preprocess_hash += hash(key + str(val))
+        
+    _wandb_config["meta_hash"] = preprocess_hash + transform_hash
+
     if config["task"]["run_id"] != "" and not config["model"]["load_model"]:
         raise ValueError("Must load from checkpoint if also resuming wandb run.")
 
@@ -115,7 +129,7 @@ if __name__ == "__main__":
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
-    
+
     # add config path as an artifact manually
     config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
 

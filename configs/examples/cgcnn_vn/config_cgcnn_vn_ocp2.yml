@@ -4,7 +4,7 @@ task:
   # run_mode: train
   identifier: "cgcnn_vn-all-neighbor-OCP"
   reprocess: False
-  run_id: "reduce increment to 2A"
+  run_id: ""
   parallel: True
   gpu: "cuda:0"
   seed: 0
@@ -17,7 +17,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "test RV pooling (virtual)"
+    notes: "reduce increment to 2A"
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -33,8 +33,8 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
@@ -87,11 +87,11 @@ optim:
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
-  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
-  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
+  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+  # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
   target_path: ""
-  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
-  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
+  # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -101,10 +101,9 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 2
-        attrs: ["rr", "rv", "vv"]
+        attrs: ["rr", "rv"]
         rr_cutoff: 5.0
-        rv_cutoff: 5.0
-        vv_cutoff: 5.0
+        rv_cutoff: 12.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
