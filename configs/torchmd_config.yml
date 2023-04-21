@@ -76,7 +76,7 @@ dataset:
   target_path:
   # Path to save processed data.pt file
   #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
-  pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.pt"
+  pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
   transforms:
     - name: GetY
       args:
