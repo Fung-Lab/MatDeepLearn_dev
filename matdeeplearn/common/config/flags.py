@@ -40,6 +40,14 @@ class Flags:
             help="Whether or not to use wandb",
         )
 
+        self.parser.add_argument(
+            "--sweep_id",
+            required=False,
+            default=None,
+            type=str,
+            help="Used in case we launch a sweep agent by itself. Lets MDL know to handle the config differently",
+        )
+
         # self.parser.add_argument(
         #     "--job_name",
         #     default=None,
@@ -52,6 +60,7 @@ class Flags:
         #     type=str,
         #     help="CGCNN_demo, MPNN_demo, SchNet_demo, MEGNet_demo, GCN_demo, SOAP_demo, SM_demo",
         # )
+
         self.parser.add_argument(
             "--seed",
             default=0,

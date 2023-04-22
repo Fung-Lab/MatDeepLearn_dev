@@ -157,11 +157,7 @@ class BaseTrainer(ABC):
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
 
-        # overwrite gpu choice from config if passed in as arg to wandb
-        if wandb.run and wandb.config["task"].get("gpu", None):
-            device = wandb.config["task"].get("gpu", None)
-        else:
-            device = config["task"].get("gpu", None)
+        device = config["task"].get("gpu", None)
 
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)

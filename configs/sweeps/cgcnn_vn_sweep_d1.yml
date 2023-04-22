@@ -5,11 +5,11 @@ metric:
     goal: minimize
 
 parameters:
-    virtual_box_increment: 
-        values: [3.0]
+    # virtual_box_increment: 
+    #     values: [3.0]
     rr_cutoff:
         values: [5.0]
     rv_cutoff:
-        values: [5.0]
+        values: [5.0, 12.0, 20.0]
     vv_cutoff:
         values: [5.0]
