@@ -13,6 +13,8 @@ from matdeeplearn.common.trainer_context import new_trainer_context
 from matdeeplearn.preprocessor.processor import process_data
 from matdeeplearn.common.utils import DictTools
 
+from .job_launcher import slurm_entrypoint, cluster_entrypoint, start_sweep_tasks
+
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.autograd.set_detect_anomaly(True)
 
@@ -77,7 +79,7 @@ def wandb_setup(config):
             transform_hash += hash(key + str(val))
     for key, val in DictTools._flatten(preprocess_params).items():
         preprocess_hash += hash(key + str(val))
-        
+
     _wandb_config["meta_hash"] = preprocess_hash + transform_hash
 
     if config["task"]["run_id"] != "" and not config["model"]["load_model"]:
@@ -144,7 +146,7 @@ if __name__ == "__main__":
         sweep_path = sweep_params.get("sweep_file", None)
         with open(sweep_path, "r") as ymlfile:
             sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
-        # udpate config with sweep parameters for downstream use
+        # update config with sweep parameters for downstream use
         config["task"]["wandb"]["sweep"]["params"] = list(
             sweep_config.get("parameters", {}).keys()
         )
@@ -154,9 +156,44 @@ if __name__ == "__main__":
             project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
         )
         sweep_count = sweep_params.get("count", 1)
-        logging.info(
-            f"Starting sweep with id: {sweep_id} with max count of {sweep_count} runs."
-        )
-        wandb.agent(sweep_id, function=main, count=sweep_count)
+
+        # start a sequential or parallel sweep, NOTE: sequential sweep prone to bottlenecking and early failures
+        if not sweep_config.get("parallel", False):
+            logging.info(
+                f"Starting sequential sweep with id: {sweep_id} with max count of {sweep_count} runs."
+            )
+            wandb.agent(sweep_id, function=main, count=sweep_count)
+        else:
+            # find job config path if it exists
+            if sweep_config.get("system") == "slurm":
+                if not sweep_config.get("job_config", None):
+                    raise ValueError(
+                        "Job config path not found when attempting to create parallel slurm sweep."
+                    )
+                job_config_path = sweep_config.get("job_config", None)
+                with open(job_config_path, "r") as f:
+                    job_config = yaml.safe_load(f)
+                    # Start a parallel SLURM sweep task
+                    start_sweep_tasks(
+                        sweep_config.get("job_config", None),
+                        sweep_id,
+                        sweep_config.get("count", 1),
+                        job_config,
+                    )
+                # NOTE: Hardcoded failsafe for single GPU case, will need to be updated for distributed
+                config["task"]["gpu"] = "cuda:0"
+            elif sweep_config.get("system") == "local":
+                start_sweep_tasks(
+                    sweep_config.get("job_config", None),
+                    sweep_id,
+                    sweep_config.get("count", 1),
+                )
+                # Use the automatic min allocation scheme,
+                # which takes place when the training is about to start
+                config["task"]["gpu"] = None
+            else:
+                raise ValueError(
+                    "Invalid system type for parallel sweep. Must be either '[phoenix,perlmutter]_slurm' or 'local'."
+                )
     else:
         main()
