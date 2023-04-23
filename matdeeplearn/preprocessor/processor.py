@@ -76,6 +76,7 @@ def process_data(dataset_config, wandb_config):
         apply_pre_transform_processing=apply_pre_transform_processing,
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
+        force_preprocess=dataset_config.get("force_preprocess", False),
         device=device,
     )
 
@@ -105,6 +106,7 @@ class DataProcessor:
         apply_pre_transform_processing: bool = True,
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
+        force_preprocess: bool = False,
         device: str = "cpu",
     ) -> None:
         """
@@ -185,12 +187,12 @@ class DataProcessor:
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
 
+        self.force_preprocess = force_preprocess
+
         # construct metadata signature
         self.metadata = self.preprocess_kwargs
         # find non-OTF transforms
-        transforms = [
-            t.get("args") for t in self.transforms if not t.get("otf")
-        ]
+        transforms = [t.get("args") for t in self.transforms if not t.get("otf")]
         for t_args in transforms:
             self.metadata.update(t_args)
 
@@ -341,7 +343,7 @@ class DataProcessor:
                 except FileNotFoundError:
                     continue
 
-        if not found_existing:
+        if not found_existing and not self.force_preprocess:
             logging.info("No existing processed data found. Processing...")
             dict_structures, y = self.src_check()
             data_list = self.get_data_list(dict_structures, y)

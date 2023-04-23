@@ -202,7 +202,7 @@ class BaseTrainer(ABC):
                     # check for matching metadata of processed datasets
                     if found_metadata == metadata:
                         logging.info(
-                            "Found existing processed data with matching metadata. Loading..."
+                            "Found dataset with matching metadata. Loading..."
                         )
                         dataset_path = proc_dir
                         found = True
@@ -212,7 +212,7 @@ class BaseTrainer(ABC):
 
         if not found:
             logging.info(
-                "No existing processed data with matching metadata found. Defaulting to config..."
+                "No existing processed dataset with matching metadata found. Defaulting to config..."
             )
 
         if not os.path.exists(os.path.join(dataset_path, "data.pt")):

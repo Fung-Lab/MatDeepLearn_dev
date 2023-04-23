@@ -103,9 +103,9 @@ def wandb_setup(config):
     if not config["task"]["wandb"]["sweep"]["do_sweep"]:
         wandb_artifacts = config["task"]["wandb"].get("log_artifacts", [])
         for _, artifact in enumerate(wandb_artifacts):
-            if not os.path.exists(artifact):
+            if not os.path.exists(str(artifact)):
                 raise ValueError(
-                    f"Artifact {artifact} does not exist. Please check the path."
+                    f"Artifact {str(artifact)} does not exist. Please check the path."
                 )
             else:
                 wandb.save(artifact)

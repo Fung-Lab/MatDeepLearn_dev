@@ -11,8 +11,7 @@
 #SBATCH --mail-user=sidharth.baskaran@gatech.edu    # e-mail address for notifications
 
 cd /storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/scripts
-conda activate matdeeplearn
 
-~/.conda/envs/matdeeplearn/bin/python main.py --config_path="/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp4.yml" \
+~/.conda/envs/matdeeplearn/bin/python main.py --config_path="/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_cgcnn_vn_ocp1.yml" \
     --run_mode="train" \
     --use_wandb=True

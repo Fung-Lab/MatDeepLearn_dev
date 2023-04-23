@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:0"
+  gpu: "cuda:6"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,7 +17,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "try all MP for HG"
+    notes: "Try gc_count=8, higher cutoff"
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -33,15 +33,14 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
-      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
-      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn_hg.py"
+      - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn_hg/config_cgcnn_vn_hg.yml"
     metadata:
-      architecture: "CGCNN_VN_HG"
+      architecture: "CGCNN_VN"
+      cluster: "fung-cluster"
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
-      sweep_file: "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
   name: CGCNN_VN_HG
@@ -56,12 +55,12 @@ model:
     dim2: 150
     atomic_intermediate_layer_resolution: 0
     pre_fc_count: 1
-    gc_count: 16
+    gc_count: 8
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
-    mp_pattern: ["rr", "rv", "vr", "vv"]
+    mp_pattern: ["rr", "rv"]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -86,17 +85,9 @@ optim:
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
-  
-  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
-  # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
-  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
-  
+  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  
-  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
-  # pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
-  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
-
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -106,11 +97,9 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        attrs: ["rr", "rv", "vr", "vv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
-        vr_cutoff: 5.0
-        vv_cutoff: 5.0
+        attrs: ["rr", "rv"]
+        rr_cutoff: 12.0
+        rv_cutoff: 12.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
@@ -125,7 +114,7 @@ dataset:
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
     cutoff_radius : 5.0
-    n_neighbors : 50
+    n_neighbors : 250
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25
