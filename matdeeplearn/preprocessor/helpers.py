@@ -927,17 +927,15 @@ def generate_virtual_nodes_ase(structure, device: torch.device):
     )
 
     # obtain non-fractional coordinates and append to real atoms
-    pos = torch.tensor(
-        np.vstack((structure.get_positions(), temp.get_positions())),
-        device=device,
-        dtype=torch.float,
-    )
+    # pos = torch.tensor(
+    #     np.vstack((structure.get_positions(), temp.get_positions())),
+    #     device=device,
+    #     dtype=torch.float,
+    # )
     # set atomic numbers of the virtual atoms to be 100 and append
-    atomic_numbers = torch.LongTensor(
-        list(structure.get_atomic_numbers()) + [100] * coords.shape[0]
-    )
+    atomic_numbers = torch.LongTensor([100] * coords.shape[0])
 
-    return pos, atomic_numbers
+    return temp.get_positions(), atomic_numbers
 
 
 def calculate_edges_ase(

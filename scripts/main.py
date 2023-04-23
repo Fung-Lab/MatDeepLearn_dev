@@ -5,6 +5,7 @@ from datetime import datetime
 
 import torch
 import wandb
+import hashlib
 import yaml
 
 from matdeeplearn.common.config.build_config import build_config
@@ -70,16 +71,18 @@ def wandb_setup(config):
     # Compute a permutation-invariant hash of the preprocessing parameters for each run
     preprocess_params = config["dataset"]["preprocess_params"]
     transforms = config["dataset"]["transforms"]
-    preprocess_hash = 0
-    transform_hash = 0
 
-    for t in transforms:
-        for key, val in DictTools._flatten(t).items():
-            transform_hash += hash(key + str(val))
-    for key, val in DictTools._flatten(preprocess_params).items():
-        preprocess_hash += hash(key + str(val))
-
-    _wandb_config["meta_hash"] = preprocess_hash + transform_hash
+    sorted_transforms = sorted(
+        [x for transform in transforms for x in DictTools._flatten(transform).items()],
+        key=lambda x: x[0],
+    )
+    sorted_preprocess_params = sorted(
+        DictTools._flatten(preprocess_params).items(), key=lambda x: x[0]
+    )
+    hash_str = hashlib.md5(
+        (str(sorted_transforms) + str(sorted_preprocess_params)).encode("utf-8")
+    )
+    _wandb_config["meta_hash"] = hash_str.hexdigest()
 
     if config["task"]["run_id"] != "" and not config["model"]["load_model"]:
         raise ValueError("Must load from checkpoint if also resuming wandb run.")
@@ -166,7 +169,7 @@ if __name__ == "__main__":
             )
             wandb.agent(sweep_id, function=main, count=sweep_count)
         else:
-            logging.info("Launching parallel sweeps...")
+            logging.info("Creating parallel sweeps...")
             sweep_id = "/".join(
                 [
                     config["task"]["wandb"].get("wandb_entity", "fung-lab"),
@@ -176,8 +179,8 @@ if __name__ == "__main__":
             )
             main_path = os.path.realpath(__file__)
             # find job config path if it exists
-            if sweep_params.get("system") == "slurm":
-                if not sweep_config.get("job_config", None):
+            if "slurm" in sweep_params.get("system"):
+                if not sweep_params.get("job_config", None):
                     raise ValueError(
                         "Job config path not found when attempting to create parallel slurm sweep."
                     )
@@ -185,7 +188,7 @@ if __name__ == "__main__":
                 with open(job_config_path, "r") as f:
                     job_config = yaml.safe_load(f)
                     # Start a parallel SLURM sweep task
-                    start_sweep_tasks(
+                    script = start_sweep_tasks(
                         sweep_params.get("system"),
                         sweep_id,
                         sweep_params.get("count", 1),
@@ -196,7 +199,7 @@ if __name__ == "__main__":
                 # NOTE: Hardcoded failsafe for single GPU case, will need to be updated for distributed
                 config["task"]["gpu"] = "cuda:0"
             elif sweep_params.get("system") == "local":
-                start_sweep_tasks(
+                script = start_sweep_tasks(
                     sweep_params.get("system"),
                     sweep_id,
                     sweep_params.get("count", 1),
@@ -210,5 +213,6 @@ if __name__ == "__main__":
                 raise ValueError(
                     "Invalid system type for parallel sweep. Must be either '[phoenix,perlmutter]_slurm' or 'local'."
                 )
+            logging.info(f"Parallel sweep script: {script}")
     else:
         main()
