@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 import pathlib
 import wandb
-from ase import io
+from ase import io, Atoms
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from tqdm import tqdm
@@ -18,7 +18,7 @@ from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
     generate_node_features,
-    generate_virtual_nodes,
+    generate_virtual_nodes_ase,
     calculate_edges_master,
     PerfTimer,
 )
@@ -435,15 +435,19 @@ class DataProcessor:
                     data.edge_descriptor = {}
                     data.edge_descriptor["distance"] = edge_weights
 
-                # virtual node generation (workaround for now)
+                # virtual node generation (NOTE: workaround for now)
                 if virtual_nodes_transform:
-                    vpos, virtual_z = generate_virtual_nodes(
-                        cell2,
-                        virtual_nodes_transform["args"].get(
-                            "virtual_box_increment", 3.0
-                        ),
-                        self.device,
+                    # vpos, virtual_z = generate_virtual_nodes(
+                    #     cell2,
+                    #     virtual_nodes_transform["args"].get(
+                    #         "virtual_box_increment", 3.0
+                    #     ),
+                    #     self.device,
+                    # )
+                    structure = Atoms(
+                        numbers=atomic_numbers, positions=pos, cell=cell, pbc=[1, 1, 1]
                     )
+                    vpos, virtual_z = generate_virtual_nodes_ase(structure, self.device)
                     pos = torch.cat([pos, vpos], dim=0)
                     atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 

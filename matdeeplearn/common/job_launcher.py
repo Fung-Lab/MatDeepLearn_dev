@@ -1,9 +1,23 @@
-"""Launch jobs on local cluster or slurm in order to parallelize W&B sweep agents"""
-import subprocess
-import os
+"""Launch jobs on local cluster or slurm in order to parallelize W&B sweep agents.
+Works by generating job files that can be easily submitted to a cluster.
+"""
 import sys
 import tempfile
 from typing import Literal, Optional
+
+# Define a training command template
+training_command = lambda python_path, main_path, config_path, sweep_id: [
+    python_path,
+    main_path,
+    "--config_path",
+    config_path,
+    "--use_wandb",
+    "True",
+    "--sweep_id",
+    sweep_id,
+    "--run_mode",
+    "train",
+]
 
 
 def slurm_phoenix_entrypoint(
@@ -13,24 +27,26 @@ def slurm_phoenix_entrypoint(
     batch_commands = [
         f"#SBATCH -{key}{value}\n" for key, value in slurm_job_config["args"].items()
     ] + [f"#SBATCH {param}\n" for param in slurm_job_config["options"]]
-
+    job_command = training_command(sys.executable, main_path, config_path, sweep_id)
     # create temporary job file
-    temp = tempfile.NamedTemporaryFile(delete=True)
-    wandb_path = subprocess.check_output(["which", "wandb"]).decode("utf-8").strip()
-
+    temp = tempfile.NamedTemporaryFile(delete=False)
     with open(temp.name, "w") as tmp:
         tmp.writelines(batch_commands)
-        tmp.write("conda activate matdeeplearn\n")
-        tmp.write(f"{wandb_path} agent {sweep_id} --count {1}")
+        tmp.write(" ".join(job_command) + "\n")
     temp.file.close()
 
-    return subprocess.run(["sbatch", temp.name], check=True, capture_output=True)
+    return temp.name
 
 
-def cluster_entrypoint(config_path: str, main_path: str, sweep_id: str):
+def cluster_entrypoint(config_path: str, main_path: str, sweep_id: str, index: int):
     # Create screen command and unique "job id"
     python_path = sys.executable
+    screen_name = f"wandb_{sweep_id.split('/')[-1]}_{index}"
     screen_command = [
+        "screen",
+        "-S",
+        screen_name,
+        "-dm",
         python_path,
         main_path,
         "--config_path",
@@ -42,23 +58,8 @@ def cluster_entrypoint(config_path: str, main_path: str, sweep_id: str):
         "--run_mode",
         "train",
     ]
-    # launch sweep on the screen
-    screen_name = f"wandb_{sweep_id.split('/')[-1]}"
-    subprocess.run(
-        ["screen", "-S", screen_name, "-d", "-m"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    return subprocess.run(
-        [
-            "screen",
-            "-r",
-            screen_name,
-            "-X",
-            "stuff",
-            " ".join(screen_command),
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    # execute the job file
+    return screen_command
 
 
 def start_sweep_tasks(
@@ -68,18 +69,25 @@ def start_sweep_tasks(
     config_path: str,
     main_path: str,
     slurm_config: Optional[dict] = None,
-):
+) -> str:
     """Generate sweep tasks from sweep config"""
-    if system == "slurm_phoenix":
-        if slurm_config is None:
-            raise ValueError("SLURM config must be provided for SLURM system.")
-        for _ in range(count):
-            slurm_phoenix_entrypoint(config_path, main_path, sweep_id, slurm_config)
-    elif system == "local":
-        for _ in range(count):
-            out = cluster_entrypoint(config_path, main_path, sweep_id)
-            print(" ".join(out.args))
-    else:
-        raise ValueError(
-            "System must be either 'slurm_phoenix', 'local', or 'slurm_perlmutter"
-        )
+    temp = tempfile.NamedTemporaryFile(delete=False)
+    with open(temp.name, "w") as tmp:
+        tmp.write("#!/bin/sh\n")
+        for i in range(count):
+            if system == "phoenix_slurm":
+                if slurm_config is None:
+                    raise ValueError("SLURM config must be provided for SLURM system.")
+                command = slurm_phoenix_entrypoint(
+                    config_path, main_path, sweep_id, slurm_config
+                )
+            elif system == "local":
+                # create temporary job file
+                command = cluster_entrypoint(config_path, main_path, sweep_id, i)
+            else:
+                raise ValueError(
+                    "System must be either 'phoenix_slurm', 'local', or 'perlmutter_slurm'"
+                )
+            tmp.write(" ".join(command) + "\n")
+    temp.file.close()
+    return temp.name
