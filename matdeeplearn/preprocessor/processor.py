@@ -327,23 +327,27 @@ class DataProcessor:
 
         found_existing = False
         data_dir = pathlib.Path(self.pt_path).parent
-        for proc_dir in data_dir.glob("**/"):
-            if proc_dir.is_dir():
-                try:
-                    with open(proc_dir / "metadata.json", "r") as f:
-                        metadata = json.load(f)
-                    # check for matching metadata of processed datasets
-                    if metadata == self.metadata:
-                        logging.info(
-                            "Found existing processed data with matching metadata. Loading..."
-                        )
-                        self.save_path = proc_dir / "data.pt"
-                        found_existing = True
-                        break
-                except FileNotFoundError:
-                    continue
+        # If forcing preprocess, we ignore the metadata search procedure
+        if not self.force_preprocess:
+            for proc_dir in data_dir.glob("**/"):
+                if proc_dir.is_dir():
+                    try:
+                        with open(proc_dir / "metadata.json", "r") as f:
+                            metadata = json.load(f)
+                        # check for matching metadata of processed datasets
+                        if metadata == self.metadata:
+                            logging.info(
+                                "Found existing processed data with matching metadata. Loading..."
+                            )
+                            self.save_path = proc_dir / "data.pt"
+                            found_existing = True
+                            break
+                    except FileNotFoundError:
+                        continue
+        else:
+            logging.info("Forcing preprocessing of data.")
 
-        if not found_existing and not self.force_preprocess:
+        if not found_existing:
             logging.info("No existing processed data found. Processing...")
             dict_structures, y = self.src_check()
             data_list = self.get_data_list(dict_structures, y)
@@ -362,6 +366,7 @@ class DataProcessor:
                     else:
                         self.pt_path = original_path + "_" + str(idx)
                     os.mkdir(self.pt_path)
+                # save processed data
                 if self.pt_path:
                     if not os.path.exists(self.pt_path):
                         os.mkdir(self.pt_path)
@@ -437,13 +442,6 @@ class DataProcessor:
 
                 # virtual node generation (NOTE: workaround for now)
                 if virtual_nodes_transform:
-                    # vpos, virtual_z = generate_virtual_nodes(
-                    #     cell2,
-                    #     virtual_nodes_transform["args"].get(
-                    #         "virtual_box_increment", 3.0
-                    #     ),
-                    #     self.device,
-                    # )
                     structure = Atoms(
                         numbers=atomic_numbers, positions=pos, cell=cell, pbc=[1, 1, 1]
                     )

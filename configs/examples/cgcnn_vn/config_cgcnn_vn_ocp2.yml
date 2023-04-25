@@ -60,8 +60,8 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "AtomicNumberPooling" # pooling method
-    pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
+    virtual_pool: "RealVirtualPooling" # pooling method
+    pool_choice: "both" # whether to use virtual or real nodes or both in RealVirtualPooling
     mp_pattern: [["rr", "rv", "vr", "vv"],["rr", "rv", "vr", "vv"],["rr", "rv", "vr", "vv"],["rr", "rv", "vr", "vv"]]
     pool_order: "early"
     batch_norm: True

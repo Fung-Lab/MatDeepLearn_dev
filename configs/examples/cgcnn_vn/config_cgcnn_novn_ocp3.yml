@@ -2,11 +2,11 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn-all-neighbor-OCP"
+  identifier: "cgcnn_novn-all-neighbor-OCP"
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:0"
+  gpu: "cuda:1"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,8 +17,8 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: ""
-    tags: ["test"]
+    notes: "New baseline for no-vn, all-neighbor, OCP"
+    tags: ["baseline"]
     track_params:
       - "model.hyperparams.mp_pattern"
       - "model.hyperparams.pool"
@@ -33,15 +33,14 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
       - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
       dataset: "hMOF-5K"
     sweep:
       do_sweep: False
-      count: 5
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
@@ -59,10 +58,10 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "RealVirtualPooling" # pooling method
+    pool: "global_mean_pool" # pooling reduction scheme, none for no-vn case
+    virtual_pool: "" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr", "rv"],["rr", "rv"],["rr", "rv"],["rr", "rv"]]
+    mp_pattern: [["rr"],["rr"],["rr"],["rr"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -87,11 +86,11 @@ optim:
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   # Path to data files
-  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
+  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   target_path: ""
-  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
-  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
+  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/hmof-processed/ocp_novn"
+  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/hmof-processed/ocp_novn"
   # transforms
   transforms:
     - name: GetY
@@ -101,14 +100,13 @@ dataset:
     - name: VirtualNodes
       args:
         virtual_box_increment: 3
-        attrs: ["rr", "rv"]
-        rr_cutoff: 12.0
-        rv_cutoff: 16.0
+        attrs: ["rr"]
+        rr_cutoff: 50.0
       otf: False
   # use for passing into global config
   # one of MDL, ASE, OCP
   use_sweep_params: False
-  apply_pre_transform_processing: False
+  apply_pre_transform_processing: True
   # use again for passing into global config
   data_format: "json"
   node_representation: "onehot"
@@ -118,10 +116,10 @@ dataset:
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
     cutoff_radius : 5.0
-    n_neighbors : 50
+    n_neighbors : 250
     edge_calc_method: "ocp"
     num_offsets: 1
-    edge_steps : 50
+    edge_steps : 25
     all_neighbors: True
     use_degree: False
   # Ratios for train/val/test split out of a total of 1

@@ -23,6 +23,7 @@ from functools import wraps
 
 def conditional_grad(dec):
     "Decorator to enable/disable grad depending on whether force/energy predictions are being made"
+
     # Adapted from https://stackoverflow.com/questions/60907323/accessing-class-property-as-decorator-argument
     def decorator(func):
         @wraps(func)
@@ -884,7 +885,9 @@ def generate_virtual_nodes(
     return virtual_pos, torch.tensor([100] * len(coords), device=device)
 
 
-def generate_virtual_nodes_ase(structure, device: torch.device):
+def generate_virtual_nodes_ase(
+    structure, device: torch.device
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     increment specifies the spacing between virtual nodes in cartesian
     space (units in Angstroms); increment is a hyperparameter
@@ -926,16 +929,12 @@ def generate_virtual_nodes_ase(structure, device: torch.device):
         pbc=[1, 1, 1],
     )
 
-    # obtain non-fractional coordinates and append to real atoms
-    # pos = torch.tensor(
-    #     np.vstack((structure.get_positions(), temp.get_positions())),
-    #     device=device,
-    #     dtype=torch.float,
-    # )
-    # set atomic numbers of the virtual atoms to be 100 and append
+    # set atomic numbers of the virtual atoms to be 100
     atomic_numbers = torch.LongTensor([100] * coords.shape[0])
-
-    return temp.get_positions(), atomic_numbers
+    return (
+        torch.tensor(temp.get_positions(), device=device, dtype=torch.float),
+        atomic_numbers,
+    )
 
 
 def calculate_edges_ase(

@@ -79,8 +79,10 @@ def wandb_setup(config):
     sorted_preprocess_params = sorted(
         DictTools._flatten(preprocess_params).items(), key=lambda x: x[0]
     )
+    sorted_model_hyperparams = sorted(DictTools._flatten(config["model"]["hyperparams"]).items(), key=lambda x: x[0])
+    
     hash_str = hashlib.md5(
-        (str(sorted_transforms) + str(sorted_preprocess_params)).encode("utf-8")
+        (str(sorted_transforms) + str(sorted_preprocess_params) + str(sorted_model_hyperparams)).encode("utf-8")
     )
     _wandb_config["meta_hash"] = hash_str.hexdigest()
 
@@ -118,7 +120,8 @@ def wandb_setup(config):
 
 def main():
     """Entrypoint for MatDeepLearn inference tasks"""
-    wandb_setup(config)
+    if args.use_wandb:
+        wandb_setup(config)
     if not config["dataset"]["processed"]:
         process_data(config["dataset"], config["task"]["wandb"])
     Runner()(config, args)
@@ -135,6 +138,8 @@ if __name__ == "__main__":
 
     # add config path as an artifact manually
     config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
+    
+    print("use wandb", args.use_wandb)
 
     # override config from CLI, useful for quick experiments/debugging purposes
     config["task"]["wandb"]["use_wandb"] = (
