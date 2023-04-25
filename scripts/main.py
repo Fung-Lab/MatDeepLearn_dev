@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
 
     # setup_logging()
-    os.environ["LOCAL_WORLD_SIZE"] = 4
+    os.environ["LOCAL_WORLD_SIZE"] = "4"
     local_rank = os.environ.get('LOCAL_RANK', None)
     if local_rank == None or int(local_rank) == 0:
         root_logger = logging.getLogger()
