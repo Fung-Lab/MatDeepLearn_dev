@@ -4,20 +4,19 @@ task:
   # run_mode: train
   identifier: "my_train_job"
   reprocess: False
-  parallel: True
+  parallel: False
   # seed=0 means random initalization
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  # checkpoint_dir: "."
+  checkpoint_dir: 
   write_output: True
-  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
 
 model:
   name: CGCNN
-  load_model: False
+  load_model: True
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50

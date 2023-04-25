@@ -11,6 +11,9 @@ import torch.optim as optim
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel
+from torch import distributed as dist
+import torch_geometric
 from torch_geometric.data import Dataset
 
 from matdeeplearn.common.data import (
@@ -28,7 +31,7 @@ from matdeeplearn.modules.scheduler import LRScheduler
 @registry.register_trainer("base")
 class BaseTrainer(ABC):
     def __init__(
-        self,
+        self,        
         model: BaseModel,
         dataset: Dataset,
         optimizer: Optimizer,
@@ -46,7 +49,7 @@ class BaseTrainer(ABC):
         checkpoint_dir: str = None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = model.to(self.device)
+        self.model = model
         self.dataset = dataset
         self.optimizer = optimizer
         self.train_sampler = sampler
@@ -73,6 +76,11 @@ class BaseTrainer(ABC):
 
         self.evaluator = Evaluator()
 
+        if self.train_sampler == None:
+            self.rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.rank = self.train_sampler.rank
+
         timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
             "%Y-%m-%d-%H-%M-%S"
@@ -82,12 +90,12 @@ class BaseTrainer(ABC):
 
         if self.train_verbosity:
             logging.info(
-                f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
+                f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"
             )
             logging.info(f"Dataset used: {self.dataset}")
-            logging.debug(self.dataset[0])
-            logging.debug(self.dataset[0].x[0])
-            logging.debug(self.dataset[0].x[-1])
+            logging.debug(self.dataset["train"][0])
+            logging.debug(self.dataset["train"][0].x[0])
+            logging.debug(self.dataset["train"][0].x[-1])
             logging.debug(self.model)
 
     @classmethod
@@ -101,13 +109,25 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        dataset = cls._load_dataset(config["dataset"])
-        model = cls._load_model(config["model"], dataset)
-        optimizer = cls._load_optimizer(config["optim"], model)
-        sampler = cls._load_sampler(config["optim"], dataset)
+        
+        if config["task"]["parallel"] == True:
+            #os.environ["MASTER_ADDR"] = "localhost"
+            #os.environ["MASTER_PORT"] = "12355"
+            local_world_size = os.environ.get('LOCAL_WORLD_SIZE', None)
+            local_world_size= int(local_world_size)
+            dist.init_process_group("nccl", world_size=local_world_size, init_method='env://')    
+            rank = int(dist.get_rank())            
+        else:        
+            rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            local_world_size = 1
+            
+        dataset = cls._load_dataset(config["dataset"], config["task"]["seed"])
+        model = cls._load_model(config["model"], dataset["train"], local_world_size, rank)
+        optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
+        sampler = cls._load_sampler(config["optim"], dataset["train"], local_world_size, rank)
         train_loader, val_loader, test_loader = cls._load_dataloader(
-            config["optim"], config["dataset"], dataset, sampler
-        )
+            config["optim"], config["dataset"], dataset, sampler,
+        )               
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
@@ -117,6 +137,9 @@ class BaseTrainer(ABC):
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
+        
+        if local_world_size > 1:
+            dist.barrier()
 
         return cls(
             model=model,
@@ -137,29 +160,72 @@ class BaseTrainer(ABC):
         )
 
     @staticmethod
-    def _load_dataset(dataset_config):
+    def _load_dataset(dataset_config, seed):
         """Loads the dataset if from a config file."""
+        
         dataset_path = dataset_config["pt_path"]
-
-        dataset = get_dataset(
-            dataset_path,
-            transform_list=dataset_config.get("transforms", []),
-        )
-
+        dataset={}    
+        if isinstance(dataset_config["src"], dict):
+            dataset["train"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_train.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+            dataset["val"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_val.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+            dataset["test"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_test.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+                                
+        else:                                         
+            dataset_full = get_dataset(
+                dataset_path,
+                processed_file_name="data.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+            train_ratio = dataset_config["train_ratio"]
+            val_ratio = dataset_config["val_ratio"]
+            test_ratio = dataset_config["test_ratio"]
+            dataset["train"], dataset["val"], dataset["test"] = dataset_split(
+                dataset_full, train_ratio, val_ratio, test_ratio, seed,
+            )       
+            
         return dataset
 
     @staticmethod
-    def _load_model(model_config, dataset):
+    def _load_model(model_config, dataset, world_size, rank):
         """Loads the model if from a config file."""
+        
         model_cls = registry.get_model_class(model_config["name"])
-        if model_config["name"] == "painn":
-            model = model_cls(data=dataset, num_atoms=dataset.data.n_atoms, **model_config)
-        else:
-            model = model_cls(data=dataset, **model_config)
+        model = model_cls(data=dataset, **model_config)
+        model = model.to(rank)
+        #model = torch_geometric.compile(model)
+        #if model_config["load_model"] == True:
+        #    checkpoint = torch.load(model_config["model_path"])
+        #    model.load_state_dict(checkpoint["state_dict"])
+        if world_size > 1:            
+            model = DistributedDataParallel(
+                model, device_ids=[rank], find_unused_parameters=False
+            )
+                        
+
         return model
 
     @staticmethod
-    def _load_optimizer(optim_config, model):
+    def _load_optimizer(optim_config, model, world_size):
+        #Some issues with DDP learning rate
+        #Unclear regarding the best practice
+        #Currently, effective batch size per epoch is batch_size * world_size
+        #Some discussions here:
+        #https://github.com/Lightning-AI/lightning/discussions/3706
+        #https://discuss.pytorch.org/t/should-we-split-batch-size-according-to-ngpu-per-node-when-distributeddataparallel/72769/15
+        if world_size > 1:
+            optim_config["lr"] = optim_config["lr"] * world_size
         optimizer = getattr(optim, optim_config["optimizer"]["optimizer_type"])(
             model.parameters(),
             lr=optim_config["lr"],
@@ -168,34 +234,29 @@ class BaseTrainer(ABC):
         return optimizer
 
     @staticmethod
-    def _load_sampler(optim_config, dataset):
+    def _load_sampler(optim_config, dataset, world_size, rank):
         # TODO: write sampler, look into BalancedBatchSampler in
         #  OCP for their implementation of train_sampler batches
         #  (part of self.train_loader)
         # TODO: update sampler with more attributes like rank and num_replicas (world_size)
-
-        # sampler = DistributedSampler(dataset, rank=0)
-
-        # TODO: for testing purposes, return None
-        return None
+        if world_size > 1:
+            sampler = DistributedSampler(
+                dataset, num_replicas=world_size, rank=rank
+            )
+        else:
+            sampler = None        
+        return sampler
 
     @staticmethod
     def _load_dataloader(optim_config, dataset_config, dataset, sampler):
-        train_ratio = dataset_config["train_ratio"]
-        val_ratio = dataset_config["val_ratio"]
-        test_ratio = dataset_config["test_ratio"]
-        train_dataset, val_dataset, test_dataset = dataset_split(
-            dataset, train_ratio, val_ratio, test_ratio
-        )
 
-        batch_size = optim_config.get("batch_size")
-
+        batch_size = optim_config.get("batch_size")    
         train_loader = get_dataloader(
-            train_dataset, batch_size=batch_size, sampler=sampler
+            dataset["train"], batch_size=batch_size, sampler=sampler
         )
-        val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
+        val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=None)
         test_loader = get_dataloader(
-            test_dataset, batch_size=batch_size, sampler=sampler
+            dataset["test"], batch_size=batch_size, sampler=None
         )
 
         return train_loader, val_loader, test_loader
@@ -236,32 +297,47 @@ class BaseTrainer(ABC):
     def update_best_model(self, val_metrics):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
-        self.best_model_state = copy.deepcopy(self.model.state_dict())
-
+        if str(self.rank) not in ("cpu", "cuda"): 
+            self.best_model_state = copy.deepcopy(self.model.module.state_dict())
+        else:
+            self.best_model_state = copy.deepcopy(self.model.state_dict())
         self.save_model("best_checkpoint.pt", val_metrics, False)
 
         logging.debug(
             f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
         )
+
         self.predict(self.train_loader, "train")
         self.predict(self.val_loader, "val")
         self.predict(self.test_loader, "test")
 
     def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
         """Saves the model state dict"""
-
-        if training_state:
-            state = {
-                "epoch": self.epoch,
-                "step": self.step,
-                "state_dict": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
-                "scheduler": self.scheduler.scheduler.state_dict(),
-                "best_val_metric": self.best_val_metric,
-            }
+        
+        if str(self.rank) not in ("cpu", "cuda"): 
+            if training_state:
+                state = {
+                    "epoch": self.epoch,
+                    "step": self.step,
+                    "state_dict": self.model.module.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.scheduler.state_dict(),
+                    "best_val_metric": self.best_val_metric,
+                }
+            else:
+                state = {"state_dict": self.model.module.state_dict(), "val_metrics": val_metrics}
         else:
-            state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
-
+            if training_state:
+                state = {
+                    "epoch": self.epoch,
+                    "step": self.step,
+                    "state_dict": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.scheduler.state_dict(),
+                    "best_val_metric": self.best_val_metric,
+                }
+            else:
+                state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}        
         curr_checkpt_dir = os.path.join(
             self.save_dir, "results", self.timestamp_id, "checkpoint"
         )
@@ -299,13 +375,16 @@ class BaseTrainer(ABC):
         if not self.checkpoint_dir:
             raise ValueError("No checkpoint directory specified in config.")
 
-        checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
-        checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
+        #checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
+        #checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
 
         # Load params from checkpoint
-        checkpoint = torch.load(checkpoint_file)
-
-        self.model.load_state_dict(checkpoint["state_dict"])
+        checkpoint = torch.load(self.checkpoint_dir)
+        
+        if str(self.rank) not in ("cpu", "cuda"): 
+            self.model.module.load_state_dict(checkpoint["state_dict"])
+        else:
+            self.model.load_state_dict(checkpoint["state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
         self.epoch = checkpoint["epoch"]
