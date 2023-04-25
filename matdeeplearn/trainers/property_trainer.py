@@ -98,9 +98,9 @@ class PropertyTrainer(BaseTrainer):
                 batch = next(train_loader_iter).to(self.rank)              
                 # Compute forward, loss, backward
                 out = self._forward(batch)
-                loss = self._compute_loss(out, batch)                                
                 if type(out) == tuple and len(out) == 5:
                     out = out[0]
+                loss = self._compute_loss(out, batch)                                
                 loss = self._compute_loss(out, batch)
 
                 self._backward(loss)
