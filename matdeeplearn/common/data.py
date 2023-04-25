@@ -1,6 +1,7 @@
 import warnings
 from typing import List
 
+import numpy as np
 import torch
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
@@ -39,6 +40,10 @@ def dataset_split(
             a float between 0.0 and 1.0 that represents the proportion
             of the dataset to use as the test set
     """
+
+    if seed == 0:
+        seed = np.random.randint(1, 1e6)
+    
     if train_size + valid_size + test_size != 1:
         warnings.warn("Invalid sizes detected. Using default split of 80/5/15.")
         train_size, valid_size, test_size = 0.8, 0.05, 0.15
@@ -58,9 +63,32 @@ def dataset_split(
 
     return train_dataset, val_dataset, test_dataset
 
+def get_otf_transforms(transform_list: List[dict]):
+    """
+    get on the fly specific transforms
+
+    Parameters
+    ----------
+
+    transform_list: transformation function/classes to be applied
+    """
+
+    transforms = []
+    # set transform method
+    for transform in transform_list:
+        if transform.get("otf", False):
+            transforms.append(
+                registry.get_transform_class(
+                    transform["name"],
+                    **transform.get("args", {})
+                )
+            )
+            
+    return transforms
 
 def get_dataset(
     data_path,
+    processed_file_name,
     transform_list: List[dict] = [],
     large_dataset=False,
 ):
@@ -78,21 +106,8 @@ def get_dataset(
     transform_list: transformation function/classes to be applied
     """
 
-    # Ensure GetY exists to prevent downstream model errors
-    assert "GetY" in [
-        tf["name"] for tf in transform_list
-    ], "The target transform GetY is required in config."
-
-    transforms = []
-    # set transform method
-    for transform in transform_list:
-        if transform.get("otf", False):
-            transforms.append(
-                registry.get_transform_class(
-                    transform["name"],
-                    **({} if transform["args"] is None else transform["args"])
-                )
-            )
+    # get on the fly transforms for use on dataset access
+    otf_transforms = get_otf_transforms(transform_list)
 
     # check if large dataset is needed
     if large_dataset:
@@ -100,9 +115,9 @@ def get_dataset(
     else:
         Dataset = StructureDataset
 
-    composition = Compose(transforms) if len(transforms) > 1 else transforms[0]
-
-    dataset = Dataset(data_path, processed_data_path="", transform=composition)
+    composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
+        
+    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
 
     return dataset
 
@@ -130,8 +145,9 @@ def get_dataloader(
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=(sampler is None),
         num_workers=num_workers,
+        pin_memory=True,
         sampler=sampler,
     )
 
