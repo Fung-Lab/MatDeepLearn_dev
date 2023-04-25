@@ -4,40 +4,48 @@ task:
   # run_mode: train
   identifier: "my_train_job"
   reprocess: False
-  parallel: False
+  parallel: True
   # seed=0 means random initalization
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  checkpoint_dir: 
+  # checkpoint_dir: "."
   write_output: True
+  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
 
 model:
-  name: CGCNN
-  load_model: True
+  name: escn
+  load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: "global_mean_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
-  act: "relu"
-  dropout_rate: 0.0
+  use_pbc: False
+  regress_forces: False
+  otf_graph: False
+  max_num_neighbors: 50
+  cutoff: 6.0
+  max_num_elements: 100
+  num_layers: 6
+  lmax_list: [6]
+  mmax_list: [2]
+  sphere_channels: 128
+  hidden_channels: 256
+  edge_channels: 128
+  use_grid: True
+  num_sphere_samples: 128
+  distance_function: "gaussian"
+  basis_width_scalar: 1.0
+  distance_resolution: 0.02
+  show_timing_info: False
 
 optim:
-  max_epochs: 400
+  max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -54,17 +62,11 @@ optim:
 dataset:
   processed: False
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
-  #src: "/project/Rithwik/2D_data_npj/raw/"
-  src: "/project/Rithwik/QM9/data.json"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   # Path to target file within data_path
-  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
-  #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  target_path:
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   # Path to save processed data.pt file
-  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
-  #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
-  pt_path: "/project/Rithwik/QM9/"
+  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
   transforms:
     - name: GetY
       args:
@@ -83,13 +85,11 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
-    cutoff_radius : 5.0
+    cutoff_radius : 8.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8408
-  val_ratio: 0.0764
-  test_ratio: 0.0828
-  
-
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

@@ -213,6 +213,7 @@ class BaseTrainer(ABC):
                 model, device_ids=[rank], find_unused_parameters=False
             )
                         
+
         return model
 
     @staticmethod

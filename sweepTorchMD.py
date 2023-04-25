@@ -1,16 +1,33 @@
 import logging
 import pprint
-import os
-from torch import distributed as dist
+
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.trainer_context import new_trainer_context
 from matdeeplearn.preprocessor.processor import process_data
+import wandb
 
 # import submitit
 
 # from matdeeplearn.common.utils import setup_logging
-
+sweep_configuration = {
+    'method': 'random',
+    'name': 'sweep',
+    'metric': {'goal': 'minimize', 'name': 'val_loss'},
+    'parameters': 
+    {
+        'lr': {'max': .003, 'min': .00001},
+        'hidden_channels': {'values': [32, 64, 128, 256, 512]},
+        'num_filters': {'values': [32, 64, 128, 256, 512]},
+        'num_layers': {'values': [2, 3, 4, 5, 6, 7, 8]},
+        'cutoff_upper': {'max': 12.0, 'min': 4.0},
+        'num_heads': {'values': [1, 2, 4, 8, 16]},
+        'num_rbf': {'values': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]},
+        'cutoff_radius': {'max': 12.0, 'min': 4.0},
+        'edge_steps': {'values': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]},
+    }
+}
+sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 
 class Runner:  # submitit.helpers.Checkpointable):
     def __init__(self):
@@ -38,17 +55,14 @@ class Runner:  # submitit.helpers.Checkpointable):
         if self.trainer.logger is not None:
             self.trainer.logger.mark_preempting()
         # return submitit.helpers.DelayedSubmission(new_runner, self.config)
+args = None
 
-
-if __name__ == "__main__":
-
-
+#if __name__ == "__main__":
+def main():
     # setup_logging()
-    local_rank = os.environ.get('LOCAL_RANK', None)
-    if local_rank == None or int(local_rank) == 0:
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
-        
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
@@ -56,9 +70,23 @@ if __name__ == "__main__":
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])
 
+    run = wandb.init()
+    config["optim"]["lr"] = wandb.config.lr
+    config["model"]["hidden_channels"] = wandb.config.hidden_channels
+    config["model"]["num_filters"] = wandb.config.num_filters
+    config["model"]["num_layers"] = wandb.config.num_layers
+    config["model"]["cutoff_upper"] = wandb.config.cutoff_upper
+    config["model"]["num_heads"] = wandb.config.num_heads
+    config["model"]["num_rbf"] = wandb.config.num_rbf
+    config["dataset"]["preprocess_params"]["cutoff_radius"] = wandb.config.cutoff_radius
+    config["dataset"]["preprocess_params"]["edge_steps"] = wandb.config.edge_steps
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster
         pass
 
     else:  # Run locally
         Runner()(config)
+wandb.agent(sweep_id, function=main, count=100)
+
+#if __name__ == "__main__":
+#    main()

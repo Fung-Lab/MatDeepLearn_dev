@@ -20,9 +20,9 @@ from matdeeplearn.models.base_model import BaseModel
 class CGCNN(BaseModel):
     def __init__(
         self,
-        edge_steps,
-        self_loop,
         data,
+        edge_steps=50,
+        self_loop=True,
         dim1=64,
         dim2=64,
         pre_fc_count=1,
