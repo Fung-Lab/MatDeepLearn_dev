@@ -110,8 +110,8 @@ class BaseTrainer(ABC):
         """
         
         if config["task"]["parallel"] == True:
-            os.environ["MASTER_ADDR"] = "localhost"
-            os.environ["MASTER_PORT"] = "12355"
+            #os.environ["MASTER_ADDR"] = "localhost"
+            #os.environ["MASTER_PORT"] = "12355"
             local_world_size = os.environ.get('LOCAL_WORLD_SIZE', None)
             local_world_size= int(local_world_size)
             dist.init_process_group("nccl", world_size=local_world_size, init_method='env://')    
