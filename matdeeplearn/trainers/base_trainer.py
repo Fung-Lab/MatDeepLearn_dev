@@ -115,7 +115,8 @@ class BaseTrainer(ABC):
             local_world_size = os.environ.get('LOCAL_WORLD_SIZE', None)
             local_world_size= int(local_world_size)
             dist.init_process_group("nccl", world_size=local_world_size, init_method='env://')    
-            rank = int(dist.get_rank())            
+            rank = int(dist.get_rank())
+            print("runs")        
         else:        
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
