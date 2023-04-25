@@ -63,8 +63,6 @@ class BaseTrainer(ABC):
         self.max_epochs = max_epochs
         self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
-        print(verbosity)
-        print(self.train_verbosity)
         self.epoch = 0
         self.step = 0
         self.metrics = {}
