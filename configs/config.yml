@@ -9,7 +9,7 @@ task:
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  checkpoint_dir: 
+  #checkpoint_dir: 
   write_output: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
