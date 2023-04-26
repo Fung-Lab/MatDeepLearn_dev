@@ -4,12 +4,18 @@ from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (calculate_edges_master,
-                                               compute_bond_angles,
-                                               custom_edge_feats,
-                                               custom_node_feats,
-                                               generate_virtual_nodes,
-                                               get_mask, one_hot_degree)
+from matdeeplearn.preprocessor.helpers import (
+    calculate_edges_master,
+    compute_bond_angles,
+    custom_edge_feats,
+    custom_node_feats,
+    generate_virtual_nodes_ase,
+    generate_virtual_nodes,
+    get_mask,
+    one_hot_degree,
+)
+
+from ase import Atoms
 
 """
 here resides the transform classes needed for data processing
@@ -19,6 +25,7 @@ From PyG:
     object and returns a transformed version.
     The data object will be transformed before every access.
 """
+
 
 @registry.register_transform("GetY")
 class GetY(object):
@@ -74,18 +81,18 @@ class VirtualNodes(object):
         self.kwargs = kwargs
 
     def __call__(self, data: Data) -> CustomData:
-        # NOTE use cell2 instead of cell for correct VN generation
-        vpos, virtual_z = generate_virtual_nodes(
-            data.cell2, self.kwargs.get("virtual_box_increment"), self.device
+        # compute virtual nodes
+        structure = Atoms(
+            numbers=data.z, positions=data.pos, cell=data.cell, pbc=[1, 1, 1]
+        )
+        vpos, virtual_z = generate_virtual_nodes_ase(
+            structure, self.kwargs.get("virtual_box_increment"), self.device
         )
 
-        try:
-            data.rv_pos = torch.cat((data.o_pos, vpos), dim=0)
-            data.z = torch.cat((data.o_z, virtual_z), dim=0)
-        except AttributeError:
-            pass
+        data.pos = torch.cat((data.pos, vpos), dim=0)
+        data.z = torch.cat((data.z, virtual_z), dim=0)
 
-        # TODO figure out how to resolve neighbors for different MP interactions
+        # TODO figure out how to efficiently resolve neighbors for different MP interactions
         for attr in self.kwargs.get("attrs"):
             cutoff = self.kwargs.get(f"{attr}_cutoff")
             # compute edges
@@ -96,7 +103,7 @@ class VirtualNodes(object):
                 self.kwargs.get("n_neighbors"),
                 self.kwargs.get("num_offsets"),
                 data.structure_id,
-                data.cell,
+                data.cell,  # use regular cell here
                 data.pos,
                 data.z,
                 remove_virtual_edges=False,
@@ -174,7 +181,7 @@ class VirtualNodes(object):
             data.z,
             participating_edges,
             len(data.z),
-            self.kwargs.get("neighbors"),  # any neighbor suffices
+            self.kwargs.get("n_neighbors"),  # any neighbor suffices
             self.device,
             use_degree=self.kwargs.get("use_degree", False),
         )
@@ -188,10 +195,11 @@ class VirtualNodes(object):
         edge_attr_attrs = [f"edge_attr_{s}" for s in self.kwargs.get("attrs")]
         edge_weight_attrs = [f"edge_weights_{s}" for s in self.kwargs.get("attrs")]
         edge_vec_attrs = [f"edge_vec_{s}" for s in self.kwargs.get("attrs")]
-        cell_offset_attrs = [f"cell_offsets_{s}" for s in self.kwargs.get("attrs")]
-        cell_offset_distance_attrs = [
-            f"cell_offset_distances_{s}" for s in self.kwargs.get("attrs")
-        ]
+
+        # cell_offset_attrs = [f"cell_offsets_{s}" for s in self.kwargs.get("attrs")]
+        # cell_offset_distance_attrs = [
+        #     f"cell_offset_distances_{s}" for s in self.kwargs.get("attrs")
+        # ]
 
         if self.kwargs.get("optimize_memory", False):
             for attr in list(data.__dict__.get("_store").keys()):
@@ -201,8 +209,8 @@ class VirtualNodes(object):
                     and attr not in edge_weight_attrs
                     and attr not in edge_vec_attrs
                     and attr not in self.keep_attrs
-                    and attr not in cell_offset_attrs
-                    and attr not in cell_offset_distance_attrs
+                    # and attr not in cell_offset_attrs
+                    # and attr not in cell_offset_distance_attrs
                 ):
                     data.__dict__.get("_store")[attr] = None
 
@@ -213,8 +221,8 @@ class VirtualNodes(object):
             + edge_attr_attrs
             + edge_weight_attrs
             + edge_vec_attrs
-            + cell_offset_attrs
-            + cell_offset_distance_attrs
+            # + cell_offset_attrs
+            # + cell_offset_distance_attrs
             if hasattr(data, attr)
         }
 

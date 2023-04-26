@@ -886,15 +886,11 @@ def generate_virtual_nodes(
 
 
 def generate_virtual_nodes_ase(
-    structure, device: torch.device
+    structure, increment: float, device: torch.device
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     increment specifies the spacing between virtual nodes in cartesian
-    space (units in Angstroms); increment is a hyperparameter
-    """
-    increment = 3
-
-    """
+    space (units in Angstroms); increment is a hyperparameter.
     obtain the lengths of the sides of the unit cell; s is an ASE atoms
     object, get_cell_lengths_and_angles() returns l1,l2,3,a1,a2,a3
     """

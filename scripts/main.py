@@ -138,8 +138,6 @@ if __name__ == "__main__":
 
     # add config path as an artifact manually
     config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
-    
-    print("use wandb", args.use_wandb)
 
     # override config from CLI, useful for quick experiments/debugging purposes
     config["task"]["wandb"]["use_wandb"] = (

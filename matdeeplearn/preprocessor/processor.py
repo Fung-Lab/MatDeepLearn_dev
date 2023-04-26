@@ -383,14 +383,13 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
-        transforms = [(i, t) for (i, t) in enumerate(self.transforms)]
-
-        # find the virtual nodes transform (temporary workaround for now)
-        virtual_nodes_transform = None
-        for i, t in transforms:
-            if t.get("name") == "VirtualNodes":
-                virtual_nodes_transform = t
-                break
+        # transforms = [(i, t) for (i, t) in enumerate(self.transforms)]
+        # find the virtual nodes transform (NOTE: temporary workaround for now)
+        # virtual_nodes_transform = None
+        # for i, t in transforms:
+        #     if t.get("name") == "VirtualNodes":
+        #         virtual_nodes_transform = t
+        #         break
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             with PerfTimer() as t:
@@ -441,13 +440,13 @@ class DataProcessor:
                     data.edge_descriptor["distance"] = edge_weights
 
                 # virtual node generation (NOTE: workaround for now)
-                if virtual_nodes_transform:
-                    structure = Atoms(
-                        numbers=atomic_numbers, positions=pos, cell=cell, pbc=[1, 1, 1]
-                    )
-                    vpos, virtual_z = generate_virtual_nodes_ase(structure, self.device)
-                    pos = torch.cat([pos, vpos], dim=0)
-                    atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
+                # if virtual_nodes_transform:
+                #     structure = Atoms(
+                #         numbers=atomic_numbers, positions=pos, cell=cell, pbc=[1, 1, 1]
+                #     )
+                #     vpos, virtual_z = generate_virtual_nodes_ase(structure, self.device)
+                #     pos = torch.cat([pos, vpos], dim=0)
+                #     atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
 
                 data.n_atoms = len(atomic_numbers)
                 data.pos = pos
