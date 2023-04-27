@@ -35,9 +35,9 @@ class DOSLoss(nn.Module):
         dos_cumsum = torch.cumsum(target.scaled, axis=1)
         dos_cumsum_loss = self.loss_fn(output_cumsum, dos_cumsum)
 
-        scaled_dos = out * scaling.view(-1, 1).expand_as(out)
-        x = torch.linspace(-10, 10, 400).to(scaled_dos)
-        features = self.get_dos_features(x, scaled_dos)
+        original_dos = out * scaling.view(-1, 1).expand_as(out)
+        x = torch.linspace(-10, 10, 400).to(original_dos)
+        features = self.get_dos_features(x, original_dos)
         features_loss = self.loss_fn(target.features, features.to(self.device))
 
         loss_sum = (
@@ -47,10 +47,12 @@ class DOSLoss(nn.Module):
             + features_loss * self.features_weight
         )
 
+        # change dos_loss reported to scaled
+        original_dos_loss = self.loss_fn(original_dos, target.y)
         # TODO: return dos_loss and other losses separately
         loss_dict = {
             type(self).__name__: loss_sum,
-            "dos_loss": dos_loss,
+            "original_dos_loss": original_dos_loss,
             "scaling_loss": scaling_loss,
             "dos_cumsum_loss": dos_cumsum_loss,
             "features_loss": features_loss,

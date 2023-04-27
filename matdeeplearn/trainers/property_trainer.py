@@ -26,6 +26,7 @@ class PropertyTrainer(BaseTrainer):
         max_epochs,
         identifier,
         verbosity,
+        save_out,
     ):
         super().__init__(
             model,
@@ -40,6 +41,7 @@ class PropertyTrainer(BaseTrainer):
             max_epochs,
             identifier,
             verbosity,
+            save_out,
         )
 
     def train(self):
@@ -106,6 +108,12 @@ class PropertyTrainer(BaseTrainer):
                 # step scheduler, using validation error
                 self._scheduler_step()
 
+        # call predict at end if didn't save throughout
+        if not self.save_out:
+            self.predict(self.train_loader, "train")
+            self.predict(self.val_loader, "val")
+            self.predict(self.test_loader, "test")
+
         return self.best_model_state
 
     def validate(self, split="val"):
@@ -169,7 +177,7 @@ class PropertyTrainer(BaseTrainer):
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
             batch_p = out.data.cpu().numpy()
-            batch_t = batch[self.model.target_attr].cpu().numpy()
+            batch_t = batch.y.cpu().numpy()
 
             batch_ids = np.array(
                 [item for sublist in batch.structure_id for item in sublist]

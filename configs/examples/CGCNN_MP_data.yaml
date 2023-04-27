@@ -6,7 +6,12 @@ task:
   parallel: True
   seed: 0
   write_output: True
+
+#  TODO: add more logging configs here
+logging:
+  #Training print out frequency (print per n number of epochs)
   verbosity: 5
+  save_out: True # true if want to save throughout, false if only at end
 
 model:
   name: CGCNN
@@ -45,6 +50,9 @@ dataset:
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
   target_path: ""
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+#  src: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw/"
+#  target_path: ""
+#  pt_path: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/processed/MP_DOS_data/"
   data_format: "json"
   node_representation: "onehot"
   additional_attributes: ["features", "scaled", "scaling_factor"]

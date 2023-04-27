@@ -15,10 +15,12 @@ task:
 
   write_output: True
   parallel: True
+
+#  TODO: add more logging configs here
+logging:
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
-
-
+  save_out: True # true if want to save throughout, false if only at end
 
 model:
   name: CGCNN

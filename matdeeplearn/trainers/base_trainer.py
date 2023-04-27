@@ -41,6 +41,7 @@ class BaseTrainer(ABC):
         max_epochs: int,
         identifier: str = None,
         verbosity: int = None,
+        save_out: bool = True,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -56,6 +57,7 @@ class BaseTrainer(ABC):
         self.loss_fn = loss
         self.max_epochs = max_epochs
         self.train_verbosity = verbosity
+        self.save_out = save_out
 
         self.epoch = 0
         self.step = 0
@@ -111,7 +113,9 @@ class BaseTrainer(ABC):
 
         max_epochs = config["optim"]["max_epochs"]
         identifier = config["task"].get("identifier", None)
-        verbosity = config["task"].get("verbosity", None)
+
+        verbosity = config["logging"].get("verbosity", None)
+        save_out = config["logging"].get("save_out", True)
 
         run = wandb.init(
             settings=wandb.Settings(start_method="fork"),
@@ -141,6 +145,7 @@ class BaseTrainer(ABC):
             max_epochs=max_epochs,
             identifier=identifier,
             verbosity=verbosity,
+            save_out=save_out,
         )
 
     @staticmethod
@@ -246,9 +251,11 @@ class BaseTrainer(ABC):
         logging.debug(
             f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
         )
-        self.predict(self.train_loader, "train")
-        self.predict(self.val_loader, "val")
-        self.predict(self.test_loader, "test")
+
+        if self.save_out:
+            self.predict(self.train_loader, "train")
+            self.predict(self.val_loader, "val")
+            self.predict(self.test_loader, "test")
 
     def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
         """Saves the model state dict"""
