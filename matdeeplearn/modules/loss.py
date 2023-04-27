@@ -48,7 +48,10 @@ class DOSLoss(nn.Module):
         )
 
         # change dos_loss reported to scaled
-        original_dos_loss = self.loss_fn(original_dos, target.y)
+        target_original_dos = target.scaled * target.scaling_factor.view(
+            -1, 1
+        ).expand_as(target.scaled)
+        original_dos_loss = self.loss_fn(original_dos, target_original_dos)
         # TODO: return dos_loss and other losses separately
         loss_dict = {
             type(self).__name__: loss_sum,

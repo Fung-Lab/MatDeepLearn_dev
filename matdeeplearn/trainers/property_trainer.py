@@ -173,11 +173,16 @@ class PropertyTrainer(BaseTrainer):
                     if scaled_out.nelement() > 0:
                         out_lst.append((scaled_out, scaling_factor_out))
 
-                # if out is a tuple, then it's scaled data
+                # if out is a tuple, then it's scaled data, so unscale it and target
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
+                target = batch.scaled * batch.scaling_factor.view(-1, 1).expand_as(
+                    batch.scaled
+                )
+            else:
+                target = batch.y
 
             batch_p = out.data.cpu().numpy()
-            batch_t = batch.y.cpu().numpy()
+            batch_t = target.cpu().numpy()
 
             batch_ids = np.array(
                 [item for sublist in batch.structure_id for item in sublist]
