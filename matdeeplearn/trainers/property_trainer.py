@@ -179,7 +179,7 @@ class PropertyTrainer(BaseTrainer):
                     -1, 1
                 ).expand_as(batch.scaled)
             else:
-                target = batch.y
+                target_original = batch.y
 
             batch_p = out.data.cpu().numpy()
             batch_t = target_original.cpu().numpy()
