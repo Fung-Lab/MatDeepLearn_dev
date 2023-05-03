@@ -7,19 +7,18 @@ import pandas as pd
 import torch
 import pathlib
 import wandb
-from ase import io, Atoms
-from torch_geometric.data import Data, InMemoryDataset
+from ase import io
+from torch_geometric.data import Data, InMemoryDataset, Batch
 from torch_geometric.transforms import Compose
 from tqdm import tqdm
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.common.utils import DictTools
+from matdeeplearn.common.graph_data import CustomBatchingData
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
     generate_node_features,
-    generate_virtual_nodes_ase,
-    calculate_edges_master,
     PerfTimer,
 )
 
@@ -53,6 +52,7 @@ def process_data(dataset_config, wandb_config):
     apply_pre_transform_processing = dataset_config.get(
         "apply_pre_transform_processing", True
     )
+    batch_process = dataset_config.get("batch_process", False)
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -74,6 +74,8 @@ def process_data(dataset_config, wandb_config):
         use_degree=use_degree,
         edge_calc_method=edge_calc_method,
         apply_pre_transform_processing=apply_pre_transform_processing,
+        batch_process=batch_process,
+        batch_size=preprocess_kwargs.get("process_batch_size", 1),
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
         force_preprocess=dataset_config.get("force_preprocess", False),
@@ -104,6 +106,8 @@ class DataProcessor:
         use_degree: bool = False,
         edge_calc_method: str = "mdl",
         apply_pre_transform_processing: bool = True,
+        batch_size: int = 1,
+        batch_process: bool = False,
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
         force_preprocess: bool = False,
@@ -181,6 +185,8 @@ class DataProcessor:
         self.use_degree = use_degree
         self.edge_calc_method = edge_calc_method
         self.apply_pre_transform_processing = apply_pre_transform_processing
+        self.batch_process = batch_process
+        self.batch_size = batch_size
         self.use_wandb = use_wandb
         self.preprocess_kwargs = preprocess_kwargs
         self.device = device
@@ -365,11 +371,11 @@ class DataProcessor:
                         self.pt_path = original_path + "_" + str(idx)
                     else:
                         self.pt_path = original_path + "_" + str(idx)
-                    os.mkdir(self.pt_path)
+                    os.makedirs(self.pt_path)
                 # save processed data
                 if self.pt_path:
                     if not os.path.exists(self.pt_path):
-                        os.mkdir(self.pt_path)
+                        os.makedirs(self.pt_path)
                     save_path = os.path.join(self.pt_path, "data.pt")
                 torch.save((data, slices), save_path)
                 # save metadata
@@ -383,18 +389,10 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
-        # transforms = [(i, t) for (i, t) in enumerate(self.transforms)]
-        # find the virtual nodes transform (NOTE: temporary workaround for now)
-        # virtual_nodes_transform = None
-        # for i, t in transforms:
-        #     if t.get("name") == "VirtualNodes":
-        #         virtual_nodes_transform = t
-        #         break
-
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             with PerfTimer() as t:
                 target_val = y[i]
-                data = data_list[i]
+                structure = data_list[i]
 
                 pos = sdict["positions"]
                 cell = sdict["cell"]
@@ -402,65 +400,19 @@ class DataProcessor:
                 atomic_numbers = sdict["atomic_numbers"]
                 structure_id = sdict["structure_id"]
 
-                data.o_pos = pos.clone()
-                data.o_z = atomic_numbers.clone()
-
-                # only apply basic preprocessing if needed
-                # not used when using virtual nodes,
-                # avoid unnecessary processing overhead
-                if self.apply_pre_transform_processing:
-                    edge_gen_out = calculate_edges_master(
-                        self.edge_calc_method,
-                        self.all_neighbors,
-                        self.r,
-                        self.n_neighbors,
-                        self.num_offsets,
-                        structure_id,
-                        cell,
-                        pos,
-                        atomic_numbers,
-                        remove_virtual_edges=False,
-                        experimental_distance=False,
-                        device=self.device,
-                    )
-
-                    edge_indices = edge_gen_out["edge_index"]
-                    edge_weights = edge_gen_out["edge_weights"]
-                    cell_offsets = edge_gen_out["cell_offsets"]
-                    cell_offset_distances = edge_gen_out["offsets"]
-                    edge_vec = edge_gen_out["edge_vec"]
-
-                    data.neighbors = edge_gen_out["neighbors"]
-                    data.cell_offsets = cell_offsets
-                    data.cell_offset_distances = cell_offset_distances
-                    data.edge_index, data.edge_weight = edge_indices, edge_weights
-                    data.distances = edge_weights
-                    data.edge_vec = edge_vec
-                    data.edge_descriptor = {}
-                    data.edge_descriptor["distance"] = edge_weights
-
-                # virtual node generation (NOTE: workaround for now)
-                # if virtual_nodes_transform:
-                #     structure = Atoms(
-                #         numbers=atomic_numbers, positions=pos, cell=cell, pbc=[1, 1, 1]
-                #     )
-                #     vpos, virtual_z = generate_virtual_nodes_ase(structure, self.device)
-                #     pos = torch.cat([pos, vpos], dim=0)
-                #     atomic_numbers = torch.cat([atomic_numbers, virtual_z], dim=0)
-
-                data.n_atoms = len(atomic_numbers)
-                data.pos = pos
-                data.cell = cell
-                data.cell2 = cell2
-                data.y = torch.Tensor(np.array([target_val]))
-                data.z = atomic_numbers
-                data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-                data.structure_id = [[structure_id] * len(data.y)]
+                structure.n_atoms = len(atomic_numbers)
+                structure.pos = pos
+                structure.cell = cell
+                structure.cell2 = cell2
+                structure.y = torch.Tensor(np.array([target_val]))
+                structure.z = atomic_numbers
+                structure.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+                structure.structure_id = [[structure_id] * len(structure.y)]
 
                 # add additional attributes
                 if self.additional_attributes:
                     for attr in self.additional_attributes:
-                        data.__setattr__(attr, sdict[attr])
+                        structure.__setattr__(attr, sdict[attr])
 
             if self.use_wandb:
                 wandb.log({"process_times": t.elapsed})
@@ -478,26 +430,43 @@ class DataProcessor:
                 data_list, self.edge_steps, self.r, device=self.device
             )
 
-        # compile non-otf transforms
+        # compile transforms
         logging.info("Applying transforms.")
-        transforms_list = []
+        transforms_list_unbatched = []
+        transforms_list_batched = []
         for transform in self.transforms:
-            if not transform["otf"]:
-                transforms_list.append(
-                    registry.get_transform_class(
-                        transform["name"],
-                        # merge config parameters with global processing parameters
-                        **{**transform.get("args", {}), **self.preprocess_kwargs},
-                    )
-                )
-        composition = Compose(transforms_list)
+            entry = registry.get_transform_class(
+                transform["name"],
+                # merge config parameters with global processing parameters
+                **{**transform.get("args", {}), **self.preprocess_kwargs},
+            )
+            if not transform["otf"] and not transform.get("batch", False):
+                transforms_list_unbatched.append(entry)
+            elif transform.get("batch", False):
+                transforms_list_batched.append(entry)
+        composition_unbatched = Compose(transforms_list_unbatched)
+        composition_batched = Compose(transforms_list_batched)
 
-        # apply transforms
+        # perform unbatched transforms
         for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
             with PerfTimer() as t:
-                data_list[i] = composition(data)
+                data_list[i] = composition_unbatched(data)
             if self.use_wandb:
                 wandb.log({"transforms_times": t.elapsed})
+
+        # convert to custom data object
+        for i, data in enumerate(data_list):
+            data_list[i] = CustomBatchingData(data)
+
+        # perform batch transforms
+        for i in tqdm(
+            range(0, len(data_list), self.batch_size), disable=self.disable_tqdm
+        ):
+            batch = Batch.from_data_list(data_list[i : i + self.batch_size])
+            # apply transforms
+            batch = composition_batched(batch)
+            # convert back to list of Data() objects
+            data_list[i : i + self.batch_size] = batch.to_data_list()
 
         clean_up(data_list, ["edge_descriptor"])
 

@@ -10,7 +10,6 @@ from matdeeplearn.preprocessor.helpers import (
     custom_edge_feats,
     custom_node_feats,
     generate_virtual_nodes_ase,
-    generate_virtual_nodes,
     get_mask,
     one_hot_degree,
 )
@@ -53,8 +52,31 @@ class DegreeNodeAttr(object):
         return data
 
 
-@registry.register_transform("VirtualNodes")
-class VirtualNodes(object):
+@registry.register_transform("VirtualNodeGeneration")
+class VirtualNodeGeneration(object):
+    def __init__(self, **kwargs) -> None:
+        self.device = torch.device(kwargs.get("device", "cpu"))
+        self.kwargs = kwargs
+
+    def __call__(self, data: Data) -> Data:
+        structure = Atoms(
+            numbers=data.z,
+            positions=data.pos,
+            cell=data.cell,
+            pbc=[1, 1, 1],
+        )
+        vpos, virtual_z = generate_virtual_nodes_ase(
+            structure, self.kwargs.get("virtual_box_increment"), self.device
+        )
+
+        data.pos = torch.cat((data.pos, vpos), dim=0)
+        data.z = torch.cat((data.z, virtual_z), dim=0)
+
+        return data
+
+
+@registry.register_transform("VirtualEdgeGeneration")
+class VirtualEdgeGeneration(object):
     """Generate virtual nodes along the unit cell."""
 
     def __init__(
@@ -81,31 +103,16 @@ class VirtualNodes(object):
         self.kwargs = kwargs
 
     def __call__(self, data: Data) -> CustomData:
-        # compute virtual nodes
-        structure = Atoms(
-            numbers=data.z, positions=data.pos, cell=data.cell, pbc=[1, 1, 1]
-        )
-        vpos, virtual_z = generate_virtual_nodes_ase(
-            structure, self.kwargs.get("virtual_box_increment"), self.device
-        )
-
-        data.pos = torch.cat((data.pos, vpos), dim=0)
-        data.z = torch.cat((data.z, virtual_z), dim=0)
-
-        # TODO figure out how to efficiently resolve neighbors for different MP interactions
         for attr in self.kwargs.get("attrs"):
             cutoff = self.kwargs.get(f"{attr}_cutoff")
-            # compute edges
+            # compute edges (expensive)
             edge_gen_out = calculate_edges_master(
                 self.kwargs.get("edge_calc_method"),
                 self.kwargs.get("all_neighbors"),
+                data,
                 cutoff,
                 self.kwargs.get("n_neighbors"),
                 self.kwargs.get("num_offsets"),
-                data.structure_id,
-                data.cell,  # use regular cell here
-                data.pos,
-                data.z,
                 remove_virtual_edges=False,
                 experimental_distance=False,
                 device=self.device,
@@ -115,8 +122,7 @@ class VirtualNodes(object):
             edge_weight = edge_gen_out["edge_weights"]
             edge_vec = edge_gen_out["edge_vec"]
             cell_offsets = edge_gen_out["cell_offsets"]
-            cell_offset_distances = edge_gen_out["offsets"]
-            neighbors = edge_gen_out["neighbors"]
+            edge_vec = edge_gen_out["edge_vec"]
 
             edge_attr = custom_edge_feats(
                 edge_weight,
@@ -154,20 +160,6 @@ class VirtualNodes(object):
                 torch.index_select(cell_offsets, 0, edge_mask),
             )
 
-            # in case edge calculation method does not return cell_offset_distances
-            try:
-                setattr(
-                    data,
-                    f"cell_offset_distances_{attr}",
-                    torch.index_select(cell_offset_distances, 0, edge_mask),
-                )
-            except IndexError:
-                setattr(
-                    data,
-                    f"cell_offset_distances_{attr}",
-                    None,
-                )
-
         participating_edges = torch.cat(
             [
                 getattr(data, ei)
@@ -195,52 +187,32 @@ class VirtualNodes(object):
         edge_attr_attrs = [f"edge_attr_{s}" for s in self.kwargs.get("attrs")]
         edge_weight_attrs = [f"edge_weights_{s}" for s in self.kwargs.get("attrs")]
         edge_vec_attrs = [f"edge_vec_{s}" for s in self.kwargs.get("attrs")]
+        cell_offset_attrs = [f"cell_offsets_{s}" for s in self.kwargs.get("attrs")]
 
-        # cell_offset_attrs = [f"cell_offsets_{s}" for s in self.kwargs.get("attrs")]
-        # cell_offset_distance_attrs = [
-        #     f"cell_offset_distances_{s}" for s in self.kwargs.get("attrs")
-        # ]
+        edge_related_attrs = (
+            edge_index_attrs
+            + edge_attr_attrs
+            + edge_weight_attrs
+            + edge_vec_attrs
+            + cell_offset_attrs
+        )
 
         if self.kwargs.get("optimize_memory", False):
-            for attr in list(data.__dict__.get("_store").keys()):
-                if (
-                    attr not in edge_index_attrs
-                    and attr not in edge_attr_attrs
-                    and attr not in edge_weight_attrs
-                    and attr not in edge_vec_attrs
-                    and attr not in self.keep_attrs
-                    # and attr not in cell_offset_attrs
-                    # and attr not in cell_offset_distance_attrs
-                ):
-                    data.__dict__.get("_store")[attr] = None
+            for cutoff in list(data.__dict__.get("_store").keys()):
+                if cutoff not in edge_related_attrs and cutoff not in self.keep_attrs:
+                    data.__dict__.get("_store")[cutoff] = None
 
         # compile all generated edges and related attributes
         edge_kwargs = {
             attr: getattr(data, attr)
-            for attr in edge_index_attrs
-            + edge_attr_attrs
-            + edge_weight_attrs
-            + edge_vec_attrs
-            # + cell_offset_attrs
-            # + cell_offset_distance_attrs
+            for attr in edge_related_attrs
             if hasattr(data, attr)
         }
 
-        return CustomData(
-            pos=data.pos,
-            neighbors=neighbors,
-            cell=data.cell,
-            cell2=data.cell2,
-            y=data.y,
-            z=data.z,
-            u=data.u,
-            x=data.x,
-            edge_index=data.edge_index,
-            edge_attr=data.edge_attr,
-            structure_id=data.structure_id,
-            n_atoms=len(data.x),
-            **edge_kwargs,
-        )
+        for attr, value in edge_kwargs.items():
+            setattr(data, attr, value)
+
+        return data
 
 
 @registry.register_transform("NumNodes")

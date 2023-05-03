@@ -1,8 +1,30 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor
-from typing import Optional
+
+
+class CustomBatchingData(Data):
+    def __init__(self, data: Data = None) -> None:
+        super().__init__()
+        if data is not None:
+            for key, item in data.__dict__["_store"].items():
+                setattr(self, key, item)
+
+    def __inc__(self, key, value, *args, **kwargs) -> int:
+        if "index" in key:
+            return self.n_atoms
+        else:
+            return 0
+
+    def __cat_dim__(self, key, value, *args, **kwargs) -> int:
+        if any(
+            [k == key for k in ["cell", "u", "cell2", "structure_id", "neighbors", "y"]]
+        ):
+            return None
+        return super().__cat_dim__(key, value, *args, **kwargs)
 
 
 class CustomData(Data):

@@ -1,23 +1,20 @@
 import itertools
-import os
-import sys
-from itertools import combinations, product
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Union, Optional
 
 import ase
 import numpy as np
-import pandas
 from time import perf_counter
 import torch
 import torch.nn.functional as F
 from ase import Atoms
 from torch_geometric.data.data import Data
 from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
+from torch_geometric.loader import DataLoader
 from torch_scatter import scatter_min, segment_coo, segment_csr
 from torch import scatter
 from torch_sparse import SparseTensor
-from matdeeplearn.common.graph_data import CustomData
+from matdeeplearn.common.graph_data import CustomData, CustomBatchingData
 from functools import wraps
 
 
@@ -55,15 +52,13 @@ def scatter_det(*args, **kwargs):
 def calculate_edges_master(
     method: Literal["ase", "ocp", "mdl"],
     all_neighbors: bool,
+    data: Union[CustomData, CustomBatchingData],
     r: float,
     n_neighbors: int,
     offset_number: int,
-    structure_id: str,
-    cell: torch.Tensor,
-    pos: torch.Tensor,
-    z: torch.Tensor,
     remove_virtual_edges: bool = False,
     experimental_distance: bool = False,
+    batching: bool = False,
     device: torch.device = torch.device("cpu"),
 ) -> dict[str, torch.Tensor]:
     """Generates edges using one of three methods (ASE, OCP, or MDL implementations) due to limitations of each method.
@@ -88,7 +83,15 @@ def calculate_edges_master(
     neighbors = torch.empty(0)
     cell_offset_distances = torch.empty(0)
 
+    pos = data.pos
+    cell = data.cell
+    z = data.z
+    structure_id = data.structure_id
+
     if method == "mdl":
+        if batching:
+            raise NotImplementedError("Batching not implemented for MDL method")
+
         cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
             pos,
             cell,
@@ -102,26 +105,28 @@ def calculate_edges_master(
         )
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
-
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
 
     elif method == "ase":
+        if batching:
+            raise NotImplementedError("Batching not implemented for ASE method")
+
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
             all_neighbors, r, n_neighbors, structure_id, cell, pos, z
         )
 
-    elif method == "ocp":
+    elif method == "ocp":  # batching compatible
         # OCP requires a different format for the cell
-        cell = cell.view(1, 3, 3)
+        cell = cell.view(-1, 3, 3)
 
         # Calculate neighbors to allow compatibility with models like GemNet_OC
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            r, n_neighbors, pos, cell, torch.tensor([len(pos)]), use_thresh=True
+            r, n_neighbors, pos, cell, data.n_atoms, use_thresh=True
         )
 
         ocp_out = get_pbc_distances(
-            pos,
+            data.pos,
             edge_index,
             cell,
             cell_offsets,
@@ -152,38 +157,6 @@ class PerfTimer:
 
     def __exit__(self, *args):
         self.elapsed = perf_counter() - self.start
-
-
-def argmax(arr: list[dict], key: str) -> int:
-    """List of Dict argmax utility function
-
-    Args:
-        arr (list[dict]): _description_
-        key (str): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return max(enumerate(arr), key=lambda x: x.get(key))[0]
-
-
-def subsets(arr: set) -> list:
-    subsets = []
-    [subsets.extend(list(combinations(arr, n))) for n in range(len(arr) + 1)]
-    return subsets[1:]
-
-
-def generate_mp_combos(mp_attrs: dict, num_layers) -> list:
-    return [
-        list([list(y) for y in x])
-        for x in product(subsets(mp_attrs), repeat=num_layers)
-    ]
-
-
-def get_mae_from_preds():
-    df = pandas.read_csv(os.path.join(sys.argv[1], "test_predictions.csv"))
-    # pred_comp = df.filter(["target", "prediction"])
-    return np.abs(df["target"] - df["prediction"]).mean()
 
 
 def get_mask(
@@ -319,12 +292,12 @@ def get_ranges(dataset, descriptor_label):
     return mean, std, feature_min, feature_max
 
 
-def clean_up(data_list, attr_list):
+def clean_up(data_list: Union[DataLoader, list], attr_list):
     if not attr_list:
         return
-
     # check which attributes in the list are removable
     removable_attrs = [t for t in attr_list if t in data_list[0].to_dict()]
+    # remove the attributes
     for data in data_list:
         for attr in removable_attrs:
             delattr(data, attr)
@@ -844,6 +817,7 @@ def frac_to_cart_coords(
 def generate_virtual_nodes(
     cell,  # TODO: add types
     increment: int,
+    batch: Optional[torch.Tensor],
     device: torch.device,
 ):
     """_summary_
@@ -879,6 +853,8 @@ def generate_virtual_nodes(
     # obtain cartesian coordinates of virtual atoms
     lengths = torch.tensor([[a, b, c]], device=device)
     angles = torch.tensor([[alpha, beta, gamma]], device=device)
+
+    # TODO: fix this calculation
     virtual_pos = frac_to_cart_coords(coords, lengths, angles, len(coords))
 
     # virtual positions and atomic numbers

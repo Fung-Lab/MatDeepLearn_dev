@@ -1,7 +1,44 @@
 import contextlib
-import torch
 import logging
+from itertools import combinations, product
+
+import pandas
+import torch
 from torch.profiler import ProfilerActivity, profile
+
+import numpy as np
+
+
+def argmax(arr: list[dict], key: str) -> int:
+    """List of Dict argmax utility function
+
+    Args:
+        arr (list[dict]): _description_
+        key (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    return max(enumerate(arr), key=lambda x: x.get(key))[0]
+
+
+def subsets(arr: set) -> list:
+    subsets = []
+    [subsets.extend(list(combinations(arr, n))) for n in range(len(arr) + 1)]
+    return subsets[1:]
+
+
+def generate_mp_combos(mp_attrs: dict, num_layers) -> list:
+    return [
+        list([list(y) for y in x])
+        for x in product(subsets(mp_attrs), repeat=num_layers)
+    ]
+
+
+def get_mae_from_preds():
+    df = pandas.read_csv(os.path.join(sys.argv[1], "test_predictions.csv"))
+    # pred_comp = df.filter(["target", "prediction"])
+    return np.abs(df["target"] - df["prediction"]).mean()
 
 
 @contextlib.contextmanager
