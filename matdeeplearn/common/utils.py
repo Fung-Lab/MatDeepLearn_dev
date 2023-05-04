@@ -65,22 +65,39 @@ def min_alloc_gpu(device: str = None):
     """
 
     if device:
-        return torch.device(device)
-
-    if not torch.cuda.is_available():
-        logging.warning("GPU is not available, proceeding to train on CPU")
-        return torch.device("cpu")
-
-    # get the GPU with least allocated memory
-    gpu_mem = torch.cuda.get_device_properties(0).total_memory
-    device = torch.device("cuda:0")
-    for i in range(1, torch.cuda.device_count()):
-        mem = torch.cuda.memory_allocated(i)
-        if mem < gpu_mem:
-            gpu_mem = mem
-            device = torch.device(f"cuda:{i}")
-
-    return device
+        # MPS and CUDA support
+        if device.startswith("cuda"):
+            if not torch.cuda.is_available():
+                # check for MPS
+                if torch.backends.mps.is_available():
+                    logging.debug("CUDA not available, using MPS device")
+                    return torch.device("mps")
+                logging.warning("CUDA not available, proceeding to train on CPU")
+                return torch.device("cpu")
+            else:
+                # check device ordinal validity
+                if int(device[-1]) >= torch.cuda.device_count():
+                    raise ValueError(
+                        "Invalid CUDA device ordinal, fix device choice in config"
+                    )
+                logging.debug(f"Using CUDA device {device}")
+    else:
+        if torch.backends.mps.is_available():
+            logging.debug("Using MPS backend")
+            return torch.device("mps")
+        elif torch.cuda.is_available():
+            # get the GPU with least allocated memory
+            gpu_mem = torch.cuda.get_device_properties(0).total_memory
+            device = torch.device("cuda:0")
+            for i in range(1, torch.cuda.device_count()):
+                mem = torch.cuda.memory_allocated(i)
+                if mem < gpu_mem:
+                    gpu_mem = mem
+                    device = torch.device(f"cuda:{i}")
+            return device
+        else:
+            logging.warning("GPU is not available, proceeding to train on CPU")
+            return torch.device("cpu")
 
 
 class DictTools:
