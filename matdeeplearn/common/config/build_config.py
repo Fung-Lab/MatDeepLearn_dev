@@ -1,6 +1,9 @@
 import ast
 import copy
 import os
+import logging
+
+from matdeeplearn.common.utils import DictTools
 
 import yaml
 
@@ -94,12 +97,13 @@ def build_config(args, args_override):
     # Check for overridden parameters.
     if args_override != []:
         overrides = create_dict_from_args(args_override)
-        config, _ = merge_dicts(config, overrides)
+        logging.debug(f"Overridden parameters: {list(overrides.keys())}")
+        for key, item in overrides.items():
+            DictTools._mod_recurse(config, key, item)
 
     # Some other flags.
     config["run_mode"] = args.run_mode
     config["seed"] = args.seed
-    config["log_wandb"] = args.use_wandb
 
     # Submit
     config["submit"] = args.submit

@@ -3,6 +3,7 @@ import csv
 import logging
 import os
 from abc import ABC, abstractmethod
+import psutil
 from datetime import datetime
 
 import torch
@@ -100,13 +101,27 @@ class BaseTrainer(ABC):
         self.identifier = identifier
 
         if self.train_verbosity:
-            logging.info(
-                f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
-            )
-            logging.info(
-                f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
-                f"available memory: {1e-6 * torch.cuda.mem_get_info(device)[0]} mb"
-            )
+            # MPS and CUDA support
+            if self.device.type == "cuda":
+                logging.info(
+                    f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
+                )
+                logging.info(
+                    f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
+                    f"available memory: {1e-6 * torch.cuda.mem_get_info(device)[0]} mb"
+                )
+            elif self.device.type == "cpu":
+                logging.warning("Training on CPU, this will be slow")
+                logging.info(f"available CPUs: {os.cpu_count()}")
+                stats = psutil.virtual_memory()  # returns a named tuple
+                available = getattr(stats, "available")
+                logging.info(f"available memory: {1e-6 * available} mb")
+            elif self.device.type == "mps":
+                logging.info("Training with MPS backend")
+                # logging.info(
+                #     f"available memory alloc. by Metal: {1e-6 * torch.mps.driver_allocated_memory()} mb"
+                # )
+
             logging.info(f"Dataset used: {self.dataset}")
             logging.debug(self.dataset[0])
             logging.debug(self.dataset[0].x[0])
@@ -201,8 +216,8 @@ class BaseTrainer(ABC):
                         found_metadata = json.load(f)
                     # check for matching metadata of processed datasets
                     if found_metadata == metadata:
-                        logging.info(
-                            "Found dataset with matching metadata. Loading..."
+                        logging.debug(
+                            "Found dataset with matching metadata when attempting to load dataset. Loading..."
                         )
                         dataset_path = proc_dir
                         found = True

@@ -210,7 +210,7 @@ class VirtualEdgeGeneration(object):
         }
 
         for attr, value in edge_kwargs.items():
-            setattr(data, attr, value)
+            setattr(data.__dict__["_store"], attr, value)
 
         return data
 

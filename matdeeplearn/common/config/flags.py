@@ -33,19 +33,20 @@ class Flags:
             return s == "True"
 
         self.parser.add_argument(
-            "--use_wandb",
-            required=False,
-            default=True,
-            type=boolean_string,
-            help="Whether or not to use wandb",
-        )
-
-        self.parser.add_argument(
             "--sweep_id",
             required=False,
             default=None,
             type=str,
             help="Used in case we launch a sweep agent by itself. Lets MDL know to handle the config differently",
+        )
+
+        self.parser.add_argument(
+            "--logging",
+            required=False,
+            choices=["DEBUG", "INFO"],
+            default="INFO",
+            type=str,
+            help="Logging level",
         )
 
         # self.parser.add_argument(

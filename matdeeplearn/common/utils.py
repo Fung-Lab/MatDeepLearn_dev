@@ -61,28 +61,21 @@ def min_alloc_gpu(device: str = None):
     """Returns the GPU with least allocated memory for training
 
     Returns:
-        torch.device: GPU with least allocated memory
+        torch.device: GPU with least allocated memory, MPS backend if available, CPU otherwise
     """
-
-    if device:
-        # MPS and CUDA support
-        if device.startswith("cuda"):
-            if not torch.cuda.is_available():
-                # check for MPS
-                if torch.backends.mps.is_available():
-                    logging.debug("CUDA not available, using MPS device")
-                    return torch.device("mps")
-                logging.warning("CUDA not available, proceeding to train on CPU")
-                return torch.device("cpu")
-            else:
-                # check device ordinal validity
-                if int(device[-1]) >= torch.cuda.device_count():
-                    raise ValueError(
-                        "Invalid CUDA device ordinal, fix device choice in config"
-                    )
-                logging.debug(f"Using CUDA device {device}")
+    # MPS and CUDA support
+    if device and device.startswith("cuda") and torch.cuda.is_available():
+        # check device ordinal validity
+        if int(device[-1]) >= torch.cuda.device_count():
+            raise ValueError("Invalid CUDA device ordinal, fix device choice in config")
+        logging.debug(f"Using CUDA device {device}")
+        return torch.device(device)
     else:
         if torch.backends.mps.is_available():
+            if not torch.backends.mps.is_built():
+                raise AssertionError(
+                    "MPS not available because the current PyTorch install was not built with MPS enabled."
+                )
             logging.debug("Using MPS backend")
             return torch.device("mps")
         elif torch.cuda.is_available():
@@ -96,7 +89,7 @@ def min_alloc_gpu(device: str = None):
                     device = torch.device(f"cuda:{i}")
             return device
         else:
-            logging.warning("GPU is not available, proceeding to train on CPU")
+            logging.warning("GPU or MPS is not available, defaulting to train on CPU")
             return torch.device("cpu")
 
 

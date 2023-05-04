@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import pprint
@@ -5,15 +6,14 @@ from datetime import datetime
 
 import torch
 import wandb
-import hashlib
 import yaml
 
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
-from matdeeplearn.common.trainer_context import new_trainer_context
-from matdeeplearn.preprocessor.processor import process_data
-from matdeeplearn.common.utils import DictTools
 from matdeeplearn.common.job_launcher import start_sweep_tasks
+from matdeeplearn.common.trainer_context import new_trainer_context
+from matdeeplearn.common.utils import DictTools
+from matdeeplearn.preprocessor.processor import process_data
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.autograd.set_detect_anomaly(True)
@@ -79,10 +79,16 @@ def wandb_setup(config):
     sorted_preprocess_params = sorted(
         DictTools._flatten(preprocess_params).items(), key=lambda x: x[0]
     )
-    sorted_model_hyperparams = sorted(DictTools._flatten(config["model"]["hyperparams"]).items(), key=lambda x: x[0])
-    
+    sorted_model_hyperparams = sorted(
+        DictTools._flatten(config["model"]["hyperparams"]).items(), key=lambda x: x[0]
+    )
+
     hash_str = hashlib.md5(
-        (str(sorted_transforms) + str(sorted_preprocess_params) + str(sorted_model_hyperparams)).encode("utf-8")
+        (
+            str(sorted_transforms)
+            + str(sorted_preprocess_params)
+            + str(sorted_model_hyperparams)
+        ).encode("utf-8")
     )
     _wandb_config["meta_hash"] = hash_str.hexdigest()
 
@@ -120,7 +126,7 @@ def wandb_setup(config):
 
 def main():
     """Entrypoint for MatDeepLearn inference tasks"""
-    if args.use_wandb:
+    if config["task"]["wandb"]["use_wandb"]:
         wandb_setup(config)
     if not config["dataset"]["processed"]:
         process_data(config["dataset"], config["task"]["wandb"])
@@ -128,29 +134,31 @@ def main():
 
 
 if __name__ == "__main__":
-    # setup_logging()
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
+
+    root_logger = logging.getLogger()
+    # set logging level
+    if args.logging == "DEBUG":
+        root_logger.setLevel(logging.DEBUG)
+    elif args.logging == "INFO":
+        root_logger.setLevel(logging.INFO)
+
     config = build_config(args, override_args)
 
     # add config path as an artifact manually
     config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
 
-    # override config from CLI, useful for quick experiments/debugging purposes
-    config["task"]["wandb"]["use_wandb"] = (
-        args.use_wandb and config["task"]["wandb"]["use_wandb"]
-    )
+    print(config["task"]["wandb"]["use_wandb"], config["dataset"]["force_preprocess"])
+
     # wandb hyperparameter sweep setup
     sweep_params = config["task"]["wandb"].get("sweep", None)
 
     # entrypoint if this is an agent-based sweep
-    if args.use_wandb and args.sweep_id is not None:
+    if config["task"]["wandb"]["use_wandb"] and args.sweep_id is not None:
         wandb.agent(args.sweep_id, function=main)
     # regular sweep entrypoint
-    elif args.use_wandb and sweep_params and sweep_params.get("do_sweep", False):
+    elif config["task"]["wandb"]["use_wandb"] and sweep_params and sweep_params.get("do_sweep", False):
         sweep_path = sweep_params.get("sweep_file", None)
         with open(sweep_path, "r") as ymlfile:
             sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)

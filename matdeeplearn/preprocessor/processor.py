@@ -343,7 +343,7 @@ class DataProcessor:
                         # check for matching metadata of processed datasets
                         if metadata == self.metadata:
                             logging.info(
-                                "Found existing processed data with matching metadata. Loading..."
+                                "Found existing processed data with matching metadata, skipping processing. Loading..."
                             )
                             self.save_path = proc_dir / "data.pt"
                             found_existing = True
