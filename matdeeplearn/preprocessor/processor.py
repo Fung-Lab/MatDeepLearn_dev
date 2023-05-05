@@ -400,7 +400,7 @@ class DataProcessor:
                 atomic_numbers = sdict["atomic_numbers"]
                 structure_id = sdict["structure_id"]
 
-                structure.n_atoms = len(atomic_numbers)
+                structure.n_atoms = torch.tensor([len(atomic_numbers)])
                 structure.pos = pos
                 structure.cell = cell
                 structure.cell2 = cell2
@@ -458,15 +458,22 @@ class DataProcessor:
         for i, data in enumerate(data_list):
             data_list[i] = CustomBatchingData(data)
 
-        # perform batch transforms
-        for i in tqdm(
-            range(0, len(data_list), self.batch_size), disable=self.disable_tqdm
-        ):
-            batch = Batch.from_data_list(data_list[i : i + self.batch_size])
-            # apply transforms
-            batch = composition_batched(batch)
-            # convert back to list of Data() objects
-            data_list[i : i + self.batch_size] = batch.to_data_list()
+        if len(transforms_list_batched) > 0:
+            # perform batch transforms
+            for i in tqdm(
+                range(0, len(data_list), self.batch_size), disable=self.disable_tqdm
+            ):
+                batch = Batch.from_data_list(data_list[i : i + self.batch_size])
+                # apply transforms
+                batch = composition_batched(batch)
+
+                print(batch._slice_dict["z"])
+                print(batch._slice_dict["edge_index_rr"])
+                print(batch._slice_dict["edge_index_rv"])
+                print(batch._slice_dict["edge_index_vv"])
+
+                # convert back to list of Data() objects
+                data_list[i: i + self.batch_size] = batch.to_data_list()
 
         clean_up(data_list, ["edge_descriptor"])
 

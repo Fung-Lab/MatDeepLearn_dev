@@ -1,8 +1,9 @@
 import torch
+from ase import Atoms
 from torch_geometric.data import Data
 from torch_sparse import coalesce
 
-from matdeeplearn.common.graph_data import CustomData
+from matdeeplearn.common.graph_data import CustomBatchingData, CustomData
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     calculate_edges_master,
@@ -13,8 +14,6 @@ from matdeeplearn.preprocessor.helpers import (
     get_mask,
     one_hot_degree,
 )
-
-from ase import Atoms
 
 """
 here resides the transform classes needed for data processing
@@ -71,6 +70,7 @@ class VirtualNodeGeneration(object):
 
         data.pos = torch.cat((data.pos, vpos), dim=0)
         data.z = torch.cat((data.z, virtual_z), dim=0)
+        data.n_atoms = torch.tensor([data.z.shape[0]])
 
         return data
 
@@ -103,6 +103,16 @@ class VirtualEdgeGeneration(object):
         self.kwargs = kwargs
 
     def __call__(self, data: Data) -> CustomData:
+        if isinstance(data, CustomBatchingData):
+            # compute edge slicing based on node slicing
+            slice_partitions = data._slice_dict["z"]
+            # compute slicing indices for edges
+            slices = [
+                slice(slice_partitions[i - 1].item(), slice_partitions[i].item())
+                for i in range(1, len(slice_partitions))
+            ]
+            batch_size = len(data.batch.unique(return_counts=False))
+        # compute edges for each mp interaction
         for attr in self.kwargs.get("attrs"):
             cutoff = self.kwargs.get(f"{attr}_cutoff")
             # compute edges (expensive)
@@ -124,40 +134,75 @@ class VirtualEdgeGeneration(object):
             cell_offsets = edge_gen_out["cell_offsets"]
             edge_vec = edge_gen_out["edge_vec"]
 
+            # create mask to compute desired edges for interaction
+            edge_mask = get_mask(attr, data, edge_index[0], edge_index[1])
+            # apply mask
+            edge_index = torch.index_select(edge_index, 1, edge_mask)
+            edge_weight = torch.index_select(edge_weight, 0, edge_mask)
             edge_attr = custom_edge_feats(
                 edge_weight,
                 self.kwargs.get("edge_steps"),
                 cutoff,
                 self.device,
             )
+            edge_vec = torch.index_select(edge_vec, 0, edge_mask)
+            cell_offsets = torch.index_select(cell_offsets, 0, edge_mask)
 
-            # apply mask to compute desired edges for interaction
-            edge_mask = get_mask(attr, data, edge_index[0], edge_index[1])
+            if isinstance(data, CustomBatchingData):
+                # make an index list for edges
+                edges_sliced_order = torch.empty(size=(0, 1))
+                edge_partitions = [0]
+                # compute slicing indices for edges
+                for sl in slices:
+                    indices = torch.argwhere(
+                        (edge_index[0] >= sl.start) & (edge_index[0] < sl.stop)
+                    )
+                    edges_sliced_order = torch.vstack((edges_sliced_order, indices))
+                    edge_partitions.append(edge_partitions[-1] + indices.shape[0])
+                # compute slicing indices for edges
+                edge_partitions = torch.tensor(edge_partitions)
+                edges_sliced_order = edges_sliced_order.long().squeeze(-1)
+
+                for x in [
+                    f"edge_index_{attr}",
+                    f"edge_attr_{attr}",
+                    f"edge_vec_{attr}",
+                    f"cell_offsets_{attr}",
+                    f"edge_weights_{attr}",
+                ]:
+                    data._slice_dict[x] = edge_partitions
+                    data._inc_dict[x] = torch.zeros(size=(batch_size,))
+                # arrange edge attributes to reflect slicing order
+                edge_index = edge_index[:, edges_sliced_order]
+                edge_attr = edge_attr[edges_sliced_order]
+                edge_weight = edge_weight[edges_sliced_order]
+                edge_vec = edge_vec[edges_sliced_order]
+                cell_offsets = cell_offsets[edges_sliced_order]
 
             setattr(
                 data,
                 f"edge_index_{attr}",
-                torch.index_select(edge_index, 1, edge_mask),
+                edge_index,
             )
             setattr(
                 data,
                 f"edge_attr_{attr}",
-                torch.index_select(edge_attr, 0, edge_mask),
+                edge_attr,
             )
             setattr(
                 data,
                 f"edge_weights_{attr}",
-                torch.index_select(edge_weight, 0, edge_mask),
+                edge_weight,
             )
             setattr(
                 data,
                 f"edge_vec_{attr}",
-                torch.index_select(edge_vec, 0, edge_mask),
+                edge_vec,
             )
             setattr(
                 data,
                 f"cell_offsets_{attr}",
-                torch.index_select(cell_offsets, 0, edge_mask),
+                cell_offsets,
             )
 
         participating_edges = torch.cat(
@@ -177,6 +222,10 @@ class VirtualEdgeGeneration(object):
             self.device,
             use_degree=self.kwargs.get("use_degree", False),
         )
+
+        if isinstance(data, CustomBatchingData):
+            data._slice_dict["x"] = data._slice_dict["z"]
+            data._inc_dict["x"] = data._inc_dict["z"]
 
         # make original edge_attr and edge_index sentinel values for object compatibility
         data.edge_attr = torch.zeros(1, self.kwargs.get("edge_steps"))
