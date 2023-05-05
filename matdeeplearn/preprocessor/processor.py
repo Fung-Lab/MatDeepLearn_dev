@@ -431,7 +431,6 @@ class DataProcessor:
             )
 
         # compile transforms
-        logging.info("Applying transforms.")
         transforms_list_unbatched = []
         transforms_list_batched = []
         for transform in self.transforms:
@@ -448,6 +447,7 @@ class DataProcessor:
         composition_batched = Compose(transforms_list_batched)
 
         # perform unbatched transforms
+        logging.info("Applying non-batch transforms...")
         for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
             with PerfTimer() as t:
                 data_list[i] = composition_unbatched(data)
@@ -460,6 +460,7 @@ class DataProcessor:
 
         if len(transforms_list_batched) > 0:
             # perform batch transforms
+            logging.info("Applying batch transforms...")
             for i in tqdm(
                 range(0, len(data_list), self.batch_size), disable=self.disable_tqdm
             ):
@@ -467,13 +468,13 @@ class DataProcessor:
                 # apply transforms
                 batch = composition_batched(batch)
 
-                print(batch._slice_dict["z"])
-                print(batch._slice_dict["edge_index_rr"])
-                print(batch._slice_dict["edge_index_rv"])
-                print(batch._slice_dict["edge_index_vv"])
+                # print(batch._slice_dict["z"])
+                # print(batch._slice_dict["edge_index_rr"])
+                # print(batch._slice_dict["edge_index_rv"])
+                # print(batch._slice_dict["edge_index_vv"])
 
                 # convert back to list of Data() objects
-                data_list[i: i + self.batch_size] = batch.to_data_list()
+                data_list[i : i + self.batch_size] = batch.to_data_list()
 
         clean_up(data_list, ["edge_descriptor"])
 
