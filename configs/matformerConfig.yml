@@ -76,8 +76,8 @@ dataset:
       args:
         index: 0
       otf: True # Optional parameter, default is False
-    - name: LineGraphMod
-      args:        
+    #- name: LineGraphMod
+    #  args:        
   all_neighbors : True
   # one of mdl, ase, ocp
   edge_calc_method: "mdl"
