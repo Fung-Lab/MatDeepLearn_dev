@@ -33,6 +33,8 @@ class ALIGNN(BaseModel):
         **kwargs,
     ) -> None:
         super().__init__()
+        if isinstance(data, torch.utils.data.Subset): 
+            data = data.dataset
 
         # utilizing data object
         atom_input_features = data.num_features
