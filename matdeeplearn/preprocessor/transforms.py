@@ -1,5 +1,8 @@
 import torch
 from torch_sparse import coalesce
+import numpy as np
+from functools import partial
+import itertools
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import compute_bond_angles
@@ -13,6 +16,29 @@ From PyG:
     The data object will be transformed before every access.
 """
 
+permute_2 = partial(itertools.permutations, r=2)
+def np_groupby(arr, groups):
+    """Numpy implementation of `groupby` operation (a common method in pandas).
+    """
+    arr, groups = np.array(arr), np.array(groups)
+    sort_idx = groups.argsort()
+    arr = arr[sort_idx]
+    groups = groups[sort_idx]
+    return np.split(arr, np.unique(groups, return_index=True)[1])[1:]
+
+def np_scatter(src, index, func):
+    """Abstraction of the `torch_scatter.scatter` function.
+    See https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html
+    for how `scatter` works in PyTorch.
+
+    Args:
+        src (list): The source array.
+        index (list of ints): The indices of elements to scatter.
+        func (function, optional): Function that operates on elements with the same indices.
+
+    :rtype: generator
+    """
+    return (func(g) for g in np_groupby(src, index))
 
 @registry.register_transform("GetY")
 class GetY(object):
@@ -61,7 +87,17 @@ class LineGraphMod(object):
                 data.pos, None, data.edge_index, data.num_nodes
             )
         triplet_pairs = torch.stack([idx_kj, idx_ji], dim=0)
-
+        print(triplet_pairs)
+        print(triplet_pairs.size())
+        src_G, dst_G = data.edge_index
+        edge_index_A = [
+            (u, v)
+            for edge_pairs in np_scatter(np.arange(len(dst_G)), dst_G, permute_2)
+            for u, v in edge_pairs
+        ]
+        edge_index_A = torch.tensor(edge_index_A)
+        print(edge_index_A)
+        print(edge_index_A.size())
         data.edge_index_lg = triplet_pairs
         data.x_lg = data.edge_attr
         data.num_nodes_lg = edge_index.size(1)
