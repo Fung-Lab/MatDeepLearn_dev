@@ -69,7 +69,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         h_ang = self.embed_ang(data.edge_attr_lg)
 
         for i in range(self.num_interactions):
-            #h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
+            h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
 
         h = scatter(h_atm, data.batch, dim=0, reduce="add")
@@ -142,9 +142,6 @@ class EGConv(MessagePassing):
     def message(self, x_j, e_gated):
         print(x_j.size())
         print(x_j.get_device())
-        print(torch.isnan(x_j[5]))
-        print(torch.isinf(x_j[5]))
-        
         print(self.W_dst)
         print("runs")
         a = self.W_dst(x_j)
