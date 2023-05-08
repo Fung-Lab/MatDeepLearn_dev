@@ -119,12 +119,12 @@ class EGConv(MessagePassing):
 
     def forward(self, x, edge_index, edge_attr):
         i, j = edge_index
-        print(edge_index)
+        
 
         # Calculate gated edges
         sigma_e = self.sigma(edge_attr)
-        e_sum = scatter(src=sigma_e, index=i, dim=0)
-        e_gated = sigma_e / (e_sum[i] + self.eps)
+        e_sum = scatter(src=sigma_e, index=j, dim=0)
+        e_gated = sigma_e / (e_sum[j] + self.eps)
 
         # Update the nodes (this utilizes the gated edges)
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
