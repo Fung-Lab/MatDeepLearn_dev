@@ -129,6 +129,7 @@ class EGConv(MessagePassing):
         # Update the nodes (this utilizes the gated edges)
         print(x)
         print(x.size())
+        print(torch.isnan(x))
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
