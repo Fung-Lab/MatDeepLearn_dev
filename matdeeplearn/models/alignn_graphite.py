@@ -139,8 +139,10 @@ class EGConv(MessagePassing):
         return out, edge_attr
 
     def message(self, x_j, e_gated):
-        print(e_gated.size())
         print(x_j.size())
+        print(torch.isnan(x_j))
+        print(torch.isinf(x_j))
+        print(x_j.device())
         print(self.W_dst)
         print("runs")
         a = self.W_dst(x_j)
