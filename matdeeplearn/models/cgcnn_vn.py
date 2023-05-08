@@ -234,7 +234,6 @@ class CGCNN_VN(BaseModel):
         for j in range(0, len(self.conv_list)):
             # which nodes to engage in MP at this layer
             mp_choice = self.mp_pattern[j]
-
             # use the correct edge_indexes and edge_attrs for MP at this layer
             edge_index_use = torch.cat(
                 [getattr(data, f"edge_index_{mp}") for mp in mp_choice], dim=1

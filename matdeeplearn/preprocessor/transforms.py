@@ -103,7 +103,11 @@ class VirtualEdgeGeneration(object):
         self.kwargs = kwargs
 
     def __call__(self, data: Data) -> CustomData:
-        if isinstance(data, CustomBatchingData):
+        use_batching = isinstance(data, CustomBatchingData) and hasattr(
+            data, "_slice_dict"
+        )
+
+        if use_batching:
             # compute edge slicing based on node slicing
             slice_partitions = data._slice_dict["z"]
             # compute slicing indices for edges
@@ -148,7 +152,7 @@ class VirtualEdgeGeneration(object):
             edge_vec = torch.index_select(edge_vec, 0, edge_mask)
             cell_offsets = torch.index_select(cell_offsets, 0, edge_mask)
 
-            if isinstance(data, CustomBatchingData):
+            if use_batching:
                 # make an index list for edges
                 edges_sliced_order = torch.empty(size=(0, 1))
                 edge_partitions = [0]
@@ -158,11 +162,14 @@ class VirtualEdgeGeneration(object):
                         (edge_index[0] >= sl.start) & (edge_index[0] < sl.stop)
                     )
                     edges_sliced_order = torch.vstack((edges_sliced_order, indices))
+                    # normalize edge indices to reflect individual graph counts
+                    edges_target = edge_index[:, indices.squeeze()]
+                    edge_index[:, indices.squeeze()] = edges_target - edges_target.min()
                     edge_partitions.append(edge_partitions[-1] + indices.shape[0])
                 # compute slicing indices for edges
                 edge_partitions = torch.tensor(edge_partitions)
                 edges_sliced_order = edges_sliced_order.long().squeeze(-1)
-
+                # update batching track dicts
                 for x in [
                     f"edge_index_{attr}",
                     f"edge_attr_{attr}",
@@ -223,7 +230,7 @@ class VirtualEdgeGeneration(object):
             use_degree=self.kwargs.get("use_degree", False),
         )
 
-        if isinstance(data, CustomBatchingData):
+        if use_batching:
             data._slice_dict["x"] = data._slice_dict["z"]
             data._inc_dict["x"] = data._inc_dict["z"]
 

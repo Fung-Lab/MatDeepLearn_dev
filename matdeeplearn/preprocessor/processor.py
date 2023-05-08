@@ -371,6 +371,7 @@ class DataProcessor:
                         self.pt_path = original_path + "_" + str(idx)
                     else:
                         self.pt_path = original_path + "_" + str(idx)
+                    logging.debug(f"New processed data dir: {self.pt_path}")
                     os.makedirs(self.pt_path)
                 # save processed data
                 if self.pt_path:
@@ -467,12 +468,6 @@ class DataProcessor:
                 batch = Batch.from_data_list(data_list[i : i + self.batch_size])
                 # apply transforms
                 batch = composition_batched(batch)
-
-                # print(batch._slice_dict["z"])
-                # print(batch._slice_dict["edge_index_rr"])
-                # print(batch._slice_dict["edge_index_rv"])
-                # print(batch._slice_dict["edge_index_vv"])
-
                 # convert back to list of Data() objects
                 data_list[i : i + self.batch_size] = batch.to_data_list()
 

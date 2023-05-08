@@ -1,7 +1,7 @@
 python main.py --config_path="/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml" --run_mode="train" --use_wandb=False
-salloc --nodes 1 --qos interactive --time 01:00:00 --account=m3641
+salloc --nodes 1 --qos interactive --time 01:00:00 --account=m3641 --constraint cpu
 rm -rf ../matdeeplearn/trainers/.ipynb_checkpoints
 rm -rf ../matdeeplearn/models/.ipynb_checkpoints
 
-salloc -A gts-vfung3 -qinferno -N1 --gres=gpu:A100:1 -C A100-40GB -t1:00:00
+salloc -A gts-vfung3 -qshared -N1 --gres=gpu:A100:1 -C A100-40GB -t1:00:00
 salloc -A gts-vfung3 -qinferno -N1 -t1:00:00
