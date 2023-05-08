@@ -127,8 +127,9 @@ class EGConv(MessagePassing):
         e_gated = sigma_e / (e_sum[i] + self.eps)
         e_gated = e_gated.squeeze()
         # Update the nodes (this utilizes the gated edges)
-        print(edge_index)
-        out = self.propagate(edge_index, e_gated=e_gated)
+        print(x)
+        print(x.size())
+        out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
 
@@ -142,9 +143,8 @@ class EGConv(MessagePassing):
     def message(self, x_j, e_gated):
         print(x_j.size())
         print(x_j.get_device())
-        print(x_j[0][0])
-        print(torch.isnan(x_j))
-        print(torch.isinf(x_j))
+        #print(torch.isnan(x_j))
+        #print(torch.isinf(x_j))
         
         print(self.W_dst)
         print("runs")
