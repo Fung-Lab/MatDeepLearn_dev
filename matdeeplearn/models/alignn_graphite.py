@@ -67,6 +67,11 @@ class ALIGNN_GRAPHITE(BaseModel):
         data.edge_index = edge_index[:, sorted_indices]
         print(edge_index)
         edge_index_G = data.edge_index
+        edge_index = data.edge_index_lg
+        print(edge_index)
+        sorted_indices = torch.argsort(edge_index[1])
+        data.edge_index_lg = edge_index[:, sorted_indices]
+        print(edge_index)
         edge_index_A = data.edge_index_lg
         h_atm = self.embed_atm(data.x.type(torch.long))
         h_bnd = self.embed_bnd(data.edge_attr)
