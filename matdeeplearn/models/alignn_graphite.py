@@ -62,7 +62,6 @@ class ALIGNN_GRAPHITE(BaseModel):
 
     def forward(self, data: Data):
         edge_index_G = data.edge_index
-        data.edge_index_lg[0], data.edge_index_lg[1] = data.edge_index_lg[1], data.edge_index_lg[0]
         edge_index_A = data.edge_index_lg
         h_atm = self.embed_atm(data.x.type(torch.long))
         h_bnd = self.embed_bnd(data.edge_attr)
