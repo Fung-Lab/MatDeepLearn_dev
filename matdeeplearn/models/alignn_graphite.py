@@ -142,7 +142,8 @@ class EGConv(MessagePassing):
         print(x_j.size())
         print(x_j.get_device())
         print(self.W_dst)
-        print(x_j[0][0])
+        a = x_j[0][0]
+        print(a)
         print("runs")
         a = self.W_dst(x_j)
         print("in between")
