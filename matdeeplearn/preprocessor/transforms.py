@@ -89,6 +89,7 @@ class LineGraphMod(object):
         triplet_pairs = torch.stack([idx_kj, idx_ji], dim=0)
         print(triplet_pairs)
         print(triplet_pairs.size())
+        print()
         src_G, dst_G = data.edge_index
         edge_index_A = [
             (u, v)
@@ -96,8 +97,11 @@ class LineGraphMod(object):
             for u, v in edge_pairs
         ]
         edge_index_A = torch.tensor(edge_index_A)
+        edge_index_A = torch.transpose(edge_index_A, 0, 1)
         print(edge_index_A)
         print(edge_index_A.size())
+        print()
+        print()
         data.edge_index_lg = triplet_pairs
         data.x_lg = data.edge_attr
         data.num_nodes_lg = edge_index.size(1)
