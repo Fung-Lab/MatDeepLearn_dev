@@ -125,7 +125,7 @@ class EGConv(MessagePassing):
         sigma_e = self.sigma(edge_attr)
         e_sum = scatter(src=sigma_e, index=i, dim=0)
         e_gated = sigma_e / (e_sum[i] + self.eps)
-
+        e_gated = e_gated.squeeze()
         # Update the nodes (this utilizes the gated edges)
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
