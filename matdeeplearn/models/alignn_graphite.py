@@ -143,6 +143,8 @@ class EGConv(MessagePassing):
         print(x_j.size())
         print(self.W_dst)
         print("runs")
+        a = self.W_dst(x_j)
+        print("in between")
         a = e_gated * self.W_dst(x_j)
         print("doesn't run")
         print(a.size())
