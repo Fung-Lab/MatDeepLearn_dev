@@ -150,7 +150,11 @@ class EGConv(MessagePassing):
         return out, edge_attr
 
     def message(self, x_j, e_gated):
-        return e_gated * self.W_dst(x_j)
+        print(e_gated.size())
+        print(self.W_dst(x_j).size())
+        a = e_gated * self.W_dst(x_j)
+        print(a.size())
+        return a
 
 
 def bessel(x, start=0.0, end=1.0, num_basis=8, eps=1e-5):
