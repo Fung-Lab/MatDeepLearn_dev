@@ -1,6 +1,6 @@
 import itertools
 from pathlib import Path
-from typing import Literal, Union, Optional
+from typing import Literal, Union, Optional, Tuple
 
 import ase
 import numpy as np
@@ -863,15 +863,15 @@ def generate_virtual_nodes(
 
 def generate_virtual_nodes_ase(
     structure, increment: float, device: torch.device
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     increment specifies the spacing between virtual nodes in cartesian
     space (units in Angstroms); increment is a hyperparameter.
     obtain the lengths of the sides of the unit cell; s is an ASE atoms
-    object, get_cell_lengths_and_angles() returns l1,l2,3,a1,a2,a3
+    object, atoms.cell.cellpar() returns l1,l2,3,a1,a2,a3
     """
 
-    l_and_a = structure.get_cell_lengths_and_angles()
+    l_and_a = structure.cell.cellpar()
 
     # obtain fractional spacings from 0 to 1 of the virtual atoms
     ar1 = np.arange(0, 1, increment / l_and_a[0])

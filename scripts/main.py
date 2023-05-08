@@ -149,8 +149,6 @@ if __name__ == "__main__":
     # add config path as an artifact manually
     config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
 
-    print(config["task"]["wandb"]["use_wandb"], config["dataset"]["force_preprocess"])
-
     # wandb hyperparameter sweep setup
     sweep_params = config["task"]["wandb"].get("sweep", None)
 
