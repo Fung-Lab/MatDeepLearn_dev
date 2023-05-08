@@ -69,7 +69,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         h_ang = self.embed_ang(data.edge_attr_lg)
 
         for i in range(self.num_interactions):
-            h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
+            #h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
 
         h = scatter(h_atm, data.batch, dim=0, reduce="add")
@@ -128,9 +128,6 @@ class EGConv(MessagePassing):
         e_gated = sigma_e / (e_sum[i] + self.eps)
         e_gated = e_gated.squeeze()
         # Update the nodes (this utilizes the gated edges)
-        print(x)
-        print(x.size())
-        print(torch.isnan(x))
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
