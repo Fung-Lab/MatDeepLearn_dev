@@ -61,6 +61,11 @@ class ALIGNN_GRAPHITE(BaseModel):
         return gaussian(cos_ang, start=-1, end=1, num_basis=self.dim)
 
     def forward(self, data: Data):
+        edge_index = data.edge_index
+        print(edge_index)
+        sorted_indices = torch.argsort(edge_index[1])
+        data.edge_index = edge_index[:, sorted_indices]
+        print(edge_index)
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
         h_atm = self.embed_atm(data.x.type(torch.long))
@@ -119,7 +124,7 @@ class EGConv(MessagePassing):
 
     def forward(self, x, edge_index, edge_attr):
         i, j = edge_index
-         
+        print(edge_index)
 
         # Calculate gated edges
         sigma_e = self.sigma(edge_attr)
