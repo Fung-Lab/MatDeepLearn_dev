@@ -140,7 +140,7 @@ class EGConv(MessagePassing):
 
     def message(self, x_j, e_gated):
         print(x_j.size())
-        print(x_j.device())
+        print(x_j.get_device())
         print(torch.isnan(x_j[0]))
         print(torch.isnan(x_j))
         print(torch.isinf(x_j))
