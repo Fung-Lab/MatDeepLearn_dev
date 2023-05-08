@@ -42,6 +42,8 @@ class Matformer(nn.Module):
     ):
         """Set up att modules."""
         super().__init__()
+        if isinstance(data, torch.utils.data.Subset): 
+            data = data.dataset
         self.classification = classification
         self.use_angle = use_angle
         self.atom_embedding = nn.Linear(
@@ -53,7 +55,7 @@ class Matformer(nn.Module):
                 vmax=8.0,
                 bins=data.num_edge_features,
             ),
-            nn.Linear(data.num_edge_features, node_features),
+            nn.Linear((data.num_edge_features), node_features),
             nn.Softplus(),
             nn.Linear(node_features, node_features),
         )
@@ -66,7 +68,7 @@ class Matformer(nn.Module):
                     vmax=8.0,
                     bins=data.num_edge_features,
                 ),
-                nn.Linear(data.num_edge_features, node_features),
+                nn.Linear((data.num_edge_features), node_features),
                 nn.Softplus(),
                 nn.Linear(node_features, node_features)
             )

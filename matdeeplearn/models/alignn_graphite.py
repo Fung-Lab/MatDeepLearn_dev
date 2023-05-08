@@ -16,29 +16,32 @@ class ALIGNN_GRAPHITE(BaseModel):
     Reference: https://www.nature.com/articles/s41524-021-00650-1.
     """
 
-    def __init__(self, dim=64, num_interactions=4, num_species=3, cutoff=3.0):
+    def __init__(self, data, hidden_features=64, alignn_layers=4, num_species=3, max_edge_distance=3.0, **kwargs):
         super().__init__()
 
-        self.dim = dim
-        self.num_interactions = num_interactions
-        self.cutoff = cutoff
+        if isinstance(data, torch.utils.data.Subset): 
+            data = data.dataset
+        self.dim = hidden_features
+        self.num_interactions = alignn_layers
+        self.cutoff = max_edge_distance
+        atom_input_features = data.num_features
 
-        self.embed_atm = Embedding(num_species, dim)
-        self.embed_bnd = partial(bessel, start=0, end=cutoff, num_basis=dim)
+        self.embed_atm = Embedding(atom_input_features, hidden_features)
+        self.embed_bnd = partial(bessel, start=0, end=max_edge_distance, num_basis=hidden_features)
 
         self.atm_bnd_interactions = ModuleList()
         self.bnd_ang_interactions = ModuleList()
-        for _ in range(num_interactions):
-            self.atm_bnd_interactions.append(EGConv(dim, dim))
-            self.bnd_ang_interactions.append(EGConv(dim, dim))
+        for _ in range(alignn_layers):
+            self.atm_bnd_interactions.append(EGConv(hidden_features, hidden_features))
+            self.bnd_ang_interactions.append(EGConv(hidden_features, hidden_features))
 
         self.head = Sequential(
-            Linear(dim, dim),
+            Linear(hidden_features, hidden_features),
             SiLU(),
         )
 
         self.out = Sequential(
-            Linear(dim, 1),
+            Linear(hidden_features, 1),
         )
 
         self.reset_parameters()

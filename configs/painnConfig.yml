@@ -27,7 +27,7 @@ model:
   hidden_channels: 128
   num_layers: 4
   num_rbf: 128
-  cutoff: 5.0
+  cutoff: 8.0
   max_neighbors: 250
   rbf:  {"name": "gaussian"}
   envelope:  {"name": "polynomial", "exponent": 5}
@@ -92,7 +92,7 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
-    cutoff_radius : 5.0
+    cutoff_radius : 8.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
