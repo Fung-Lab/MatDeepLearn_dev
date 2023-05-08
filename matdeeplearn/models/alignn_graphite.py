@@ -127,9 +127,11 @@ class EGConv(MessagePassing):
         e_sum_i = scatter(src=sigma_e, index=i, dim=0)
         print(e_sum_i)
         print(e_sum_i.size())  
+        print(e_sum_i[i])
         e_sum_j = scatter(src=sigma_e, index=j, dim=0)
         print(e_sum_j)
         print(e_sum_j.size())  
+        print(e_sum_j[j])
         e_gated = sigma_e / (e_sum_i[i] + self.eps)
 
         # Update the nodes (this utilizes the gated edges)
