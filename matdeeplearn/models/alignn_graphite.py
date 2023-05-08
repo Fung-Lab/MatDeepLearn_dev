@@ -143,7 +143,9 @@ class EGConv(MessagePassing):
         print(x_j.get_device())
         print(self.W_dst)
         a = x_j[0][0]
+        print(torch.isnan(x_j[0]))
         print(a)
+
         print("runs")
         a = self.W_dst(x_j)
         print("in between")
