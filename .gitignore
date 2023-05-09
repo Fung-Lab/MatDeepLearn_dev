@@ -169,6 +169,7 @@ dmypy.json
 
 # results
 **/*/results/
+results/
 
 server/
 
@@ -176,6 +177,7 @@ server/
 testing/*
 test*.py
 test*.ipynb
+testing/
 
 checkpoints/
 

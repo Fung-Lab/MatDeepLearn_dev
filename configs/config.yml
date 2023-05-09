@@ -61,7 +61,7 @@ dataset:
   target_path: data/test_data/targets.csv
   #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
   # Path to save processed data.pt file
-  pt_path: "data/"
+  pt_path: "data/test_data/processed/"
 
   transforms:
     - name: GetY
