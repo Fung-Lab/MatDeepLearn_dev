@@ -59,8 +59,10 @@ class CGCNN_VN(BaseModel):
         self.dim2 = dim2
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
-        self.num_features = data.num_features
-        self.num_edge_features = data.num_edge_features
+
+        # Relying on data object attributes (data.num_edge_features) not recommended
+        self.num_features = data.num_node_features
+        self.num_edge_features = edge_steps
 
         # make sure mp pattern is valid
         assert (
@@ -70,7 +72,7 @@ class CGCNN_VN(BaseModel):
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
         if pre_fc_count == 0:
-            self.gc_dim, self.post_fc_dim = data.num_features, data.num_features
+            self.gc_dim, self.post_fc_dim = self.num_features, self.num_features
         else:
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
@@ -241,9 +243,6 @@ class CGCNN_VN(BaseModel):
             edge_attr_use = torch.cat(
                 [getattr(data, f"edge_attr_{mp}") for mp in mp_choice], dim=0
             )
-
-            print("maxmin indices", edge_index_use.min(), edge_index_use.max())
-            print("num nodes", data.x.shape[0])
 
             if len(self.pre_lin_list) == 0 and j == 0:
                 if self.batch_norm:

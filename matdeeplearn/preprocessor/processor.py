@@ -79,6 +79,7 @@ def process_data(dataset_config, wandb_config):
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
         force_preprocess=dataset_config.get("force_preprocess", False),
+        num_examples=dataset_config.get("num_examples", 0),
         device=device,
     )
 
@@ -111,6 +112,7 @@ class DataProcessor:
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
         force_preprocess: bool = False,
+        num_examples: int = None,
         device: str = "cpu",
     ) -> None:
         """
@@ -194,6 +196,7 @@ class DataProcessor:
         self.disable_tqdm = logging.root.level > logging.INFO
 
         self.force_preprocess = force_preprocess
+        self.num_examples = num_examples
 
         # construct metadata signature
         self.metadata = self.preprocess_kwargs
@@ -356,6 +359,10 @@ class DataProcessor:
         if not found_existing:
             logging.info("No existing processed data found. Processing...")
             dict_structures, y = self.src_check()
+            if self.num_examples > 0 and self.num_examples < len(dict_structures):
+                dict_structures = dict_structures[: self.num_examples]
+                y = y[: self.num_examples]
+                logging.warning(f"Only processing {self.num_examples} structures.")
             data_list = self.get_data_list(dict_structures, y)
             data, slices = InMemoryDataset.collate(data_list)
 
@@ -457,7 +464,7 @@ class DataProcessor:
 
         # convert to custom data object
         for i, data in enumerate(data_list):
-            data_list[i] = CustomBatchingData(data)
+            data_list[i] = CustomBatchingData.from_dict(data.to_dict())
 
         if len(transforms_list_batched) > 0:
             # perform batch transforms
@@ -472,5 +479,7 @@ class DataProcessor:
                 data_list[i : i + self.batch_size] = batch.to_data_list()
 
         clean_up(data_list, ["edge_descriptor"])
+        
+        print("data list len", len(data_list))
 
         return data_list

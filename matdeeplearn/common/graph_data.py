@@ -7,12 +7,6 @@ from torch_geometric.typing import OptTensor
 
 
 class CustomBatchingData(Data):
-    def __init__(self, data: Data = None) -> None:
-        super().__init__()
-        if data is not None:
-            for key, item in data.__dict__["_store"].items():
-                setattr(self, key, item)
-
     def __inc__(self, key, value, *args, **kwargs) -> int:
         if "index" in key:
             return self.n_atoms
