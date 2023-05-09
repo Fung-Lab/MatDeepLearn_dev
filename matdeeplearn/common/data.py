@@ -56,6 +56,12 @@ def dataset_split(
         generator=torch.Generator().manual_seed(seed),
     )
 
+    # Quick fix for when the dataset is too small (e.g. 10 examples)
+    if len(val_dataset) == 0:
+        val_dataset = train_dataset
+    if len(test_dataset) == 0:
+        test_dataset = train_dataset
+
     return train_dataset, val_dataset, test_dataset
 
 
@@ -122,6 +128,8 @@ def get_dataloader(
             how many subprocesses to use for data loading. 0 means that
             the data will be loaded in the main process.
     """
+
+    print("dateset length", len(dataset))
 
     # load data
     loader = DataLoader(
