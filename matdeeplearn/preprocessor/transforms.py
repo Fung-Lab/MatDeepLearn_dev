@@ -165,10 +165,10 @@ class VirtualEdgeGeneration(object):
                     # normalize edge indices to reflect individual graph counts
                     edges_target = edge_index[:, indices.squeeze()]
                     edge_index[:, indices.squeeze()] = edges_target - edges_target.min()
-                    edge_partitions.append(edge_partitions[-1] + indices.shape[0])
+                    edge_partitions.append(edge_partitions[-1] + indices.shape[0])                    
                 # compute slicing indices for edges
                 edge_partitions = torch.tensor(edge_partitions)
-                edges_sliced_order = edges_sliced_order.long().squeeze(-1)
+                edges_sliced_order = edges_sliced_order.long().squeeze()
                 # update batching track dicts
                 for x in [
                     f"edge_index_{attr}",

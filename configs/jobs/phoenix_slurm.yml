@@ -13,4 +13,3 @@ options:
   - "--mem-per-gpu=80G"
   - "--mail-type=BEGIN,END,FAIL"
   - "--mail-user=sidharth.baskaran@gatech.edu"
-# 

@@ -242,6 +242,9 @@ class CGCNN_VN(BaseModel):
                 [getattr(data, f"edge_attr_{mp}") for mp in mp_choice], dim=0
             )
 
+            print("maxmin indices", edge_index_use.min(), edge_index_use.max())
+            print("num nodes", data.x.shape[0])
+
             if len(self.pre_lin_list) == 0 and j == 0:
                 if self.batch_norm:
                     out = self.conv_list[j](
