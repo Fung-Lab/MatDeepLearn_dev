@@ -67,7 +67,6 @@ class ALIGNN_GRAPHITE(BaseModel):
         #h_bnd = self.embed_bnd(data.edge_attr)
         h_bnd = self.embed_bnd(data.distances)
         h_ang = self.embed_ang(data.edge_attr_lg)
-        print(h_ang)
         print(h_ang.size())
         for i in range(self.num_interactions):
             h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
@@ -135,10 +134,10 @@ class EGConv(MessagePassing):
         edge_attr = edge_attr + self.act(
             self.norm_e(self.W_A(x[i]) + self.W_B(x[j]) + self.W_C(edge_attr))
         )
-        print(out)
         print(out.size())
-        print(edge_attr)
         print(edge_attr.size())
+        print(x[i].size())
+        print(x[j].size())
         print()
         return out, edge_attr
 
