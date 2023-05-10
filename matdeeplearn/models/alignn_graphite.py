@@ -64,7 +64,11 @@ class ALIGNN_GRAPHITE(BaseModel):
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
         h_atm = self.embed_atm(data.x.type(torch.long))
+        print(h_atm)
+        print(h_atm.size())
         h_bnd = self.embed_bnd(data.edge_attr)
+        print(h_bnd)
+        print(h_bnd.size())
         h_ang = self.embed_ang(data.edge_attr_lg)
 
         for i in range(self.num_interactions):
@@ -122,11 +126,6 @@ class EGConv(MessagePassing):
         print(edge_index)
         print(edge_index.size())
         print()
-        print(x)
-        print(x.size())
-        print()
-        print(edge_attr)
-        print(edge_attr.size())
 
         # Calculate gated edges
         sigma_e = self.sigma(edge_attr)
