@@ -189,7 +189,7 @@ class PropertyTrainer(BaseTrainer):
         _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.rank))
-            print(out.size())
+            out = out.squeeze()
             if type(out) == tuple and len(out) == 5:
                 out = out[0]
             loss = self._compute_loss(out, batch)
@@ -204,7 +204,6 @@ class PropertyTrainer(BaseTrainer):
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
             batch_p = out.data.cpu().numpy()
-            print(batch_p.size())
             if str(self.rank) not in ("cpu", "cuda"): 
                 batch_t = batch[self.model.module.target_attr].cpu().numpy()
             else:
