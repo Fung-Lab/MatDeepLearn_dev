@@ -24,9 +24,8 @@ class ALIGNN_GRAPHITE(BaseModel):
         self.dim = hidden_features
         self.num_interactions = alignn_layers
         self.cutoff = max_edge_distance
-        #atom_input_features = data.num_features
 
-        self.embed_atm = Embedding(num_species, hidden_features)
+        self.embed_atm = Linear(data.num_features, hidden_features)
         self.embed_bnd = partial(bessel, start=0, end=max_edge_distance, num_basis=hidden_features)
 
         self.atm_bnd_interactions = ModuleList()
