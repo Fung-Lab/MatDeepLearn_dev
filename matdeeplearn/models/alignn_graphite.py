@@ -24,9 +24,9 @@ class ALIGNN_GRAPHITE(BaseModel):
         self.dim = hidden_features
         self.num_interactions = alignn_layers
         self.cutoff = max_edge_distance
-        atom_input_features = data.num_features
 
-        self.embed_atm = Embedding(atom_input_features, hidden_features)
+        #self.embed_atm = Embedding(data.num_features, hidden_features)
+        self.embed_atm = Linear(data.num_features, hidden_features)
         self.embed_bnd = partial(bessel, start=0, end=max_edge_distance, num_basis=hidden_features)
 
         self.atm_bnd_interactions = ModuleList()
@@ -63,8 +63,9 @@ class ALIGNN_GRAPHITE(BaseModel):
     def forward(self, data: Data):
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
-        h_atm = self.embed_atm(data.x.type(torch.long))
-        h_bnd = self.embed_bnd(data.edge_attr)
+        h_atm = self.embed_atm(data.x.type(torch.float))
+        #h_bnd = self.embed_bnd(data.edge_attr)
+        h_bnd = self.embed_bnd(data.distances)
         h_ang = self.embed_ang(data.edge_attr_lg)
 
         for i in range(self.num_interactions):
@@ -119,7 +120,6 @@ class EGConv(MessagePassing):
 
     def forward(self, x, edge_index, edge_attr):
         i, j = edge_index
-        print(edge_index)
 
         # Calculate gated edges
         sigma_e = self.sigma(edge_attr)
@@ -130,7 +130,6 @@ class EGConv(MessagePassing):
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
-
         # Update the edges
         edge_attr = edge_attr + self.act(
             self.norm_e(self.W_A(x[i]) + self.W_B(x[j]) + self.W_C(edge_attr))
@@ -139,16 +138,7 @@ class EGConv(MessagePassing):
         return out, edge_attr
 
     def message(self, x_j, e_gated):
-        print(x_j.size())
-        print(x_j.get_device())
-        print(self.W_dst)
-        print("runs")
-        a = self.W_dst(x_j)
-        print("in between")
-        a = e_gated * self.W_dst(x_j)
-        print("doesn't run")
-        print(a.size())
-        return a
+        return e_gated * self.W_dst(x_j)
 
 
 def bessel(x, start=0.0, end=1.0, num_basis=8, eps=1e-5):
