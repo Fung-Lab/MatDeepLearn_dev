@@ -138,6 +138,7 @@ class EGConv(MessagePassing):
         print(out.size())
         print(edge_attr)
         print(edge_attr.size())
+        print()
         return out, edge_attr
 
     def message(self, x_j, e_gated):
