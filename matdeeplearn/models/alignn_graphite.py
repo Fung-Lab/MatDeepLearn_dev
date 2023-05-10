@@ -32,7 +32,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         self.atm_bnd_interactions = ModuleList()
         self.bnd_ang_interactions = ModuleList()
         for _ in range(alignn_layers):
-            #self.atm_bnd_interactions.append(EGConv(hidden_features, hidden_features))
+            self.atm_bnd_interactions.append(EGConv(hidden_features, hidden_features))
             self.bnd_ang_interactions.append(EGConv(hidden_features, hidden_features))
 
         self.head = Sequential(
@@ -68,7 +68,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         h_ang = self.embed_ang(data.edge_attr_lg)
 
         for i in range(self.num_interactions):
-            h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
+            #h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
 
         h = scatter(h_atm, data.batch, dim=0, reduce="add")
