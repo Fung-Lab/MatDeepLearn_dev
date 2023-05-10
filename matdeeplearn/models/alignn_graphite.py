@@ -65,12 +65,12 @@ class ALIGNN_GRAPHITE(BaseModel):
         edge_index_A = data.edge_index_lg
         h_atm = self.embed_atm(data.x.type(torch.long))
         #h_bnd = self.embed_bnd(data.edge_attr)
-        h_bnd = self.embed_bnd(data.edge_vec)
+        h_bnd = self.embed_bnd(data.distances)
         print(h_bnd)
         print(h_bnd.size())
         print()
-        print(data.edge_vec)
-        print(data.edge_vec.size())
+        print(data.distances)
+        print(data.distances.size())
         h_ang = self.embed_ang(data.edge_attr_lg)
 
         for i in range(self.num_interactions):
