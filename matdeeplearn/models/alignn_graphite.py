@@ -63,11 +63,7 @@ class ALIGNN_GRAPHITE(BaseModel):
     def forward(self, data: Data):
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
-        print(data.x.size())
-        print(data.x)
         h_atm = self.embed_atm(data.x.type(torch.float))
-        print(h_atm)
-        print(h_atm.size())
         #h_bnd = self.embed_bnd(data.edge_attr)
         h_bnd = self.embed_bnd(data.distances)
         h_ang = self.embed_ang(data.edge_attr_lg)
@@ -134,18 +130,6 @@ class EGConv(MessagePassing):
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
-        print()
-        print(x)
-        print(x.size())
-        print(edge_attr)
-        print(edge_attr.size())
-        print(self.W_A)
-        print(self.W_B)
-        print(self.W_C)
-        print(x[i])
-        print(x[i].size())
-        print(x[j])
-        print(x[j].size())
         # Update the edges
         edge_attr = edge_attr + self.act(
             self.norm_e(self.W_A(x[i]) + self.W_B(x[j]) + self.W_C(edge_attr))
