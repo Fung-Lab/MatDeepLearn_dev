@@ -123,6 +123,8 @@ class EGConv(MessagePassing):
 
         # Calculate gated edges
         sigma_e = self.sigma(edge_attr)
+        print(sigma_e)
+        print(sigma_e.size())
         e_sum = scatter(src=sigma_e, index=i, dim=0)
         e_gated = sigma_e / (e_sum[i] + self.eps)
         e_gated = e_gated.squeeze()
