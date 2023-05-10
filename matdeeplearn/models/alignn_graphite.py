@@ -32,7 +32,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         self.atm_bnd_interactions = ModuleList()
         self.bnd_ang_interactions = ModuleList()
         for _ in range(alignn_layers):
-            self.atm_bnd_interactions.append(EGConv(hidden_features, hidden_features))
+            #self.atm_bnd_interactions.append(EGConv(hidden_features, hidden_features))
             self.bnd_ang_interactions.append(EGConv(hidden_features, hidden_features))
 
         self.head = Sequential(
