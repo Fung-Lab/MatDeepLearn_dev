@@ -224,13 +224,7 @@ class PropertyTrainer(BaseTrainer):
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
             predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
             target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
-            print(len(ids))
-            print(len(target))
-            print(len(predict))
-            print("_____________________________________________")
-        print(len(ids))
-        print(len(target))
-        print(len(predict))
+            
         predictions = np.column_stack((ids, target, predict))
         
 
