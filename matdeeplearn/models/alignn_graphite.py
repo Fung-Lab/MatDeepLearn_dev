@@ -130,6 +130,7 @@ class EGConv(MessagePassing):
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
+        edge_attr = edge_attr.squeeze()
         # Update the edges
         edge_attr = edge_attr + self.act(
             self.norm_e(self.W_A(x[i]) + self.W_B(x[j]) + self.W_C(edge_attr))
