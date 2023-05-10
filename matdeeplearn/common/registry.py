@@ -54,7 +54,6 @@ class Registry:
         "loss_name_mapping": {},
         "state": {},
         "transforms": {},
-        "routines": {},
     }
 
     @classmethod
@@ -225,16 +224,6 @@ class Registry:
         return wrap_func
 
     @classmethod
-    def register_routine(cls, routine_name: str):
-        """Registers a routine function (parametrizable helper method) for bookkeeping."""
-
-        def wrap_func(routine: Callable):
-            cls.mapping["routines"][routine_name] = routine
-            return routine
-
-        return wrap_func
-
-    @classmethod
     def __import_error(cls, name: str, mapping_name: str):
         kind = mapping_name[: -len("_name_mapping")]
         mapping = cls.mapping.get(mapping_name, {})
@@ -301,10 +290,6 @@ class Registry:
     @classmethod
     def get_transform_class(cls, name, **kwargs):
         return cls.get_class(name, "transforms")(**kwargs)
-
-    @classmethod
-    def get_routine_class(cls, name, **kwargs):
-        return cls.get_class(name, "routines")(**kwargs)
 
     @classmethod
     def get(cls, name, default=None, no_warning=False):
