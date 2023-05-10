@@ -67,7 +67,8 @@ class ALIGNN_GRAPHITE(BaseModel):
         #h_bnd = self.embed_bnd(data.edge_attr)
         h_bnd = self.embed_bnd(data.distances)
         h_ang = self.embed_ang(data.edge_attr_lg)
-
+        print(h_ang)
+        print(h_ang.size())
         for i in range(self.num_interactions):
             h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
