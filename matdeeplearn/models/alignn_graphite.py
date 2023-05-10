@@ -120,6 +120,7 @@ class EGConv(MessagePassing):
     def forward(self, x, edge_index, edge_attr):
         i, j = edge_index
         print(edge_index)
+        print(edge_index.size())
 
         # Calculate gated edges
         sigma_e = self.sigma(edge_attr)
