@@ -64,9 +64,8 @@ class ALIGNN_GRAPHITE(BaseModel):
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
         h_atm = self.embed_atm(data.x.type(torch.long))
-        print(h_atm)
-        print(h_atm.size())
-        h_bnd = self.embed_bnd(data.edge_attr)
+        #h_bnd = self.embed_bnd(data.edge_attr)
+        h_bnd = self.embed_bnd(data.edge_vec)
         print(h_bnd)
         print(h_bnd.size())
         print()
