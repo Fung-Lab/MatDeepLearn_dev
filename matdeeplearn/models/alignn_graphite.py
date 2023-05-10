@@ -72,7 +72,11 @@ class ALIGNN_GRAPHITE(BaseModel):
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
         h = scatter(h_atm, data.batch, dim=0, reduce="add")
         h = self.head(h)
-        return self.out(h)
+        out = self.out(h)
+        if out.shape[1] == 1:
+            return out.view(-1)
+        else:
+            return out
 
     def __repr__(self):
         return (

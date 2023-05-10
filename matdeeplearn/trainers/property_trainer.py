@@ -189,7 +189,6 @@ class PropertyTrainer(BaseTrainer):
         _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.rank))
-            out = out.squeeze()
             if type(out) == tuple and len(out) == 5:
                 out = out[0]
             loss = self._compute_loss(out, batch)
