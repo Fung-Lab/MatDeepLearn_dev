@@ -71,7 +71,7 @@ class ALIGNN_GRAPHITE(BaseModel):
         for i in range(self.num_interactions):
             h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
-
+            print("----------------------------------------")
         h = scatter(h_atm, data.batch, dim=0, reduce="add")
         h = self.head(h)
         return self.out(h)
