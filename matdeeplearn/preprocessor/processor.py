@@ -279,6 +279,8 @@ class DataProcessor:
             torch.save((data, slices), save_path)
             logging.info("Processed data saved successfully.")
 
+        print(data_list[0])
+
         return data_list
 
     def get_data_list(self, dict_structures, y):
