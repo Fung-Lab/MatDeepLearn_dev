@@ -70,7 +70,7 @@ class DOSPredict(BaseModel):
 
     @property
     def target_attr(self):
-        return "scaled"
+        return "flat_scaled"
 
     def _setup_pre_gnn_layers(self):
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
