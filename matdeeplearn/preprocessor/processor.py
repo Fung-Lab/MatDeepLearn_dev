@@ -234,16 +234,10 @@ class DataProcessor:
             if self.additional_attributes:
                 for attr in self.additional_attributes:
                     if attr == "flattened_spd":
+                        torch.reshape(d["flat_scaled"], (d["n_atoms"], 1200))
                         d["flat_scaled"] = torch.flatten(
                             torch.tensor(
                                 s["scaled"], device=self.device, dtype=torch.float
-                            )
-                        )
-                        d["flat_scaling_factor"] = torch.flatten(
-                            torch.tensor(
-                                s["scaling_factor"],
-                                device=self.device,
-                                dtype=torch.float,
                             )
                         )
                     else:

@@ -77,8 +77,8 @@ class PropertyTrainer(BaseTrainer):
                 # # reshape s,p,d data into 1-d if for DOSPredict
                 # if type(self.loss_fn).__name__ == "DOSLoss":
                 #     batch.
-                print(batch.flattened_scaled)
-                print(batch.flattened_scaling_factor)
+                print(batch.flat_scaled)
+                print(batch.flat_factor)
 
                 # Compute forward, loss, backward
                 out = self._forward(batch)
