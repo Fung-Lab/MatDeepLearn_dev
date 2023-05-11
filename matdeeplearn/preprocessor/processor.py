@@ -230,9 +230,6 @@ class DataProcessor:
             d["atomic_numbers"] = atomic_numbers
             d["structure_id"] = s["structure_id"]
 
-            print(s["scaled"])
-            print(s["scaling_factor"])
-
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
@@ -323,9 +320,6 @@ class DataProcessor:
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
-
-            print(sdict["scaled"])
-            print(sdict["scaling_factor"])
 
             # add additional attributes
             if self.additional_attributes:
