@@ -28,11 +28,11 @@ class DOSLoss(nn.Module):
     def forward(self, predictions: tuple[torch.Tensor, torch.Tensor], target: Batch):
         out, scaling = predictions
 
-        dos_loss = self.loss_fn(out, target.scaled)
+        dos_loss = self.loss_fn(out, target.flat_scaled)
         scaling_loss = self.loss_fn(scaling, target.scaling_factor)
 
         output_cumsum = torch.cumsum(out, axis=1)
-        dos_cumsum = torch.cumsum(target.scaled, axis=1)
+        dos_cumsum = torch.cumsum(target.flat_scaled, axis=1)
         dos_cumsum_loss = self.loss_fn(output_cumsum, dos_cumsum)
 
         original_dos = out * scaling.view(-1, 1).expand_as(out)
@@ -48,9 +48,9 @@ class DOSLoss(nn.Module):
         )
 
         # change dos_loss reported to scaled
-        target_original_dos = target.scaled * target.scaling_factor.view(
+        target_original_dos = target.flat_scaled * target.scaling_factor.view(
             -1, 1
-        ).expand_as(target.scaled)
+        ).expand_as(target.flat_scaled)
         original_dos_loss = self.loss_fn(original_dos, target_original_dos)
         # TODO: return dos_loss and other losses separately
         loss_dict = {

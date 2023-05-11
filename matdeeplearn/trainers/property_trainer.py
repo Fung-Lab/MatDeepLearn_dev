@@ -180,9 +180,9 @@ class PropertyTrainer(BaseTrainer):
 
                 # if out is a tuple, then it's scaled data, so unscale it and target
                 out = out[0] * out[1].view(-1, 1).expand_as(out[0])
-                target_original = batch.scaled * batch.scaling_factor.view(
+                target_original = batch.flat_scaled * batch.scaling_factor.view(
                     -1, 1
-                ).expand_as(batch.scaled)
+                ).expand_as(batch.flat_scaled)
             else:
                 target_original = batch.y
 
