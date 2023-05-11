@@ -230,12 +230,29 @@ class DataProcessor:
             d["atomic_numbers"] = atomic_numbers
             d["structure_id"] = s["structure_id"]
 
+            print(s["scaled"])
+            print(s["scaling_factor"])
+
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
-                    d[attr] = torch.tensor(
-                        s[attr], device=self.device, dtype=torch.float
-                    )
+                    if attr == "flattened_spd":
+                        d["flat_scaled"] = torch.flatten(
+                            torch.tensor(
+                                s["scaled"], device=self.device, dtype=torch.float
+                            )
+                        )
+                        d["flat_scaling_factor"] = torch.flatten(
+                            torch.tensor(
+                                s["scaling_factor"],
+                                device=self.device,
+                                dtype=torch.float,
+                            )
+                        )
+                    else:
+                        d[attr] = torch.tensor(
+                            s[attr], device=self.device, dtype=torch.float
+                        )
 
             dict_structures.append(d)
 
@@ -308,7 +325,6 @@ class DataProcessor:
             data.structure_id = [[structure_id] * len(data.y)]
 
             print(sdict["scaled"])
-
             print(sdict["scaling_factor"])
 
             # add additional attributes
