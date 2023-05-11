@@ -307,10 +307,18 @@ class DataProcessor:
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
 
+            print(sdict["scaled"])
+
+            print(sdict["scaling_factor"])
+
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
-                    data.__setattr__(attr, sdict[attr])
+                    if attr == "flattened_spd":
+                        data.__setattr__("flat_scaled", sdict["scaled"])
+                        data.__setattr__("flat_scaling_factor", sdict["scaling_factor"])
+                    else:
+                        data.__setattr__(attr, sdict[attr])
 
         logging.info("Generating node features...")
         generate_node_features(data_list, self.n_neighbors, device=self.device)

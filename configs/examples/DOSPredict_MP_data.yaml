@@ -52,7 +52,7 @@ dataset:
 #  pt_path: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/processed/MP_DOS_data/"
   data_format: "json"
   node_representation: "onehot"
-  additional_attributes: ["features", "scaled", "scaling_factor"]
+  additional_attributes: ["features", "scaled", "scaling_factor", "flattened_spd"]
   verbose: True
   target_index: 0
   cutoff_radius : 8.0
