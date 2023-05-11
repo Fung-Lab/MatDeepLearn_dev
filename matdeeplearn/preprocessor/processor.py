@@ -239,7 +239,7 @@ class DataProcessor:
                             torch.tensor(
                                 s["scaled"], device=self.device, dtype=torch.float
                             ),
-                            (d["n_atoms"], 1200),
+                            (len(atomic_numbers), 1200),
                         )
                     else:
                         d[attr] = torch.tensor(
@@ -322,8 +322,7 @@ class DataProcessor:
             if self.additional_attributes:
                 for attr in self.additional_attributes:
                     if attr == "flattened_spd":
-                        data.__setattr__("flat_scaled", sdict["scaled"])
-                        data.__setattr__("flat_scaling_factor", sdict["scaling_factor"])
+                        data.__setattr__("flat_scaled", sdict["flat_scaled"])
                     else:
                         data.__setattr__(attr, sdict[attr])
 
