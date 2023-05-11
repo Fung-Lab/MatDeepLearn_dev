@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: True
-  gpu: "cuda:1"
+  gpu: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True
@@ -17,8 +17,8 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn"
-    notes: "New baseline for no-vn, all-neighbor, OCP"
-    tags: ["baseline"]
+    notes: "reproduce topk baselines"
+    tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
       - "model.hyperparams.pool"
@@ -33,15 +33,22 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
+      # - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
       # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
       dataset: "hMOF-5K"
     sweep:
-      do_sweep: False
-      sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+      parallel: True
+      do_sweep: False # ignore rest of config if False
+      system: "phoenix_slurm" # one of "local", "phoenix_slurm"
+      job_config: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/jobs/phoenix_slurm.yml"
+      count: 3
+      sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/sweeps/cgcnn_vn_sweep_d1.yml"
+      # sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
   name: CGCNN_VN
@@ -58,7 +65,7 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    pool: "global_mean_pool" # pooling reduction scheme, none for no-vn case
+    pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
     mp_pattern: [["rr"],["rr"],["rr"],["rr"]]
@@ -85,24 +92,30 @@ optim:
 
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
+  force_preprocess: False
+  num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
+  # src: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/data.json"
+  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
-  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
   target_path: ""
-  # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/hmof-processed/ocp_novn"
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/hmof-processed/ocp_novn"
+  pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
+  # pt_path: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/ocp"
+  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
+  # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/ocp"
   # transforms
   transforms:
     - name: GetY
       args:
         index: 5 # methane adsorption uptake
       otf: False
-    - name: VirtualNodes
+    - name: VirtualEdgeGeneration
       args:
-        virtual_box_increment: 3
         attrs: ["rr"]
         rr_cutoff: 25.0
       otf: False
+      batch: True
   # use for passing into global config
   # one of MDL, ASE, OCP
   use_sweep_params: False
@@ -117,6 +130,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 250
+    process_batch_size : 150
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25

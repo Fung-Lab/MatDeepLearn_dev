@@ -479,7 +479,5 @@ class DataProcessor:
                 data_list[i : i + self.batch_size] = batch.to_data_list()
 
         clean_up(data_list, ["edge_descriptor"])
-        
-        print("data list len", len(data_list))
 
         return data_list

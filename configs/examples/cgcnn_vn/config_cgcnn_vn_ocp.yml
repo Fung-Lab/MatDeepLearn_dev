@@ -66,9 +66,9 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "RealVirtualPooling" # pooling method
+    virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"],["rr", "rv", "vv"]]
+    mp_pattern: [["rr", "rv"],["rr", "rv"],["rr", "rv"],["rr", "rv"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -92,7 +92,7 @@ optim:
 
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
-  force_preprocess: True
+  force_preprocess: False
   num_examples: 0
   # Path to data files
   # src: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/data.json"
@@ -112,14 +112,13 @@ dataset:
       otf: False
     - name: VirtualNodeGeneration
       args:
-        virtual_box_increment: 3
+        virtual_box_increment: 4
       otf: False
     - name: VirtualEdgeGeneration
       args:
-        attrs: ["rr", "rv", "vv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
-        vv_cutoff: 5.0
+        attrs: ["rr", "rv"]
+        rr_cutoff: 12.0
+        rv_cutoff: 12.0
       otf: False
       batch: True
   # use for passing into global config
@@ -136,7 +135,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 50
-    process_batch_size : 100
+    process_batch_size : 150
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25

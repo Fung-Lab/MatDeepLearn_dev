@@ -33,6 +33,9 @@ class GetY(object):
         self.index = kwargs.get("index", 0)
 
     def __call__(self, data: Data):
+        if hasattr(data, "batch"):
+            raise NotImplementedError("Batching not supported yet for GetY")
+
         # Specify target.
         if self.index != -1:
             data.y = data.y[0][self.index]
@@ -47,6 +50,9 @@ class DegreeNodeAttr(object):
         self.n_neighbors = kwargs.get("n_neighbors")
 
     def __call__(self, data: Data):
+        if hasattr(data, "batch"):
+            raise NotImplementedError("Batching not supported yet for DegreeNodeAttr")
+
         one_hot_degree(data, self.n_neighbors)
         return data
 
@@ -58,6 +64,9 @@ class VirtualNodeGeneration(object):
         self.kwargs = kwargs
 
     def __call__(self, data: Data) -> Data:
+        if hasattr(data, "batch"):
+            raise NotImplementedError("Batching not supported yet for GetY")
+
         structure = Atoms(
             numbers=data.z,
             positions=data.pos,

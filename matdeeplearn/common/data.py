@@ -129,8 +129,6 @@ def get_dataloader(
             the data will be loaded in the main process.
     """
 
-    print("dateset length", len(dataset))
-
     # load data
     loader = DataLoader(
         dataset,
