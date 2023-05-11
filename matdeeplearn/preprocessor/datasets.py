@@ -32,7 +32,7 @@ class StructureDataset(InMemoryDataset):
         data = self.get(self.indices()[idx])
         # data.y = value
         # data.scaled = value
-        data.scaled = value[0]
+        data.scaled = torch.reshape(value[0], (data.n_atoms, 3, 400))
         data.scaling_factor = value[1]
         return data
 
