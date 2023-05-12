@@ -359,7 +359,7 @@ class DataProcessor:
         if not found_existing:
             logging.info("No existing processed data found. Processing...")
             dict_structures, y = self.src_check()
-            if self.num_examples > 0 and self.num_examples < len(dict_structures):
+            if 0 < self.num_examples < len(dict_structures):
                 dict_structures = dict_structures[: self.num_examples]
                 y = y[: self.num_examples]
                 logging.warning(f"Only processing {self.num_examples} structures.")

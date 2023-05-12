@@ -7,3 +7,4 @@ salloc -A gts-vfung3 -qshared -N1 --gres=gpu:A100:1 -C A100-40GB -t1:00:00
 salloc -A gts-vfung3 -qinferno -N1 -t1:00:00
 
 globus transfer 9d6d994a-6d04-11e5-ba46-22000b92c6ec:"/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp_3" 9f127ec0-edff-11ed-ba42-09d6a6f08166:"/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/"
+
