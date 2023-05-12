@@ -187,3 +187,4 @@ checkpoints/
 **/wandb/
 *.out
 /data/ct_pretrain/data.json
+/data/ct_pretrain/
