@@ -186,3 +186,4 @@ checkpoints/
 .pylintrc
 **/wandb/
 *.out
+/data/ct_pretrain/data.json

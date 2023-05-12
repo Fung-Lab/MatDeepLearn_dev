@@ -92,7 +92,7 @@ def off_diagonal(x):
 
 @registry.register_loss("BarlowTwinsLoss")
 class BarlowTwinsLoss(nn.Module):
-    def __init__(self, batch_size, embed_size, lambd=0.005):
+    def __init__(self, batch_size, embed_size, lambd=0.0051):
         super(BarlowTwinsLoss, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embed_size = embed_size

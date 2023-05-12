@@ -14,9 +14,9 @@ class CTPretrainDataset(InMemoryDataset):
             root,
             processed_data_path,
             processed_file_name,
-            mask_node_ratio=0.15,
-            mask_edge_ratio=0.15,
-            distance=0.01,
+            mask_node_ratios=None,
+            mask_edge_ratios=None,
+            distance=0.05,
             min_distance: float = None,
             augmentation_list=None,
             transform=None,
@@ -24,12 +24,20 @@ class CTPretrainDataset(InMemoryDataset):
             pre_filter=None,
             device=None,
     ):
+        if mask_edge_ratios is None:
+            mask_edge_ratios = [0.1, 0.1]
+        if mask_node_ratios is None:
+            mask_node_ratios = [0.1, 0.25]
+
         self.root = root
         self.processed_data_path = processed_data_path
         self.processed_file_name = processed_file_name
         self.augmentation_list = augmentation_list if augmentation_list else []
-        self.mask_node_ratio = mask_node_ratio
-        self.mask_edge_ratio = mask_edge_ratio
+
+        self.mask_node_ratio1 = mask_node_ratios[0]
+        self.mask_node_ratio2 = mask_node_ratios[1]
+        self.mask_edge_ratio1 = mask_edge_ratios[0]
+        self.mask_edge_ratio2 = mask_edge_ratios[1]
         self.distance = distance
         self.min_distance = min_distance
         super(CTPretrainDataset, self).__init__(
@@ -90,26 +98,26 @@ class CTPretrainDataset(InMemoryDataset):
         subdata1 = copy.deepcopy(subdata)
         subdata2 = copy.deepcopy(subdata)
 
-        def mask_node(mask_node_ratio):
+        def mask_node(mask_node_ratio1, mask_node_ratio2):
             x = subdata.x
             num_nodes = x.size(0)
-            mask1 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio)
-            mask2 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio)
+            mask1 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio1)
+            mask2 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio2)
 
             subdata1.x[mask1] = 0
             subdata2.x[mask2] = 0
 
-        def mask_edge(mask_edge_ratio):
+        def mask_edge(mask_edge_ratio1, mask_edge_ratio2):
             edge_index, edge_attr = subdata.edge_index, subdata.edge_attr
             num_edges = edge_index.size(1)
-            mask1 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio)
-            mask2 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio)
+            mask1 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio1)
+            mask2 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio2)
             subdata1.edge_index = subdata1.edge_index[:, ~mask1]
             subdata1.edge_attr = subdata1.edge_attr[~mask1]
             subdata2.edge_index = subdata2.edge_index[:, ~mask2]
             subdata2.edge_attr = subdata2.edge_attr[~mask2]
 
-        def perturb_data(distance: float = 0.01, min_distance: float = None):
+        def perturb_data(distance: float = 0.05, min_distance: float = None):
             for i in range(subdata.pos.size(0)):
                 # Perturb subdata1
                 # Generate a random unit vector
@@ -140,9 +148,9 @@ class CTPretrainDataset(InMemoryDataset):
                 subdata2.pos[i] += perturbation_distance * random_vector
 
         if "node_masking" in self.augmentation_list:
-            mask_node(self.mask_node_ratio)
+            mask_node(self.mask_node_ratio1, self.mask_node_ratio2)
         if "edge_masking" in self.augmentation_list:
-            mask_edge(self.mask_edge_ratio)
+            mask_edge(self.mask_edge_ratio1, self.mask_edge_ratio2)
         if "perturbing" in self.augmentation_list:
             perturb_data(self.distance, self.min_distance)
 
