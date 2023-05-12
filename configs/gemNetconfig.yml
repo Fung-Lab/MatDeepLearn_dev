@@ -12,7 +12,7 @@ task:
   # checkpoint_dir: "."
   write_output: True
   #Training print out frequency (print per n number of epochs)
-  verbosity: 1
+  verbosity: 5
 
 model:
   name: gemnet_oc
