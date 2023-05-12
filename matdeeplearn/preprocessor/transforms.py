@@ -11,6 +11,7 @@ from matdeeplearn.preprocessor.helpers import (
     custom_edge_feats,
     custom_node_feats,
     generate_virtual_nodes_ase,
+    generate_virtual_nodes,
     get_mask,
     one_hot_degree,
 )
@@ -67,15 +68,24 @@ class VirtualNodeGeneration(object):
         if data.batch:
             raise NotImplementedError("Batching not supported yet for GetY")
 
-        structure = Atoms(
-            numbers=data.z,
-            positions=data.pos,
-            cell=data.cell,
-            pbc=[1, 1, 1],
-        )
-        vpos, virtual_z = generate_virtual_nodes_ase(
-            structure, self.kwargs.get("virtual_box_increment"), self.device
-        )
+        method = self.kwargs.get("method", "ase")
+
+        if method == "ase":
+            structure = Atoms(
+                numbers=data.z,
+                positions=data.pos,
+                cell=data.cell,
+                pbc=[1, 1, 1],
+            )
+            vpos, virtual_z = generate_virtual_nodes_ase(
+                structure, self.kwargs.get("virtual_box_increment"), self.device
+            )
+        elif method == "pytorch":
+            vpos, virtual_z = generate_virtual_nodes(
+                data.cell, self.kwargs.get("virtual_box_increment"), self.device
+            )
+        else:
+            raise ValueError("Invalid method for virtual node generation")
 
         data.pos = torch.cat((data.pos, vpos), dim=0)
         data.z = torch.cat((data.z, virtual_z), dim=0)

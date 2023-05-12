@@ -14,7 +14,7 @@ export OMP_NUM_THREADS=1
 
 #run the application:
 #applications may performance better with --gpu-bind=none instead of --gpu-bind=single:1
-srun -n 1 -c 256 --cpu_bind=cores -G 1 --gpu-bind=single:1  \
+srun -n 1 -c 128 --cpu_bind=cores -G 1 --gpu-bind=single:1  \
     /global/homes/s/sidnb13/.conda/envs/matdeeplearn/bin/python /global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/scripts/main.py \
     --config_path="/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/configs/examples/$1" \
     --run_mode="train" \

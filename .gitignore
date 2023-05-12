@@ -180,8 +180,8 @@ test*.ipynb
 checkpoints/
 
 # local configs
-configs/examples/config-hive.yml
-configs/examples/config_cgcnn_vn_phx.yml
+configs/examples/cgcnn_vn/
+configs/examples/cgcnn_vn_hg/
 
 # misc
 .flake8
