@@ -81,7 +81,7 @@ dataset:
   n_neighbors : 12
   edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.1
-  test_ratio: 0.1
+  train_ratio: 0.95
+  val_ratio: 0.05
+  test_ratio: 0
   augmentation: ["node_masking", "edge_masking"]
