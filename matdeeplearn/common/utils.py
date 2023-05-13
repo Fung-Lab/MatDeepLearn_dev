@@ -92,7 +92,6 @@ def min_alloc_gpu(device: str = None):
             logging.warning("GPU or MPS is not available, defaulting to train on CPU")
             return torch.device("cpu")
 
-
 class DictTools:
     """Useful static dict tools for working with nested dicts"""
 

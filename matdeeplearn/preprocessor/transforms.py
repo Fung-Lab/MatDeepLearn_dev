@@ -82,7 +82,7 @@ class VirtualNodeGeneration(object):
             )
         elif method == "pytorch":
             vpos, virtual_z = generate_virtual_nodes(
-                data.cell, self.kwargs.get("virtual_box_increment"), self.device
+                data.cell2, self.kwargs.get("virtual_box_increment"), device=self.device
             )
         else:
             raise ValueError("Invalid method for virtual node generation")

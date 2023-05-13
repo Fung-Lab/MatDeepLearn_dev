@@ -817,8 +817,7 @@ def frac_to_cart_coords(
 def generate_virtual_nodes(
     cell,  # TODO: add types
     increment: int,
-    batch: Optional[torch.Tensor],
-    device: torch.device,
+    device: torch.device = torch.device("cpu"),
 ):
     """_summary_
 
@@ -862,7 +861,7 @@ def generate_virtual_nodes(
 
 
 def generate_virtual_nodes_ase(
-    structure, increment: float, device: torch.device
+    structure, increment: float, device: torch.device = torch.device("cpu")
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     increment specifies the spacing between virtual nodes in cartesian

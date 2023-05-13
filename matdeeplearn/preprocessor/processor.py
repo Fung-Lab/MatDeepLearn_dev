@@ -1,5 +1,7 @@
 import json
 import logging
+import psutil
+import tracemalloc
 import os
 
 import numpy as np
@@ -468,9 +470,9 @@ class DataProcessor:
 
         if len(transforms_list_batched) > 0:
             # perform batch transforms
-            logging.info("Applying batch transforms...")
+            logging.info(f"Applying batch transforms with batch size {self.batch_size}...")
             for i in tqdm(
-                range(0, len(data_list), self.batch_size), disable=self.disable_tqdm
+                range(self.batch_size, len(data_list), self.batch_size), disable=self.disable_tqdm
             ):
                 batch = Batch.from_data_list(data_list[i : i + self.batch_size])
                 # apply transforms
