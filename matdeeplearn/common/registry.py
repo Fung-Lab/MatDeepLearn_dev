@@ -54,6 +54,8 @@ class Registry:
         "loss_name_mapping": {},
         "state": {},
         "transforms": {},
+        "jobs": {},
+        "data_types": {},
     }
 
     @classmethod
@@ -224,6 +226,26 @@ class Registry:
         return wrap_func
 
     @classmethod
+    def register_job(cls, job_name: str):
+        """Registers a job function for bookkeeping."""
+
+        def wrap_func(job: Job):
+            cls.mapping["jobs"][job_name] = job
+            return job
+
+        return wrap_func
+
+    @classmethod
+    def register_data_type(cls, data_type: str):
+        """Registers a data type for bookkeeping."""
+
+        def wrap_func(data_type: Object):
+            cls.mapping["data_types"][data_type] = data_type
+            return data_type
+
+        return wrap_func
+
+    @classmethod
     def __import_error(cls, name: str, mapping_name: str):
         kind = mapping_name[: -len("_name_mapping")]
         mapping = cls.mapping.get(mapping_name, {})
@@ -289,7 +311,15 @@ class Registry:
 
     @classmethod
     def get_transform_class(cls, name, **kwargs):
-        return cls.get_class(name, "transforms")(**kwargs)
+        return cls.get_class(name)(**kwargs)
+
+    @classmethod
+    def get_data_type_class(cls, name, **kwargs):
+        return cls.get_class(name)(**kwargs)
+
+    @classmethod
+    def get_job_class(cls, name, **kwargs):
+        return cls.get_class(name, "base")(**kwargs)
 
     @classmethod
     def get(cls, name, default=None, no_warning=False):

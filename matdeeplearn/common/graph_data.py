@@ -4,8 +4,10 @@ from typing import Optional
 
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor
+from matdeeplearn.common.registry import registry
 
 
+@registry.register_data_type("custom_batching")
 class CustomBatchingData(Data):
     def __inc__(self, key, value, *args, **kwargs) -> int:
         if "index" in key:
@@ -21,6 +23,7 @@ class CustomBatchingData(Data):
         return super().__cat_dim__(key, value, *args, **kwargs)
 
 
+@registry.register_data_type("custom_data")
 class CustomData(Data):
     """
     Custom graph data object which performs correct batching

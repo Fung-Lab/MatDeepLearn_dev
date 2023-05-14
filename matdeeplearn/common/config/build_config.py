@@ -88,9 +88,17 @@ def create_dict_from_args(args: list, sep: str = "."):
 
 def build_config(args, args_override):
     # Open provided config file
-    assert os.path.exists(
-        args.config_path
-    ), f"Config file not found in {str(args.config_path)}"
+    if os.path.exists(args.config_path):
+        logging.info(f"Using config file: {args.config_path}")
+    else:
+        # using a config file template
+        templates = {
+            file.strip(".yml"): file
+            for file in os.listdir("../configs/config_templates")
+            if file.endswith(".yml")
+        }
+        logging.info(f"Using config file template: {templates[args.config_path]}")
+
     with open(args.config_path, "r") as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
