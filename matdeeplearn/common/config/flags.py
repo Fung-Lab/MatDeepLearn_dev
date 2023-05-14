@@ -20,7 +20,7 @@ class Flags:
         )
         self.parser.add_argument(
             "--run_mode",
-            choices=["train"],
+            choices=["train", "preprocess", "predict", "repeat", "cv", "hyperparameter", "ensemble", "analysis"],
             required=True,
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",

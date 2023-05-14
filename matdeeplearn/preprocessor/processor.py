@@ -27,6 +27,7 @@ from matdeeplearn.preprocessor.helpers import (
 
 def process_data(dataset_config, wandb_config):
     use_wandb = wandb_config.get("use_wandb", False)
+    
     # modify config to reflect sweep parameters if being run
     if use_wandb and wandb_config["sweep"].get("do_sweep", False):
         sweep_params = wandb_config["sweep"].get("params", {})
