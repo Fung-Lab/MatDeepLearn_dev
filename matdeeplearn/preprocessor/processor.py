@@ -469,6 +469,17 @@ class DataProcessor:
             data_list[i] = CustomBatchingData.from_dict(data.to_dict())
 
         if len(transforms_list_batched) > 0:
+            # determine max batch size that would fit in memory
+            while self.batch_size > 0:
+                try:
+                    batch = Batch.from_data_list(data_list[: self.batch_size])
+                    batch = composition_batched(batch)
+                    data_list[: self.batch_size] = batch.to_data_list()
+                    break
+                except RuntimeError:
+                    self.batch_size -= 1
+            if self.batch_size == 0:
+                raise RuntimeError("Hyperparameters require too much memory.")
             # perform batch transforms
             logging.info(f"Applying batch transforms with batch size {self.batch_size}...")
             for i in tqdm(
