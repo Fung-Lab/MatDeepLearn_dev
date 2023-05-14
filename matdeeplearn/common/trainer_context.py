@@ -35,14 +35,14 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
     #         gp_utils.setup_gp(config)
     try:
         setup_imports()
-        print(registry.mapping)
+        # print(registry.mapping)
         trainer_cls = registry.get_trainer_class(config.get("trainer", "ct_pretrain"))
-        print(trainer_cls)
+        # print(trainer_cls)
         assert trainer_cls is not None, "Trainer not found"
 
         # TODO: set up trainer to include different attributes from matedeeplearn
         trainer = trainer_cls.from_config(config)
-        print("Sampler: ", trainer.train_sampler)
+        # print("Sampler: ", trainer.train_sampler)
 
         task_cls = registry.get_task_class(config["run_mode"])
         assert task_cls is not None, "Task not found"

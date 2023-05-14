@@ -7,10 +7,12 @@ from typing import List
 
 import numpy as np
 import torch
+from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
 
-from matdeeplearn.common.data import get_otf_transforms
+from matdeeplearn.common.data import get_otf_transforms, dataset_split
 from matdeeplearn.common.registry import registry
+from matdeeplearn.datasets.LargeCTPretain_dataset import LargeCTPretrainDataset
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 from matdeeplearn.datasets.CTPretain_dataset import CTPretrainDataset
@@ -22,6 +24,7 @@ def get_dataset(
         transform_list: List[dict] = [],
         augmentation_list=None,
         large_dataset=False,
+        dataset_config=None
 ):
     """
     get dataset according to data_path
@@ -39,24 +42,59 @@ def get_dataset(
 
     # get on the fly transforms for use on dataset access
     otf_transforms = get_otf_transforms(transform_list)
-
-    # check if large dataset is needed
-    # if large_dataset:
-    #     Dataset = LargeStructureDataset
-    # else:
-    #     Dataset = StructureDataset
-    Dataset = CTPretrainDataset
-
     composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
 
-    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
-                      augmentation_list=augmentation_list, transform=composition,
-                      mask_node_ratios=[0.1, 0.25],
-                      mask_edge_ratios=[0.1, 0.1],
-                      distance=0.05,
-                      min_distance=0)
+    # check if large dataset is needed
+    if large_dataset:
+        Dataset = LargeCTPretrainDataset
+        dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
+                          augmentation_list=augmentation_list, transform=composition,
+                          mask_node_ratios=[0.1, 0.25],
+                          mask_edge_ratios=[0.1, 0.1],
+                          distance=0.05,
+                          min_distance=0,
+                          dataset_config=dataset_config)
+    else:
+        Dataset = CTPretrainDataset
+        dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
+                          augmentation_list=augmentation_list, transform=composition,
+                          mask_node_ratios=[0.1, 0.25],
+                          mask_edge_ratios=[0.1, 0.1],
+                          distance=0.05,
+                          min_distance=0)
 
     return dataset
+
+def get_dataloader(
+    dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
+):
+    """
+    Returns a single dataloader for a given dataset
+
+    Parameters
+    ----------
+        dataset: matdeeplearn.preprocessor.datasets.StructureDataset
+            a dataset object that contains the target data
+
+        batch_size: int
+            size of each batch
+
+        num_workers: int
+            how many subprocesses to use for data loading. 0 means that
+            the data will be loaded in the main process.
+    """
+
+    # load data
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        sampler=sampler,
+        drop_last=True
+    )
+
+    return loader
 
 
 @registry.register_trainer("ct_pretrain")
@@ -182,19 +220,25 @@ class CTPretrainer(BaseTrainer):
                 dataset_path,
                 processed_file_name="data_train.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None)
+                augmentation_list=dataset_config.get("augmentation", None),
+                large_dataset=dataset_config.get("large_dataset", False),
+                dataset_config=dataset_config
             )
             dataset["val"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_val.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None)
+                augmentation_list=dataset_config.get("augmentation", None),
+                large_dataset=dataset_config.get("large_dataset", False),
+                dataset_config=dataset_config
             )
             dataset["test"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None)
+                augmentation_list=dataset_config.get("augmentation", None),
+                large_dataset=dataset_config.get("large_dataset", False),
+                dataset_config=dataset_config
             )
 
         else:
@@ -203,10 +247,43 @@ class CTPretrainer(BaseTrainer):
                 dataset_path,
                 processed_file_name="data.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None)
+                augmentation_list=dataset_config.get("augmentation", None),
+                large_dataset=dataset_config.get("large_dataset", False),
+                dataset_config=dataset_config
             )
 
         return dataset
+
+    @staticmethod
+    def _load_dataloader(optim_config, dataset_config, dataset, sampler):
+
+        batch_size = optim_config.get("batch_size")
+        if isinstance(dataset_config["src"], dict):
+            train_loader = get_dataloader(
+                dataset["train"], batch_size=batch_size, sampler=sampler
+            )
+            val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=sampler)
+            test_loader = get_dataloader(
+                dataset["test"], batch_size=batch_size, sampler=sampler
+            )
+
+        else:
+            train_ratio = dataset_config["train_ratio"]
+            val_ratio = dataset_config["val_ratio"]
+            test_ratio = dataset_config["test_ratio"]
+            train_dataset, val_dataset, test_dataset = dataset_split(
+                dataset["train"], train_ratio, val_ratio, test_ratio
+            )
+
+            train_loader = get_dataloader(
+                train_dataset, batch_size=batch_size, sampler=sampler
+            )
+            val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
+            test_loader = get_dataloader(
+                test_dataset, batch_size=batch_size, sampler=sampler
+            )
+
+        return train_loader, val_loader, test_loader
 
     def train(self):
         # Start training over epochs loop

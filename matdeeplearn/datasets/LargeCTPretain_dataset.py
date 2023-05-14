@@ -1,0 +1,548 @@
+import os
+import copy
+import random
+import json
+import numpy as np
+import pandas as pd
+from ase import io
+from tqdm import tqdm
+import torch
+from torch_geometric.data import InMemoryDataset, Data, Dataset
+from torch_geometric.loader import DataLoader
+from torch_geometric.transforms import Compose
+from torch_geometric.utils import dense_to_sparse
+
+from matdeeplearn.common.registry import registry
+from matdeeplearn.preprocessor.helpers import (
+    clean_up,
+    generate_edge_features,
+    generate_node_features,
+    get_cutoff_distance_matrix,
+)
+
+from matdeeplearn.preprocessor import StructureDataset
+from matdeeplearn.common.config.build_config import build_config
+from matdeeplearn.common.config.flags import flags
+import logging
+
+
+def init_processor(dataset_config):
+    root_path_dict = dataset_config["src"]
+    target_path_dict = dataset_config["target_path"]
+    pt_path = dataset_config.get("pt_path", None)
+    cutoff_radius = dataset_config["cutoff_radius"]
+    n_neighbors = dataset_config["n_neighbors"]
+    edge_steps = dataset_config["edge_steps"]
+    data_format = dataset_config.get("data_format", "json")
+    image_selfloop = dataset_config.get("image_selfloop", True)
+    self_loop = dataset_config.get("self_loop", True)
+    node_representation = dataset_config.get("node_representation", "onehot")
+    additional_attributes = dataset_config.get("additional_attributes", [])
+    verbose: bool = dataset_config.get("verbose", True)
+    device: str = dataset_config.get("device", "cpu")
+
+    processor = LargeDataProcessor(
+        root_path=root_path_dict,
+        target_file_path=target_path_dict,
+        pt_path=pt_path,
+        r=cutoff_radius,
+        n_neighbors=n_neighbors,
+        edge_steps=edge_steps,
+        transforms=dataset_config.get("transforms", []),
+        data_format=data_format,
+        image_selfloop=image_selfloop,
+        self_loop=self_loop,
+        node_representation=node_representation,
+        additional_attributes=additional_attributes,
+        verbose=verbose,
+        device=device,
+    )
+    return processor
+
+
+class LargeDataProcessor:
+    def __init__(
+            self,
+            root_path: str,
+            target_file_path: str,
+            pt_path: str,
+            r: float,
+            n_neighbors: int,
+            edge_steps: int,
+            transforms: list = [],
+            data_format: str = "json",
+            image_selfloop: bool = True,
+            self_loop: bool = True,
+            node_representation: str = "onehot",
+            additional_attributes: list = [],
+            verbose: bool = True,
+            device: str = "cpu",
+    ) -> None:
+        """
+        create a DataProcessor that processes the raw data and save into data.pt file.
+
+        Parameters
+        ----------
+            root_path: str
+                a path to the root folder for all data
+
+            target_file_path: str
+                a path to a CSV file containing target y values
+
+            pt_path: str
+                a path to the directory to which data.pt should be saved
+
+            r: float
+                cutoff radius
+
+            n_neighbors: int
+                max number of neighbors to be considered
+                => closest n neighbors will be kept
+
+            edge_steps: int
+                step size for creating Gaussian basis for edges
+                used in torch.linspace
+
+            transforms: list
+                default []. List of transforms to apply to the data.
+
+            data_format: str
+                format of the raw data file
+
+            image_selfloop: bool
+                if True, add self loop to node and set the distance to
+                the distance between node and its closest image
+
+            self_loop: bool
+                if True, every node in a graph will have a self loop
+
+            node_representation: str
+                a path to a JSON file containing vectorized representations
+                of elements of atomic numbers from 1 to 100 inclusive.
+
+                default: one-hot representation
+
+            additional_attributes: list of str
+                additional user-specified attributes to be included in
+                a Data() object
+
+            verbose: bool
+                if True, certain messages will be printed
+        """
+
+        self.root_path_dict = root_path
+        self.target_file_path_dict = target_file_path
+        self.pt_path = pt_path
+        self.r = r
+        self.n_neighbors = n_neighbors
+        self.edge_steps = edge_steps
+        self.data_format = data_format
+        self.image_selfloop = image_selfloop
+        self.self_loop = self_loop
+        self.node_representation = node_representation
+        self.additional_attributes = additional_attributes
+        self.verbose = verbose
+        self.device = device
+        self.transforms = transforms
+        self.disable_tqdm = logging.root.level > logging.INFO
+
+    def src_check(self):
+        if isinstance(self.root_path_dict, dict):
+
+            self.root_path = self.root_path_dict["train"]
+            if self.target_file_path_dict:
+                self.target_file_path = self.target_file_path_dict["train"]
+            else:
+                self.target_file_path = self.target_file_path_dict
+            logging.info("Train dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+
+            self.root_path = self.root_path_dict["val"]
+            if self.target_file_path_dict:
+                self.target_file_path = self.target_file_path_dict["val"]
+            else:
+                self.target_file_path = self.target_file_path_dict
+            logging.info("Train dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+
+            self.root_path = self.root_path_dict["test"]
+            if self.target_file_path_dict:
+                self.target_file_path = self.target_file_path_dict["test"]
+            else:
+                self.target_file_path = self.target_file_path_dict
+            logging.info("Train dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+
+        else:
+            self.root_path = self.root_path_dict
+            self.target_file_path = self.target_file_path_dict
+            logging.info("Single dataset found at {}".format(self.root_path))
+            logging.info("Processing device: {}".format(self.device))
+
+        if self.target_file_path:
+            return self.ase_wrap()
+        else:
+            return self.json_wrap()
+
+    def ase_wrap(self):
+        """
+        raw files are ase readable and self.target_file_path is not None
+        """
+        logging.info("Reading individual structures using ASE.")
+
+        df = pd.read_csv(self.target_file_path, header=None)
+        file_names = df[0].to_list()
+        y = df.iloc[:, 1:].to_numpy()
+
+        dict_structures = []
+        ase_structures = []
+
+        logging.info("Converting data to standardized form for downstream processing.")
+        for i, structure_id in enumerate(file_names):
+            p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
+            ase_structures.append(io.read(p))
+
+        for i, s in enumerate(tqdm(ase_structures, disable=self.disable_tqdm)):
+            d = {}
+            pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
+            cell = torch.tensor(
+                np.array(s.get_cell()), device=self.device, dtype=torch.float
+            )
+            atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
+
+            d["positions"] = pos
+            d["cell"] = cell
+            d["atomic_numbers"] = atomic_numbers
+            d["structure_id"] = str(file_names[i])
+
+            # add additional attributes
+            if self.additional_attributes:
+                attributes = self.get_csv_additional_attributes(d["structure_id"])
+                for k, v in attributes.items():
+                    d[k] = v
+
+            dict_structures.append(d)
+        return dict_structures, y
+
+    def get_csv_additional_attributes(self, structure_id):
+        """
+        load additional attributes specified by the user
+        """
+
+        attributes = {}
+
+        for attr in self.additional_attributes:
+            p = os.path.join(self.root_path, structure_id + "_" + attr + ".csv")
+            values = np.genfromtxt(p, delimiter=",", dtype=float, encoding=None)
+            values = torch.tensor(values, device=self.device, dtype=torch.float)
+            attributes[attr] = values
+
+        return attributes
+
+    def json_wrap(self):
+        """
+        all structures are saved in a single json file
+        """
+        logging.info("Reading one JSON file for multiple structures.")
+
+        f = open(self.root_path)
+
+        logging.info(
+            "Loading json file as dict (this might take a while for large json file size)."
+        )
+        original_structures = json.load(f)
+        f.close()
+
+        dict_structures = []
+        y = []
+        y_dim = (
+            len(original_structures[0]["y"])
+            if isinstance(original_structures[0]["y"], list)
+            else 1
+        )
+
+        logging.info("Converting data to standardized form for downstream processing.")
+        for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
+            d = {}
+            pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
+            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+            atomic_numbers = torch.LongTensor(s["atomic_numbers"])
+
+            d["positions"] = pos
+            d["cell"] = cell
+            d["atomic_numbers"] = atomic_numbers
+            d["structure_id"] = s["structure_id"]
+
+            # add additional attributes
+            if self.additional_attributes:
+                for attr in self.additional_attributes:
+                    d[attr] = torch.tensor(
+                        s[attr], device=self.device, dtype=torch.float
+                    )
+
+            dict_structures.append(d)
+
+            # check y types
+            _y = s["y"]
+            if isinstance(_y, str):
+                _y = float(_y)
+            elif isinstance(_y, list):
+                _y = [float(each) for each in _y]
+            y.append(_y)
+
+        y = np.array(y).reshape(-1, y_dim)
+        return dict_structures, y
+
+    def process(self, dict_structures, y):
+        data_list = self.get_data_list(dict_structures, y)
+        data, slices = InMemoryDataset.collate(data_list)
+        data.y = torch.Tensor(np.array([data.y]))
+
+        return data
+
+    def get_data_list(self, dict_structures, y):
+        n_structures = len(dict_structures)
+        data_list = [Data() for _ in range(n_structures)]
+
+        for i, sdict in enumerate(dict_structures):
+            target_val = y[i]
+            data = data_list[i]
+
+            pos = sdict["positions"]
+            cell = sdict["cell"]
+            atomic_numbers = sdict["atomic_numbers"]
+            structure_id = sdict["structure_id"]
+
+            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
+                pos,
+                cell,
+                self.r,
+                self.n_neighbors,
+                image_selfloop=self.image_selfloop,
+                device=self.device,
+            )
+
+            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
+
+            data.n_atoms = len(atomic_numbers)
+            data.pos = pos
+            data.cell = cell
+            data.y = torch.Tensor(np.array([target_val]))
+            data.z = atomic_numbers
+            data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+            data.edge_index, data.edge_weight = edge_indices, edge_weights
+            data.cell_offsets = cell_offsets
+
+            data.edge_descriptor = {}
+            # data.edge_descriptor["mask"] = cd_matrix_masked
+            data.edge_descriptor["distance"] = edge_weights
+            data.distances = edge_weights
+            data.structure_id = [[structure_id] * len(data.y)]
+
+            # add additional attributes
+            if self.additional_attributes:
+                for attr in self.additional_attributes:
+                    data.__setattr__(attr, sdict[attr])
+
+        # logging.info("Generating node features...")
+        generate_node_features(data_list, self.n_neighbors, device=self.device)
+
+        # logging.info("Generating edge features...")
+        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+
+        # compile non-otf transforms
+        # logging.debug("Applying transforms.")
+
+        # Ensure GetY exists to prevent downstream model errors
+        assert "GetY" in [
+            tf["name"] for tf in self.transforms
+        ], "The target transform GetY is required in config."
+
+        transforms_list = []
+        for transform in self.transforms:
+            if not transform.get("otf", False):
+                transforms_list.append(
+                    registry.get_transform_class(
+                        transform["name"],
+                        **({} if transform["args"] is None else transform["args"])
+                    )
+                )
+
+        composition = Compose(transforms_list)
+
+        # apply transforms
+        for data in data_list:
+            composition(data)
+
+        clean_up(data_list, ["edge_descriptor"])
+
+        return data_list
+
+
+class LargeCTPretrainDataset(InMemoryDataset):
+    def __init__(
+            self,
+            root,
+            processed_data_path,
+            processed_file_name,
+            mask_node_ratios=None,
+            mask_edge_ratios=None,
+            distance=0.05,
+            min_distance: float = None,
+            augmentation_list=None,
+            transform=None,
+            pre_transform=None,
+            pre_filter=None,
+            device=None,
+            dataset_config=None
+    ):
+        if mask_edge_ratios is None:
+            mask_edge_ratios = [0.1, 0.1]
+        if mask_node_ratios is None:
+            mask_node_ratios = [0.1, 0.25]
+
+        self.root = root
+        self.processed_data_path = processed_data_path
+        self.processed_file_name = processed_file_name
+        self.augmentation_list = augmentation_list if augmentation_list else []
+
+        self.mask_node_ratio1 = mask_node_ratios[0]
+        self.mask_node_ratio2 = mask_node_ratios[1]
+        self.mask_edge_ratio1 = mask_edge_ratios[0]
+        self.mask_edge_ratio2 = mask_edge_ratios[1]
+        self.distance = distance
+        self.min_distance = min_distance
+        super(LargeCTPretrainDataset, self).__init__(
+            root, transform, pre_transform, pre_filter
+        )
+
+        self.processer = init_processor(dataset_config)
+        self.dict_structures, self.y = self.processer.src_check()
+
+    def __len__(self):
+        return len(self.y)
+
+    @property
+    def raw_file_names(self):
+        """
+        The name of the files in the self.raw_dir folder
+        that must be present in order to skip downloading.
+        """
+        return []
+
+    def download(self):
+        """
+        Download required data files; to be implemented
+        """
+        pass
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, self.processed_data_path)
+
+    @property
+    def processed_file_names(self):
+        """
+        The name of the files in the self.processed_dir
+        folder that must be present in order to skip processing.
+        """
+        return [self.processed_file_name]
+
+    def __getitem__(self, idx):
+        subdata = self.processer.process([self.dict_structures[idx]], [self.y[idx]])
+
+        subdata1 = copy.deepcopy(subdata)
+        subdata2 = copy.deepcopy(subdata)
+
+        def mask_node(mask_node_ratio1, mask_node_ratio2):
+            x = subdata.x
+            num_nodes = x.size(0)
+            mask1 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio1)
+            mask2 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio2)
+
+            subdata1.x[mask1] = 0
+            subdata2.x[mask2] = 0
+
+        def mask_edge(mask_edge_ratio1, mask_edge_ratio2):
+            edge_index, edge_attr = subdata.edge_index, subdata.edge_attr
+            num_edges = edge_index.size(1)
+            mask1 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio1)
+            mask2 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio2)
+            subdata1.edge_index = subdata1.edge_index[:, ~mask1]
+            subdata1.edge_attr = subdata1.edge_attr[~mask1]
+            subdata2.edge_index = subdata2.edge_index[:, ~mask2]
+            subdata2.edge_attr = subdata2.edge_attr[~mask2]
+
+        def perturb_data(distance: float = 0.05, min_distance: float = None):
+            for i in range(subdata.pos.size(0)):
+                # Perturb subdata1
+                # Generate a random unit vector
+                random_vector = torch.randn(3)
+                random_vector /= torch.norm(random_vector)
+
+                # Calculate the perturbation distance
+                if min_distance is not None:
+                    perturbation_distance = random.uniform(min_distance, distance)
+                else:
+                    perturbation_distance = distance
+
+                # Perturb the node position
+                subdata1.pos[i] += perturbation_distance * random_vector
+
+                # Perturb subdata2
+                # Generate a random unit vector
+                random_vector = torch.randn(3)
+                random_vector /= torch.norm(random_vector)
+
+                # Calculate the perturbation distance
+                if min_distance is not None:
+                    perturbation_distance = random.uniform(min_distance, distance)
+                else:
+                    perturbation_distance = distance
+
+                # Perturb the node position
+                subdata2.pos[i] += perturbation_distance * random_vector
+
+        if "node_masking" in self.augmentation_list:
+            mask_node(self.mask_node_ratio1, self.mask_node_ratio2)
+        if "edge_masking" in self.augmentation_list:
+            mask_edge(self.mask_edge_ratio1, self.mask_edge_ratio2)
+        if "perturbing" in self.augmentation_list:
+            perturb_data(self.distance, self.min_distance)
+
+        # Apply transforms
+        if self.transform is not None:
+            subdata1 = self.transform(subdata1)
+            subdata2 = self.transform(subdata2)
+
+        return subdata1, subdata2
+
+
+if __name__ == '__main__':
+    # dataset = StructureDataset(root="../../data/test_data/processed/", processed_data_path="",
+    #                             processed_file_name="data.pt")
+    # print(dataset[0])
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    parser = flags.get_parser()
+    args, override_args = parser.parse_known_args()
+    config = build_config(args, override_args)
+    dataset = LargeCTPretrainDataset(root="../../data/test_data/processed/", processed_data_path="",
+                                     processed_file_name="data.pt", dataset_config=config["dataset"])
+    # print(dataset.num_edge_features)
+
+    print(dataset[1][0])
+    print(len(dataset))
+    loader = DataLoader(
+        dataset,
+        batch_size=2,
+        shuffle=False,
+        num_workers=1,
+        sampler=None,
+    )
+    print(len(loader))
+    for batch1, batch2 in loader:
+        print(batch1)
+        print(batch2, "\n")
+        break
