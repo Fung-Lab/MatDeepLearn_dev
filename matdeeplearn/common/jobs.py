@@ -65,6 +65,7 @@ class SlurmJob(Job):
         # create temporary job script file
         temp = tempfile.NamedTemporaryFile(delete=False, suffix=".sh")
         with open(temp.name, "w") as tmp:
+            tmp.write("#!/bin/bash\n")
             tmp.writelines(batch_commands)
             tmp.write(job_command + "\n")
         temp.file.close()
