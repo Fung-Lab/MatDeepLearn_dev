@@ -408,8 +408,9 @@ class PaiNN(BaseModel):
         #### Output block #####################################################
         mean = getattr(torch_geometric.nn, "global_mean_pool")(x, data.batch)
         add = getattr(torch_geometric.nn, "global_add_pool")(x, data.batch)
-        max = getattr(torch_geometric.nn, "global_max_pool")(x, data.batch)
-        x = torch.cat((mean, add, max), 1)
+        ma = getattr(torch_geometric.nn, "global_max_pool")(x, data.batch)
+        x = torch.cat((mean, add, ma), 1)
+        print(x.size())
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.activation)(x)
