@@ -20,7 +20,16 @@ class Flags:
         )
         self.parser.add_argument(
             "--run_mode",
-            choices=["train", "preprocess", "predict", "repeat", "cv", "hyperparameter", "ensemble", "analysis"],
+            choices=[
+                "train",
+                "preprocess",
+                "predict",
+                "repeat",
+                "cv",
+                "hyperparameter",
+                "ensemble",
+                "analysis",
+            ],
             required=True,
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
@@ -47,6 +56,14 @@ class Flags:
             default="INFO",
             type=str,
             help="Logging level",
+        )
+
+        self.parser.add_argument(
+            "--job_script",
+            required=False,
+            default="local",
+            type=str,
+            help="The type of job script to generate",
         )
 
         # self.parser.add_argument(

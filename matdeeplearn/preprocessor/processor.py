@@ -27,7 +27,7 @@ from matdeeplearn.preprocessor.helpers import (
 
 def process_data(dataset_config, wandb_config):
     use_wandb = wandb_config.get("use_wandb", False)
-    
+
     # modify config to reflect sweep parameters if being run
     if use_wandb and wandb_config["sweep"].get("do_sweep", False):
         sweep_params = wandb_config["sweep"].get("params", {})
@@ -482,9 +482,12 @@ class DataProcessor:
             if self.batch_size == 0:
                 raise RuntimeError("Hyperparameters require too much memory.")
             # perform batch transforms
-            logging.info(f"Applying batch transforms with batch size {self.batch_size}...")
+            logging.info(
+                f"Applying batch transforms with batch size {self.batch_size}..."
+            )
             for i in tqdm(
-                range(self.batch_size, len(data_list), self.batch_size), disable=self.disable_tqdm
+                range(self.batch_size, len(data_list), self.batch_size),
+                disable=self.disable_tqdm,
             ):
                 batch = Batch.from_data_list(data_list[i : i + self.batch_size])
                 # apply transforms

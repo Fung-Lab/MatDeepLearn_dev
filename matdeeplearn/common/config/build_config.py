@@ -4,6 +4,7 @@ import os
 import logging
 
 from matdeeplearn.common.utils import DictTools
+from matdeeplearn.common.jobs import CONFIG_PATH
 
 import yaml
 
@@ -89,17 +90,19 @@ def create_dict_from_args(args: list, sep: str = "."):
 def build_config(args, args_override):
     # Open provided config file
     if os.path.exists(args.config_path):
-        logging.info(f"Using config file: {args.config_path}")
+        config_path = args.config_path
+        logging.info(f"Using config file: {config_path}")
     else:
         # using a config file template
         templates = {
-            file.strip(".yml"): file
-            for file in os.listdir("../configs/config_templates")
+            file.strip(".yml"): os.path.join(CONFIG_PATH, "config_templates", str(file))
+            for file in os.listdir(os.path.join(CONFIG_PATH, "config_templates"))
             if file.endswith(".yml")
         }
-        logging.info(f"Using config file template: {templates[args.config_path]}")
+        config_path = templates[str(args.config_path)]
+        logging.info(f"Using config file template: {config_path}")
 
-    with open(args.config_path, "r") as ymlfile:
+    with open(config_path, "r") as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
     # Check for overridden parameters.

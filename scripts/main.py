@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import os
 import pprint
@@ -7,20 +8,17 @@ from datetime import datetime
 import torch
 import wandb
 import yaml
-import json
 
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
-from matdeeplearn.common.jobs import start_sweep_tasks
+from matdeeplearn.common.jobs import start_sweep_tasks, CONFIG_PATH
+from matdeeplearn.common.registry import registry
 from matdeeplearn.common.trainer_context import new_trainer_context
 from matdeeplearn.common.utils import DictTools
 from matdeeplearn.preprocessor.processor import process_data
-from matdeeplearn.common.registry import registry
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.autograd.set_detect_anomaly(True)
-
-CONFIG_PATH = os.path.join(os.pardir(__file__), "configs")
 
 
 class Runner:
@@ -146,43 +144,51 @@ if __name__ == "__main__":
         root_logger.setLevel(logging.INFO)
 
     config = build_config(args, override_args)
-    
+
     timestamp = torch.tensor(datetime.now().timestamp())
     timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
 
-    # add config path as an artifact manually
-    config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
-    
     # wandb hyperparameter sweep setup
     sweep_params = config["task"]["wandb"].get("sweep", None)
-    
+
     # entrypoint if this is an agent-based sweep
     if config["task"]["wandb"]["use_wandb"] and args.sweep_id is not None:
         wandb.agent(args.sweep_id, function=main)
-    
+
     # entrypoint if we want to create a job script for submission
     elif args.job_script:
         # create JSON config file, track as artifact
-        filename = os.path.join(CONFIG_PATH, f"config-{timestamp}.json")
+        filename = os.path.join(CONFIG_PATH, "generated", f"config-{timestamp}.yml")
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
         with open(filename, "w") as f:
-            json.dump(config, f)
+            yaml.dump(config, f)
         config["task"]["wandb"].get("log_artifacts", []).append(filename)
-        
+
         # create job script
-        job_cls = registry.get_job_class(args.config_path)
-        logging.info(f"Job script: {job_cls.entrypoint(filename, config["task"]["wandb"]["use_wandb"], args.run_mode, None)}")
-    
+        job_cls = registry.get_job_class(args.job_script)(
+            config["task"]["identifier"], args.job_script
+        )
+        script_file = job_cls.entrypoint(
+            filename, config["task"]["wandb"]["use_wandb"], args.run_mode, None
+        )
+        logging.info(f'Run the following job script to initiate task.\n"{script_file}"')
+
     # regular sweep entrypoint
-    elif config["task"]["wandb"]["use_wandb"] and sweep_params and sweep_params.get("do_sweep", False):
+    elif (
+        config["task"]["wandb"]["use_wandb"]
+        and sweep_params
+        and sweep_params.get("do_sweep", False)
+    ):
         sweep_path = sweep_params.get("sweep_file", None)
         with open(sweep_path, "r") as ymlfile:
             sweep_config = yaml.load(ymlfile, Loader=yaml.FullLoader)
-        
+
         # update config with sweep parameters for downstream use
         config["task"]["wandb"]["sweep"]["params"] = list(
             sweep_config.get("parameters", {}).keys()
         )
-        
+
         # start sweep
         sweep_id = wandb.sweep(
             sweep_config,
@@ -197,6 +203,7 @@ if __name__ == "__main__":
             )
             wandb.agent(sweep_id, function=main, count=sweep_count)
         else:
+            # TODO: refactor sweeps functionality to reflect job abstractions
             logging.info("Creating parallel sweeps...")
             sweep_id = "/".join(
                 [

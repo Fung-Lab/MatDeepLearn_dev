@@ -1,12 +1,10 @@
 # Job config for phoenix-slurm
 
 args:
-  J: cgcnn_hg
   A: gts-vfung3
   N: 1
   t: "12:00:00"
   q: "inferno"
-  o: "cgcnn_job-%j.out"
   C: "A100-80GB"
 options:
   - "--gres=gpu:A100:1"

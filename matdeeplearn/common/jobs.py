@@ -12,14 +12,17 @@ import yaml
 from matdeeplearn.common.registry import registry
 from matdeeplearn.tasks.task import BaseTask
 
+CONFIG_PATH = os.path.join(os.path.join(os.getcwd(), os.pardir), "configs")
+
 
 @registry.register_job("base")
 class Job(ABC):
-    def __init__(self, name: str, slurm: bool) -> None:
+    def __init__(self, name: str, type: str, slurm: bool) -> None:
         self.name = name
         self.slurm = slurm
-        with open(CONFIG_PATH, "jobs", f"{name}.yml", "r") as f:
-            self.slurm_job_config = yaml.full_load(f)
+        with open(os.path.join(CONFIG_PATH, "jobs", f"{type}.yml"), "r") as f:
+            data = yaml.full_load(f)
+        self.job_config = data
 
     @abstractmethod
     def entrypoint(
@@ -27,39 +30,43 @@ class Job(ABC):
         config_path: str,
         use_wandb: bool,
         task: str,
-        sweep_id: Optional[tuple[int, str]],
+        sweep_id: Optional[tuple[int, str]] = None,
     ):
         pass
 
 
 @registry.register_job("slurm")
+@registry.register_job("phoenix_slurm")
+@registry.register_job("perlmutter")
 class SlurmJob(Job):
-    def __init__(self, name: str) -> None:
-        super().__init__(name, slurm=True)
+    def __init__(self, name: str, type: str) -> None:
+        super().__init__(name, type, slurm=True)
 
     def entrypoint(
         self,
         config_path: str,
         use_wandb: bool,
         task: str,
-        sweep_id: Optional[tuple[int, str]],
+        sweep_id: Optional[tuple[int, str]] = None,
     ) -> str:
         # Load and create a SLURM batch command from the job config
         batch_commands = (
-            [f"#SBATCH -J{self.name}"]
+            [f"#SBATCH -J{self.name}\n", f"#SBATCH -o{self.name}-%j.out\n"]
             + [
                 f"#SBATCH -{key}{value}\n"
-                for key, value in self.slurm_job_config["args"].items()
+                for key, value in self.job_config["args"].items()
             ]
-            + [f"#SBATCH {param}\n" for param in self.slurm_job_config["options"]]
+            + [f"#SBATCH {param}\n" for param in self.job_config["options"]]
         )
-        job_command = training_command(config_path, task, use_wandb, sweep_id)
+        job_command = training_command(
+            config_path, task, use_wandb, sweep_id=sweep_id[1] if sweep_id else None
+        )
 
         # create temporary job script file
         temp = tempfile.NamedTemporaryFile(delete=False, suffix=".sh")
         with open(temp.name, "w") as tmp:
             tmp.writelines(batch_commands)
-            tmp.write(" ".join(job_command) + "\n")
+            tmp.write(job_command + "\n")
         temp.file.close()
 
         return f"sbatch {temp.name}"
@@ -67,26 +74,30 @@ class SlurmJob(Job):
 
 @registry.register_job("local")
 class LocalJob(Job):
-    def __init__(self, name: str) -> None:
-        super().__init__(name, slurm=False)
+    def __init__(self, name: str, type: str) -> None:
+        super().__init__(name, type, slurm=False)
 
     def entrypoint(
         self,
         config_path: str,
         use_wandb: bool,
         task: str,
-        sweep_id: Optional[tuple[int, str]],
+        sweep_id: Optional[tuple[int, str]] = None,
     ) -> str:
         screen_name = (
             f"wandb_{sweep_id[1].split('/')[-1]}_{sweep_id[0]}" if sweep_id else ""
         )
         # use screen for local jobs
         screen_command = ["screen", "-S", screen_name, "-dm"]
-        job_command = training_command(config_path, task, use_wandb, sweep_id)
-        return " ".join(screen_command + job_command)
+        job_command = training_command(
+            config_path, task, use_wandb, sweep_id=sweep_id[1] if sweep_id else None
+        )
+        return f"{' '.join(screen_command)} {job_command}"
 
 
-def training_command(config_path, task: str, use_wandb: bool, sweep_id: Optional[str]):
+def training_command(
+    config_path, task: str, use_wandb: bool, sweep_id: Optional[str] = None
+):
     # get conda env path
     conda_env_path = os.environ.get("CONDA_PREFIX")
     # setup command
@@ -95,17 +106,13 @@ def training_command(config_path, task: str, use_wandb: bool, sweep_id: Optional
     command = [
         os.path.join(conda_env_path, "bin/python"),
         os.path.join(__file__, "main.py"),
-        "--config_path",
-        config_path,
-        "--use_wandb",
-        use_wandb,
-        "--run_mode",
-        task,
-        "--sweep_id",
-        sweep_id,
+        f"--config_path={config_path}",
+        f"--use_wandb={use_wandb}",
+        f"--run_mode={task}",
+        f"--sweep_id={sweep_id}",
     ]
 
-    return command
+    return " ".join(command)
 
 
 def start_sweep_tasks(

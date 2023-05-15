@@ -182,6 +182,7 @@ checkpoints/
 # local configs
 configs/examples/cgcnn_vn/
 configs/examples/cgcnn_vn_hg/
+configs/generated
 
 # misc
 .flake8
