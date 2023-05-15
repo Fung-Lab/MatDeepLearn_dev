@@ -1,0 +1,13 @@
+# Job config for phoenix-slurm
+
+args:
+  A: m3641_g
+  N: 1
+  t: "6:00:00"
+  q: "shared"
+  G: 1
+  C: "gpu"
+options:
+  - "--array=0-2"
+  - "--mail-type=BEGIN,END,FAIL"
+  - "--mail-user=sidnbaskaran@gmail.com"

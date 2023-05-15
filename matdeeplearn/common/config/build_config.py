@@ -66,7 +66,10 @@ def parse_value(value):
     Parse string as Python literal if possible and fallback to string.
     """
     try:
-        return ast.literal_eval(value)
+        val = ast.literal_eval(value)
+        if isinstance(val, list):
+            logging.warning(f"Ensure list elements (of type {type(val[0])}) are escaped correctly.")
+        return val
     except (ValueError, SyntaxError):
         # Use as string if nothing else worked
         return value
@@ -99,7 +102,7 @@ def build_config(args, args_override):
             for file in os.listdir(os.path.join(CONFIG_PATH, "config_templates"))
             if file.endswith(".yml")
         }
-        config_path = templates[str(args.config_path)]
+        config_path = templates[str(args.config_path).strip(".yml")]
         logging.info(f"Using config file template: {config_path}")
 
     with open(config_path, "r") as ymlfile:

@@ -1,4 +1,5 @@
 import hashlib
+import subprocess
 import json
 import logging
 import os
@@ -102,7 +103,7 @@ def wandb_setup(config):
         settings=wandb.Settings(start_method="fork"),
         project=config["task"]["wandb"].get("wandb_project", "matdeeplearn"),
         entity=config["task"]["wandb"].get("wandb_entity", "fung-lab"),
-        name=f"{timestamp}-{config['task']['identifier']}",
+        name=f"{config['task']['identifier']}-{timestamp}",
         notes=config["task"]["wandb"].get("notes", None),
         tags=config["task"]["wandb"].get("tags", None),
         config=_wandb_config,
@@ -145,6 +146,9 @@ if __name__ == "__main__":
 
     config = build_config(args, override_args)
 
+    if os.path.exists(args.config_path):
+        config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
+
     timestamp = torch.tensor(datetime.now().timestamp())
     timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")
 
@@ -152,7 +156,7 @@ if __name__ == "__main__":
     sweep_params = config["task"]["wandb"].get("sweep", None)
 
     # entrypoint if this is an agent-based sweep
-    if config["task"]["wandb"]["use_wandb"] and args.sweep_id is not None:
+    if config["task"]["wandb"]["use_wandb"] and args.sweep_id:
         wandb.agent(args.sweep_id, function=main)
 
     # entrypoint if we want to create a job script for submission
@@ -163,8 +167,6 @@ if __name__ == "__main__":
             os.makedirs(os.path.dirname(filename))
         with open(filename, "w") as f:
             yaml.dump(config, f)
-        config["task"]["wandb"].get("log_artifacts", []).append(filename)
-
         # create job script
         job_cls = registry.get_job_class(args.job_script)(
             config["task"]["identifier"], args.job_script
@@ -172,7 +174,7 @@ if __name__ == "__main__":
         script_file = job_cls.entrypoint(
             filename, config["task"]["wandb"]["use_wandb"], args.run_mode, None
         )
-        logging.info(f'Run the following job script to initiate task.\n"{script_file}"')
+        logging.info(f'Run the following job script to initiate task.\n"{script_file}" (copy to clipboard)')
 
     # regular sweep entrypoint
     elif (

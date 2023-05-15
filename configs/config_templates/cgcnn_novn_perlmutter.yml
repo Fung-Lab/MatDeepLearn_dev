@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn_ocp"
+  identifier: "cgcnn_novn_ocp"
   reprocess: False
   run_id: ""
   parallel: True
@@ -17,7 +17,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn_new"
-    notes: "try MP dataset"
+    notes: "reproduce topk baselines"
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -37,7 +37,7 @@ task:
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
-      dataset: "MP_data_69K"
+      dataset: "hMOF-5K"
     sweep:
       parallel: True
       do_sweep: False # ignore rest of config if False
@@ -45,6 +45,7 @@ task:
       job_config: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/jobs/phoenix_slurm.yml"
       count: 3
       sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/sweeps/cgcnn_vn_sweep_d1.yml"
+      # sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
   name: CGCNN_VN
@@ -62,9 +63,9 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "AtomicNumberPooling" # pooling method
+    virtual_pool: "" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr", "rv"],["rr", "rv"],["rr", "rv"],["rr", "rv"]]
+    mp_pattern: [["rr"],["rr"],["rr"],["rr"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True
@@ -91,24 +92,19 @@ dataset:
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/raw"
-  target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/targets.csv"
-  pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69k/raw/processed/ocp"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
+  target_path: ""
+  pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
       args:
-        index: 0
-      otf: False
-    - name: VirtualNodeGeneration
-      args:
-        virtual_box_increment: 3
+        index: 5 # methane adsorption uptake
       otf: False
     - name: VirtualEdgeGeneration
       args:
-        attrs: ["rr", "rv"]
-        rr_cutoff: 12.0
-        rv_cutoff: 12.0
+        attrs: ["rr"]
+        rr_cutoff: 5.0
       otf: False
       batch: True
   # use for passing into global config
@@ -125,7 +121,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 250
-    process_batch_size : 100
+    process_batch_size : 10
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25

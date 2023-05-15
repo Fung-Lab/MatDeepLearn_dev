@@ -13,6 +13,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.tasks.task import BaseTask
 
 CONFIG_PATH = os.path.join(os.path.join(os.getcwd(), os.pardir), "configs")
+ENTRYPOINT_PATH = os.getcwd()
 
 
 @registry.register_job("base")
@@ -106,11 +107,11 @@ def training_command(
         raise ValueError(f"Task {task} not found in registry.")
     command = [
         os.path.join(conda_env_path, "bin/python"),
-        os.path.join(__file__, "main.py"),
+        os.path.join(ENTRYPOINT_PATH, "main.py"),
         f"--config_path={config_path}",
         f"--use_wandb={use_wandb}",
         f"--run_mode={task}",
-        f"--sweep_id={sweep_id}",
+        f"--sweep_id={sweep_id if sweep_id else ''}",
     ]
 
     return " ".join(command)

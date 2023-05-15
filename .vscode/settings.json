@@ -3,7 +3,7 @@
     "python.linting.flake8Enabled": true,
     "python.linting.enabled": true,
     "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter"
+        "editor.defaultFormatter": "ms-python.python"
     },
-    "python.formatting.provider": "none"
+    "python.formatting.provider": "black"
 }

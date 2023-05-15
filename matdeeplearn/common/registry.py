@@ -311,7 +311,7 @@ class Registry:
 
     @classmethod
     def get_transform_class(cls, name, **kwargs):
-        return cls.get_class(name)(**kwargs)
+        return cls.get_class(name, "transforms")(**kwargs)
 
     @classmethod
     def get_data_type_class(cls, name):

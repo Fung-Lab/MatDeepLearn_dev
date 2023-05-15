@@ -125,7 +125,6 @@ class VirtualEdgeGeneration(object):
         use_batching = isinstance(data, CustomBatchingData) and hasattr(
             data, "_slice_dict"
         )
-
         if use_batching:
             # compute edge slicing based on node slicing
             slice_partitions = data._slice_dict["z"]

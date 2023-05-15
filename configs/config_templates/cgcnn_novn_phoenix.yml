@@ -16,7 +16,7 @@ task:
   wandb:
     use_wandb: True
     wandb_entity: "fung-lab"
-    wandb_project: "cgcnn_vn"
+    wandb_project: "cgcnn_vn_new"
     notes: "reproduce topk baselines"
     tags: ["test"]
     track_params:

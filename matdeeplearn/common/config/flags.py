@@ -61,7 +61,7 @@ class Flags:
         self.parser.add_argument(
             "--job_script",
             required=False,
-            default="local",
+            default=None,
             type=str,
             help="The type of job script to generate",
         )

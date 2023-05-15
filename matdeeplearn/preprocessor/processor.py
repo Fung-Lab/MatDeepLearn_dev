@@ -1,7 +1,5 @@
 import json
 import logging
-import psutil
-import tracemalloc
 import os
 
 import numpy as np
@@ -232,7 +230,8 @@ class DataProcessor:
         logging.info(
             "(ASE) Converting data to standardized form for downstream processing."
         )
-        for i, structure_id in enumerate(file_names):
+        self.num_examples = len(file_names) if self.num_examples == 0 else self.num_examples
+        for i, structure_id in enumerate(file_names[:self.num_examples]):
             p = os.path.join(self.root_path, str(structure_id) + "." + self.data_format)
             ase_structures.append(io.read(p))
 
@@ -299,7 +298,8 @@ class DataProcessor:
         logging.info(
             "(JSON) Converting data to standardized form for downstream processing."
         )
-        for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
+        self.num_examples = len(original_structures) if self.num_examples == 0 else self.num_examples
+        for i, s in enumerate(tqdm(original_structures[:self.num_examples], disable=self.disable_tqdm)):
             d = {}
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
@@ -362,10 +362,6 @@ class DataProcessor:
         if not found_existing:
             logging.info("No existing processed data found. Processing...")
             dict_structures, y = self.src_check()
-            if 0 < self.num_examples < len(dict_structures):
-                dict_structures = dict_structures[: self.num_examples]
-                y = y[: self.num_examples]
-                logging.warning(f"Only processing {self.num_examples} structures.")
             data_list = self.get_data_list(dict_structures, y)
             data, slices = InMemoryDataset.collate(data_list)
 
@@ -407,7 +403,7 @@ class DataProcessor:
 
                 pos = sdict["positions"]
                 cell = sdict["cell"]
-                cell2 = sdict["cell2"]
+                cell2 = sdict.get("cell2", None)
                 atomic_numbers = sdict["atomic_numbers"]
                 structure_id = sdict["structure_id"]
 
@@ -470,23 +466,12 @@ class DataProcessor:
             data_list[i] = CustomBatchingData.from_dict(data.to_dict())
 
         if len(transforms_list_batched) > 0:
-            # determine max batch size that would fit in memory
-            while self.batch_size > 0:
-                try:
-                    batch = Batch.from_data_list(data_list[: self.batch_size])
-                    batch = composition_batched(batch)
-                    data_list[: self.batch_size] = batch.to_data_list()
-                    break
-                except RuntimeError:
-                    self.batch_size -= 1
-            if self.batch_size == 0:
-                raise RuntimeError("Hyperparameters require too much memory.")
             # perform batch transforms
             logging.info(
                 f"Applying batch transforms with batch size {self.batch_size}..."
             )
             for i in tqdm(
-                range(self.batch_size, len(data_list), self.batch_size),
+                range(0, len(data_list), self.batch_size),
                 disable=self.disable_tqdm,
             ):
                 batch = Batch.from_data_list(data_list[i : i + self.batch_size])
