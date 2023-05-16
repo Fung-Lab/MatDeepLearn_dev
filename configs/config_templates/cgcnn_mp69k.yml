@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn_ocp"
+  identifier: "cgcnn_vn_mp69k"
   reprocess: False
   run_id: ""
   parallel: True
@@ -33,11 +33,12 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
-      dataset: "2DNPJ_data"
+      dataset: "MP_data_69K"
     sweep:
       parallel: True
       do_sweep: False # ignore rest of config if False
@@ -91,9 +92,12 @@ dataset:
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/raw"
-  target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/targets.csv"
-  pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/processed/ocp"
+  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw"
+  # src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/raw"
+  target_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/targets.csv"
+  # target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/targets.csv"
+  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw/processed/ocp"
+  # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69k/raw/processed/ocp"
   # transforms
   transforms:
     - name: GetY

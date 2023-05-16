@@ -3,7 +3,7 @@
 args:
   A: gts-vfung3
   N: 1
-  t: "3:00:00"
+  t: "4:00:00"
   q: "inferno"
   C: "A100-40GB"
 options:
