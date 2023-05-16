@@ -27,12 +27,7 @@ class CGCNN_VN(BaseModel):
         pool="global_mean_pool",
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
-        mp_pattern: List[List[str]] = [
-            ["rv", "rr"],
-            ["rv", "rr"],
-            ["rv", "rr"],
-            ["rv", "rr"],
-        ],
+        mp_pattern: List[str] = ["rv", "rr"],
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
         batch_norm=True,
@@ -64,10 +59,7 @@ class CGCNN_VN(BaseModel):
         self.num_features = data.num_node_features
         self.num_edge_features = edge_steps
 
-        # make sure mp pattern is valid
-        assert (
-            len(self.mp_pattern) == self.gc_count
-        ), "mp_pattern must be same length as gc_count"
+        assert len(self.mp_pattern) > 1, "Need at least 1 message passing routine."
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
@@ -232,18 +224,16 @@ class CGCNN_VN(BaseModel):
                 out = self.pre_lin_list[j](out)
             out = getattr(F, self.act_fn)(out)
 
+        # use the correct edge_indexes and edge_attrs for MP
+        edge_index_use = torch.cat(
+            [getattr(data, f"edge_index_{mp}") for mp in self.mp_pattern], dim=1
+        )
+        edge_attr_use = torch.cat(
+            [getattr(data, f"edge_attr_{mp}") for mp in self.mp_pattern], dim=0
+        )
+
         # GNN layers, perform MP on desired edges
         for j in range(0, len(self.conv_list)):
-            # which nodes to engage in MP at this layer
-            mp_choice = self.mp_pattern[j]
-            # use the correct edge_indexes and edge_attrs for MP at this layer
-            edge_index_use = torch.cat(
-                [getattr(data, f"edge_index_{mp}") for mp in mp_choice], dim=1
-            )
-            edge_attr_use = torch.cat(
-                [getattr(data, f"edge_attr_{mp}") for mp in mp_choice], dim=0
-            )
-
             if len(self.pre_lin_list) == 0 and j == 0:
                 if self.batch_norm:
                     out = self.conv_list[j](

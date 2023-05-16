@@ -38,7 +38,8 @@ class Job(ABC):
 
 @registry.register_job("slurm")
 @registry.register_job("phoenix_slurm")
-@registry.register_job("perlmutter")
+@registry.register_job("perlmutter-gpu")
+@registry.register_job("perlmutter-cpu")
 class SlurmJob(Job):
     def __init__(self, name: str, type: str) -> None:
         super().__init__(name, type, slurm=True)

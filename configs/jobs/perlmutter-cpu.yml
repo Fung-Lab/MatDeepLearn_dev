@@ -1,0 +1,12 @@
+# Job config for perlmutter-slurm
+
+args:
+  A: m3641
+  N: 1
+  t: "04:00:00"
+  q: "regular"
+  C: "cpu"
+  c: 256
+options:
+  - "--mail-type=BEGIN,END,FAIL"
+  - "--mail-user=sidnbaskaran@gmail.com"

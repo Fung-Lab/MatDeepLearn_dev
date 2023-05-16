@@ -17,7 +17,7 @@ task:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "cgcnn_vn_new"
-    notes: "ase VN gen"
+    notes: ""
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -65,7 +65,7 @@ model:
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
-    mp_pattern: [["rr"],["rr"],["rr"],["rr"]]
+    mp_pattern: [["rr",],["rr"],["rr"],["rr"]]
     pool_order: "early"
     batch_norm: True
     batch_track_stats: True

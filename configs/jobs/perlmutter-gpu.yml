@@ -1,4 +1,4 @@
-# Job config for phoenix-slurm
+# Job config for perlmutter-slurm
 
 args:
   A: m3641_g
