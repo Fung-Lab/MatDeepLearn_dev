@@ -188,3 +188,4 @@ checkpoints/
 *.out
 /data/ct_pretrain/data.json
 /data/ct_pretrain/
+/data/*/processed/data.pt

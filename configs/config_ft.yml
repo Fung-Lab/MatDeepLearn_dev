@@ -1,0 +1,87 @@
+trainer: finetune
+
+task:
+  # run_mode: train
+  identifier: "Dielectric_ct_ft"
+  reprocess: False
+  parallel: True
+  # seed=0 means random initalization
+  seed: 0
+  # Defaults to run directory if not specified
+  # save_dir: "."
+  # checkpoint_dir: "."
+  write_output: True
+  parallel: True
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+
+model:
+  name: CGCNN
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
+  # model attributes
+  dim1: 64
+  dim2: 64
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: "global_mean_pool"
+  pool_order: "early"
+  batch_norm: True
+  batch_track_stats: True
+  act: "relu"
+  dropout_rate: 0.0
+  fine_tune_from: "results/2023-05-16-11-40-48-ct_pretrain_node_edge_masking/"
+
+optim:
+  max_epochs: 300
+  max_checkpoint_epochs: 0
+  lr: 0.001
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: { "loss_fn": "l1_loss" }
+
+  batch_size: 100
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: False
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
+  src: data/Dielectric/data_dielectric.json
+  #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  target_path:
+  #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
+  # Path to save processed data.pt file
+  pt_path: "data/Dielectric/processed/"
+
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: False # Optional parameter, default is False
+  # Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  # Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  # Print out processing info
+  verbose: True
+  # Index of target column in targets.csv
+  # graph specific settings
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
+  # Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.6
+  val_ratio: 0.2
+  test_ratio: 0.2
