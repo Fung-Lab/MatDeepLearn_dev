@@ -1,7 +1,6 @@
 import time
 import subprocess
 import os
-os.chdir("../../")
 
 # 运行次数
 num_runs = 10

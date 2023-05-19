@@ -126,17 +126,17 @@ class FinetuneTrainer(PropertyTrainer):
             # print(pytorch_total_params)
             for name, param in load_state.items():
                 if name not in model_state:
-                    print('NOT loaded:', name)
+                    logging.info('NOT loaded:', name)
                     continue
                 else:
-                    print('loaded:', name)
+                    logging.info('loaded:', name)
                 if isinstance(param, torch.nn.parameter.Parameter):
                     # backwards compatibility for serialized parameters
                     param = param.data
                 model_state[name].copy_(param)
-            print("Loaded pre-trained model with success.")
+            logging.info("Loaded pre-trained model with success.")
         except FileNotFoundError:
-            print("Pre-trained weights not found. Training from scratch.")
+            logging.info("Pre-trained weights not found. Training from scratch.")
 
         return model
 
