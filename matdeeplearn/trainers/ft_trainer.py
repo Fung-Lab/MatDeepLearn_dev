@@ -126,10 +126,10 @@ class FinetuneTrainer(PropertyTrainer):
             # print(pytorch_total_params)
             for name, param in load_state.items():
                 if name not in model_state:
-                    logging.info('NOT loaded:', name)
+                    logging.info('NOT loaded: %s', name)
                     continue
                 else:
-                    logging.info('loaded:', name)
+                    logging.info('loaded: %s', name)
                 if isinstance(param, torch.nn.parameter.Parameter):
                     # backwards compatibility for serialized parameters
                     param = param.data
