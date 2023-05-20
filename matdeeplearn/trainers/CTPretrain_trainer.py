@@ -281,7 +281,7 @@ class CTPretrainer(BaseTrainer):
             val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
             test_loader = get_dataloader(
                 test_dataset, batch_size=batch_size, sampler=sampler
-            )
+            ) if test_ratio != 0 else None
 
         return train_loader, val_loader, test_loader
 
@@ -397,6 +397,7 @@ class CTPretrainer(BaseTrainer):
     @torch.no_grad()
     def predict(self, loader, split):
         # TODO: make predict method work as standalone task
+        if not loader: return
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
         self.model.eval()

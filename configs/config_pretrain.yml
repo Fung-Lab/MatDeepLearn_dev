@@ -83,6 +83,6 @@ dataset:
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.95
   val_ratio: 0.05
-  test_ratio: 0.05
+  test_ratio: 0
   augmentation: ["node_masking", "edge_masking"]
   large_dataset: True
