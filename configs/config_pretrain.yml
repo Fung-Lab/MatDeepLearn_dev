@@ -23,10 +23,10 @@ model:
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 64
-  dim2: 64
+  dim1: 128
+  dim2: 128
   pre_fc_count: 1
-  gc_count: 4
+  gc_count: 3
   post_fc_count: 3
   pool: "global_mean_pool"
   pool_order: "early"
@@ -36,13 +36,13 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 50
+  max_epochs: 500
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.00001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "BarlowTwinsLoss"
-    loss_args: {"batch_size": 100, "embed_size": 64}
+    loss_args: {"batch_size": 100, "embed_size": 128}
 
   batch_size: 100
   optimizer:
@@ -81,7 +81,7 @@ dataset:
   n_neighbors : 12
   edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.9
+  train_ratio: 0.95
   val_ratio: 0.05
   test_ratio: 0.05
   augmentation: ["node_masking", "edge_masking"]
