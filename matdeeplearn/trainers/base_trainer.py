@@ -329,8 +329,8 @@ class BaseTrainer(ABC):
         if not self.checkpoint_dir:
             raise ValueError("No checkpoint directory specified in config.")
 
-        checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
-        checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
+        # checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
+        checkpoint_file = os.path.join(self.checkpoint_dir, "checkpoint", "checkpoint.pt")
 
         # Load params from checkpoint
         checkpoint = torch.load(checkpoint_file)

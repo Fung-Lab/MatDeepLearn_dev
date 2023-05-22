@@ -9,7 +9,7 @@ task:
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  # checkpoint_dir: "."
+  checkpoint_dir: "results/2023-05-21-01-02-56-ct_pretrain_perturbing"
   write_output: True
   parallel: True
   #Training print out frequency (print per n number of epochs)
@@ -17,7 +17,7 @@ task:
 
 model:
   name: CGCNN_CTPRETRAIN
-  load_model: False
+  load_model: True
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
