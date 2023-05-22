@@ -174,7 +174,9 @@ if __name__ == "__main__":
         script_file = job_cls.entrypoint(
             filename, config["task"]["wandb"]["use_wandb"], args.run_mode, None
         )
-        logging.info(f'Run the following job script to initiate task.\n"{script_file}" (copy to clipboard)')
+        logging.info(
+            f'Run the following job script to initiate task.\n"{script_file}" (copy to clipboard)'
+        )
 
     # regular sweep entrypoint
     elif (
