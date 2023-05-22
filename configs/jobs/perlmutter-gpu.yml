@@ -8,6 +8,5 @@ args:
   G: 1
   C: "gpu"
 options:
-  - "--array=0-2"
   - "--mail-type=BEGIN,END,FAIL"
   - "--mail-user=sidnbaskaran@gmail.com"
