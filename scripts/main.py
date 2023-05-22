@@ -1,6 +1,4 @@
 import hashlib
-import subprocess
-import json
 import logging
 import os
 import pprint
@@ -12,7 +10,7 @@ import yaml
 
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
-from matdeeplearn.common.jobs import start_sweep_tasks, CONFIG_PATH
+from matdeeplearn.common.jobs import CONFIG_PATH, start_sweep_tasks
 from matdeeplearn.common.registry import registry
 from matdeeplearn.common.trainer_context import new_trainer_context
 from matdeeplearn.common.utils import DictTools

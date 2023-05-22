@@ -1,11 +1,14 @@
 import warnings
 from typing import List
+from typing import List
 
 import torch
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
+from torch_geometric.transforms import Compose
 
+from matdeeplearn.common.registry import registry
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
 
@@ -64,6 +67,28 @@ def dataset_split(
 
     return train_dataset, val_dataset, test_dataset
 
+def get_otf_transforms(transform_list: List[dict]):
+    """
+    get on the fly specific transforms
+
+    Parameters
+    ----------
+
+    transform_list: transformation function/classes to be applied
+    """
+
+    transforms = []
+    # set transform method
+    for transform in transform_list:
+        if transform.get("otf", False):
+            transforms.append(
+                registry.get_transform_class(
+                    transform["name"],
+                    **transform.get("args", {})
+                )
+            )
+            
+    return transforms
 
 def get_dataset(
     data_path,

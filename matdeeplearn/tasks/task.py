@@ -50,11 +50,12 @@ class TrainTask(BaseTask):
             self._process_error(e)
             raise e
 
+
 @registry.register_task("preprocess")
 class PreprocessTask(BaseTask):
     def setup(self, trainer):
         del trainer
         pass
-    
+
     def run(self):
         pass

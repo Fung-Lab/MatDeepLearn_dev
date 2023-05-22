@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 core.python.*
+core.python.*
 
 # C extensions
 *.so
@@ -173,7 +174,7 @@ dmypy.json
 server/
 
 # tests
-# testing/*
+testing/*
 test*.py
 test*.ipynb
 

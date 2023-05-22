@@ -66,11 +66,24 @@ class PropertyTrainer(BaseTrainer):
         # to prevent inconsistencies due to different batch size in checkpoint.
         start_epoch = self.step // len(self.train_loader)
 
-        epochs_to_run = (
+        end_epoch = (
             self.max_checkpoint_epochs + start_epoch
             if self.max_checkpoint_epochs
             else self.max_epochs
         )
+
+        if self.train_verbosity:
+            logging.info("Starting regular training")
+            logging.info(
+                f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
+            )
+
+        for epoch in range(start_epoch, end_epoch):
+            epoch_start_time = time.time()
+            if self.train_sampler:
+                self.train_sampler.set_epoch(epoch)
+            skip_steps = self.step % len(self.train_loader)
+            train_loader_iter = iter(self.train_loader)
 
         if self.max_checkpoint_epochs:
             logging.info("Starting training from checkpoint")
@@ -81,11 +94,11 @@ class PropertyTrainer(BaseTrainer):
         if self.train_verbosity:
             logging.info("Starting regular training")
             logging.info(
-                f"running for {epochs_to_run - start_epoch} epochs on {type(self.model).__name__} model"
+                f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
             )
 
         try:
-            for epoch in range(start_epoch, epochs_to_run):
+            for epoch in range(start_epoch, end_epoch):
                 epoch_start_time = time.time()
                 if self.train_sampler:
                     self.train_sampler.set_epoch(epoch)
@@ -177,11 +190,18 @@ class PropertyTrainer(BaseTrainer):
         # TODO: make predict method work as standalone task
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
+        self.model.eval()
         predict, target = None, None
         ids = []
         node_level_predictions = False
+        _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.device))
+            loss = self._compute_loss(out, batch)
+            _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
+            self._metrics_predict = self.evaluator.update(
+                "loss", loss.item(), _metrics_predict
+            )
 
             if type(out) == tuple and len(out) == 5:
                 out = out[0]
@@ -231,7 +251,8 @@ class PropertyTrainer(BaseTrainer):
         self.save_results(
             predictions, f"{split}_predictions.csv", node_level_predictions
         )
-
+        predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
+        logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
         return predictions
 
     def _forward(self, batch_data):

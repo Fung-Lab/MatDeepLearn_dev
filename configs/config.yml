@@ -6,6 +6,7 @@ task:
   reprocess: False
   parallel: True
   # seed=0 means random initalization
+  # seed=0 means random initalization
   seed: 0
   #seed=0 means random initalization
 
@@ -29,6 +30,7 @@ model:
   edge_steps: 50
   self_loop: True
   # model attributes
+  # model attributes
   dim1: 100
   dim2: 150
   pre_fc_count: 1
@@ -44,7 +46,9 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
+  max_checkpoint_epochs: 0
   lr: 0.002
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -74,8 +78,10 @@ dataset:
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
+  # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes: []
+  # Print out processing info
   # Print out processing info
   verbose: True
   use_virtual_nodes: False

@@ -1,7 +1,10 @@
 import os
+import os
 
 import torch
+import torch
 from torch_geometric.data import InMemoryDataset
+
 
 
 class StructureDataset(InMemoryDataset):
@@ -13,6 +16,7 @@ class StructureDataset(InMemoryDataset):
         pre_transform=None,
         pre_filter=None,
         device=None,
+        device=None,
     ):
         self.root = root
         self.processed_data_path = processed_data_path
@@ -23,13 +27,16 @@ class StructureDataset(InMemoryDataset):
         if not torch.cuda.is_available() or device == "cpu":
             self.data, self.slices = torch.load(
                 self.processed_paths[0], map_location=torch.device("cpu")
+                self.processed_paths[0], map_location=torch.device("cpu")
             )
         else:
             self.data, self.slices = torch.load(self.processed_paths[0])
 
+
     @property
     def raw_file_names(self):
         """
+        The name of the files in the self.raw_dir folder
         The name of the files in the self.raw_dir folder
         that must be present in order to skip downloading.
         """
@@ -51,7 +58,9 @@ class StructureDataset(InMemoryDataset):
         The name of the files in the self.processed_dir
         folder that must be present in order to skip processing.
         """
-        return ["data.pt"]
+        return [self.processed_file_name]
+
+
 
 
 class LargeStructureDataset(InMemoryDataset):

@@ -16,6 +16,7 @@ Various decorators for registry different kind of classes with unique keys
 """
 import importlib
 from typing import Callable
+from typing import Callable
 
 
 def _get_absolute_mapping(name: str):

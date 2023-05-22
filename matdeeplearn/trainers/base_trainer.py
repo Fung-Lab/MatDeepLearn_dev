@@ -1,5 +1,6 @@
 import copy
 import csv
+import glob
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -123,9 +124,9 @@ class BaseTrainer(ABC):
                 # )
 
             logging.info(f"Dataset used: {self.dataset}")
-            logging.debug(self.dataset[0])
-            logging.debug(self.dataset[0].x[0])
-            logging.debug(self.dataset[0].x[-1])
+            logging.debug(self.dataset["train"][0])
+            logging.debug(self.dataset["train"][0].x[0])
+            logging.debug(self.dataset["train"][0].x[-1])
             logging.debug(self.model)
 
     @classmethod
@@ -161,7 +162,7 @@ class BaseTrainer(ABC):
             else None,
         )
         optimizer = cls._load_optimizer(config["optim"], model)
-        sampler = cls._load_sampler(config["optim"], dataset)
+        sampler = cls._load_sampler(config["optim"], dataset["train"])
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"], config["dataset"], dataset, sampler
         )
@@ -171,6 +172,9 @@ class BaseTrainer(ABC):
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
         verbosity = config["task"].get("verbosity", None)
+        # pass in custom results home dir and load in prev checkpoint dir
+        save_dir = config["task"].get("save_dir", None)
+        checkpoint_dir = config["task"].get("checkpoint_dir", None)
 
         device = config["task"].get("gpu", None)
 
@@ -204,6 +208,7 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataset(dataset_config, metadata):
         """Loads the dataset if from a config file."""
+
         dataset_path = dataset_config["pt_path"]
 
         # search for a metadata match, else use provided path
@@ -235,11 +240,33 @@ class BaseTrainer(ABC):
                 f"Dataset path {dataset_path} does not exist. Specify processed=False in config to process data."
             )
 
-        dataset = get_dataset(
-            dataset_path,
-            transform_list=dataset_config.get("transforms", []),
-            preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
-        )
+        dataset = {}
+        if isinstance(dataset_config["src"], dict):
+            dataset["train"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_train.pt",
+                transform_list=dataset_config.get("transforms", []),
+                preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
+            )
+            dataset["val"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_val.pt",
+                transform_list=dataset_config.get("transforms", []),
+                preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
+            )
+            dataset["test"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_test.pt",
+                transform_list=dataset_config.get("transforms", []),
+                preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
+            )
+
+        else:
+            dataset["train"] = get_dataset(
+                dataset_path,
+                processed_file_name="data.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
 
         return dataset
 
@@ -278,30 +305,36 @@ class BaseTrainer(ABC):
 
     @staticmethod
     def _load_dataloader(optim_config, dataset_config, dataset, sampler):
-        train_ratio = dataset_config["train_ratio"]
-        val_ratio = dataset_config["val_ratio"]
-        test_ratio = dataset_config["test_ratio"]
-        train_dataset, val_dataset, test_dataset = dataset_split(
-            dataset, train_ratio, val_ratio, test_ratio
-        )
 
         batch_size = optim_config.get("batch_size")
+        if isinstance(dataset_config["src"], dict):
+            train_loader = get_dataloader(
+                dataset["train"], batch_size=batch_size, sampler=sampler
+            )
+            val_loader = get_dataloader(
+                dataset["val"], batch_size=batch_size, sampler=sampler
+            )
+            test_loader = get_dataloader(
+                dataset["test"], batch_size=batch_size, sampler=sampler
+            )
 
-        train_loader = get_dataloader(
-            train_dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-        )
-        val_loader = get_dataloader(
-            val_dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-        )
-        test_loader = get_dataloader(
-            test_dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-        )
+        else:
+            train_ratio = dataset_config["train_ratio"]
+            val_ratio = dataset_config["val_ratio"]
+            test_ratio = dataset_config["test_ratio"]
+            train_dataset, val_dataset, test_dataset = dataset_split(
+                dataset["train"], train_ratio, val_ratio, test_ratio
+            )
+
+            train_loader = get_dataloader(
+                train_dataset, batch_size=batch_size, sampler=sampler
+            )
+            val_loader = get_dataloader(
+                val_dataset, batch_size=batch_size, sampler=sampler
+            )
+            test_loader = get_dataloader(
+                test_dataset, batch_size=batch_size, sampler=sampler
+            )
 
         return train_loader, val_loader, test_loader
 
@@ -427,6 +460,7 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(output[i - 1, :])
         return filename
 
+    # TODO: streamline this from PR #12
     def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
         # Load params from checkpoint
