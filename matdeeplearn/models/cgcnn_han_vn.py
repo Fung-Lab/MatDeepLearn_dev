@@ -33,27 +33,21 @@ class SemanticAttention(nn.Module):
 
     def forward(
         self, path_embds: dict[str, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        meta_path_embeds = defaultdict(nn.Module)
+    ) -> dict[str, torch.Tensor]:
         meta_path_attns = defaultdict(nn.Module)
-
         # compute attention scores and weights for each meta path
         for mp in self.meta_paths:
             x = path_embds[mp]
             # project embedding via linear layer
             projected_embed = self.w_dict[mp](x)
             # compute attention scores and weights
-            scores = torch.tensordot(projected_embed, self.q_dict[mp], dims=1) / x.size(
+            scores = torch.tensordot(torch.tanh(projected_embed), self.q_dict[mp], dims=1) / x.size(
                 1
             )
             attn_weights = F.softmax(scores, dim=-1)
-            # compute weighted sum of embeddings
-            embedding = torch.tensordot(x, attn_weights, dims=1)
-
-            meta_path_embeds[mp] = embedding
             meta_path_attns[mp] = attn_weights
 
-        return meta_path_embeds, meta_path_attns
+        return meta_path_attns
 
 
 @registry.register_model("CGCNN_HAN_VN")

@@ -49,10 +49,10 @@ task:
       # sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
-  name: CGCNN_VN
+  name: CGCNN_HAN_VN
   load_model: False
   save_model: True
-  model_path: "cgcnn_vn.pth"
+  model_path: "cgcnn_han_vn.pth"
   # model hyperparams
   hyperparams:
     edge_steps: 25
@@ -113,11 +113,9 @@ dataset:
       otf: False
     - name: VirtualEdgeGeneration
       args:
-        attrs: ["rr"]
+        attrs: ["rr", "rv"]
         rr_cutoff: 5.0
         rv_cutoff: 5.0
-        vr_cutoff: 5.0
-        vv_cutoff: 5.0
       otf: False
       batch: True
   # use for passing into global config
@@ -134,7 +132,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 250
-    process_batch_size : 100
+    process_batch_size : 150
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25
