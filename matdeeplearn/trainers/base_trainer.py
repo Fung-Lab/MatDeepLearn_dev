@@ -133,9 +133,10 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
+        verbosity = config["optim"].get("verbosity", None)
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
-        verbosity = config["task"].get("verbosity", None)
+        
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
@@ -185,7 +186,7 @@ class BaseTrainer(ABC):
             )
 
         else:
-            dataset["train"] = get_dataset(
+            dataset_full = get_dataset(
 
                 dataset_path,
                 processed_file_name="data.pt",
@@ -334,7 +335,6 @@ class BaseTrainer(ABC):
     def save_model(self, checkpoint_file, val_metrics=None, training_state=True):
         """Saves the model state dict"""
 
-        
         if str(self.rank) not in ("cpu", "cuda"): 
             if training_state:
                 state = {
@@ -348,7 +348,20 @@ class BaseTrainer(ABC):
                 }
             else:
                 state = {"state_dict": self.model.module.state_dict(), "val_metrics": val_metrics}
-      
+        else:
+            if training_state:
+                state = {
+                    "epoch": self.epoch,
+                    "step": self.step,
+                    "state_dict": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.scheduler.state_dict(),
+                    "best_val_metric": self.best_val_metric,
+                    "identifier": self.timestamp_id,
+                }
+            else:
+                state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics} 
+                      
         curr_checkpt_dir = os.path.join(
             self.save_dir, "results", self.timestamp_id, "checkpoint"
         )
@@ -392,6 +405,7 @@ class BaseTrainer(ABC):
         #checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
 
         # Load params from checkpoint
+        print(self.checkpoint_dir)
         checkpoint = torch.load(self.checkpoint_dir)
         
         if str(self.rank) not in ("cpu", "cuda"): 
