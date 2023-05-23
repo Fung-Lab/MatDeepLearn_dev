@@ -101,15 +101,15 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        
-        
+
+
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], dataset["train"])
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset["train"])
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"], config["dataset"], dataset, sampler
-        )               
+        )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
@@ -141,9 +141,9 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataset(dataset_config):
         """Loads the dataset if from a config file."""
-        
+
         dataset_path = dataset_config["pt_path"]
-        dataset={}    
+        dataset={}
         if isinstance(dataset_config["src"], dict):
             dataset["train"] = get_dataset(
                 dataset_path,
@@ -160,8 +160,8 @@ class BaseTrainer(ABC):
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
             )
-                                
-        else:                          
+
+        else:
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
@@ -202,7 +202,7 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataloader(optim_config, dataset_config, dataset, sampler):
 
-        batch_size = optim_config.get("batch_size")    
+        batch_size = optim_config.get("batch_size")
         if isinstance(dataset_config["src"], dict):
             train_loader = get_dataloader(
                 dataset["train"], batch_size=batch_size, sampler=sampler
@@ -211,15 +211,15 @@ class BaseTrainer(ABC):
             test_loader = get_dataloader(
                 dataset["test"], batch_size=batch_size, sampler=sampler
             )
-                                
+
         else:
             train_ratio = dataset_config["train_ratio"]
             val_ratio = dataset_config["val_ratio"]
             test_ratio = dataset_config["test_ratio"]
             train_dataset, val_dataset, test_dataset = dataset_split(
                 dataset["train"], train_ratio, val_ratio, test_ratio
-            )            
-    
+            )
+
             train_loader = get_dataloader(
                 train_dataset, batch_size=batch_size, sampler=sampler
             )
@@ -271,7 +271,7 @@ class BaseTrainer(ABC):
         self.save_model("best_checkpoint.pt", val_metrics, False)
 
         logging.debug(
-            f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/"
+            f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
         )
         self.predict(self.train_loader, "train")
         self.predict(self.val_loader, "val")
@@ -288,6 +288,7 @@ class BaseTrainer(ABC):
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.scheduler.state_dict(),
                 "best_val_metric": self.best_val_metric,
+                "identifier": self.timestamp_id,
             }
         else:
             state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
@@ -301,8 +302,10 @@ class BaseTrainer(ABC):
         torch.save(state, filename)
         return filename
 
-    def save_results(self, output, filename, node_level_predictions=False):
-        results_path = os.path.join(self.save_dir, "results", self.timestamp_id)
+    def save_results(self, output, results_dir, filename, node_level_predictions=False):
+        results_path = os.path.join(
+            self.save_dir, "results", self.timestamp_id, results_dir
+        )
         os.makedirs(results_path, exist_ok=True)
         filename = os.path.join(results_path, filename)
         shape = output.shape

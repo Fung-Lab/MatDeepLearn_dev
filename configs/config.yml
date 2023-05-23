@@ -53,6 +53,7 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
+  name: "test_data"
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
   src: data/test_data/raw/
