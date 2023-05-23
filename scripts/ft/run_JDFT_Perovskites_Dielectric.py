@@ -11,7 +11,16 @@ if __name__ == '__main__':
     for i in range(num_runs):
 
         # 执行命令行命令
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/config_JDFT.yml"
+        subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/config_JDFT_ct_ft.yml"
+        subprocess.run(command, shell=True)
+
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/config_Dielectric.yml"
+        subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/config_Dielectric_ct_ft.yml"
         subprocess.run(command, shell=True)
 
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/config_Perovskites.yml"
