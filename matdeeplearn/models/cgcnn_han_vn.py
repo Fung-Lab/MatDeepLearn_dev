@@ -31,9 +31,7 @@ class SemanticAttention(nn.Module):
             {mp: nn.Parameter(torch.ones((embed_dim, 1))) for mp in meta_paths}
         )
 
-    def forward(
-        self, path_embds: dict[str, torch.Tensor]
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, path_embds: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         meta_path_attns = defaultdict(nn.Module)
         # compute attention scores and weights for each meta path
         for mp in self.meta_paths:
@@ -41,9 +39,9 @@ class SemanticAttention(nn.Module):
             # project embedding via linear layer
             projected_embed = self.w_dict[mp](x)
             # compute attention scores and weights
-            scores = torch.tensordot(torch.tanh(projected_embed), self.q_dict[mp], dims=1) / x.size(
-                1
-            )
+            scores = torch.tensordot(
+                torch.tanh(projected_embed), self.q_dict[mp], dims=1
+            ) / x.size(1)
             attn_weights = F.softmax(scores, dim=-1)
             meta_path_attns[mp] = attn_weights
 
@@ -182,7 +180,7 @@ class CGCNN_HAN_VN(BaseModel):
                     self.gc_dim,
                     self.gc_dim,
                     heads=self.attn_heads,
-                    concat=True,
+                    concat=False,
                     dropout=self.dropout_rate,
                     bias=True,
                 )
@@ -207,6 +205,39 @@ class CGCNN_HAN_VN(BaseModel):
                 bn_list.append(bn)
 
         return conv_list, bn_list
+
+    def _setup_post_atomic_pooling_layers(self, post_fc: bool):
+        if self.atomic_intermediate_layer_resolution > 0:
+            # We use 100 as embedding expansion in atomic num pooling, can prevent loss of info with sequential layers
+            interm_layers: List[torch.nn.Linear] = []
+
+            # Find closest lesser multiple of self.dim2 to the input dim
+            in_dim = self.post_fc_dim * 100 - (self.post_fc_dim * 100) % self.dim2
+            # Find the resolution of the atomic number embedding, how many layers to add
+            scale_factor = self.dim2 * self.atomic_intermediate_layer_resolution
+            resolution = in_dim // scale_factor
+
+            stride_dims = [scale_factor * i for i in range(resolution - 1, 0, -1)]
+
+            for out_dim in stride_dims:
+                interm_layers.append(torch.nn.Linear(in_dim, out_dim))
+                torch.nn.Dropout(p=self.dropout_rate)
+                in_dim = out_dim
+
+            interm_layers.append(torch.nn.Linear(in_dim, self.dim2))
+
+            layers = [
+                torch.nn.Linear(self.post_fc_dim * 100, interm_layers[0].in_features),
+                torch.nn.Dropout(p=self.dropout_rate),
+                *interm_layers,
+            ]
+        else:
+            layers = [
+                torch.nn.Linear(
+                    self.post_fc_dim * 100, self.dim2 if post_fc else self.output_dim
+                ),
+            ]
+        return torch.nn.Sequential(*layers)
 
     def _setup_post_gnn_layers(self):
         """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number.
@@ -294,17 +325,20 @@ class CGCNN_HAN_VN(BaseModel):
         # node level attention computations
         embedding_dict = {}
         for j, mp in enumerate(self.mp_pattern):
+            edge_idx = getattr(data, f"edge_index_{mp}")
             if mp == "rr":
-                embedding_dict[mp] = self.attn_conv_list[j](out_r) * real_node_mask
-            elif mp == "rv":
-                embedding_dict[mp] = self.attn_conv_list[j](out_r + out_v)
-            elif mp == "vr":
-                embedding_dict[mp] = self.attn_conv_list[j](out_r + out_v)
-            elif mp == "rv":
-                embedding_dict[mp] = self.attn_conv_list[j](out_v) * virtual_node_mask
+                embedding_dict[mp] = (
+                    self.attn_conv_list[j](out_r, edge_idx) * real_node_mask
+                )
+            elif mp == "rv" or mp == "vr":
+                embedding_dict[mp] = self.attn_conv_list[j](out_r + out_v, edge_idx)
+            elif mp == "vv":
+                embedding_dict[mp] = (
+                    self.attn_conv_list[j](out_v, edge_idx) * virtual_node_mask
+                )
 
         # semantic (meta-path) level attention
-        out_embeds, attn = self.semantic_attn(embedding_dict)
+        attn_weights = self.semantic_attn(embedding_dict)
 
         if self.heterogeneous_conv:
             out = torch.zeros_like(data.x)
@@ -315,12 +349,12 @@ class CGCNN_HAN_VN(BaseModel):
                     conv = conv_list[j]
                     edge_idx = getattr(data, f"edge_index_{mp}")
                     edge_attr = getattr(data, f"edge_attr_{mp}")
-                    emb = conv(out_embeds[mp], edge_idx, edge_attr)
+                    emb = conv(embedding_dict[mp], edge_idx, edge_attr)
                     if self.batch_norm:
                         bn = bn_list[j]
                         emb = bn(emb)
                 # aggregate embeddings using attention weights
-                out = out + emb * attn[mp].expand(-1, -1, emb.size(-1))
+                out = out + emb * attn_weights[mp].expand(-1, emb.size(-1))
         else:
             # use the correct edge_indexes and edge_attrs for MP
             edge_index_use = torch.cat(
@@ -330,9 +364,9 @@ class CGCNN_HAN_VN(BaseModel):
                 [getattr(data, f"edge_attr_{mp}") for mp in self.mp_pattern], dim=0
             )
             # obtain final output embedding using attention weights
-            embeds = torch.stack([out[mp] for mp in self.mp_pattern], dim=1)
-            attns = torch.stack([attn[mp] for mp in self.mp_pattern], dim=1)
-            out = torch.sum(embeds * attns.expand(-1, -1, -1, embeds.size(-1)), dim=1)
+            embeds = torch.stack([embedding_dict[mp] for mp in self.mp_pattern])
+            attns = torch.stack([attn_weights[mp] for mp in self.mp_pattern])
+            out = torch.sum(embeds * attns.expand(-1, -1, embeds.size(-1)), dim=0)
             # conv operations
             for j in range(0, len(self.conv_list)):
                 if self.batch_norm:

@@ -156,7 +156,7 @@ class BaseTrainer(ABC):
         dataset = cls._load_dataset(dataset_config, metadata)
         model = cls._load_model(
             config["model"],
-            dataset,
+            dataset["train"],
             wandb.config.get("hyperparams", None)
             if wandb.run and config["task"]["wandb"]["sweep"]["do_sweep"]
             else None,

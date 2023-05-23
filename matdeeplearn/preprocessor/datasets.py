@@ -9,6 +9,7 @@ class StructureDataset(InMemoryDataset):
         self,
         root,
         processed_data_path,
+        processed_file_name=None,
         transform=None,
         pre_transform=None,
         pre_filter=None,
@@ -16,6 +17,7 @@ class StructureDataset(InMemoryDataset):
     ):
         self.root = root
         self.processed_data_path = processed_data_path
+        self.processed_file_name = processed_file_name
         super(StructureDataset, self).__init__(
             root, transform, pre_transform, pre_filter
         )

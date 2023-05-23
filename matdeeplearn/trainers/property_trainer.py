@@ -72,12 +72,6 @@ class PropertyTrainer(BaseTrainer):
             else self.max_epochs
         )
 
-        if self.train_verbosity:
-            logging.info("Starting regular training")
-            logging.info(
-                f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
-            )
-
         for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()
             if self.train_sampler:

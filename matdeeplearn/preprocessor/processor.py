@@ -57,8 +57,8 @@ def process_data(dataset_config, wandb_config):
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
-        root_path=root_path_dict,
-        target_file_path=target_path_dict,
+        root_path=root_path,
+        target_file_path=target_path,
         pt_path=pt_path,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
@@ -171,8 +171,8 @@ class DataProcessor:
                 if True, certain messages will be printed
         """
 
-        self.root_path_dict = root_path
-        self.target_file_path_dict = target_file_path
+        self.root_path = root_path
+        self.target_file_path = target_file_path
         self.pt_path = pt_path
         self.r = r
         self.n_neighbors = n_neighbors
@@ -345,6 +345,7 @@ class DataProcessor:
 
         found_existing = False
         data_dir = pathlib.Path(self.pt_path).parent
+        print(data_dir)
         # If forcing preprocess, we ignore the metadata search procedure
         if not self.force_preprocess:
             for proc_dir in data_dir.glob("**/"):
@@ -485,30 +486,6 @@ class DataProcessor:
                 batch = composition_batched(batch)
                 # convert back to list of Data() objects
                 data_list[i : i + self.batch_size] = batch.to_data_list()
-
-        # compile non-otf transforms
-        logging.debug("Applying transforms.")
-
-        # Ensure GetY exists to prevent downstream model errors
-        assert "GetY" in [
-            tf["name"] for tf in self.transforms
-        ], "The target transform GetY is required in config."
-
-        transforms_list = []
-        for transform in self.transforms:
-            if not transform.get("otf", False):
-                transforms_list.append(
-                    registry.get_transform_class(
-                        transform["name"],
-                        **({} if transform["args"] is None else transform["args"]),
-                    )
-                )
-
-        composition = Compose(transforms_list)
-
-        # apply transforms
-        for data in data_list:
-            composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
 
