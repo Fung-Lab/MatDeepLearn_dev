@@ -23,10 +23,10 @@ model:
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 64
-  dim2: 64
+  dim1: 128
+  dim2: 128
   pre_fc_count: 1
-  gc_count: 4
+  gc_count: 3
   post_fc_count: 3
   pool: "global_mean_pool"
   pool_order: "early"
