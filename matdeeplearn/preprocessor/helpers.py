@@ -71,6 +71,8 @@ def calculate_edges_master(
 
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
+
+        neighbors = compute_neighbors(edge_index, len(z))
     
     elif method == "ase":
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
@@ -221,6 +223,22 @@ class GaussianSmearing(torch.nn.Module):
         dist = dist.unsqueeze(-1) - self.offset.view(1, -1)
         return torch.exp(self.coeff * torch.pow(dist, 2))
 
+def compute_neighbors(edge_index, n_atoms):
+    #From OCPModels
+    # Get number of neighbors
+    # segment_coo assumes sorted index
+    ones = edge_index[0].new_ones(1).expand_as(edge_index[0])
+    num_neighbors = segment_coo(
+        ones, edge_index[0], dim_size=n_atoms.sum()
+    )
+
+    # Get number of neighbors per image
+    image_indptr = torch.zeros(
+        n_atoms.shape[0] + 1, device=n_atoms.device, dtype=torch.long
+    )
+    image_indptr[1:] = torch.cumsum(n_atoms, dim=0)
+    neighbors = segment_csr(num_neighbors, image_indptr)
+    return neighbors
 
 def normalize_edge(dataset, descriptor_label):
     mean, std, feature_min, feature_max = get_ranges(dataset, descriptor_label)

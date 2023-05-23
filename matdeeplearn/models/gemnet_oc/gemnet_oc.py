@@ -866,11 +866,11 @@ class GemNetOC(BaseModel):
                 subgraph["vector"] = subgraph["vector"][edge_mask]
 
         empty_image = subgraph["num_neighbors"] == 0
-        if torch.any(empty_image):
-            raise ValueError(
-                f"An image has no neighbors: id={data.id[empty_image]}, "
-                f"sid={data.sid[empty_image]}, fid={data.fid[empty_image]}"
-            )
+        #if torch.any(empty_image):
+        #    raise ValueError(
+        #        f"An image has no neighbors: id={data.id[empty_image]}, "
+        #        f"sid={data.sid[empty_image]}, fid={data.fid[empty_image]}"
+        #    )
         return subgraph
 
     def generate_graph_dict(self, data, cutoff, max_neighbors):
@@ -894,6 +894,10 @@ class GemNetOC(BaseModel):
         edge_dist = data.distances
         distance_vec = data.edge_vec
         cell_offsets = data.cell_offsets
+        print(num_neighbors)
+        print(num_neighbors.size())
+        print(data.neighbors)
+        print(data.neighbors.size())
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         edge_vector = -distance_vec / edge_dist[:, None]
