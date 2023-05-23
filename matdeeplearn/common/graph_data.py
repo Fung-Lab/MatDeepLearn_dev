@@ -4,6 +4,7 @@ from typing import Optional
 
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor
+
 from matdeeplearn.common.registry import registry
 
 
