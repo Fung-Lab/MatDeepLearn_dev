@@ -1,6 +1,7 @@
 import logging
 import pprint
-
+import os
+from torch import distributed as dist
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.trainer_context import new_trainer_context
@@ -40,10 +41,14 @@ class Runner:  # submitit.helpers.Checkpointable):
 
 
 if __name__ == "__main__":
-    # setup_logging()
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
 
+
+    # setup_logging()
+    local_rank = os.environ.get('LOCAL_RANK', None)
+    if local_rank == None or int(local_rank) == 0:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+        
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)

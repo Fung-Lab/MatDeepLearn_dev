@@ -5,7 +5,8 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from ase import io
+import ase
+from ase import io, Atoms, neighborlist
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
@@ -17,6 +18,7 @@ from matdeeplearn.preprocessor.helpers import (
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
+    calculate_edges_master,
 )
 
 
@@ -24,15 +26,18 @@ def process_data(dataset_config):
     root_path_dict = dataset_config["src"]
     target_path_dict = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
-    cutoff_radius = dataset_config["cutoff_radius"]
-    n_neighbors = dataset_config["n_neighbors"]
-    edge_steps = dataset_config["edge_steps"]
+    cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
+    n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
+    num_offsets = dataset_config["preprocess_params"]["num_offsets"]
+    edge_steps = dataset_config["preprocess_params"]["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
     node_representation = dataset_config.get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
+    all_neighbors = dataset_config["all_neighbors"]
+    edge_calc_method = dataset_config.get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -41,6 +46,7 @@ def process_data(dataset_config):
         pt_path=pt_path,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
+        num_offsets=num_offsets,
         edge_steps=edge_steps,
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
@@ -49,6 +55,8 @@ def process_data(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
+        all_neighbors=all_neighbors,
+        edge_calc_method=edge_calc_method,
         device=device,
     )
     processor.process()
@@ -62,6 +70,7 @@ class DataProcessor:
         pt_path: str,
         r: float,
         n_neighbors: int,
+        num_offsets: int,
         edge_steps: int,
         transforms: list = [],
         data_format: str = "json",
@@ -70,6 +79,8 @@ class DataProcessor:
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
+        all_neighbors: bool = False,
+        edge_calc_method: str = "mdl",
         device: str = "cpu",
     ) -> None:
         """
@@ -129,6 +140,7 @@ class DataProcessor:
         self.pt_path = pt_path
         self.r = r
         self.n_neighbors = n_neighbors
+        self.num_offsets = num_offsets
         self.edge_steps = edge_steps
         self.data_format = data_format
         self.image_selfloop = image_selfloop
@@ -136,6 +148,8 @@ class DataProcessor:
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
+        self.all_neighbors = all_neighbors
+        self.edge_calc_method = edge_calc_method
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -169,7 +183,9 @@ class DataProcessor:
             pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
-            )
+            ).view(1, 3, 3)
+            if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
+                cell = None
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             d["positions"] = pos
@@ -227,8 +243,15 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
+            if (len(s["atomic_numbers"]) == 1):
+                continue
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+            if "cell" in s:
+                cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+                if cell.shape[0] != 1:
+                    cell = cell.view(1,3,3)
+            else: 
+                cell = None
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -346,18 +369,29 @@ class DataProcessor:
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
+            data.o_pos = pos.clone()
+            data.o_z = atomic_numbers.clone()
 
-            cd_matrix, cell_offsets = get_cutoff_distance_matrix(
-                pos,
-                cell,
+            edge_gen_out = calculate_edges_master(
+                self.edge_calc_method,
+                self.all_neighbors,
                 self.r,
                 self.n_neighbors,
-                image_selfloop=self.image_selfloop,
-                device=self.device,
+                self.num_offsets,
+                structure_id,
+                cell,
+                pos,
+                atomic_numbers,
             )
+            edge_indices = edge_gen_out["edge_index"]
+            edge_weights = edge_gen_out["edge_weights"]
+            cell_offsets = edge_gen_out["cell_offsets"]
+            edge_vec = edge_gen_out["edge_vec"]
+            neighbors = edge_gen_out["neighbors"]
+            if(edge_vec.dim() > 2):
+                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
 
-            edge_indices, edge_weights = dense_to_sparse(cd_matrix)
-
+                
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
             data.cell = cell
@@ -365,13 +399,19 @@ class DataProcessor:
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
+            data.edge_vec = edge_vec
+            if (i == 0):
+                print(data.n_atoms)
+                print(data.edge_index.size())
             data.cell_offsets = cell_offsets
+            data.neighbors = neighbors
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
             data.structure_id = [[structure_id] * len(data.y)]
+            
 
             # add additional attributes
             if self.additional_attributes:

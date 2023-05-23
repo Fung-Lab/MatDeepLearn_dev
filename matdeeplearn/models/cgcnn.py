@@ -20,9 +20,9 @@ from matdeeplearn.models.base_model import BaseModel
 class CGCNN(BaseModel):
     def __init__(
         self,
-        edge_steps,
-        self_loop,
         data,
+        edge_steps=50,
+        self_loop=True,
         dim1=64,
         dim2=64,
         pre_fc_count=1,
@@ -37,6 +37,9 @@ class CGCNN(BaseModel):
         **kwargs
     ):
         super(CGCNN, self).__init__(edge_steps, self_loop)
+        
+        if isinstance(data, torch.utils.data.Subset): 
+            data = data.dataset
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm

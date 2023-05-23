@@ -4,20 +4,19 @@ task:
   # run_mode: train
   identifier: "my_train_job"
   reprocess: False
-  parallel: True
+  parallel: False
   # seed=0 means random initalization
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  # checkpoint_dir: "."
+  checkpoint_dir: 
   write_output: True
-  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
 
 model:
   name: CGCNN
-  load_model: False
+  load_model: True
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
@@ -36,7 +35,7 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 250
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -55,20 +54,26 @@ optim:
 dataset:
   name: "test_data"
   processed: False
-  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
-  src: data/test_data/raw/
-  #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
-  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
-  target_path: data/test_data/targets.csv
-  #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
+  # Path to data files
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  #src: "/project/Rithwik/2D_data_npj/raw/"
+  src: "/project/Rithwik/QM9/data.json"
+  # Path to target file within data_path
+  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
+  target_path:
   # Path to save processed data.pt file
-  pt_path: "data/"
-
+  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
+  #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  pt_path: "/project/Rithwik/QM9/"
   transforms:
     - name: GetY
       args:
         index: 0
-      otf: False # Optional parameter, default is False
+      otf: True # Optional parameter, default is False
+  all_neighbors : True
+  # one of mdl, ase, ocp
+  edge_calc_method: "mdl"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -78,10 +83,14 @@ dataset:
   verbose: True
   # Index of target column in targets.csv
   # graph specific settings
-  cutoff_radius : 8.0
-  n_neighbors : 12
-  edge_steps : 50
+  preprocess_params:
+    cutoff_radius : 5.0
+    n_neighbors : 250
+    num_offsets: 1
+    edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
+  train_ratio: 0.8408
+  val_ratio: 0.0764
+  test_ratio: 0.0828
+  
+
