@@ -4,19 +4,18 @@ task:
   # run_mode: train
   identifier: "my_train_job"
   reprocess: False
-  parallel: True
+  parallel: False
   # seed=0 means random initalization
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
   # checkpoint_dir: "."
   write_output: True
-  parallel: True
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
 
 model:
-  name: spinconvEarly
+  name: spinconv
   load_model: False
   save_model: True
   model_path: "my_model.pth"
@@ -62,7 +61,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 10
+  batch_size: 40
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -75,16 +74,18 @@ dataset:
   # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
   # dataset_type: "inmemory"
   # Path to data files
-  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
-  #src: "/project/Rithwik/MP_data_69K/raw/"
-  src: "/project/Rithwik/MP_data_69K/data.json"
-  # Path to target file within data_path
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  #src: "/project/Rithwik/2D_data_npj/raw/"
+  #src: "/project/Rithwik/QM9/data.json"
+  src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
+  #Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
   target_path:
   # Path to save processed data.pt file
   #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
-  pt_path: "/project/Rithwik/MP_data_69K/"
+  pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
+
   transforms:
     - name: GetY
       args:
@@ -92,7 +93,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "ocp"
+  edge_calc_method: "mdl"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -108,6 +109,6 @@ dataset:
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8408
-  val_ratio: 0.0764
-  test_ratio: 0.0828
+  train_ratio: 0.9
+  val_ratio: 0.05
+  test_ratio: 0.05
