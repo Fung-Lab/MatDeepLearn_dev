@@ -229,14 +229,14 @@ def compute_neighbors(edge_index, n_atoms):
     # segment_coo assumes sorted index
     ones = edge_index[0].new_ones(1).expand_as(edge_index[0])
     num_neighbors = segment_coo(
-        ones, edge_index[0], dim_size=n_atoms.sum()
+        ones, edge_index[0], dim_size=n_atoms
     )
 
     # Get number of neighbors per image
     image_indptr = torch.zeros(
-        n_atoms.shape[0] + 1, device=n_atoms.device, dtype=torch.long
+        1, device=n_atoms.device, dtype=torch.long
     )
-    image_indptr[1:] = torch.cumsum(n_atoms, dim=0)
+    #image_indptr[1:] = torch.cumsum(n_atoms, dim=0)
     neighbors = segment_csr(num_neighbors, image_indptr)
     return neighbors
 
