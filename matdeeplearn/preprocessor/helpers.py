@@ -238,7 +238,7 @@ def compute_neighbors(edge_index, n_atoms):
     )
     #image_indptr[1:] = torch.cumsum(n_atoms, dim=0)
     #neighbors = segment_csr(num_neighbors, image_indptr)
-    return num_neighbors
+    return num_neighbors.sum()
 
 def normalize_edge(dataset, descriptor_label):
     mean, std, feature_min, feature_max = get_ranges(dataset, descriptor_label)
