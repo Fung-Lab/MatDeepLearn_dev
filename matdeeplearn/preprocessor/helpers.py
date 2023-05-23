@@ -234,7 +234,7 @@ def compute_neighbors(edge_index, n_atoms):
 
     # Get number of neighbors per image
     image_indptr = torch.zeros(
-        1, dtype=torch.long
+        1
     )
     #image_indptr[1:] = torch.cumsum(n_atoms, dim=0)
     neighbors = segment_csr(num_neighbors, image_indptr)
