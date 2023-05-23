@@ -877,27 +877,24 @@ class GemNetOC(BaseModel):
         """Generate a radius/nearest neighbor graph."""
         otf_graph = cutoff > 6 or max_neighbors > 50 or self.otf_graph
 
-        (
-            edge_index,
-            edge_dist,
-            distance_vec,
-            cell_offsets,
-            _,  # cell offset distances
-            num_neighbors,
-        ) = self.generate_graph(
-            data,
-            cutoff=cutoff,
-            max_neighbors=max_neighbors,
-            otf_graph=otf_graph,
-        )
+        #(
+        #    edge_index,
+        #    edge_dist,
+        #    distance_vec,
+        #    cell_offsets,
+        #    _,  # cell offset distances
+        #    num_neighbors,
+        #) = self.generate_graph(
+        #    data,
+        #    cutoff=cutoff,
+        #    max_neighbors=max_neighbors,
+        #    otf_graph=otf_graph,
+        #)
         edge_index = data.edge_index
         edge_dist = data.distances
         distance_vec = data.edge_vec
         cell_offsets = data.cell_offsets
-        print(num_neighbors)
-        print(num_neighbors.size())
-        print(data.neighbors)
-        print(data.neighbors.size())
+        num_neighbors = data.neighbors
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         edge_vector = -distance_vec / edge_dist[:, None]
