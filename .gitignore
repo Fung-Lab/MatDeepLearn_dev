@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 core.python.*
+core.python.*
 
 # C extensions
 *.so
@@ -179,8 +180,14 @@ test*.ipynb
 
 checkpoints/
 
+# local configs
+configs/examples/cgcnn_vn/
+configs/examples/cgcnn_vn_hg/
+configs/generated
+
 # misc
 .flake8
 .pylintrc
 **/wandb/
 *.out
+results/

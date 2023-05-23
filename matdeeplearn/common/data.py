@@ -7,7 +7,8 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
+from matdeeplearn.preprocessor.datasets import (LargeStructureDataset,
+                                                StructureDataset)
 
 
 # train test split
@@ -56,7 +57,14 @@ def dataset_split(
         generator=torch.Generator().manual_seed(seed),
     )
 
+    # Quick fix for when the dataset is too small (e.g. 10 examples)
+    if len(val_dataset) == 0:
+        val_dataset = train_dataset
+    if len(test_dataset) == 0:
+        test_dataset = train_dataset
+
     return train_dataset, val_dataset, test_dataset
+
 
 def get_otf_transforms(transform_list: List[dict]):
     """
@@ -74,17 +82,18 @@ def get_otf_transforms(transform_list: List[dict]):
         if transform.get("otf", False):
             transforms.append(
                 registry.get_transform_class(
-                    transform["name"],
-                    **transform.get("args", {})
+                    transform["name"], **transform.get("args", {})
                 )
             )
-            
+
     return transforms
+
 
 def get_dataset(
     data_path,
     processed_file_name,
     transform_list: List[dict] = [],
+    preprocess_kwargs: dict = {},
     large_dataset=False,
 ):
     """
@@ -101,24 +110,38 @@ def get_dataset(
     transform_list: transformation function/classes to be applied
     """
 
-    # get on the fly transforms for use on dataset access
-    otf_transforms = get_otf_transforms(transform_list)
-
+    transforms = []
+    # set transform method
+    for transform in transform_list:
+        if transform["otf"]:
+            transforms.append(
+                registry.get_transform_class(
+                    transform["name"],
+                    **{**transform.get("args", {}), **preprocess_kwargs}
+                )
+            )
     # check if large dataset is needed
     if large_dataset:
         Dataset = LargeStructureDataset
     else:
         Dataset = StructureDataset
-
-    composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
-        
-    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
+    composition = Compose(transforms) if len(transforms) > 0 else None
+    dataset = Dataset(
+        data_path,
+        processed_data_path="",
+        processed_file_name=processed_file_name,
+        transform=composition,
+    )
 
     return dataset
 
 
 def get_dataloader(
-    dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
+    dataset,
+    batch_size: int,
+    num_workers: int = 0,
+    sampler=None,
+    shuffle=True,
 ):
     """
     Returns a single dataloader for a given dataset

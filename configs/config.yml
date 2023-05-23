@@ -6,7 +6,14 @@ task:
   reprocess: False
   parallel: True
   # seed=0 means random initalization
+  # seed=0 means random initalization
   seed: 0
+  #seed=0 means random initalization
+
+  use_wandb: True
+  wandb_entity: "fung-lab"
+  wandb_project: "cgcnn_vn"
+
   # Defaults to run directory if not specified
   # save_dir: "."
   # checkpoint_dir: "."
@@ -19,9 +26,10 @@ model:
   name: CGCNN
   load_model: False
   save_model: True
-  model_path: "my_model.pth"
+  model_path: "cgcnn.pth"
   edge_steps: 50
   self_loop: True
+  # model attributes
   # model attributes
   dim1: 100
   dim2: 150
@@ -38,13 +46,15 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
+  max_checkpoint_epochs: 0
   lr: 0.002
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 64
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -54,32 +64,32 @@ optim:
 
 dataset:
   processed: False
-  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
-  src: data/test_data/raw/
-  #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
-  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
-  target_path: data/test_data/targets.csv
-  #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
+  # Path to data files
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
+  # Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
   # Path to save processed data.pt file
-  pt_path: "data/"
-
+  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
   transforms:
     - name: GetY
       args:
         index: 0
-      otf: False # Optional parameter, default is False
+      otf: False
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
+  # Method of obtaining atom idctionary: available:(onehot)
   # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes: []
   # Print out processing info
+  # Print out processing info
   verbose: True
-  # Index of target column in targets.csv
+  use_virtual_nodes: False
   # graph specific settings
-  cutoff_radius : 8.0
-  n_neighbors : 12
-  edge_steps : 50
+  preprocess_params:
+    cutoff_radius : 8.0
+    n_neighbors : 12
+    edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05

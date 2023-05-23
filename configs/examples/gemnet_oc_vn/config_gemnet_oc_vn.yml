@@ -1,0 +1,155 @@
+trainer: property
+
+task:
+  # run_mode: train
+  identifier: "gemnet_oc_vn-all-neighbor-OCP"
+  reprocess: False
+  parallel: True
+  gpu: "cuda:1"
+  seed: 0
+  # seed: 0 means random initalization
+  write_output: True
+  parallel: True
+  # Training print out frequency (print per n number of epochs)
+  verbosity: 1
+  wandb:
+    use_wandb: True
+    wandb_entity: "fung-lab"
+    wandb_project: "gemnet_oc_vn"
+    notes: "Gemnet_OC modified to support custom pooling routines and virtual nodes"
+    tags: ["test"]
+    log_artifacts:
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/cgcnn_vn/config_gemnet_oc_vn.yml"
+        name: "train config"
+        type: "config"
+      - path: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/gemnet_oc_vn.py"
+        name: "gemnet_oc_vn model"
+        type: "model"
+    metadata:
+      architecture: "gemnet_oc_vn"
+      cluster: "fung-cluster"
+      dataset: "hMOF-5K"
+    sweep:
+      do_sweep: False
+      sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
+
+model:
+  name: gemnet_oc_vn
+  load_model: False
+  save_model: True
+  model_path: "gemnet_oc_vn.pth"
+  # model hyperparams
+  hyperparams:
+    num_targets: 1
+    num_spherical: 7
+    num_radial: 6
+    num_blocks: 4
+    emb_size_atom: 128
+    emb_size_edge: 128
+    emb_size_trip_in: 128
+    emb_size_trip_out: 64
+    emb_size_trip: 64
+    emb_size_quad_in: 64
+    emb_size_quad_out: 64
+    emb_size_aint_in: 64
+    emb_size_aint_out: 64
+    emb_size_rbf: 16
+    emb_size_cbf: 16
+    emb_size_sbf: 16
+    emb_size_bil_trip: 32
+    num_before_skip: 1
+    num_after_skip: 1
+    num_concat: 1
+    num_atom: 2
+    num_output_afteratom: 1
+    num_atom_emb_layers: 0
+    num_global_out_layers: 2
+    regress_forces: False
+    direct_forces: False
+    use_pbc: True # important to retain VN compatibility
+    scale_backprop_forces: False
+    cutoff: 5.0
+    max_neighbors: 50
+    rbf: {"name": "gaussian"}
+    rbf_spherical:
+    envelope: {"name": "polynomial", "exponent": 5}
+    cbf: {"name": "spherical_harmonics"}
+    sbf: {"name": "spherical_harmonics"}
+    extensive: True
+    forces_coupled: False
+    output_init: "HeOrthogonal"
+    activation: "silu"
+    quad_interaction: False
+    atom_edge_interaction: True
+    edge_atom_interaction: True
+    atom_interaction: True
+    scale_basis: False
+    qint_tags: [0, 1, 2]
+    num_elements: 100
+    otf_graph: False
+    scale_file:
+    num_post_layers: 3
+    post_hidden_channels: 64
+    act: "relu"
+
+    pool: "global_mean_pool" # pooling reduction scheme
+    virtual_pool: "AtomicNumberPooling" # pooling method
+    pool_choice: "virtual" # whether to use virtual or real nodes in RealVirtualPooling
+    mp_pattern: ["rr", "rv"]
+
+optim:
+  max_epochs: 100
+  lr: 0.002
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+  batch_size: 100
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: True # if False, need to preprocessor data and generate .pt file
+  # Path to data files
+  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+  target_path: ""
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
+  # transforms
+  transforms:
+    - name: GetY
+      args:
+        index: 5 # methane adsorption uptake
+      otf: False
+    - name: VirtualNodes
+      args:
+        virtual_box_increment: 3
+        attrs: ["rr", "rv"]
+        rr_cutoff: 5.0
+        rv_cutoff: 5.0
+        optimize_memory: False
+      otf: False
+  # use for passing into global config
+  # one of MDL, ASE, OCP
+  use_sweep_params: False
+  # use again for passing into global config
+  data_format: "json"
+  node_representation: "onehot"
+  additional_attributes: []
+  # Print out processing info
+  verbose: True
+  # graph specific settings: preprocessing hyperparams
+  preprocess_params:
+    cutoff_radius : 5.0
+    n_neighbors : 250
+    edge_calc_method: "ocp"
+    num_offsets: 1
+    edge_steps : 50
+    all_neighbors: True
+    use_degree: False
+  # Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

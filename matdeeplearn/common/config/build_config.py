@@ -1,8 +1,10 @@
 import ast
 import copy
-import logging
 import os
-from pathlib import Path
+import logging
+
+from matdeeplearn.common.utils import DictTools
+from matdeeplearn.common.jobs import CONFIG_PATH
 
 import yaml
 
@@ -64,7 +66,10 @@ def parse_value(value):
     Parse string as Python literal if possible and fallback to string.
     """
     try:
-        return ast.literal_eval(value)
+        val = ast.literal_eval(value)
+        if isinstance(val, list):
+            logging.warning(f"Ensure list elements (of type {type(val[0])}) are escaped correctly.")
+        return val
     except (ValueError, SyntaxError):
         # Use as string if nothing else worked
         return value
@@ -87,21 +92,33 @@ def create_dict_from_args(args: list, sep: str = "."):
 
 def build_config(args, args_override):
     # Open provided config file
-    assert os.path.exists(
-        args.config_path
-    ), f"Config file not found in {str(args.config_path)}"
-    with open(args.config_path, "r") as ymlfile:
+    if os.path.exists(args.config_path):
+        config_path = args.config_path
+        logging.info(f"Using config file: {config_path}")
+    else:
+        # using a config file template
+        templates = {
+            file.strip(".yml"): os.path.join(CONFIG_PATH, "config_templates", str(file))
+            for file in os.listdir(os.path.join(CONFIG_PATH, "config_templates"))
+            if file.endswith(".yml")
+        }
+        config_path = templates[str(args.config_path).strip(".yml")]
+        logging.info(f"Using config file template: {config_path}")
+
+    with open(config_path, "r") as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
     # Check for overridden parameters.
     if args_override != []:
         overrides = create_dict_from_args(args_override)
-        config, _ = merge_dicts(config, overrides)
+        logging.debug(f"Overridden parameters: {list(overrides.keys())}")
+        for key, item in overrides.items():
+            DictTools._mod_recurse(config, key, item)
 
     # Some other flags.
     config["run_mode"] = args.run_mode
     config["seed"] = args.seed
-    #
+
     # Submit
     config["submit"] = args.submit
     # config["summit"] = args.summit

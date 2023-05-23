@@ -13,7 +13,8 @@ class BaseTask:
 
     def setup(self, trainer):
         self.trainer = trainer
-        use_checkpoint = self.config["model"].get("load_model", False)
+        use_checkpoint = self.config["model"]["load_model"]
+
         if use_checkpoint:
             logging.info("Attempting to load most recent checkpoint...")
             self.trainer.load_checkpoint()
@@ -48,3 +49,13 @@ class TrainTask(BaseTask):
         except RuntimeError as e:
             self._process_error(e)
             raise e
+
+
+@registry.register_task("preprocess")
+class PreprocessTask(BaseTask):
+    def setup(self, trainer):
+        del trainer
+        pass
+
+    def run(self):
+        pass

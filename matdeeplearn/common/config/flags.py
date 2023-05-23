@@ -20,11 +20,52 @@ class Flags:
         )
         self.parser.add_argument(
             "--run_mode",
-            choices=["train"],
+            choices=[
+                "train",
+                "preprocess",
+                "predict",
+                "repeat",
+                "cv",
+                "hyperparameter",
+                "ensemble",
+                "analysis",
+            ],
             required=True,
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
         )
+
+        # fix boolean parsing
+        def boolean_string(s):
+            if s not in {"False", "True"}:
+                raise ValueError("Not a valid boolean string")
+            return s == "True"
+
+        self.parser.add_argument(
+            "--sweep_id",
+            required=False,
+            default=None,
+            type=str,
+            help="Used in case we launch a sweep agent by itself. Lets MDL know to handle the config differently",
+        )
+
+        self.parser.add_argument(
+            "--logging",
+            required=False,
+            choices=["DEBUG", "INFO"],
+            default="INFO",
+            type=str,
+            help="Logging level",
+        )
+
+        self.parser.add_argument(
+            "--job_script",
+            required=False,
+            default=None,
+            type=str,
+            help="The type of job script to generate",
+        )
+
         # self.parser.add_argument(
         #     "--job_name",
         #     default=None,
@@ -37,6 +78,7 @@ class Flags:
         #     type=str,
         #     help="CGCNN_demo, MPNN_demo, SchNet_demo, MEGNet_demo, GCN_demo, SOAP_demo, SM_demo",
         # )
+
         self.parser.add_argument(
             "--seed",
             default=0,

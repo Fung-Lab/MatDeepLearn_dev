@@ -1,0 +1,13 @@
+# Job config for phoenix-slurm
+
+args:
+  A: gts-vfung3
+  N: 1
+  t: "4:00:00"
+  q: "inferno"
+  C: "A100-40GB"
+options:
+  - "--gres=gpu:A100:1"
+  - "--mem=0"
+  - "--mail-type=BEGIN,END,FAIL"
+  - "--mail-user=sidharth.baskaran@gatech.edu"

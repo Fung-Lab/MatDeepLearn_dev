@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 import torch
+import wandb
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
@@ -26,8 +27,13 @@ class PropertyTrainer(BaseTrainer):
         max_checkpoint_epochs,
         identifier,
         verbosity,
+        device,
         save_dir,
         checkpoint_dir,
+        wandb_config,
+        model_config,
+        opt_config,
+        dataset_config,
     ):
         super().__init__(
             model,
@@ -43,9 +49,16 @@ class PropertyTrainer(BaseTrainer):
             max_checkpoint_epochs,
             identifier,
             verbosity,
+            device,
             save_dir,
             checkpoint_dir,
+            wandb_config,
+            model_config,
+            opt_config,
+            dataset_config,
         )
+
+        self.use_wandb = self.wandb_config.get("use_wandb", False)
 
     def train(self):
         # Start training over epochs loop
@@ -59,12 +72,6 @@ class PropertyTrainer(BaseTrainer):
             else self.max_epochs
         )
 
-        if self.train_verbosity:
-            logging.info("Starting regular training")
-            logging.info(
-                f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
-            )
-
         for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()
             if self.train_sampler:
@@ -72,51 +79,80 @@ class PropertyTrainer(BaseTrainer):
             skip_steps = self.step % len(self.train_loader)
             train_loader_iter = iter(self.train_loader)
 
-            # metrics for every epoch
-            _metrics = {}
+        if self.max_checkpoint_epochs:
+            logging.info("Starting training from checkpoint")
 
-            for i in range(skip_steps, len(self.train_loader)):
-                self.epoch = epoch + (i + 1) / len(self.train_loader)
-                self.step = epoch * len(self.train_loader) + i + 1
-                self.model.train()
+        if self.use_wandb and wandb.run.resumed:
+            logging.info("Resuming W&B run")
 
-                # Get a batch of train data
-                batch = next(train_loader_iter).to(self.device)
+        if self.train_verbosity:
+            logging.info("Starting regular training")
+            logging.info(
+                f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
+            )
 
-                # Compute forward, loss, backward
-                out = self._forward(batch)
-                loss = self._compute_loss(out, batch)
-                self._backward(loss)
+        try:
+            for epoch in range(start_epoch, end_epoch):
+                epoch_start_time = time.time()
+                if self.train_sampler:
+                    self.train_sampler.set_epoch(epoch)
+                skip_steps = self.step % len(self.train_loader)
+                train_loader_iter = iter(self.train_loader)
 
-                # Compute metrics
-                # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
-                #  keep option to log metrics per epoch
-                _metrics = self._compute_metrics(out, batch, _metrics)
-                self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
+                # metrics for every epoch
+                _metrics = {}
 
-            # TODO: could add param to eval and save on increments instead of every time
-            # Save current model
+                for i in range(skip_steps, len(self.train_loader)):
+                    self.epoch = epoch + (i + 1) / len(self.train_loader)
+                    self.step = epoch * len(self.train_loader) + i + 1
+                    self.model.train()
+
+                    # Get a batch of train data
+                    batch = next(train_loader_iter).to(self.device)
+
+                    # Compute forward, loss, backward
+                    out = self._forward(batch)
+
+                    if type(out) == tuple and len(out) == 5:
+                        out = out[0]
+
+                    loss = self._compute_loss(out, batch)
+                    self._backward(loss)
+
+                    # Compute metrics
+                    # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
+                    #  keep option to log metrics per epoch
+                    _metrics = self._compute_metrics(out, batch, _metrics)
+                    self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
+
+                # TODO: could add param to eval and save on increments instead of every time
+                # Save current model
+                self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+
+                # Evaluate on validation set AND test set if it exists
+                if self.val_loader and self.test_loader:
+                    val_metrics = self.validate()
+                    test_metrics = self.validate(split="test")
+
+                    # Train loop timings
+                    self.epoch_time = time.time() - epoch_start_time
+                    # Log metrics
+                    if epoch % self.train_verbosity == 0:
+                        self._log_metrics(
+                            val_metrics=val_metrics, test_metrics=test_metrics
+                        )
+
+                    # Update best val metric and model, and save best model and predicted outputs
+                    if (
+                        val_metrics[type(self.loss_fn).__name__]["metric"]
+                        < self.best_val_metric
+                    ):
+                        self.update_best_model(val_metrics)
+
+                    # step scheduler, using validation error
+                    self._scheduler_step()
+        except KeyboardInterrupt:
             self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
-
-            # Evaluate on validation set if it exists
-            if self.val_loader:
-                val_metrics = self.validate()
-
-                # Train loop timings
-                self.epoch_time = time.time() - epoch_start_time
-                # Log metrics
-                if epoch % self.train_verbosity == 0:
-                    self._log_metrics(val_metrics)
-
-                # Update best val metric and model, and save best model and predicted outputs
-                if (
-                    val_metrics[type(self.loss_fn).__name__]["metric"]
-                    < self.best_val_metric
-                ):
-                    self.update_best_model(val_metrics)
-
-                # step scheduler, using validation error
-                self._scheduler_step()
 
         return self.best_model_state
 
@@ -132,6 +168,10 @@ class PropertyTrainer(BaseTrainer):
             with torch.no_grad():
                 batch = next(loader_iter).to(self.device)
                 out = self._forward(batch.to(self.device))
+
+                if type(out) == tuple and len(out) == 5:
+                    out = out[0]
+
                 loss = self._compute_loss(out, batch)
                 # Compute metrics
                 metrics = self._compute_metrics(out, batch, metrics)
@@ -156,6 +196,9 @@ class PropertyTrainer(BaseTrainer):
             self._metrics_predict = self.evaluator.update(
                 "loss", loss.item(), _metrics_predict
             )
+
+            if type(out) == tuple and len(out) == 5:
+                out = out[0]
 
             # if out is a tuple, then it's scaled data
             if type(out) == tuple:
@@ -182,6 +225,22 @@ class PropertyTrainer(BaseTrainer):
             target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
 
         predictions = np.column_stack((ids, target, predict))
+
+        # log prediction errors and parity plots for each split to W&B
+        if self.use_wandb:
+            mean_absolute_error = np.mean(np.abs(target - predict))
+            parity = wandb.Table(
+                data=np.column_stack((target, predict)),
+                columns=["target", "prediction"],
+            )
+            wandb.log({f"{split}_prediction_error": mean_absolute_error})
+            wandb.log(
+                {
+                    f"{split}_parity_plot": wandb.plot.line(
+                        parity, "target", "prediction", title=f"{split} Parity Plot"
+                    )
+                }
+            )
 
         self.save_results(
             predictions, f"{split}_predictions.csv", node_level_predictions
@@ -213,22 +272,41 @@ class PropertyTrainer(BaseTrainer):
 
         return metrics
 
-    def _log_metrics(self, val_metrics=None):
-        if not val_metrics:
+    def _log_metrics(self, val_metrics=None, test_metrics=None):
+        if not val_metrics and not test_metrics:
             logging.info(f"epoch: {self.epoch}, learning rate: {self.scheduler.lr}")
             logging.info(self.metrics[type(self.loss_fn).__name__]["metric"])
         else:
             train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
+
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
+            test_loss = test_metrics[type(self.loss_fn).__name__]["metric"]
+
+            log_kwargs = {
+                "epoch": int(self.epoch - 1),
+                "lr": self.scheduler.lr,
+                "train_loss": train_loss,
+                "val_loss": val_loss,
+                "test_loss": test_loss,
+                "epoch_time": self.epoch_time,
+            }
+
             logging.info(
-                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
-                    int(self.epoch - 1),
-                    self.scheduler.lr,
-                    train_loss,
-                    val_loss,
-                    self.epoch_time,
+                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Test Error: {:.5f}, Time per epoch (s): {:.5f}".format(
+                    *log_kwargs.values()
                 )
             )
+
+            # wandb logging
+            if self.use_wandb:
+                wandb.log(log_kwargs)
+
+            return {
+                "lr": self.scheduler.lr,
+                "train": train_loss,
+                "val": val_loss,
+                "time": self.epoch_time,
+            }
 
     def _load_task(self):
         """Initializes task-specific info. Implemented by derived classes."""

@@ -1,0 +1,10 @@
+python main.py --config_path="/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/examples/config_cgcnn_vn_opt.yml" --run_mode="train" --use_wandb=False
+salloc --nodes 1 --qos interactive --time 00:30:00 --account=m3641 --constraint cpu
+rm -rf ../matdeeplearn/trainers/.ipynb_checkpoints
+rm -rf ../matdeeplearn/models/.ipynb_checkpoints
+
+salloc -A gts-vfung3 --mem=0 -N1 --gres=gpu:A100:1 -C A100-40GB -t1:00:00
+salloc -A gts-vfung3 -qinferno -N1 -t1:00:00
+
+globus transfer 9d6d994a-6d04-11e5-ba46-22000b92c6ec:"/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp_3" 9f127ec0-edff-11ed-ba42-09d6a6f08166:"/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/"
+

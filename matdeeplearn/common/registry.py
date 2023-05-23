@@ -16,6 +16,7 @@ Various decorators for registry different kind of classes with unique keys
 """
 import importlib
 from typing import Callable
+from typing import Callable
 
 
 def _get_absolute_mapping(name: str):
@@ -54,6 +55,8 @@ class Registry:
         "loss_name_mapping": {},
         "state": {},
         "transforms": {},
+        "jobs": {},
+        "data_types": {},
     }
 
     @classmethod
@@ -224,6 +227,26 @@ class Registry:
         return wrap_func
 
     @classmethod
+    def register_job(cls, job_name: str):
+        """Registers a job function for bookkeeping."""
+
+        def wrap_func(job: object):
+            cls.mapping["jobs"][job_name] = job
+            return job
+
+        return wrap_func
+
+    @classmethod
+    def register_data_type(cls, name: str):
+        """Registers a data type for bookkeeping."""
+
+        def wrap_func(data_type: object):
+            cls.mapping["data_types"][name] = data_type
+            return data_type
+
+        return wrap_func
+
+    @classmethod
     def __import_error(cls, name: str, mapping_name: str):
         kind = mapping_name[: -len("_name_mapping")]
         mapping = cls.mapping.get(mapping_name, {})
@@ -290,6 +313,14 @@ class Registry:
     @classmethod
     def get_transform_class(cls, name, **kwargs):
         return cls.get_class(name, "transforms")(**kwargs)
+
+    @classmethod
+    def get_data_type_class(cls, name):
+        return cls.get_class(name, "data_types")
+
+    @classmethod
+    def get_job_class(cls, name):
+        return cls.get_class(name, "jobs")
 
     @classmethod
     def get(cls, name, default=None, no_warning=False):

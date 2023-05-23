@@ -9,7 +9,7 @@ class StructureDataset(InMemoryDataset):
         self,
         root,
         processed_data_path,
-        processed_file_name,
+        processed_file_name=None,
         transform=None,
         pre_transform=None,
         pre_filter=None,
@@ -32,6 +32,7 @@ class StructureDataset(InMemoryDataset):
     @property
     def raw_file_names(self):
         """
+        The name of the files in the self.raw_dir folder
         The name of the files in the self.raw_dir folder
         that must be present in order to skip downloading.
         """

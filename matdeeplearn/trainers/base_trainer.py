@@ -4,10 +4,15 @@ import glob
 import logging
 import os
 from abc import ABC, abstractmethod
+import psutil
 from datetime import datetime
 
 import torch
+import json
 import torch.optim as optim
+import pathlib
+from matplotlib import pyplot as plt
+import wandb
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
@@ -23,6 +28,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
+from matdeeplearn.common.utils import min_alloc_gpu
 
 
 @registry.register_trainer("base")
@@ -42,10 +48,15 @@ class BaseTrainer(ABC):
         max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
+        device: str = None,
         save_dir: str = None,
         checkpoint_dir: str = None,
+        wandb_config: dict = None,
+        model_config: dict = None,
+        opt_config: dict = None,
+        dataset_config: dict = None,
     ):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = min_alloc_gpu(device)
         self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
@@ -61,6 +72,14 @@ class BaseTrainer(ABC):
         self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
 
+        self.save_dir = save_dir
+        self.wandb_config = wandb_config
+
+        self.model_config = model_config
+        self.opt_config = opt_config
+        self.dataset_config = dataset_config
+
+        # non passable params
         self.epoch = 0
         self.step = 0
         self.metrics = {}
@@ -78,12 +97,32 @@ class BaseTrainer(ABC):
             "%Y-%m-%d-%H-%M-%S"
         )
         if identifier:
-            self.timestamp_id = f"{self.timestamp_id}-{identifier}"
+            self.timestamp_id = f"{identifier}-{self.timestamp_id}"
+
+        self.identifier = identifier
 
         if self.train_verbosity:
-            logging.info(
-                f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
-            )
+            # MPS and CUDA support
+            if self.device.type == "cuda":
+                logging.info(
+                    f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
+                )
+                logging.info(
+                    f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
+                    f"available memory: {1e-6 * torch.cuda.mem_get_info(device)[0]} mb"
+                )
+            elif self.device.type == "cpu":
+                logging.warning("Training on CPU, this will be slow")
+                logging.info(f"available CPUs: {os.cpu_count()}")
+                stats = psutil.virtual_memory()  # returns a named tuple
+                available = getattr(stats, "available")
+                logging.info(f"available memory: {1e-6 * available} mb")
+            elif self.device.type == "mps":
+                logging.info("Training with MPS backend")
+                # logging.info(
+                #     f"available memory alloc. by Metal: {1e-6 * torch.mps.driver_allocated_memory()} mb"
+                # )
+
             logging.info(f"Dataset used: {self.dataset}")
             logging.debug(self.dataset["train"][0])
             logging.debug(self.dataset["train"][0].x[0])
@@ -101,15 +140,32 @@ class BaseTrainer(ABC):
                 scheduler
             dataset
         """
-        
-        
-        dataset = cls._load_dataset(config["dataset"])
-        model = cls._load_model(config["model"], dataset["train"])
+        dataset_config = config["dataset"]
+
+        # find a matching dataset metadata signature
+        metadata = dataset_config.get("preprocess_params", {})
+        # find non-OTF transforms
+        transforms = [
+            t.get("args")
+            for t in dataset_config.get("transforms", [])
+            if not t.get("otf")
+        ]
+        for t_args in transforms:
+            metadata.update(t_args)
+
+        dataset = cls._load_dataset(dataset_config, metadata)
+        model = cls._load_model(
+            config["model"],
+            dataset["train"],
+            wandb.config.get("hyperparams", None)
+            if wandb.run and config["task"]["wandb"]["sweep"]["do_sweep"]
+            else None,
+        )
         optimizer = cls._load_optimizer(config["optim"], model)
         sampler = cls._load_sampler(config["optim"], dataset["train"])
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"], config["dataset"], dataset, sampler
-        )               
+        )
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
@@ -119,6 +175,12 @@ class BaseTrainer(ABC):
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_dir = config["task"].get("checkpoint_dir", None)
+
+        device = config["task"].get("gpu", None)
+
+        # pass in custom results home dir and load in prev checkpoint dir
+        save_dir = config["task"].get("save_dir", None)
+        checkpoint_dir = config["task"].get("run_name", None)
 
         return cls(
             model=model,
@@ -134,34 +196,72 @@ class BaseTrainer(ABC):
             max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
+            device=device,
             save_dir=save_dir,
             checkpoint_dir=checkpoint_dir,
+            wandb_config=config["task"].get("wandb"),
+            model_config=config["model"],
+            opt_config=config["optim"],
+            dataset_config=config["dataset"],
         )
 
     @staticmethod
-    def _load_dataset(dataset_config):
+    def _load_dataset(dataset_config, metadata):
         """Loads the dataset if from a config file."""
-        
+
         dataset_path = dataset_config["pt_path"]
-        dataset={}    
+
+        # search for a metadata match, else use provided path
+        data_dir = pathlib.Path(dataset_path).parent
+        found = False
+        for proc_dir in data_dir.glob("**/"):
+            if proc_dir.is_dir():
+                try:
+                    with open(proc_dir / "metadata.json", "r") as f:
+                        found_metadata = json.load(f)
+                    # check for matching metadata of processed datasets
+                    if found_metadata == metadata:
+                        logging.debug(
+                            "Found dataset with matching metadata when attempting to load dataset. Loading..."
+                        )
+                        dataset_path = proc_dir
+                        found = True
+                        break
+                except FileNotFoundError:
+                    continue
+
+        if not found:
+            logging.info(
+                "No existing processed dataset with matching metadata found. Defaulting to config..."
+            )
+
+        if not os.path.exists(os.path.join(dataset_path, "data.pt")):
+            raise FileNotFoundError(
+                f"Dataset path {dataset_path} does not exist. Specify processed=False in config to process data."
+            )
+
+        dataset = {}
         if isinstance(dataset_config["src"], dict):
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_train.pt",
                 transform_list=dataset_config.get("transforms", []),
+                preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
             )
             dataset["val"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_val.pt",
                 transform_list=dataset_config.get("transforms", []),
+                preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
             )
             dataset["test"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
+                preprocess_kwargs=dataset_config.get("preprocess_kwargs", {}),
             )
-                                
-        else:                          
+
+        else:
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
@@ -171,11 +271,15 @@ class BaseTrainer(ABC):
         return dataset
 
     @staticmethod
-    def _load_model(model_config, dataset):
+    def _load_model(model_config, dataset, sweep_config: dict = None):
         """Loads the model if from a config file."""
-
         model_cls = registry.get_model_class(model_config["name"])
-        model = model_cls(data=dataset, **model_config)
+        # use sweep if configured
+        model_params = model_config["hyperparams"] if not sweep_config else sweep_config
+        model = model_cls(
+            data=dataset,
+            **model_params,
+        )
         return model
 
     @staticmethod
@@ -202,28 +306,32 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataloader(optim_config, dataset_config, dataset, sampler):
 
-        batch_size = optim_config.get("batch_size")    
+        batch_size = optim_config.get("batch_size")
         if isinstance(dataset_config["src"], dict):
             train_loader = get_dataloader(
                 dataset["train"], batch_size=batch_size, sampler=sampler
             )
-            val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=sampler)
+            val_loader = get_dataloader(
+                dataset["val"], batch_size=batch_size, sampler=sampler
+            )
             test_loader = get_dataloader(
                 dataset["test"], batch_size=batch_size, sampler=sampler
             )
-                                
+
         else:
             train_ratio = dataset_config["train_ratio"]
             val_ratio = dataset_config["val_ratio"]
             test_ratio = dataset_config["test_ratio"]
             train_dataset, val_dataset, test_dataset = dataset_split(
                 dataset["train"], train_ratio, val_ratio, test_ratio
-            )            
-    
+            )
+
             train_loader = get_dataloader(
                 train_dataset, batch_size=batch_size, sampler=sampler
             )
-            val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
+            val_loader = get_dataloader(
+                val_dataset, batch_size=batch_size, sampler=sampler
+            )
             test_loader = get_dataloader(
                 test_dataset, batch_size=batch_size, sampler=sampler
             )
@@ -263,6 +371,31 @@ class BaseTrainer(ABC):
     def predict(self):
         """Implemented by derived classes."""
 
+    def plot_losses(self, metrics):
+        fig = plt.figure()
+        fig.tight_layout()
+
+        ax0 = fig.add_subplot(131, title="loss")
+        ax1 = fig.add_subplot(132, title="lr")
+        ax2 = fig.add_subplot(133, title="time")
+
+        ax0.plot(metrics["train"], label="train")
+        ax0.plot(metrics["val"], label="val")
+
+        ax1.plot(metrics["lr"], label="lr")
+        ax2.plot(metrics["time"], label="epoch time")
+
+        ax0.legend()
+        ax1.legend()
+        ax2.legend()
+
+        res_folder = os.path.join(self.run_dir, "results", self.timestamp_id)
+
+        if not os.path.exists(os.path.join(res_folder, "plots")):
+            os.mkdir(os.path.join(res_folder, "plots"))
+
+        fig.savefig(os.path.join(res_folder, "plots", "losses.png"))
+
     def update_best_model(self, val_metrics):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
@@ -299,6 +432,11 @@ class BaseTrainer(ABC):
         filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
         torch.save(state, filename)
+
+        if wandb.run is not None:
+            # No need to save the model to W&B at every step
+            wandb.save(filename, policy="end")
+
         return filename
 
     def save_results(self, output, filename, node_level_predictions=False):
@@ -325,14 +463,25 @@ class BaseTrainer(ABC):
     # TODO: streamline this from PR #12
     def load_checkpoint(self):
         """Loads the model from a checkpoint.pt file"""
-
-        if not self.checkpoint_dir:
-            raise ValueError("No checkpoint directory specified in config.")
-
-        checkpoint_dir = glob.glob(os.path.join(self.checkpoint_dir, "results", "*"))
-        checkpoint_file = os.path.join(checkpoint_dir, "checkpoint", "checkpoint.pt")
-
         # Load params from checkpoint
+        checkpoint_file = None
+        if wandb.run and wandb.run.resumed:
+            checkpoint_obj = wandb.restore("checkpoint.pt")
+            if checkpoint_obj:
+                checkpoint_file = checkpoint_obj.name
+            else:
+                logging.info(
+                    "No checkpoint file found in W&B run history. Defaulting to local checkpoint file."
+                )
+        if not checkpoint_file:
+            if not self.checkpoint_dir:
+                raise ValueError("No checkpoint directory specified in config.")
+
+            checkpoint_dir = os.path.join("results", self.checkpoint_dir)
+            checkpoint_file = os.path.join(
+                checkpoint_dir, "checkpoint", "checkpoint.pt"
+            )
+
         checkpoint = torch.load(checkpoint_file)
 
         self.model.load_state_dict(checkpoint["state_dict"])
