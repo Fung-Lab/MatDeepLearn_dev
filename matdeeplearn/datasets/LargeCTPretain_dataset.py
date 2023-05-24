@@ -520,7 +520,7 @@ if __name__ == '__main__':
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
-    dataset = LargeCTPretrainDataset(root="../../data/test_data/processed/", processed_data_path="",
+    dataset = LargeCTPretrainDataset(root="data/ct_pretrain/data.json", processed_data_path="",augmentation_list=config["dataset"]["augmentation"],
                                      processed_file_name="data.pt", dataset_config=config["dataset"])
     # print(dataset.num_edge_features)
 
