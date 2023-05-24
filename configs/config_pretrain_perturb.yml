@@ -9,7 +9,7 @@ task:
   seed: 0
   # Defaults to run directory if not specified
   # save_dir: "."
-  checkpoint_dir: "results/perturbing_300"
+#  checkpoint_dir: "results/perturbing_300"
   write_output: True
   parallel: True
   #Training print out frequency (print per n number of epochs)
@@ -17,7 +17,7 @@ task:
 
 model:
   name: CGCNN_CTPRETRAIN
-  load_model: True
+  load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
@@ -36,7 +36,7 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 500
+  max_epochs: 300
   max_checkpoint_epochs: 0
   lr: 0.00001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
