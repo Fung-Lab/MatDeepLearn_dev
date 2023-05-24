@@ -156,7 +156,7 @@ class FinetuneTrainer(PropertyTrainer):
             state = {"state_dict": self.model.state_dict(), "val_metrics": val_metrics}
 
         curr_checkpt_dir = os.path.join(
-            self.save_dir, "results", self.identifier, self.timestamp_id, "checkpoint"
+            self.save_dir, self.fine_tune_from, self.identifier, self.timestamp_id, "checkpoint"
         )
         os.makedirs(curr_checkpt_dir, exist_ok=True)
         filename = os.path.join(curr_checkpt_dir, checkpoint_file)
@@ -180,7 +180,7 @@ class FinetuneTrainer(PropertyTrainer):
                     self.epoch_time,
                 )
             )
-            with open(os.path.join(self.save_dir, "results", self.identifier, self.timestamp_id, "train.log"), "a+") as f:
+            with open(os.path.join(self.save_dir, self.fine_tune_from, self.identifier, self.timestamp_id, "train.log"), "a+") as f:
                 f.write(
                     "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}\n".format(
                         int(self.epoch - 1),
@@ -276,7 +276,7 @@ class FinetuneTrainer(PropertyTrainer):
                 # step scheduler, using validation error
                 self._scheduler_step()
 
-        best_log_dir_name = os.path.join(self.save_dir, "results", self.identifier)
+        best_log_dir_name = os.path.join(self.save_dir, self.fine_tune_from, self.identifier)
         if not os.path.exists(best_log_dir_name):
             os.makedirs(best_log_dir_name)
 
