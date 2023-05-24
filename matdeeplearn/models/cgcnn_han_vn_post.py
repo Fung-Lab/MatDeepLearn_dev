@@ -48,8 +48,8 @@ class SemanticAttention(nn.Module):
         return meta_path_attns
 
 
-@registry.register_model("CGCNN_HAN_VN")
-class CGCNN_HAN_VN(BaseModel):
+@registry.register_model("CGCNN_HAN_VN_POST")
+class CGCNN_HAN_VN_POST(BaseModel):
     def __init__(
         self,
         edge_steps,
@@ -61,7 +61,6 @@ class CGCNN_HAN_VN(BaseModel):
         gc_count=4,
         post_fc_count=3,
         attn_heads=1,
-        heterogeneous_conv=False,
         pool="global_mean_pool",
         virtual_pool="AtomicNumberPooling",
         pool_choice="both",
@@ -74,7 +73,7 @@ class CGCNN_HAN_VN(BaseModel):
         act_nn="ReLU",
         dropout_rate=0.0,
     ):
-        super(CGCNN_HAN_VN, self).__init__(edge_steps, self_loop)
+        super(CGCNN_HAN_VN_POST, self).__init__(edge_steps, self_loop)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -93,7 +92,6 @@ class CGCNN_HAN_VN(BaseModel):
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
         self.attn_heads = attn_heads
-        self.heterogeneous_conv = heterogeneous_conv
 
         # Relying on data object attributes (data.num_edge_features) not recommended
         self.num_features = data.num_node_features
@@ -322,67 +320,42 @@ class CGCNN_HAN_VN(BaseModel):
         out_v = out_v * virtual_node_mask
         out_r = out_r * real_node_mask
 
-        # node level attention computations
+        # perform CGCNN graph convolutions
+        conv_dict = {}
+        for mp in self.mp_pattern:
+            conv_list = getattr(self, f"conv_{mp}_list")
+            bn_list = getattr(self, f"bn_{mp}_list")
+            for j in range(self.gc_count):
+                conv: CGConv = conv_list[j]
+                edge_idx = getattr(data, f"edge_index_{mp}")
+                edge_attr = getattr(data, f"edge_attr_{mp}")
+                if mp == "rr":
+                    emb = conv(out_r, edge_idx, edge_attr)
+                elif mp == "rv" or mp == "vr":
+                    emb = conv(out_r + out_v, edge_idx, edge_attr)
+                elif mp == "vv":
+                    emb = conv(out_v, edge_idx, edge_attr)
+                if self.batch_norm:
+                    bn = bn_list[j]
+                    emb = bn(emb)
+            conv_dict[mp] = emb
+
+        # node level GATConv attention computations
         embedding_dict = {}
         for j, mp in enumerate(self.mp_pattern):
             edge_idx = getattr(data, f"edge_index_{mp}")
-            if mp == "rr":
-                embedding_dict[mp] = (
-                    self.attn_conv_list[j](out_r, edge_idx) * real_node_mask
-                )
-            elif mp == "rv" or mp == "vr":
-                embedding_dict[mp] = self.attn_conv_list[j](out_r + out_v, edge_idx)
-            elif mp == "vv":
-                embedding_dict[mp] = (
-                    self.attn_conv_list[j](out_v, edge_idx) * virtual_node_mask
-                )
+            edge_attr = getattr(data, f"edge_attr_{mp}")
+            embedding_dict[mp] = (
+                self.attn_conv_list[j](conv_dict[mp], edge_idx, edge_attr)
+            )
 
         # semantic (meta-path) level attention
         attn_weights = self.semantic_attn(embedding_dict)
 
-        if self.heterogeneous_conv:
-            out = torch.zeros_like(data.x)
-            for mp in self.mp_pattern:
-                conv_list = getattr(self, f"conv_{mp}_list")
-                bn_list = getattr(self, f"bn_{mp}_list")
-                for j in range(len(conv_list)):
-                    conv = conv_list[j]
-                    edge_idx = getattr(data, f"edge_index_{mp}")
-                    edge_attr = getattr(data, f"edge_attr_{mp}")
-                    emb = conv(embedding_dict[mp], edge_idx, edge_attr)
-                    if self.batch_norm:
-                        bn = bn_list[j]
-                        emb = bn(emb)
-                # aggregate embeddings using attention weights
-                out = out + emb * attn_weights[mp].expand(-1, emb.size(-1))
-        else:
-            # use the correct edge_indexes and edge_attrs for MP
-            edge_index_use = torch.cat(
-                [getattr(data, f"edge_index_{mp}") for mp in self.mp_pattern], dim=1
-            )
-            edge_attr_use = torch.cat(
-                [getattr(data, f"edge_attr_{mp}") for mp in self.mp_pattern], dim=0
-            )
-            # obtain final output embedding using attention weights
-            embeds = torch.stack([embedding_dict[mp] for mp in self.mp_pattern])
-            attns = torch.stack([attn_weights[mp] for mp in self.mp_pattern])
-            out = torch.sum(embeds * attns.expand(-1, -1, embeds.size(-1)), dim=0)
-            # conv operations
-            for j in range(0, len(self.conv_list)):
-                if self.batch_norm:
-                    out = self.conv_list[j](
-                        out,
-                        edge_index_use,
-                        edge_attr_use.float(),
-                    )
-                    out = self.bn_list[j](out)
-                else:
-                    out = self.conv_list[j](
-                        out,
-                        edge_index_use,
-                        edge_attr_use.float(),
-                    )
-                out = F.dropout(out, p=self.dropout_rate, training=self.training)
+        # obtain final output embedding using attention weights
+        embeds = torch.stack([embedding_dict[mp] for mp in self.mp_pattern])
+        attns = torch.stack([attn_weights[mp] for mp in self.mp_pattern])
+        out = torch.sum(embeds * attns.expand(-1, -1, embeds.size(-1)), dim=0)
 
         # Post-GNN dense layers
         if self.pool_order == "early":

@@ -2,12 +2,13 @@ import hashlib
 import logging
 import os
 import pprint
+import tempfile
 from datetime import datetime
 
 import torch
-import wandb
 import yaml
 
+import wandb
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.jobs import CONFIG_PATH, start_sweep_tasks
@@ -145,7 +146,10 @@ if __name__ == "__main__":
     config = build_config(args, override_args)
 
     if os.path.exists(args.config_path):
-        config["task"]["wandb"].get("log_artifacts", []).append(str(args.config_path))
+        temp = tempfile.NamedTemporaryFile(delete=False, suffix=".yml")
+        with open(temp.name, "w") as tmp:
+            yaml.dump(config, tmp)
+        config["task"]["wandb"].get("log_artifacts", []).append(str(temp.name))
 
     timestamp = torch.tensor(datetime.now().timestamp())
     timestamp = datetime.fromtimestamp(timestamp.int()).strftime("%Y-%m-%d-%H-%M-%S")

@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_han_vn_hmof"
+  identifier: "cgcnn_han_vn_pre_hmof"
   reprocess: False
   run_id: ""
   parallel: True
@@ -24,6 +24,7 @@ task:
       - "model.hyperparams.pool"
       - "model.hyperparams.virtual_pool"
       - "model.hyperparams.gc_count"
+      - "model.hyperparams.attn_heads"
       - "optim.lr"
       - "optim.batch_size"
       - "optim.max_epochs"
@@ -50,10 +51,10 @@ task:
       # sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
-  name: CGCNN_HAN_VN
+  name: CGCNN_HAN_VN_PRE
   load_model: False
   save_model: True
-  model_path: "cgcnn_han_vn.pth"
+  model_path: "cgcnn_han_vn_pre.pth"
   # model hyperparams
   hyperparams:
     edge_steps: 25

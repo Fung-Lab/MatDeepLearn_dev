@@ -7,6 +7,33 @@ from torch import nn
 from torch_geometric.data import Data
 
 
+class RealVirtualAttention(nn.Module):
+    def __init__(self, **kwargs) -> None:
+        """
+        Attention mechanism to pool real and virtual nodes separately.
+        """
+        super().__init__()
+        self.pool_choice = kwargs.get("pool_choice", "both")
+        
+    def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
+        real_mask = torch.argwhere(data.z != 100).squeeze(1)
+        virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
+
+        out_real = self.attention(
+            torch.index_select(out, 0, real_mask),
+            torch.index_select(data.batch, 0, real_mask),
+        )
+        out_virtual = self.attention(
+            torch.index_select(out, 0, virtual_mask),
+            torch.index_select(data.batch, 0, virtual_mask),
+        )
+
+        out = torch.cat((out_real, out_virtual), dim=1)
+
+
+        return out
+
+
 class RealVirtualPooling(nn.Module):
     def __init__(self, pool: str, **kwargs) -> None:
         """
