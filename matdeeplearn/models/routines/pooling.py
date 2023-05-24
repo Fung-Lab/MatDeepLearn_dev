@@ -1,4 +1,3 @@
-# TODO: add pooling routines to the registry
 from __future__ import annotations
 
 import torch
@@ -6,32 +5,42 @@ import torch_geometric
 from torch import nn
 from torch_geometric.data import Data
 
+from matdeeplearn.models.routines.attention import MetaPathImportance
+
 
 class RealVirtualAttention(nn.Module):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, pool: str, **kwargs) -> None:
         """
         Attention mechanism to pool real and virtual nodes separately.
         """
         super().__init__()
         self.pool_choice = kwargs.get("pool_choice", "both")
-        
+        self.pooling = getattr(torch_geometric.nn, pool)
+
+        # attention mechanism parameters for each class
+        self.embed_dim = kwargs.get("embed_dim", 150)
+        self.attn_size = kwargs.get("attn_size", 128)
+        self.importance = MetaPathImportance(self.embed_dim, self.attn_size)
+
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
         real_mask = torch.argwhere(data.z != 100).squeeze(1)
         virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
 
-        out_real = self.attention(
+        out_real = self.pooling(
             torch.index_select(out, 0, real_mask),
             torch.index_select(data.batch, 0, real_mask),
         )
-        out_virtual = self.attention(
+        out_virtual = self.pooling(
             torch.index_select(out, 0, virtual_mask),
             torch.index_select(data.batch, 0, virtual_mask),
         )
 
-        out = torch.cat((out_real, out_virtual), dim=1)
+        # attention computation to determine which class is most important
+        out = torch.stack((out_real, out_virtual), dim=1)
+        scores = self.importance(out)
+        weighted_res = torch.sum(out * scores, dim=1)
 
-
-        return out
+        return weighted_res
 
 
 class RealVirtualPooling(nn.Module):
@@ -75,13 +84,14 @@ class RealVirtualPooling(nn.Module):
 
 
 class AtomicNumberPooling(nn.Module):
-    def __init__(self, pool, **kwargs) -> None:
+    def __init__(self, pool: str, **kwargs) -> None:
         """
         Expands the node embedding from length N to length N*100, where a node of a specific atomic number
         is indexed to the appropriate location in the N*100 tensor. If atomic number = 1, then the embedding is found in 0:99,
         if atomic_number = 2, then it is found in 100:199, etc.
         """
         super().__init__()
+        del kwargs
         self.pooling = getattr(torch_geometric.nn, pool)
 
     def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:

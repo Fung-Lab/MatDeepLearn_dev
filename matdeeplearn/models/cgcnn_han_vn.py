@@ -3,7 +3,6 @@ from typing import List
 import torch
 import torch.nn.functional as F
 import torch_geometric
-from torch import nn
 from torch.nn import BatchNorm1d
 from torch_geometric.data import Data
 from torch_geometric.nn import CGConv, GATConv, Set2Set
@@ -11,45 +10,11 @@ from torch_geometric.nn import CGConv, GATConv, Set2Set
 import matdeeplearn.models.routines.pooling as pooling
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
-from collections import defaultdict
+from matdeeplearn.models.routines.attention import SemanticAttention
 
 
-class SemanticAttention(nn.Module):
-    """
-    Semantic-level attention.
-    Adapted from https://github.com/Jhy1993/HAN/blob/master/utils/layers.py
-    """
-
-    def __init__(self, meta_paths: list[str], embed_dim: int) -> None:
-        super().__init__()
-        self.meta_paths = meta_paths
-        # weights and attention vectors for each meta path
-        self.w_dict = nn.ModuleDict(
-            {mp: nn.Linear(embed_dim, embed_dim) for mp in meta_paths}
-        )
-        self.q_dict = nn.ParameterDict(
-            {mp: nn.Parameter(torch.ones((embed_dim, 1))) for mp in meta_paths}
-        )
-
-    def forward(self, path_embds: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        meta_path_attns = defaultdict(nn.Module)
-        # compute attention scores and weights for each meta path
-        for mp in self.meta_paths:
-            x = path_embds[mp]
-            # project embedding via linear layer
-            projected_embed = self.w_dict[mp](x)
-            # compute attention scores and weights
-            scores = torch.tensordot(
-                torch.tanh(projected_embed), self.q_dict[mp], dims=1
-            ) / x.size(1)
-            attn_weights = F.softmax(scores, dim=-1)
-            meta_path_attns[mp] = attn_weights
-
-        return meta_path_attns
-
-
-@registry.register_model("CGCNN_HAN_VN_PRE")
-class CGCNN_HAN_VN_PRE(BaseModel):
+@registry.register_model("CGCNN_HAN_VN")
+class CGCNN_HAN_VN(BaseModel):
     def __init__(
         self,
         edge_steps,
@@ -61,10 +26,9 @@ class CGCNN_HAN_VN_PRE(BaseModel):
         gc_count=4,
         post_fc_count=3,
         attn_heads=1,
-        heterogeneous_conv=False,
+        attn_size=128,
         pool="global_mean_pool",
-        virtual_pool="AtomicNumberPooling",
-        pool_choice="both",
+        virtual_pool: dict = None,
         mp_pattern: List[str] = ["rv", "rr"],
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
@@ -74,13 +38,13 @@ class CGCNN_HAN_VN_PRE(BaseModel):
         act_nn="ReLU",
         dropout_rate=0.0,
     ):
-        super(CGCNN_HAN_VN_PRE, self).__init__(edge_steps, self_loop)
+        super(CGCNN_HAN_VN, self).__init__(edge_steps, self_loop)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
         self.pool = pool
-        self.virtual_pool = virtual_pool
-        self.pool_choice = pool_choice
+        self.virtual_pool = virtual_pool.get("virtual_pool_name")
+        self.virtual_pool_kwargs = virtual_pool.get("args")
         self.mp_pattern = mp_pattern
         self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
         self.act_fn = act_fn
@@ -93,7 +57,7 @@ class CGCNN_HAN_VN_PRE(BaseModel):
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
         self.attn_heads = attn_heads
-        self.heterogeneous_conv = heterogeneous_conv
+        self.attn_size = attn_size
 
         # Relying on data object attributes (data.num_edge_features) not recommended
         self.num_features = data.num_node_features
@@ -119,19 +83,15 @@ class CGCNN_HAN_VN_PRE(BaseModel):
             self._setup_pre_gnn_layers(),
             self._setup_pre_gnn_layers(),
         )
-        # heterogeneous conv performs different convolutions for each MP interaction
-        if self.heterogeneous_conv:
-            gnn_list, bn_list = self._setup_gnn_layers()
-            for p in self.mp_pattern:
-                setattr(self, f"conv_{p}_list", gnn_list)
-                setattr(self, f"bn_{p}_list", bn_list)
-        else:
-            self.conv_list, self.bn_list = self._setup_gnn_layers()
+
+        self.conv_list, self.bn_list = self._setup_gnn_layers()
 
         # node-level attention
         self.attn_conv_list = self._setup_node_attn_layers()
         # semantic attention
-        self.semantic_attn = SemanticAttention(self.mp_pattern, self.dim1)
+        self.semantic_attn = SemanticAttention(
+            self.mp_pattern, self.dim1, self.attn_size
+        )
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
 
         # Should processing_steps be a hypereparameter?
@@ -146,7 +106,7 @@ class CGCNN_HAN_VN_PRE(BaseModel):
         self.virtual_node_pool = (
             getattr(pooling, self.virtual_pool)(
                 self.pool,
-                pool_choice=self.pool_choice,
+                **self.virtual_pool_kwargs,
             )
             if self.virtual_pool != ""
             else None
@@ -322,40 +282,30 @@ class CGCNN_HAN_VN_PRE(BaseModel):
         out_v = out_v * virtual_node_mask
         out_r = out_r * real_node_mask
 
-        # node level attention computations
+        # node level GATConv attention computations
         embedding_dict = {}
         for j, mp in enumerate(self.mp_pattern):
             edge_idx = getattr(data, f"edge_index_{mp}")
+            edge_attr = getattr(data, f"edge_attr_{mp}")
             if mp == "rr":
-                embedding_dict[mp] = (
-                    self.attn_conv_list[j](out_r, edge_idx) * real_node_mask
-                )
+                embedding_dict[mp] = self.attn_conv_list[j](out_r, edge_idx, edge_attr)
             elif mp == "rv" or mp == "vr":
-                embedding_dict[mp] = self.attn_conv_list[j](out_r + out_v, edge_idx)
-            elif mp == "vv":
-                embedding_dict[mp] = (
-                    self.attn_conv_list[j](out_v, edge_idx) * virtual_node_mask
+                embedding_dict[mp] = self.attn_conv_list[j](
+                    out_r + out_v, edge_idx, edge_attr
                 )
+            else:
+                embedding_dict[mp] = self.attn_conv_list[j](out_v, edge_idx, edge_attr)
 
         # semantic (meta-path) level attention
         attn_weights = self.semantic_attn(embedding_dict)
 
-        if self.heterogeneous_conv:
-            out = torch.zeros_like(data.x)
-            for mp in self.mp_pattern:
-                conv_list = getattr(self, f"conv_{mp}_list")
-                bn_list = getattr(self, f"bn_{mp}_list")
-                for j in range(self.gc_count):
-                    conv = conv_list[j]
-                    edge_idx = getattr(data, f"edge_index_{mp}")
-                    edge_attr = getattr(data, f"edge_attr_{mp}")
-                    emb = conv(embedding_dict[mp], edge_idx, edge_attr)
-                    if self.batch_norm:
-                        bn = bn_list[j]
-                        emb = bn(emb)
-                # aggregate embeddings using attention weights
-                out = out + emb * attn_weights[mp].expand(-1, emb.size(-1))
-        else:
+        # obtain final output embedding using attention weights
+        embeds = torch.stack([embedding_dict[mp] for mp in self.mp_pattern])
+        attns = torch.stack([attn_weights[mp] for mp in self.mp_pattern])
+        out = torch.sum(embeds * attns.expand(-1, -1, embeds.size(-1)), dim=0)
+
+        # perform CGCNN graph convolutions
+        for j in range(self.gc_count):
             # use the correct edge_indexes and edge_attrs for MP
             edge_index_use = torch.cat(
                 [getattr(data, f"edge_index_{mp}") for mp in self.mp_pattern], dim=1
@@ -363,26 +313,19 @@ class CGCNN_HAN_VN_PRE(BaseModel):
             edge_attr_use = torch.cat(
                 [getattr(data, f"edge_attr_{mp}") for mp in self.mp_pattern], dim=0
             )
-            # obtain final output embedding using attention weights
-            embeds = torch.stack([embedding_dict[mp] for mp in self.mp_pattern])
-            attns = torch.stack([attn_weights[mp] for mp in self.mp_pattern])
-            out = torch.sum(embeds * attns.expand(-1, -1, embeds.size(-1)), dim=0)
-            # conv operations
-            for j in range(0, len(self.conv_list)):
-                if self.batch_norm:
-                    out = self.conv_list[j](
-                        out,
-                        edge_index_use,
-                        edge_attr_use.float(),
-                    )
-                    out = self.bn_list[j](out)
-                else:
-                    out = self.conv_list[j](
-                        out,
-                        edge_index_use,
-                        edge_attr_use.float(),
-                    )
-                out = F.dropout(out, p=self.dropout_rate, training=self.training)
+            if self.batch_norm:
+                out = self.conv_list[j](
+                    out,
+                    edge_index_use,
+                    edge_attr_use.float(),
+                )
+                out = self.bn_list[j](out)
+            else:
+                out = self.conv_list[j](
+                    out,
+                    edge_index_use,
+                    edge_attr_use.float(),
+                )
 
         # Post-GNN dense layers
         if self.pool_order == "early":

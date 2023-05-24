@@ -25,8 +25,7 @@ class CGCNN_VN(BaseModel):
         gc_count=4,
         post_fc_count=3,
         pool="global_mean_pool",
-        virtual_pool="AtomicNumberPooling",
-        pool_choice="both",
+        virtual_pool: dict = None,
         mp_pattern: List[str] = ["rv", "rr"],
         atomic_intermediate_layer_resolution=0,
         pool_order="early",
@@ -41,8 +40,8 @@ class CGCNN_VN(BaseModel):
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
         self.pool = pool
-        self.virtual_pool = virtual_pool
-        self.pool_choice = pool_choice
+        self.virtual_pool = virtual_pool.get("virtual_pool_name")
+        self.virtual_pool_kwargs = virtual_pool.get("args")
         self.mp_pattern = mp_pattern
         self.atomic_intermediate_layer_resolution = atomic_intermediate_layer_resolution
         self.act_fn = act_fn
@@ -91,7 +90,7 @@ class CGCNN_VN(BaseModel):
         self.virtual_node_pool = (
             getattr(pooling, self.virtual_pool)(
                 self.pool,
-                pool_choice=self.pool_choice,
+                **self.virtual_pool_kwargs,
             )
             if self.virtual_pool != ""
             else None

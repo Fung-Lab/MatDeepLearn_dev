@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_han_vn_pre_hmof"
+  identifier: "cgcnn_han_vn_post_hmof"
   reprocess: False
   run_id: ""
   parallel: True
@@ -34,9 +34,9 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
       # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
@@ -51,10 +51,10 @@ task:
       # sweep_file: "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/configs/cgcnn_vn_sweep.yml"
 
 model:
-  name: CGCNN_HAN_VN_PRE
+  name: CGCNN_HAN_VN
   load_model: False
   save_model: True
-  model_path: "cgcnn_han_vn_pre.pth"
+  model_path: "cgcnn_han_vn.pth"
   # model hyperparams
   hyperparams:
     edge_steps: 25
@@ -65,11 +65,13 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    attn_heads: 1
-    heterogeneous_conv: False
+    attn_heads: 6
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "AtomicNumberPooling" # pooling method
-    pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
+    virtual_pool:
+      virtual_pool_name: "RealVirtualAttention" # pooling method
+      args:
+        embed_dim: 100
+        attn_size: 128
     mp_pattern: ["rr", "rv"]
     pool_order: "early"
     batch_norm: True
@@ -97,13 +99,13 @@ dataset:
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
-  src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+  # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
   # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
-  # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
   target_path: ""
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
+  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp"
   # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/ocp"
-  # pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
+  pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -118,8 +120,8 @@ dataset:
     - name: VirtualEdgeGeneration
       args:
         attrs: ["rr", "rv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
+        rr_cutoff: 12
+        rv_cutoff: 12
         vr_cutoff: 5.0
         vv_cutoff: 5.0
       otf: False
@@ -138,7 +140,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 250
-    process_batch_size : 150
+    process_batch_size : 50
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25
