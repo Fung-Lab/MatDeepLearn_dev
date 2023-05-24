@@ -324,7 +324,7 @@ class LargeDataProcessor:
                         perturbation_distance = distance
 
                     # Perturb the node position
-                    pos[i] += perturbation_distance * random_vector
+                    pos[j] += perturbation_distance * random_vector
 
 
 
