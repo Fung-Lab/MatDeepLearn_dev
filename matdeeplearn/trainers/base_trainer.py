@@ -109,14 +109,14 @@ class BaseTrainer(ABC):
                 )
                 logging.info(
                     f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
-                    f"available memory: {1e-6 * torch.cuda.mem_get_info(device)[0]} mb"
+                    f"available memory: {1e-9 * torch.cuda.mem_get_info(device)[0]:3f} GB"
                 )
             elif self.device.type == "cpu":
                 logging.warning("Training on CPU, this will be slow")
                 logging.info(f"available CPUs: {os.cpu_count()}")
                 stats = psutil.virtual_memory()  # returns a named tuple
                 available = getattr(stats, "available")
-                logging.info(f"available memory: {1e-6 * available} mb")
+                logging.info(f"available memory: {1e-9 * available:3f} GB")
             elif self.device.type == "mps":
                 logging.info("Training with MPS backend")
                 # logging.info(

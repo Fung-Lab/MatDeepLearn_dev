@@ -117,14 +117,12 @@ class CGCNN_HAN_VN_POST(BaseModel):
             self._setup_pre_gnn_layers(),
             self._setup_pre_gnn_layers(),
         )
+        
         # heterogeneous conv performs different convolutions for each MP interaction
-        if self.heterogeneous_conv:
+        for p in self.mp_pattern:
             gnn_list, bn_list = self._setup_gnn_layers()
-            for p in self.mp_pattern:
-                setattr(self, f"conv_{p}_list", gnn_list)
-                setattr(self, f"bn_{p}_list", bn_list)
-        else:
-            self.conv_list, self.bn_list = self._setup_gnn_layers()
+            setattr(self, f"conv_{p}_list", gnn_list)
+            setattr(self, f"bn_{p}_list", bn_list)
 
         # node-level attention
         self.attn_conv_list = self._setup_node_attn_layers()

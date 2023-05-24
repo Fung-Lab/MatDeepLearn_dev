@@ -345,7 +345,6 @@ class DataProcessor:
 
         found_existing = False
         data_dir = pathlib.Path(self.pt_path).parent
-        print(data_dir)
         # If forcing preprocess, we ignore the metadata search procedure
         if not self.force_preprocess:
             for proc_dir in data_dir.glob("**/"):

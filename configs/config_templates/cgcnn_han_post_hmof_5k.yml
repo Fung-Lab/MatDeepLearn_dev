@@ -65,7 +65,7 @@ model:
     pre_fc_count: 1
     gc_count: 4
     post_fc_count: 3
-    attn_heads: 1
+    attn_heads: 6
     pool: "global_mean_pool" # pooling reduction scheme
     virtual_pool: "AtomicNumberPooling" # pooling method
     pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
@@ -117,8 +117,8 @@ dataset:
     - name: VirtualEdgeGeneration
       args:
         attrs: ["rr", "rv"]
-        rr_cutoff: 5.0
-        rv_cutoff: 5.0
+        rr_cutoff: 12
+        rv_cutoff: 12
         vr_cutoff: 5.0
         vv_cutoff: 5.0
       otf: False
@@ -137,7 +137,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 250
-    process_batch_size : 150
+    process_batch_size : 50
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25
