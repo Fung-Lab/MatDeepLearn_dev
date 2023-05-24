@@ -1,34 +1,29 @@
 import copy
 import csv
-import glob
+import json
 import logging
 import os
+import pathlib
 from abc import ABC, abstractmethod
-import psutil
 from datetime import datetime
 
+import psutil
 import torch
-import json
 import torch.optim as optim
-import pathlib
 from matplotlib import pyplot as plt
-import wandb
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
 
-from matdeeplearn.common.data import (
-    DataLoader,
-    dataset_split,
-    get_dataloader,
-    get_dataset,
-)
+import wandb
+from matdeeplearn.common.data import (DataLoader, dataset_split,
+                                      get_dataloader, get_dataset)
 from matdeeplearn.common.registry import registry
+from matdeeplearn.common.utils import min_alloc_gpu
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
-from matdeeplearn.common.utils import min_alloc_gpu
 
 
 @registry.register_trainer("base")
