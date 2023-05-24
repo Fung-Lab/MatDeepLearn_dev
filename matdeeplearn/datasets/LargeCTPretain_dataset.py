@@ -293,14 +293,14 @@ class LargeDataProcessor:
         y = np.array(y).reshape(-1, y_dim)
         return dict_structures, y
 
-    def process(self, dict_structures, y):
-        data_list = self.get_data_list(dict_structures, y)
+    def process(self, dict_structures, y, perturb=False, distance: float = 0.05, min_distance: float = None):
+        data_list = self.get_data_list(dict_structures, y, perturb, distance, min_distance)
         data, slices = InMemoryDataset.collate(data_list)
         data.y = torch.Tensor(np.array([data.y]))
 
         return data
 
-    def get_data_list(self, dict_structures, y):
+    def get_data_list(self, dict_structures, y, perturb, distance, min_distance):
         n_structures = len(dict_structures)
         data_list = [Data() for _ in range(n_structures)]
 
@@ -309,6 +309,25 @@ class LargeDataProcessor:
             data = data_list[i]
 
             pos = sdict["positions"]
+
+            if perturb:
+                for j in range(pos.size(0)):
+                    # Perturb data
+                    # Generate a random unit vector
+                    random_vector = torch.randn(3)
+                    random_vector /= torch.norm(random_vector)
+
+                    # Calculate the perturbation distance
+                    if min_distance is not None:
+                        perturbation_distance = random.uniform(min_distance, distance)
+                    else:
+                        perturbation_distance = distance
+
+                    # Perturb the node position
+                    pos[i] += perturbation_distance * random_vector
+
+
+
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
@@ -399,7 +418,7 @@ class LargeCTPretrainDataset(InMemoryDataset):
         if mask_edge_ratios is None:
             mask_edge_ratios = [0.1, 0.1]
         if mask_node_ratios is None:
-            mask_node_ratios = [0.1, 0.25]
+            mask_node_ratios = [0.1, 0.1]
 
         self.root = root
         self.processed_data_path = processed_data_path
@@ -449,6 +468,11 @@ class LargeCTPretrainDataset(InMemoryDataset):
         return [self.processed_file_name]
 
     def __getitem__(self, idx):
+        if "perturbing" in self.augmentation_list:
+            subdata1 = self.processer.process([self.dict_structures[idx]], [self.y[idx]], perturb=True)
+            subdata2 = self.processer.process([self.dict_structures[idx]], [self.y[idx]], perturb=True)
+            return subdata1, subdata2
+
         subdata = self.processer.process([self.dict_structures[idx]], [self.y[idx]])
 
         subdata1 = copy.deepcopy(subdata)
@@ -457,8 +481,8 @@ class LargeCTPretrainDataset(InMemoryDataset):
         def mask_node(mask_node_ratio1, mask_node_ratio2):
             x = subdata.x
             num_nodes = x.size(0)
-            mask1 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio1)
-            mask2 = torch.randperm(num_nodes) < int(num_nodes * mask_node_ratio2)
+            mask1 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio1))
+            mask2 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio2))
 
             subdata1.x[mask1] = 0
             subdata2.x[mask2] = 0
@@ -466,49 +490,17 @@ class LargeCTPretrainDataset(InMemoryDataset):
         def mask_edge(mask_edge_ratio1, mask_edge_ratio2):
             edge_index, edge_attr = subdata.edge_index, subdata.edge_attr
             num_edges = edge_index.size(1)
-            mask1 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio1)
-            mask2 = torch.randperm(num_edges) < int(num_edges * mask_edge_ratio2)
+            mask1 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio1), 1)
+            mask2 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio2), 1)
             subdata1.edge_index = subdata1.edge_index[:, ~mask1]
             subdata1.edge_attr = subdata1.edge_attr[~mask1]
             subdata2.edge_index = subdata2.edge_index[:, ~mask2]
             subdata2.edge_attr = subdata2.edge_attr[~mask2]
 
-        def perturb_data(distance: float = 0.05, min_distance: float = None):
-            for i in range(subdata.pos.size(0)):
-                # Perturb subdata1
-                # Generate a random unit vector
-                random_vector = torch.randn(3)
-                random_vector /= torch.norm(random_vector)
-
-                # Calculate the perturbation distance
-                if min_distance is not None:
-                    perturbation_distance = random.uniform(min_distance, distance)
-                else:
-                    perturbation_distance = distance
-
-                # Perturb the node position
-                subdata1.pos[i] += perturbation_distance * random_vector
-
-                # Perturb subdata2
-                # Generate a random unit vector
-                random_vector = torch.randn(3)
-                random_vector /= torch.norm(random_vector)
-
-                # Calculate the perturbation distance
-                if min_distance is not None:
-                    perturbation_distance = random.uniform(min_distance, distance)
-                else:
-                    perturbation_distance = distance
-
-                # Perturb the node position
-                subdata2.pos[i] += perturbation_distance * random_vector
-
         if "node_masking" in self.augmentation_list:
             mask_node(self.mask_node_ratio1, self.mask_node_ratio2)
         if "edge_masking" in self.augmentation_list:
             mask_edge(self.mask_edge_ratio1, self.mask_edge_ratio2)
-        if "perturbing" in self.augmentation_list:
-            perturb_data(self.distance, self.min_distance)
 
         # Apply transforms
         if self.transform is not None:
@@ -532,17 +524,17 @@ if __name__ == '__main__':
                                      processed_file_name="data.pt", dataset_config=config["dataset"])
     # print(dataset.num_edge_features)
 
-    print(dataset[1][0])
+    print(dataset[10][0])
     print(len(dataset))
-    loader = DataLoader(
-        dataset,
-        batch_size=2,
-        shuffle=False,
-        num_workers=1,
-        sampler=None,
-    )
-    print(len(loader))
-    for batch1, batch2 in loader:
-        print(batch1)
-        print(batch2, "\n")
-        break
+    # loader = DataLoader(
+    #     dataset,
+    #     batch_size=2,
+    #     shuffle=False,
+    #     num_workers=1,
+    #     sampler=None,
+    # )
+    # print(len(loader))
+    # for batch1, batch2 in loader:
+    #     print(batch1)
+    #     print(batch2, "\n")
+    #     break
