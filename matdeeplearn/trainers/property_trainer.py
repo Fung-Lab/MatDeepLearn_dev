@@ -84,7 +84,6 @@ class PropertyTrainer(BaseTrainer):
                 self.train_sampler.set_epoch(epoch)
             #skip_steps = self.step % len(self.train_loader)
             train_loader_iter = iter(self.train_loader)
-
             # metrics for every epoch
             _metrics = {}
 
@@ -93,9 +92,8 @@ class PropertyTrainer(BaseTrainer):
                 #self.epoch = epoch + (i + 1) / len(self.train_loader)
                 #self.step = epoch * len(self.train_loader) + i + 1
                 self.model.train()
-
                 # Get a batch of train data
-                batch = next(train_loader_iter).to(self.rank)              
+                batch = next(train_loader_iter).to(self.rank)           
                 # Compute forward, loss, backward
                 out = self._forward(batch)
                 loss = self._compute_loss(out, batch)                                
@@ -141,11 +139,15 @@ class PropertyTrainer(BaseTrainer):
     
                     # step scheduler, using validation error
                     self._scheduler_step()
-                
-        self.model.load_state_dict(self.best_model_state)
+        
+        if str(self.rank) in "0": 
+            self.model.module.load_state_dict(self.best_model_state)        
+        elif str(self.rank) in ("cpu", "cuda"):            
+            self.model.load_state_dict(self.best_model_state)
         metric = self.validate("test")
         test_loss = metric[type(self.loss_fn).__name__]["metric"]
-        print("Test loss: " + str(test_loss))
+        logging.info("Test loss: " + str(test_loss))                
+                      
         return self.best_model_state
 
     def validate(self, split="val"):

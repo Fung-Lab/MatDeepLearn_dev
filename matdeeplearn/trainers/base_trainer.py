@@ -167,7 +167,7 @@ class BaseTrainer(ABC):
         """Loads the dataset if from a config file."""
 
         dataset_path = dataset_config["pt_path"]
-        dataset={}
+        dataset={}    
         if isinstance(dataset_config["src"], dict):
             dataset["train"] = get_dataset(
                 dataset_path,
@@ -184,10 +184,9 @@ class BaseTrainer(ABC):
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
             )
-
-        else:
+                                
+        else:                                         
             dataset_full = get_dataset(
-
                 dataset_path,
                 processed_file_name="data.pt",
                 transform_list=dataset_config.get("transforms", []),
@@ -197,7 +196,7 @@ class BaseTrainer(ABC):
             test_ratio = dataset_config["test_ratio"]
             dataset["train"], dataset["val"], dataset["test"] = dataset_split(
                 dataset_full, train_ratio, val_ratio, test_ratio, seed,
-            )       
+            )   
             
         return dataset
 
@@ -216,8 +215,6 @@ class BaseTrainer(ABC):
             model = DistributedDataParallel(
                 model, device_ids=[rank], find_unused_parameters=False
             )
-                        
-
         return model
 
     @staticmethod
@@ -248,37 +245,21 @@ class BaseTrainer(ABC):
                 dataset, num_replicas=world_size, rank=rank
             )
         else:
-            sampler = None        
+            sampler = None 
+     
         return sampler
 
     @staticmethod
     def _load_dataloader(optim_config, dataset_config, dataset, sampler):
 
         batch_size = optim_config.get("batch_size")
-        if isinstance(dataset_config["src"], dict):
-            train_loader = get_dataloader(
-                dataset["train"], batch_size=batch_size, sampler=sampler
-            )
-            val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=sampler)
-            test_loader = get_dataloader(
-                dataset["test"], batch_size=batch_size, sampler=sampler
-            )
-
-        else:
-            train_ratio = dataset_config["train_ratio"]
-            val_ratio = dataset_config["val_ratio"]
-            test_ratio = dataset_config["test_ratio"]
-            train_dataset, val_dataset, test_dataset = dataset_split(
-                dataset["train"], train_ratio, val_ratio, test_ratio
-            )
-
-            train_loader = get_dataloader(
-                train_dataset, batch_size=batch_size, sampler=sampler
-            )
-            val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
-            test_loader = get_dataloader(
-                test_dataset, batch_size=batch_size, sampler=sampler
-            )
+        train_loader = get_dataloader(
+            dataset["train"], batch_size=batch_size, sampler=sampler
+        )
+        val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=None)
+        test_loader = get_dataloader(
+            dataset["test"], batch_size=batch_size, sampler=None
+        )
 
         return train_loader, val_loader, test_loader
 

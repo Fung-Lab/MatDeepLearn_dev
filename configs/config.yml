@@ -8,7 +8,7 @@ task:
   seed: 0
   # Defaults to run directory if not specified
   save_dir: 
-  checkpoint_dir: /net/csefiles/coc-fung-cluster/Victor/ML_Matdeeplearn/MatDeepLearn_dev/results/2023-05-23-15-29-04-my_train_job/checkpoint/
+  checkpoint_dir: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn_Funggroup/MatDeepLearn_dev/results/2023-05-23-15-29-04-my_train_job/checkpoint/checkpoint.pt"
   write_output: True
 
 model:
