@@ -54,7 +54,8 @@ def calculate_edges_master(
     neighbors = torch.empty(0)
     cell_offset_distances = torch.empty(0)
     
-    if cell is None:
+    if torch.sum(cell) == 0:
+        cell = None
         method = "mdl"
 
     if method == "mdl":
@@ -409,7 +410,7 @@ def get_cutoff_distance_matrix(
     elif cell == None:
         distance_matrix, atom_rij = get_distances(pos, device=device)   
         cutoff_distance_matrix = threshold_sort(distance_matrix, r, n_neighbors)
-        cell_offsets = None
+        cell_offsets = torch.zeros((1,3))
 
     return cutoff_distance_matrix, cell_offsets, atom_rij
 
@@ -718,6 +719,7 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
     mask_num_neighbors.index_fill_(0, index_sort, True)
 
     return mask_num_neighbors, num_neighbors_image
+    
 def radius_graph_pbc(
     radius: float,
     max_num_neighbors_threshold: int,

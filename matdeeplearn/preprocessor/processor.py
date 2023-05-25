@@ -189,7 +189,7 @@ class DataProcessor:
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             ).view(1, 3, 3)
             if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
-                cell = None
+                cell = torch.zeros((3,3)).unsqueeze(0)
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             d["positions"] = pos
@@ -255,7 +255,7 @@ class DataProcessor:
                 if cell.shape[0] != 1:
                     cell = cell.view(1,3,3)
             else: 
-                cell = None
+                cell = torch.zeros((3,3)).unsqueeze(0)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -443,7 +443,7 @@ class DataProcessor:
             data.edge_index, data.edge_weight = edge_indices, edge_weights
             data.edge_vec = edge_vec
             data.cell_offsets = cell_offsets
-            data.neighbors = neighbors
+            data.neighbors = neighbors            
 
             data.edge_descriptor = {}
             # data.edge_descriptor["mask"] = cd_matrix_masked
