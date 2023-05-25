@@ -25,6 +25,7 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
         # build configs for each model listed in config
         step = 0
         train_data, val_data, test_data = None, None, None
+        model1_train_out, model1_val_out, model1_test_out = None, None, None
         for model in config["models"]:
 
             model_args = argparse.Namespace()
@@ -60,8 +61,62 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
                 self.trainer = ctx.trainer
 
                 # subsequent steps, can use predicted data
+                # if second task, load output from model 1 into model 2
                 if step != 0:
-                    pass
+                    counter = 0
+                    new_train_data_lst = []
+                    for i in train_data.indices:
+                        # for i in range(55):
+                        # print(model1_out[counter])
+                        new_train_data = dataset.__setitem__(
+                            i, model1_train_out[counter]
+                        )
+                        new_train_data_lst.append(new_train_data)
+                        counter += 1
+
+                    predict_train_loader = get_dataloader(
+                        new_train_data_lst,
+                        batch_size=model_config["optim"]["batch_size"],
+                        sampler=None,
+                        shuffle=True,
+                    )
+
+                    counter = 0
+                    new_val_data_lst = []
+                    for i in val_data.indices:
+                        # for i in range(55):
+                        # print(model1_out[counter])
+                        new_val_data = dataset.__setitem__(i, model1_val_out[counter])
+                        new_val_data_lst.append(new_val_data)
+                        counter += 1
+
+                    predict_val_loader = get_dataloader(
+                        new_val_data_lst,
+                        batch_size=model_config["optim"]["batch_size"],
+                        sampler=None,
+                        shuffle=True,
+                    )
+
+                    counter = 0
+                    new_test_data_lst = []
+                    for i in test_data.indices:
+                        # for i in range(55):
+                        # print(model1_out[counter])
+                        new_test_data = dataset.__setitem__(i, model1_test_out[counter])
+                        new_test_data_lst.append(new_test_data)
+                        counter += 1
+                    # set batch norm to be false so can do batch_size 1
+                    # self.trainer.model.batch_norm = False
+                    predict_test_loader = get_dataloader(
+                        new_test_data_lst,
+                        batch_size=model_config["optim"]["batch_size"],
+                        sampler=None,
+                        shuffle=True,
+                    )
+
+                    self.trainer.train_loader = predict_train_loader
+                    self.trainer.val_loader = predict_val_loader
+                    self.trainer.test_loader = predict_test_loader
 
                 self.task.setup(self.trainer)
 
@@ -79,23 +134,61 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
 
                 # get all the test_loader indices and make new dataloader
                 counter = 0
-                new_data_lst = []
-                for i in test_data.indices:
+                new_train_data_lst = []
+                for i in train_data.indices:
                     # for i in range(55):
                     # print(model1_out[counter])
-                    new_data = dataset.get(i)
-                    new_data_lst.append(new_data)
+                    new_train_data = dataset.get(i)
+                    new_train_data_lst.append(new_train_data)
                     counter += 1
-                # set batch norm to be false so can do batch_size 1
-                # self.trainer.model.batch_norm = False
-                predict_loader = get_dataloader(
-                    new_data_lst,
+
+                predict_train_loader = get_dataloader(
+                    new_train_data_lst,
                     batch_size=model_config["optim"]["batch_size"],
                     sampler=None,
                     shuffle=False,
                 )
-                model1_out, _ = self.trainer.predict(
-                    predict_loader, split="model1_test"
+
+                counter = 0
+                new_val_data_lst = []
+                for i in val_data.indices:
+                    # for i in range(55):
+                    # print(model1_out[counter])
+                    new_val_data = dataset.get(i)
+                    new_val_data_lst.append(new_val_data)
+                    counter += 1
+
+                predict_val_loader = get_dataloader(
+                    new_val_data_lst,
+                    batch_size=model_config["optim"]["batch_size"],
+                    sampler=None,
+                    shuffle=False,
+                )
+
+                counter = 0
+                new_test_data_lst = []
+                for i in test_data.indices:
+                    # for i in range(55):
+                    # print(model1_out[counter])
+                    new_test_data = dataset.get(i)
+                    new_test_data_lst.append(new_test_data)
+                    counter += 1
+                # set batch norm to be false so can do batch_size 1
+                # self.trainer.model.batch_norm = False
+                predict_test_loader = get_dataloader(
+                    new_test_data_lst,
+                    batch_size=model_config["optim"]["batch_size"],
+                    sampler=None,
+                    shuffle=False,
+                )
+                model1_train_out, _ = self.trainer.predict(
+                    predict_train_loader, split="model1_predict_train"
+                )
+                model1_val_out, _ = self.trainer.predict(
+                    predict_val_loader, split="model1_predict_val"
+                )
+                model1_test_out, _ = self.trainer.predict(
+                    predict_test_loader, split="model1_predict_test"
                 )
 
                 # model1_out, _ = self.trainer.predict(
@@ -103,29 +196,9 @@ class ChainRunner:  # submitit.helpers.Checkpointable):
                 # )
             if step == 1:
                 # record model 2 predict
-                self.trainer.predict(predict_loader, split="model2_test")
+                self.trainer.predict(predict_test_loader, split="model2_test")
 
             step += 1
-
-        # after model 2 runs, use model1_out in model2 predictions (model1_out is (scaled, scaling_factor))
-        counter = 0
-        new_data_lst = []
-        for i in test_data.indices:
-            new_data = dataset.__setitem__(i, model1_out[counter])
-            new_data_lst.append(new_data)
-            counter += 1
-
-        test_loader = get_dataloader(
-            new_data_lst,
-            batch_size=model_config["optim"]["batch_size"],
-            sampler=None,
-            shuffle=False,
-        )
-        self.trainer.test_loader = test_loader
-
-        _, predict_error = self.trainer.predict(
-            self.trainer.test_loader, split="model2_chain_test"
-        )
 
     def checkpoint(self, *args, **kwargs):
         # new_runner = Runner()
