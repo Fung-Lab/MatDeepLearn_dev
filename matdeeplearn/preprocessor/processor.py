@@ -26,6 +26,7 @@ def process_data(dataset_config):
     root_path_dict = dataset_config["src"]
     target_path_dict = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
+    prediction_level = dataset_config.get("prediction_level", "graph")
     cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
     n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
     num_offsets = dataset_config["preprocess_params"]["num_offsets"]
@@ -44,6 +45,7 @@ def process_data(dataset_config):
         root_path=root_path_dict,
         target_file_path=target_path_dict,
         pt_path=pt_path,
+        prediction_level=prediction_level, 
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
@@ -68,6 +70,7 @@ class DataProcessor:
         root_path: str,
         target_file_path: str,
         pt_path: str,
+        prediction_level: str, 
         r: float,
         n_neighbors: int,
         num_offsets: int,
@@ -139,6 +142,7 @@ class DataProcessor:
         self.target_file_path_dict = target_file_path
         self.pt_path = pt_path
         self.r = r
+        self.prediction_level = prediction_level
         self.n_neighbors = n_neighbors
         self.num_offsets = num_offsets
         self.edge_steps = edge_steps
@@ -270,72 +274,99 @@ class DataProcessor:
 
             # check y types
             _y = s["y"]
-            if isinstance(_y, str):
-                _y = float(_y)
-            elif isinstance(_y, list):
-                _y = [float(each) for each in _y]
+            if isinstance(_y, list) == False:
+                _y = np.array([_y], dtype=np.float32)
+            else:
+                _y = np.array(_y, dtype=np.float32)
+            #if isinstance(_y, str):
+            #    _y = float(_y)
+            #elif isinstance(_y, list):
+            #    _y = [float(each) for each in _y]
+            
             y.append(_y)
 
-        y = np.array(y).reshape(-1, y_dim)
+        y = np.array(y)
         return dict_structures, y
 
     def process(self, save=True):
         
         if isinstance(self.root_path_dict, dict):
+            
+            if self.root_path_dict.get("train"):     
+                self.root_path = self.root_path_dict["train"]
+                if self.target_file_path_dict: 
+                    self.target_file_path = self.target_file_path_dict["train"]
+                else: 
+                    self.target_file_path = self.target_file_path_dict
+                logging.info("Train dataset found at {}".format(self.root_path))
+                logging.info("Processing device: {}".format(self.device))
+        
+                dict_structures, y = self.src_check()
+                data_list = self.get_data_list(dict_structures, y)
+                data, slices = InMemoryDataset.collate(data_list)
+        
+                if save:
+                    if self.pt_path:
+                        save_path = os.path.join(self.pt_path, "data_train.pt")    
+                    torch.save((data, slices), save_path)
+                    logging.info("Processed train data saved successfully.")   
+                
+            if self.root_path_dict.get("val"):
+                self.root_path = self.root_path_dict["val"] 
+                if self.target_file_path_dict: 
+                    self.target_file_path = self.target_file_path_dict["val"]
+                else: 
+                    self.target_file_path = self.target_file_path_dict            
+                logging.info("Val dataset found at {}".format(self.root_path))
+                logging.info("Processing device: {}".format(self.device))
+        
+                dict_structures, y = self.src_check()
+                data_list = self.get_data_list(dict_structures, y)
+                data, slices = InMemoryDataset.collate(data_list)
+        
+                if save:
+                    if self.pt_path:
+                        save_path = os.path.join(self.pt_path, "data_val.pt")    
+                    torch.save((data, slices), save_path)
+                    logging.info("Processed val data saved successfully.")   
+            
+            if self.root_path_dict.get("test"):    
+                self.root_path = self.root_path_dict["test"]
+                if self.target_file_path_dict: 
+                    self.target_file_path = self.target_file_path_dict["test"]
+                else: 
+                    self.target_file_path = self.target_file_path_dict                
+                logging.info("Test dataset found at {}".format(self.root_path))
+                logging.info("Processing device: {}".format(self.device))
+        
+                dict_structures, y = self.src_check()
+                data_list = self.get_data_list(dict_structures, y)
+                data, slices = InMemoryDataset.collate(data_list)
+    
+                if save:
+                    if self.pt_path:
+                        save_path = os.path.join(self.pt_path, "data_test.pt")    
+                    torch.save((data, slices), save_path)
+                    logging.info("Processed test data saved successfully.")   
                     
-            self.root_path = self.root_path_dict["train"]
-            if self.target_file_path_dict: 
-                self.target_file_path = self.target_file_path_dict["train"]
-            else: 
-                self.target_file_path = self.target_file_path_dict
-            logging.info("Train dataset found at {}".format(self.root_path))
-            logging.info("Processing device: {}".format(self.device))
+            if self.root_path_dict.get("predict"):    
+                self.root_path = self.root_path_dict["predict"]
+                if self.target_file_path_dict: 
+                    self.target_file_path = self.target_file_path_dict["predict"]
+                else: 
+                    self.target_file_path = self.target_file_path_dict                
+                logging.info("Predict dataset found at {}".format(self.root_path))
+                logging.info("Processing device: {}".format(self.device))
+        
+                dict_structures, y = self.src_check()
+                data_list = self.get_data_list(dict_structures, y)
+                data, slices = InMemoryDataset.collate(data_list)
     
-            dict_structures, y = self.src_check()
-            data_list = self.get_data_list(dict_structures, y)
-            data, slices = InMemoryDataset.collate(data_list)
-    
-            if save:
-                if self.pt_path:
-                    save_path = os.path.join(self.pt_path, "data_train.pt")    
-                torch.save((data, slices), save_path)
-                logging.info("Processed train data saved successfully.")   
-                
-            self.root_path = self.root_path_dict["val"]
-            if self.target_file_path_dict: 
-                self.target_file_path = self.target_file_path_dict["val"]
-            else: 
-                self.target_file_path = self.target_file_path_dict            
-            logging.info("Train dataset found at {}".format(self.root_path))
-            logging.info("Processing device: {}".format(self.device))
-    
-            dict_structures, y = self.src_check()
-            data_list = self.get_data_list(dict_structures, y)
-            data, slices = InMemoryDataset.collate(data_list)
-    
-            if save:
-                if self.pt_path:
-                    save_path = os.path.join(self.pt_path, "data_val.pt")    
-                torch.save((data, slices), save_path)
-                logging.info("Processed val data saved successfully.")   
-                
-            self.root_path = self.root_path_dict["test"]
-            if self.target_file_path_dict: 
-                self.target_file_path = self.target_file_path_dict["test"]
-            else: 
-                self.target_file_path = self.target_file_path_dict                
-            logging.info("Train dataset found at {}".format(self.root_path))
-            logging.info("Processing device: {}".format(self.device))
-    
-            dict_structures, y = self.src_check()
-            data_list = self.get_data_list(dict_structures, y)
-            data, slices = InMemoryDataset.collate(data_list)
-    
-            if save:
-                if self.pt_path:
-                    save_path = os.path.join(self.pt_path, "data_test.pt")    
-                torch.save((data, slices), save_path)
-                logging.info("Processed test data saved successfully.")   
+                if save:
+                    if self.pt_path:
+                        save_path = os.path.join(self.pt_path, "data_predict.pt")    
+                    torch.save((data, slices), save_path)
+                    logging.info("Processed predict data saved successfully.")  
                                                          
         else: 
             self.root_path = self.root_path_dict
@@ -369,8 +400,6 @@ class DataProcessor:
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
-            data.o_pos = pos.clone()
-            data.o_z = atomic_numbers.clone()
 
             edge_gen_out = calculate_edges_master(
                 self.edge_calc_method,
@@ -389,13 +418,26 @@ class DataProcessor:
             edge_vec = edge_gen_out["edge_vec"]
             neighbors = edge_gen_out["neighbors"]
             if(edge_vec.dim() > 2):
-                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
-
-                
+                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]  
+                         
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
-            data.cell = cell
-            data.y = torch.Tensor(np.array([target_val]))
+            data.cell = cell     
+            
+            # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
+            data.y = torch.Tensor(np.array(target_val)) 
+            if self.prediction_level == "graph":
+                if data.y.dim() > 1 and data.y.shape[0] != 0:
+                    raise ValueError('Target labels do not have the correct dimensions for graph-level prediction.')
+                elif data.y.dim() == 1:             
+                    data.y = data.y.unsqueeze(0)
+            elif self.prediction_level == "node":
+                if data.y.shape[0] != data.n_atoms:
+                    raise ValueError('Target labels do not have the correct dimensions for node-level prediction.')
+                elif data.y.dim() == 1:
+                    data.y = data.y.unsqueeze(1)
+            #print(data.y.shape)      
+                      
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             data.edge_index, data.edge_weight = edge_indices, edge_weights
@@ -407,8 +449,8 @@ class DataProcessor:
             # data.edge_descriptor["mask"] = cd_matrix_masked
             data.edge_descriptor["distance"] = edge_weights
             data.distances = edge_weights
-            data.structure_id = [[structure_id] * len(data.y)]
-            
+            #data.structure_id = [[structure_id] * len(data.y)]
+            data.structure_id = [structure_id]
 
             # add additional attributes
             if self.additional_attributes:

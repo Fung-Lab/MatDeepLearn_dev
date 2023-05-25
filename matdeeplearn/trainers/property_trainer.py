@@ -22,9 +22,7 @@ class PropertyTrainer(BaseTrainer):
         optimizer,
         sampler,
         scheduler,
-        train_loader,
-        val_loader,
-        test_loader,
+        data_loader,
         loss,
         max_epochs,
         max_checkpoint_epochs,
@@ -39,9 +37,7 @@ class PropertyTrainer(BaseTrainer):
             optimizer,
             sampler,
             scheduler,
-            train_loader,
-            val_loader,
-            test_loader,
+            data_loader,
             loss,
             max_epochs,
             max_checkpoint_epochs,
@@ -83,12 +79,12 @@ class PropertyTrainer(BaseTrainer):
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
             #skip_steps = self.step % len(self.train_loader)
-            train_loader_iter = iter(self.train_loader)
+            train_loader_iter = iter(self.data_loader["train_loader"])
             # metrics for every epoch
             _metrics = {}
 
             #for i in range(skip_steps, len(self.train_loader)):
-            for i in range(0, len(self.train_loader)):
+            for i in range(0, len(self.data_loader["train_loader"])):
                 #self.epoch = epoch + (i + 1) / len(self.train_loader)
                 #self.step = epoch * len(self.train_loader) + i + 1
                 self.model.train()
@@ -96,11 +92,7 @@ class PropertyTrainer(BaseTrainer):
                 batch = next(train_loader_iter).to(self.rank)           
                 # Compute forward, loss, backward
                 out = self._forward(batch)
-                loss = self._compute_loss(out, batch)                                
-                if type(out) == tuple and len(out) == 5:
-                    out = out[0]
-                loss = self._compute_loss(out, batch)
-
+                loss = self._compute_loss(out, batch)                                            
                 self._backward(loss)
                 
                 # Compute metrics
@@ -121,32 +113,43 @@ class PropertyTrainer(BaseTrainer):
                 self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
     
                 # Evaluate on validation set if it exists
-                if self.val_loader:
-                    val_metrics = self.validate("val")
-    
-                    # Train loop timings
-                    self.epoch_time = time.time() - epoch_start_time
-                    # Log metrics
-                    if epoch % self.train_verbosity == 0:
-                        self._log_metrics(val_metrics)
-    
-                    # Update best val metric and model, and save best model and predicted outputs
-                    if (
-                        val_metrics[type(self.loss_fn).__name__]["metric"]
-                        < self.best_val_metric
-                    ):
-                        self.update_best_model(val_metrics)
-    
-                    # step scheduler, using validation error
-                    self._scheduler_step()
+                if self.data_loader.get("val_loader"):
+                    metric = self.validate("val")
+                else:
+                    metric = self.metrics
+
+                # Train loop timings
+                self.epoch_time = time.time() - epoch_start_time
+                # Log metrics
+                if epoch % self.train_verbosity == 0:
+                    if self.data_loader.get("val_loader"):
+                        self._log_metrics(metric)
+                    else:
+                        self._log_metrics()
+
+                # Update best val metric and model, and save best model and predicted outputs
+                if (
+                    metric[type(self.loss_fn).__name__]["metric"]
+                    < self.best_metric
+                ):
+                    self.update_best_model(metric)
+
+                # step scheduler, using validation error
+                self._scheduler_step()
+                    
         
-        if str(self.rank) in "0": 
-            self.model.module.load_state_dict(self.best_model_state)        
-        elif str(self.rank) in ("cpu", "cuda"):            
-            self.model.load_state_dict(self.best_model_state)
-        metric = self.validate("test")
-        test_loss = metric[type(self.loss_fn).__name__]["metric"]
-        logging.info("Test loss: " + str(test_loss))                
+        if self.best_model_state:
+            if str(self.rank) in "0": 
+                self.model.module.load_state_dict(self.best_model_state)        
+            elif str(self.rank) in ("cpu", "cuda"):            
+                self.model.load_state_dict(self.best_model_state)
+                
+            if self.data_loader.get("test_loader"):
+                metric = self.validate("test")
+                test_loss = metric[type(self.loss_fn).__name__]["metric"]
+            else:
+                test_loss = "N/A"
+            logging.info("Test loss: " + str(test_loss))                
                       
         return self.best_model_state
 
@@ -155,11 +158,11 @@ class PropertyTrainer(BaseTrainer):
         evaluator, metrics = Evaluator(), {}
         
         if split == "val":
-            loader_iter = iter(self.val_loader)
+            loader_iter = iter(self.data_loader["val_loader"])
         elif split == "test":
-            loader_iter = iter(self.test_loader)
+            loader_iter = iter(self.data_loader["test_loader"])
         elif split == "train":    
-            loader_iter = iter(self.train_loader)
+            loader_iter = iter(self.data_loader["train_loader"])
                     
         for i in range(0, len(loader_iter)):
             with torch.no_grad():
@@ -190,18 +193,15 @@ class PropertyTrainer(BaseTrainer):
         _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.rank))
-            if type(out) == tuple and len(out) == 5:
-                out = out[0]
             loss = self._compute_loss(out, batch)
             _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
             self._metrics_predict = self.evaluator.update(
                 "loss", loss.item(), _metrics_predict
             )
-
             
             # if out is a tuple, then it's scaled data
-            if type(out) == tuple:
-                out = out[0] * out[1].view(-1, 1).expand_as(out[0])
+            #if type(out) == tuple:
+            #    out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
             batch_p = out.data.cpu().numpy()
             if str(self.rank) not in ("cpu", "cuda"): 
@@ -212,19 +212,31 @@ class PropertyTrainer(BaseTrainer):
             batch_ids = np.array(
                 [item for sublist in batch.structure_id for item in sublist]
             )
+            batch_ids = batch.structure_id
 
             # if shape is 2D, then it has node-level predictions
-            if batch_p.ndim == 2:
+            #if batch_p.ndim == 2:                
+            #    node_level_predictions = True
+            #    node_ids = batch.z.cpu().numpy()
+            #    structure_ids = np.repeat(
+            #        batch_ids, batch.n_atoms.cpu().numpy(), axis=0
+            #    )
+            #    batch_ids = np.column_stack((structure_ids, node_ids))
+            
+            if batch_p.shape[0] > loader.batch_size:                
                 node_level_predictions = True
                 node_ids = batch.z.cpu().numpy()
                 structure_ids = np.repeat(
                     batch_ids, batch.n_atoms.cpu().numpy(), axis=0
                 )
                 batch_ids = np.column_stack((structure_ids, node_ids))
-
+            #print(batch_ids.shape, structure_ids.shape, node_ids.shape)
+            
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
             predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
             target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
+            
+            #print("AAAAAAAAAAAAAAAAAA", batch_p.shape, loader.batch_size, ids.shape, predict.shape, target.shape)
 
         predictions = np.column_stack((ids, target, predict))
         
@@ -260,11 +272,19 @@ class PropertyTrainer(BaseTrainer):
         return metrics
 
     def _log_metrics(self, val_metrics=None):
+        train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
         if not val_metrics:
-            logging.info(f"epoch: {self.epoch}, learning rate: {self.scheduler.lr}")
-            logging.info(self.metrics[type(self.loss_fn).__name__]["metric"])
-        else:
-            train_loss = self.metrics[type(self.loss_fn).__name__]["metric"]
+            val_loss = "N/A"
+            logging.info(
+                "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {}, Time per epoch (s): {:.5f}".format(
+                    int(self.epoch - 1),
+                    self.scheduler.lr,
+                    train_loss,
+                    val_loss,
+                    self.epoch_time,
+                )
+             )        
+        else:            
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
             logging.info(
                 "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(

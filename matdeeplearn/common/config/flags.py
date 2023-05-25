@@ -21,7 +21,8 @@ class Flags:
         self.parser.add_argument(
             "--run_mode",
             choices=["train", "predict"],
-            required=True,
+            required=False,
+            default="train",
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
         )

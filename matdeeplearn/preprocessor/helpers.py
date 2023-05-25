@@ -53,9 +53,9 @@ def calculate_edges_master(
     out = dict()
     neighbors = torch.empty(0)
     cell_offset_distances = torch.empty(0)
-
-    if (cell is None):
-        method == "mdl"
+    
+    if cell is None:
+        method = "mdl"
 
     if method == "mdl":
         cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
@@ -76,7 +76,7 @@ def calculate_edges_master(
         edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
             all_neighbors, r, n_neighbors, structure_id, cell.squeeze(0), pos
         )
-
+    
     elif method == "ocp":
         # OCP requires a different format for the cell
         cell = cell.view(1, 3, 3)

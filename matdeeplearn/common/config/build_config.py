@@ -99,8 +99,8 @@ def build_config(args, args_override):
         config, _ = merge_dicts(config, overrides)
 
     # Some other flags.
-    config["run_mode"] = args.run_mode
-    config["seed"] = args.seed
+    config["task"]["run_mode"] = args.run_mode
+    config["task"]["seed"] = args.seed
     #
     # Submit
     config["submit"] = args.submit

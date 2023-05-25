@@ -1,19 +1,19 @@
 trainer: property
 
 task:
-  # run_mode: train
+  # run_mode: 
   identifier: "my_train_job"
   parallel: False
   # seed=0 means random initalization
-  seed: 0
+  seed: 1
   # Defaults to run directory if not specified
   save_dir: 
-  checkpoint_dir: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn_Funggroup/MatDeepLearn_dev/results/2023-05-23-15-29-04-my_train_job/checkpoint/checkpoint.pt"
+  checkpoint_dir: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn_Funggroup/MatDeepLearn_dev/results/2023-05-24-00-00-16-my_train_job/checkpoint/checkpoint.pt"
   write_output: True
 
 model:
   name: CGCNN
-  load_model: True
+  load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
@@ -29,7 +29,7 @@ model:
   batch_norm: True
   batch_track_stats: True
   act: "relu"
-  dropout_rate: 0.0
+  dropout_rate: 0.0  
 
 optim:
   max_epochs: 400
@@ -53,24 +53,40 @@ optim:
 dataset:
   name: "test_data"
   processed: False
-  # Path to data files
-  src: "data/bulk_data_500/raw/"
-  # Path to target file within data_path
-  target_path: "data/bulk_data_500/targets.csv"
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
+  #src: {predict: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_dev/CDVAE/perov_5_Shailendra/raw_test/data.json"} 
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_dev/CDVAE/perov_5_Shailendra/raw_train/data.json"
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/data_graph_scalar.json"
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/data_graph_scalar_cell_mixed.json"
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/data_graph_vector.json"
+  src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/data_node_scalar.json"
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/data_node_vector.json"
+  #src: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/raw_graph_scalar"
+
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  #target_path: "data/bulk_data_500/targets.csv"
+  target_path: 
+  #target_path: "/global/cfs/projectdirs/m3641/Victor/ML_MatDeepLearn/MatDeepLearn_data_new/Pt_data_test/raw_graph_scalar/targets.csv"
+  #target_path: "data/test_data/targets.csv"
   # Path to save processed data.pt file
   pt_path: "data/"
+  # Either "node" or "graph"
+  prediction_level: "graph"
   
   transforms:
     - name: GetY
       args:
-        index: 0
+        # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
+        # For example, an index: 0 (default) will use the first entry in the target vector 
+        # if all values are to be predicted simultaneously, then specify index: -1
+        index: -1
       otf: True # Optional parameter, default is False
   all_neighbors : True
-  # one of mdl, ase, ocp
+  # one of mdl (minimum image convention), ocp (all neighbors included)
   edge_calc_method: "ocp"
-  # Format of data files (limit to those supported by ASE)
+  # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
-  # Method of obtaining atom idctionary: available:(onehot)
+  # Method of obtaining atom dictionary: available: (onehot)
   node_representation: "onehot"
   additional_attributes: []
   # Print out processing info
@@ -78,13 +94,13 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
-    cutoff_radius : 5.0
+    cutoff_radius : 8.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
-  # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8408
-  val_ratio: 0.0764
-  test_ratio: 0.0828
+  # Ratios for train/val/test split out of a total of less than 1
+  train_ratio: .8
+  val_ratio: 0.1
+  test_ratio: 0.1
   
 

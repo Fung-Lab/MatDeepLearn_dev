@@ -44,8 +44,8 @@ def dataset_split(
     if seed == 0:
         seed = np.random.randint(1, 1e6)
     
-    if train_size + valid_size + test_size != 1:
-        warnings.warn("Invalid sizes detected. Using default split of 80/5/15.")
+    if train_size + valid_size + test_size > 1:
+        warnings.warn("Invalid sizes detected (ratios add up to larger than one). Using default split of 0.8/0.05/0.15.")
         train_size, valid_size, test_size = 0.8, 0.05, 0.15
 
     dataset_size = len(dataset)
