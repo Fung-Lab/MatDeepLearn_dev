@@ -1,5 +1,7 @@
 import os
 
+import torch
+
 """
 here resides the transform classes needed for data processing
 
@@ -18,4 +20,11 @@ class GetY(object):
         # Specify target.
         if self.index != -1:
             data.y = data.y[0][self.index]
+
+        # add in noise for DOS
+        weight = 0.1
+        rand_t = torch.rand(data.scaled.shape)
+        rand_t_weighted = rand_t * weight
+        data.scaled = torch.mul(data.scaled, rand_t_weighted)
+
         return data
