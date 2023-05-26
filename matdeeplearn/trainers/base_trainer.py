@@ -18,8 +18,12 @@ from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
 
-from matdeeplearn.common.data import (DataLoader, dataset_split,
-                                      get_dataloader, get_dataset)
+from matdeeplearn.common.data import (
+    DataLoader,
+    dataset_split,
+    get_dataloader,
+    get_dataset,
+)
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
@@ -169,6 +173,7 @@ class BaseTrainer(ABC):
             verbosity=verbosity,
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
+            use_amp=config["task"].get("use_amp", False),
         )
 
     @staticmethod
