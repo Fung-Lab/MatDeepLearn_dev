@@ -1,0 +1,42 @@
+
+#======================================================================
+# CRYSTAL DATA
+#----------------------------------------------------------------------
+data_VESTA_phase_1
+
+_chemical_name_common                  '"O8 As2 Y2"'
+_cell_length_a                         5.988000
+_cell_length_b                         5.988000
+_cell_length_c                         5.988000
+_cell_angle_alpha                      106.446999
+_cell_angle_beta                       106.446999
+_cell_angle_gamma                      115.706001
+_cell_volume                           163.796489
+_space_group_name_H-M_alt              'P 1'
+_space_group_IT_number                 1
+
+loop_
+_space_group_symop_operation_xyz
+   'x, y, z'
+
+loop_
+   _atom_site_label
+   _atom_site_occupancy
+   _atom_site_fract_x
+   _atom_site_fract_y
+   _atom_site_fract_z
+   _atom_site_adp_type
+   _atom_site_U_iso_or_equiv
+   _atom_site_type_symbol
+   O1         1.0     0.302030     0.233080     0.431050    Uiso  ? O
+   O2         1.0     0.870990     0.302030     0.568950    Uiso  ? O
+   O3         1.0     0.233080     0.302030     0.931050    Uiso  ? O
+   O4         1.0     0.302030     0.870990     0.068950    Uiso  ? O
+   O5         1.0     0.129010     0.697970     0.431050    Uiso  ? O
+   O6         1.0     0.697970     0.766920     0.568950    Uiso  ? O
+   O7         1.0     0.697970     0.129010     0.931050    Uiso  ? O
+   O8         1.0     0.766920     0.697970     0.068950    Uiso  ? O
+   As1        1.0     0.875000     0.125000     0.750000    Uiso  ? As
+   As2        1.0     0.125000     0.875000     0.250000    Uiso  ? As
+   Y1         1.0     0.375000     0.625000     0.750000    Uiso  ? Y
+   Y2         1.0     0.625000     0.375000     0.250000    Uiso  ? Y

@@ -12,10 +12,11 @@ class BaseTask:
         
     def setup(self, trainer):
         self.trainer = trainer
-        use_checkpoint = self.config["model"].get("load_model", False)
+        
+        use_checkpoint = self.config["task"].get("continue_job", False)
         if use_checkpoint:
             logging.info("Attempting to load most recent checkpoint...")
-            self.trainer.load_checkpoint()
+            self.trainer.load_checkpoint(self.config["task"].get("load_training_state", True))
             logging.info("Recent checkpoint loaded successfully.")
 
         # save checkpoint path to runner state for slurm resubmissions
@@ -54,15 +55,18 @@ class TrainTask(BaseTask):
 class PredictTask(BaseTask):
     def run(self):
         assert (
-            self.trainer.test_loader is not None
-        ), "Test dataset is required for making predictions"
-        assert self.config[
-            "checkpoint"
-        ], "Model checkpoint is required for making predictions"
+            self.trainer.data_loader.get("predict_loader") is not None
+        ), "Predict dataset is required for making predictions"
+        assert self.config["task"][
+            "checkpoint_dir"
+        ], "Specify checkpoint directory for loading the model"
+        assert self.config["model"][
+            "load_model"
+        ], "Set load_model = True to use the model for prediction"    
         results_dir = f"predictions/{self.config['dataset']['name']}"
         try:
             self.trainer.predict(
-                loader=self.trainer.test_loader, split="test", results_dir=results_dir
+                loader=self.trainer.data_loader["predict_loader"], split="predict", results_dir=results_dir
             )
         except RuntimeError as e:
             logging.warning("Errors in predict task")

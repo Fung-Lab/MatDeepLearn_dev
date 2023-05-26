@@ -24,7 +24,17 @@ class GetY(object):
     def __call__(self, data):
         # Specify target.
         if self.index != -1:
-            data.y = data.y[0][self.index]
+            #print("0", data.y.shape, data.y[:][self.index].shape, data.y[:, self.index].shape)
+            #data.y = data.y[:][self.index]
+            data.y = data.y[:, self.index]
+            #print("1", data.y.shape)
+            assert (data.y.dim() <= 2), "data.y dimension is incorrect"            
+            if data.y.dim() == 1 and data.y.shape[0] == data.x.shape[0]:
+                data.y = data.y.unsqueeze(1)  
+            elif data.y.dim() == 1 and data.y.shape[0] == 1:
+                data.y = data.y.unsqueeze(0)   
+            #print("2", data.y.shape)
+            #data.y = data.y[0][self.index]            
         return data
 
 

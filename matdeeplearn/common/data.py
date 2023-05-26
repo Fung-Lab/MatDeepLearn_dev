@@ -1,7 +1,6 @@
 import warnings
 from typing import List
 
-import numpy as np
 import torch
 from torch.utils.data import random_split
 from torch_geometric.loader import DataLoader
@@ -17,7 +16,6 @@ def dataset_split(
     train_size: float = 0.8,
     valid_size: float = 0.05,
     test_size: float = 0.15,
-    seed: int = 1234,
 ):
     """
     Splits an input dataset into 3 subsets: train, validation, test.
@@ -40,12 +38,9 @@ def dataset_split(
             a float between 0.0 and 1.0 that represents the proportion
             of the dataset to use as the test set
     """
-
-    if seed == 0:
-        seed = np.random.randint(1, 1e6)
     
-    if train_size + valid_size + test_size != 1:
-        warnings.warn("Invalid sizes detected. Using default split of 80/5/15.")
+    if train_size + valid_size + test_size > 1:
+        warnings.warn("Invalid sizes detected (ratios add up to larger than one). Using default split of 0.8/0.05/0.15.")
         train_size, valid_size, test_size = 0.8, 0.05, 0.15
 
     dataset_size = len(dataset)
@@ -58,7 +53,6 @@ def dataset_split(
     (train_dataset, val_dataset, test_dataset, unused_dataset) = random_split(
         dataset,
         [train_len, valid_len, test_len, unused_len],
-        generator=torch.Generator().manual_seed(seed),
     )
 
     return train_dataset, val_dataset, test_dataset

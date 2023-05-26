@@ -94,13 +94,16 @@ def build_config(args, args_override):
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
     # Check for overridden parameters.
-    if args_override != []:
-        overrides = create_dict_from_args(args_override)
-        config, _ = merge_dicts(config, overrides)
+    #if args_override != []:
+    #    overrides = create_dict_from_args(args_override)
+    #    config, _ = merge_dicts(config, overrides)
+
 
     # Some other flags.
-    config["run_mode"] = args.run_mode
-    config["seed"] = args.seed
+    if args.run_mode != None:
+        config["task"]["run_mode"] = args.run_mode
+    if args.seed != None:    
+        config["task"]["seed"] = args.seed
     #
     # Submit
     config["submit"] = args.submit

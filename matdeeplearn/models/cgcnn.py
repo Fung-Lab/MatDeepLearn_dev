@@ -20,9 +20,9 @@ from matdeeplearn.models.base_model import BaseModel
 class CGCNN(BaseModel):
     def __init__(
         self,
-        data,
-        edge_steps=50,
-        self_loop=True,
+        node_dim,
+        edge_dim,
+        output_dim,
         dim1=64,
         dim2=64,
         pre_fc_count=1,
@@ -34,12 +34,10 @@ class CGCNN(BaseModel):
         batch_track_stats=True,
         act="relu",
         dropout_rate=0.0,
+        prediction_level="graph",
         **kwargs
     ):
-        super(CGCNN, self).__init__(edge_steps, self_loop)
-        
-        if isinstance(data, torch.utils.data.Subset): 
-            data = data.dataset
+        super(CGCNN, self).__init__()
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -52,28 +50,25 @@ class CGCNN(BaseModel):
         self.dim2 = dim2
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
-        self.num_features = data.num_features
-        self.num_edge_features = data.num_edge_features
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.output_dim = output_dim
+        self.dropout_rate = dropout_rate
+        self.prediction_level = prediction_level
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
         if pre_fc_count == 0:
-            self.gc_dim, self.post_fc_dim = data.num_features, data.num_features
+            self.gc_dim, self.post_fc_dim = self.node_dim, self.node_dim
         else:
             self.gc_dim, self.post_fc_dim = dim1, dim1
-
-        # Determine output dimension length
-        if data[0][self.target_attr].ndim == 0:
-            self.output_dim = 1
-        else:
-            self.output_dim = len(data[0][self.target_attr])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
-
-        # Should processing_steps be a hypereparameter?
+        
+        # set up output layer
         if self.pool_order == "early" and self.pool == "set2set":
             self.set2set = Set2Set(self.post_fc_dim, processing_steps=3)
         elif self.pool_order == "late" and self.pool == "set2set":
@@ -92,7 +87,7 @@ class CGCNN(BaseModel):
             pre_lin_list = torch.nn.ModuleList()
             for i in range(self.pre_fc_count):
                 if i == 0:
-                    lin = torch.nn.Linear(self.num_features, self.dim1)
+                    lin = torch.nn.Linear(self.node_dim, self.dim1)
                 else:
                     lin = torch.nn.Linear(self.dim1, self.dim1)
                 pre_lin_list.append(lin)
@@ -105,7 +100,7 @@ class CGCNN(BaseModel):
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
             conv = CGConv(
-                self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
+                self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
             )
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
@@ -180,28 +175,36 @@ class CGCNN(BaseModel):
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Post-GNN dense layers
-        if self.pool_order == "early":
-            if self.pool == "set2set":
-                out = self.set2set(out, data.batch)
-            else:
-                out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
+        if self.prediction_level == "graph":
+            if self.pool_order == "early":
+                if self.pool == "set2set":
+                    out = self.set2set(out, data.batch)
+                else:
+                    out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
+                for i in range(0, len(self.post_lin_list)):
+                    out = self.post_lin_list[i](out)
+                    out = getattr(F, self.act)(out)
+                out = self.lin_out(out)
+    
+            elif self.pool_order == "late":
+                for i in range(0, len(self.post_lin_list)):
+                    out = self.post_lin_list[i](out)
+                    out = getattr(F, self.act)(out)
+                out = self.lin_out(out)
+                if self.pool == "set2set":
+                    out = self.set2set(out, data.batch)
+                    out = self.lin_out_2(out)
+                else:
+                    out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
+                    
+        elif self.prediction_level == "node":
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
-            out = self.lin_out(out)
-
-        elif self.pool_order == "late":
-            for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
-            out = self.lin_out(out)
-            if self.pool == "set2set":
-                out = self.set2set(out, data.batch)
-                out = self.lin_out_2(out)
-            else:
-                out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-
-        if out.shape[1] == 1:
-            return out.view(-1)
-        else:
-            return out
+            out = self.lin_out(out)        
+            
+        return out
+        #if out.shape[1] == 1:
+        #    return out.view(-1)
+        #else:
+        #    return out
