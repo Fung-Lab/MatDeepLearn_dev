@@ -72,6 +72,9 @@ class BaseTrainer(ABC):
         self.checkpoint_path = checkpoint_path
         self.use_amp = use_amp
 
+        if self.use_amp:
+            logging.info("Using PyTorch automatic mixed-precision")
+
         self.scaler = GradScaler(enabled=self.use_amp and self.device.type == "cuda")
 
         self.evaluator = Evaluator()
