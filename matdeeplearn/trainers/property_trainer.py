@@ -29,7 +29,7 @@ class PropertyTrainer(BaseTrainer):
         identifier,
         verbosity,
         save_dir,
-        checkpoint_dir,
+        checkpoint_path,
     ):
         super().__init__(
             model,
@@ -44,7 +44,7 @@ class PropertyTrainer(BaseTrainer):
             identifier,
             verbosity,
             save_dir,
-            checkpoint_dir,
+            checkpoint_path,
         )
 
     def train(self):
@@ -73,7 +73,7 @@ class PropertyTrainer(BaseTrainer):
                 logging.info(
                     f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
                 )
-                
+        
         for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()
             if self.train_sampler:
@@ -178,7 +178,7 @@ class PropertyTrainer(BaseTrainer):
         return metrics
 
     @torch.no_grad()
-    def predict(self, loader, split, results_dir="train_results"):
+    def predict(self, loader, split, results_dir="train_results", write_output=True):
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
         
         if str(self.rank) not in ("cpu", "cuda"): 
@@ -189,7 +189,7 @@ class PropertyTrainer(BaseTrainer):
         self.model.eval()
         predict, target = None, None
         ids = []
-        node_level_predictions = False
+        node_level = False
         _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.rank))
@@ -213,39 +213,29 @@ class PropertyTrainer(BaseTrainer):
                 [item for sublist in batch.structure_id for item in sublist]
             )
             batch_ids = batch.structure_id
-
-            # if shape is 2D, then it has node-level predictions
-            #if batch_p.ndim == 2:                
-            #    node_level_predictions = True
-            #    node_ids = batch.z.cpu().numpy()
-            #    structure_ids = np.repeat(
-            #        batch_ids, batch.n_atoms.cpu().numpy(), axis=0
-            #    )
-            #    batch_ids = np.column_stack((structure_ids, node_ids))
             
+            # Node level prediction 
             if batch_p.shape[0] > loader.batch_size:                
-                node_level_predictions = True
+                node_level = True
                 node_ids = batch.z.cpu().numpy()
                 structure_ids = np.repeat(
                     batch_ids, batch.n_atoms.cpu().numpy(), axis=0
                 )
                 batch_ids = np.column_stack((structure_ids, node_ids))
-            #print(batch_ids.shape, structure_ids.shape, node_ids.shape)
             
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
             predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
             target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
-            
-            #print("AAAAAAAAAAAAAAAAAA", batch_p.shape, loader.batch_size, ids.shape, predict.shape, target.shape)
-
-        predictions = np.column_stack((ids, target, predict))
         
-
-        self.save_results(
-            predictions, results_dir, f"{split}_predictions.csv", node_level_predictions
-        )
+        if write_output == True:
+            self.save_results(
+                np.column_stack((ids, target, predict)), results_dir, f"{split}_predictions.csv", node_level
+            )
         predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
         logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
+        
+        predictions = {"ids":ids, "predict":predict, "target":target}
+        
         return predictions
 
     def _forward(self, batch_data):

@@ -14,7 +14,7 @@ class Flags:
         self.parser.add_argument(
             "--config_path",
             required=True,
-            default="config.yml",
+            default="configs/config.yml",
             type=Path,
             help="Path to a config file with data and model parameters (default: config.yml)",
         )
@@ -22,7 +22,6 @@ class Flags:
             "--run_mode",
             choices=["train", "predict"],
             required=False,
-            default="train",
             type=str,
             help="Choices for run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
         )
@@ -40,7 +39,6 @@ class Flags:
         # )
         self.parser.add_argument(
             "--seed",
-            default=0,
             type=int,
             help="seed for data split, 0=random",
         )

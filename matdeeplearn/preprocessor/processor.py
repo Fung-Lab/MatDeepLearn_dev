@@ -22,7 +22,7 @@ from matdeeplearn.preprocessor.helpers import (
 )
 
 
-def process_data(dataset_config):
+def from_config(dataset_config):
     root_path_dict = dataset_config["src"]
     target_path_dict = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
@@ -61,7 +61,15 @@ def process_data(dataset_config):
         edge_calc_method=edge_calc_method,
         device=device,
     )
-    processor.process()
+    
+    return processor
+
+
+def process_data(dataset_config):
+    processor = from_config(dataset_config)
+    dataset = processor.process()
+    
+    return dataset
 
 
 class DataProcessor:
@@ -202,10 +210,12 @@ class DataProcessor:
                 attributes = self.get_csv_additional_attributes(d["structure_id"])
                 for k, v in attributes.items():
                     d[k] = v
-
+                    
+            d["y"] = y[i]
+            
             dict_structures.append(d)
 
-        return dict_structures, y
+        return dict_structures
 
     def get_csv_additional_attributes(self, structure_id):
         """
@@ -284,12 +294,15 @@ class DataProcessor:
             #    _y = [float(each) for each in _y]
             
             y.append(_y)
+            
+            d["y"] = np.array(_y)
 
         y = np.array(y)
-        return dict_structures, y
+        return dict_structures
 
     def process(self, save=True):
         
+        data_list={}
         if isinstance(self.root_path_dict, dict):
             
             if self.root_path_dict.get("train"):     
@@ -301,9 +314,9 @@ class DataProcessor:
                 logging.info("Train dataset found at {}".format(self.root_path))
                 logging.info("Processing device: {}".format(self.device))
         
-                dict_structures, y = self.src_check()
-                data_list = self.get_data_list(dict_structures, y)
-                data, slices = InMemoryDataset.collate(data_list)
+                dict_structures = self.src_check()
+                data_list["train"] = self.get_data_list(dict_structures)
+                data, slices = InMemoryDataset.collate(data_list["train"])
         
                 if save:
                     if self.pt_path:
@@ -320,9 +333,9 @@ class DataProcessor:
                 logging.info("Val dataset found at {}".format(self.root_path))
                 logging.info("Processing device: {}".format(self.device))
         
-                dict_structures, y = self.src_check()
-                data_list = self.get_data_list(dict_structures, y)
-                data, slices = InMemoryDataset.collate(data_list)
+                dict_structures = self.src_check()
+                data_list["val"] = self.get_data_list(dict_structures)
+                data, slices = InMemoryDataset.collate(data_list["val"])
         
                 if save:
                     if self.pt_path:
@@ -339,9 +352,9 @@ class DataProcessor:
                 logging.info("Test dataset found at {}".format(self.root_path))
                 logging.info("Processing device: {}".format(self.device))
         
-                dict_structures, y = self.src_check()
-                data_list = self.get_data_list(dict_structures, y)
-                data, slices = InMemoryDataset.collate(data_list)
+                dict_structures = self.src_check()
+                data_list["test"] = self.get_data_list(dict_structures)
+                data, slices = InMemoryDataset.collate(data_list["test"])
     
                 if save:
                     if self.pt_path:
@@ -358,9 +371,9 @@ class DataProcessor:
                 logging.info("Predict dataset found at {}".format(self.root_path))
                 logging.info("Processing device: {}".format(self.device))
         
-                dict_structures, y = self.src_check()
-                data_list = self.get_data_list(dict_structures, y)
-                data, slices = InMemoryDataset.collate(data_list)
+                dict_structures = self.src_check()
+                data_list["predict"] = self.get_data_list(dict_structures)
+                data, slices = InMemoryDataset.collate(data_list["predict"])
     
                 if save:
                     if self.pt_path:
@@ -374,32 +387,33 @@ class DataProcessor:
             logging.info("Single dataset found at {}".format(self.root_path))
             logging.info("Processing device: {}".format(self.device))
     
-            dict_structures, y = self.src_check()
-            data_list = self.get_data_list(dict_structures, y)
-            data, slices = InMemoryDataset.collate(data_list)
+            dict_structures = self.src_check()
+            data_list["full"] = self.get_data_list(dict_structures)
+            data, slices = InMemoryDataset.collate(data_list["full"])
     
             if save:
                 if self.pt_path:
                     save_path = os.path.join(self.pt_path, "data.pt")    
                 torch.save((data, slices), save_path)
                 logging.info("Processed data saved successfully.")   
-                                
+                              
         return data_list
 
-    def get_data_list(self, dict_structures, y):
+    def get_data_list(self, dict_structures):
         n_structures = len(dict_structures)
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
-            target_val = y[i]
+            #target_val = y[i]
             data = data_list[i]
 
             pos = sdict["positions"]
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
             structure_id = sdict["structure_id"]
+            target_val = sdict["y"]
 
             edge_gen_out = calculate_edges_master(
                 self.edge_calc_method,
