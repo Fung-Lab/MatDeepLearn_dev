@@ -203,33 +203,33 @@ class PropertyTrainer(BaseTrainer):
             #if type(out) == tuple:
             #    out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
-            batch_p = out.data.cpu().numpy()
+            batch_p = out.data
             if str(self.rank) not in ("cpu", "cuda"): 
-                batch_t = batch[self.model.module.target_attr].cpu().numpy()
+                batch_t = batch[self.model.module.target_attr]
             else:
-                batch_t = batch[self.model.target_attr].cpu().numpy()
+                batch_t = batch[self.model.target_attr]
                 
-            batch_ids = np.array(
-                [item for sublist in batch.structure_id for item in sublist]
-            )
-            batch_ids = batch.structure_id
+            #batch_ids = np.array(
+            #    [item for sublist in batch.structure_id for item in sublist]
+            #)
+            batch_ids = batch.structure_id 
             
             # Node level prediction 
-            if batch_p.shape[0] > loader.batch_size:                
+            if batch_p.shape[0] > loader.batch_size:                 
                 node_level = True
                 node_ids = batch.z.cpu().numpy()
                 structure_ids = np.repeat(
                     batch_ids, batch.n_atoms.cpu().numpy(), axis=0
                 )
                 batch_ids = np.column_stack((structure_ids, node_ids))
-            
+
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
-            predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
-            target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
-        
+            predict = batch_p if i == 0 else torch.concatenate((predict, batch_p), axis=0)
+            target = batch_t if i == 0 else torch.concatenate((target, batch_t), axis=0)
+
         if write_output == True:
             self.save_results(
-                np.column_stack((ids, target, predict)), results_dir, f"{split}_predictions.csv", node_level
+                np.column_stack((ids, target.cpu().numpy(), predict.cpu().numpy())), results_dir, f"{split}_predictions.csv", node_level
             )
         predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
         logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))

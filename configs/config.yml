@@ -34,7 +34,7 @@ model:
   dropout_rate: 0.0  
 
 optim:
-  max_epochs: 400
+  max_epochs: 40
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -75,7 +75,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl (minimum image convention), ocp (all neighbors included)
-  edge_calc_method: "ocp"
+  edge_calc_method: "mdl"
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # Method of obtaining atom dictionary: available: (onehot)
