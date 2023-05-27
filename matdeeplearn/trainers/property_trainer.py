@@ -95,6 +95,8 @@ class PropertyTrainer(BaseTrainer):
                 # Compute forward, loss, backward
                 with autocast(enabled=self.use_amp):
                     out = self._forward(batch)
+                    if type(out) == tuple and len(out) == 5:
+                        out = out[0]
                     loss = self._compute_loss(out, batch)
 
                 self._backward(loss)

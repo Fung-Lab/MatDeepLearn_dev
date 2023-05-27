@@ -1,61 +1,78 @@
 trainer: property
 
 task:
-  run_mode: "train"
+  # run_mode: train
   identifier: "my_train_job"
+  reprocess: False
   parallel: False
-  # If seed is not set, then it will be random every time
-  seed: 12345678
+  # seed=0 means random initalization
+  seed: 0
   # Defaults to run directory if not specified
-  #save_dir: 
-  continue_job: False
-  load_training_state: False
-  # Path to the checkpoint file
-  #checkpoint_path: 
+  # save_dir: "."
+  # checkpoint_dir: "."
   write_output: True
-  use_amp: True  
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
 
 model:
-  name: CGCNN  
+  name: spinconv
+  load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
+  num_targets: 1
+  use_pbc: False
+  regress_forces: False
+  otf_graph: False
+  hidden_channels: 32
+  mid_hidden_channels: 256
+  num_interactions: 3
+  num_basis_functions: 512
+  basis_width_scalar: 1.0
+  max_num_neighbors: 30
+  sphere_size_lat: 12
+  sphere_size_long: 8
+  cutoff: 6.0
+  distance_block_scalar_max: 2.0
+  max_num_elements: 100
+  embedding_size: 8
+  show_timing_info: False
+  sphere_message: "fullconv"
+  output_message: "fullconv"
+  lmax: False
+  force_estimator: "random"
+  model_ref_number: 0
+  readout: "add"
+  num_rand_rotations: 5
+  scale_distances: True
+  num_post_layers: 3
+  post_hidden_channels: 64
   pool: "global_mean_pool"
-  pool_order: "early"
-  batch_norm: True
-  batch_track_stats: True
   act: "relu"
-  dropout_rate: 0.0  
 
 optim:
   max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 40
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
   scheduler:
     scheduler_type: "ReduceLROnPlateau"
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
-  #Training print out frequency (print per n number of epochs)
-  verbosity: 5
-  
+
 dataset:
-  name: "test_data"
   processed: False
+  # Whether to use "inmemory" or "large" format for pytorch-geometric dataset. Reccomend inmemory unless the dataset is too large
+  # dataset_type: "inmemory"
   # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
   #src: "/project/Rithwik/2D_data_npj/raw/"
@@ -68,21 +85,18 @@ dataset:
   # Path to save processed data.pt file
   #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
   pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
-  prediction_level: "graph"
+
   transforms:
     - name: GetY
       args:
-        # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
-        # For example, an index: 0 (default) will use the first entry in the target vector 
-        # if all values are to be predicted simultaneously, then specify index: -1
-        index: -1
+        index: 0
       otf: True # Optional parameter, default is False
   all_neighbors : True
-  # one of mdl (minimum image convention), ocp (all neighbors included)
+  # one of mdl, ase, ocp
   edge_calc_method: "mdl"
-  # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
+  # Format of data files (limit to those supported by ASE)
   data_format: "json"
-  # Method of obtaining atom dictionary: available: (onehot)
+  # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes: []
   # Print out processing info
@@ -98,5 +112,3 @@ dataset:
   train_ratio: 0.9
   val_ratio: 0.05
   test_ratio: 0.05
-  
-
