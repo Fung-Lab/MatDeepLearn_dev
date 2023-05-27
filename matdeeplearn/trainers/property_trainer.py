@@ -93,7 +93,7 @@ class PropertyTrainer(BaseTrainer):
                 batch = next(train_loader_iter).to(self.rank)
 
                 # Compute forward, loss, backward
-                with autocast(enabled=self.use_amp and self.device.type == "cuda"):
+                with autocast(enabled=self.use_amp):
                     out = self._forward(batch)
                     loss = self._compute_loss(out, batch)
 

@@ -4,7 +4,7 @@ task:
   run_mode: "train"
   identifier: "my_train_job"
   parallel: False
-  # seed=0 means random initalization
+  # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
@@ -35,7 +35,7 @@ model:
   dropout_rate: 0.0  
 
 optim:
-  max_epochs: 40
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -57,7 +57,7 @@ dataset:
   name: "test_data"
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/data_graph_scalar.json
+  src: data/test_data/data_graph_scalar.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 

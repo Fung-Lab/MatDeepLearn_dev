@@ -398,6 +398,7 @@ class BaseTrainer(ABC):
                     "state_dict": self.model.module.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                     "scheduler": self.scheduler.scheduler.state_dict(),
+                    "scaler":self.scaler.state_dict(),
                     "best_metric": self.best_metric,
                     "identifier": self.timestamp_id,
                     "seed": torch.random.initial_seed(),
@@ -412,6 +413,7 @@ class BaseTrainer(ABC):
                     "state_dict": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                     "scheduler": self.scheduler.scheduler.state_dict(),
+                    "scaler":self.scaler.state_dict(),
                     "best_metric": self.best_metric,
                     "identifier": self.timestamp_id,
                     "seed": torch.random.initial_seed(),
@@ -486,7 +488,9 @@ class BaseTrainer(ABC):
             if checkpoint.get("seed"):
                 seed = checkpoint["seed"]
                 self.set_seed(seed)
-
+            if checkpoint.get("scaler"):
+                self.scaler.load_state_dict(checkpoint["scaler"])
+                
             self._load_dataset
 
     @staticmethod
