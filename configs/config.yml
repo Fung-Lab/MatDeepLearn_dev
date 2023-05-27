@@ -4,7 +4,7 @@ task:
   run_mode: "train"
   identifier: "my_train_job"
   parallel: False
-  # seed=0 means random initalization
+  # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
@@ -12,7 +12,8 @@ task:
   load_training_state: False
   # Path to the checkpoint file
   checkpoint_path: 
-  write_output: True  
+  write_output: True
+  use_amp: True  
 
 model:
   name: CGCNN  
@@ -34,7 +35,7 @@ model:
   dropout_rate: 0.0  
 
 optim:
-  max_epochs: 40
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
