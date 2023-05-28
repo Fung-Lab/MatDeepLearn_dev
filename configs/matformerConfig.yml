@@ -8,9 +8,13 @@ task:
   # seed=0 means random initalization
   seed: 0
   # Defaults to run directory if not specified
-  # save_dir: "."
-  # checkpoint_dir: "."
+  #save_dir: 
+  continue_job: False
+  load_training_state: False
+  # Path to the checkpoint file
+  #checkpoint_path: 
   write_output: True
+  use_amp: True 
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
 
@@ -71,6 +75,7 @@ dataset:
   pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
   #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
   #pt_path: "/project/Rithwik/QM9/"
+  prediction_level: "graph"
   transforms:
     - name: GetY
       args:

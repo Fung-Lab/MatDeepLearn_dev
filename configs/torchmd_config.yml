@@ -5,15 +5,16 @@ task:
   identifier: "my_train_job"
 
   reprocess: False
-
-
-  parallel: True
+  parallel: False
   seed: 0
   #seed=0 means random initalization
-
-
+  #save_dir: 
+  continue_job: False
+  load_training_state: False
+  # Path to the checkpoint file
+  #checkpoint_path: 
   write_output: True
-  parallel: True
+  use_amp: True 
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
 
@@ -77,6 +78,7 @@ dataset:
   # Path to save processed data.pt file
   #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
   pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
+  prediction_level: "graph"
   transforms:
     - name: GetY
       args:

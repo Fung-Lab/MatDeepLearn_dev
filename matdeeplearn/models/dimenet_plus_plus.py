@@ -312,6 +312,9 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         self,
         #num_atoms,
         #bond_feat_dim,  # not used
+        node_dim,
+        edge_dim,
+        output_dim,
         num_targets=1,
         use_pbc=True,
         regress_forces=False,

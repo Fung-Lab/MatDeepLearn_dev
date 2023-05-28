@@ -16,17 +16,15 @@ class ALIGNN_GRAPHITE(BaseModel):
     Reference: https://www.nature.com/articles/s41524-021-00650-1.
     """
 
-    def __init__(self, data, hidden_features=64, alignn_layers=4, num_species=3, max_edge_distance=3.0, **kwargs):
+    def __init__(self, node_dim, edge_dim, output_dim, hidden_features=64, alignn_layers=4, num_species=3, max_edge_distance=3.0, **kwargs):
         super().__init__()
 
-        if isinstance(data, torch.utils.data.Subset): 
-            data = data.dataset
         self.dim = hidden_features
         self.num_interactions = alignn_layers
         self.cutoff = max_edge_distance
 
         #self.embed_atm = Embedding(data.num_features, hidden_features)
-        self.embed_atm = Linear(data.num_features, hidden_features)
+        self.embed_atm = Linear(node_dim, hidden_features)
         self.embed_bnd = partial(bessel, start=0, end=max_edge_distance, num_basis=hidden_features)
 
         self.atm_bnd_interactions = ModuleList()
