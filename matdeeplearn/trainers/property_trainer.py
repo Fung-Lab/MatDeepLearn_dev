@@ -95,7 +95,7 @@ class PropertyTrainer(BaseTrainer):
                 # Compute forward, loss, backward
                 with autocast(enabled=self.use_amp):
                     out = self._forward(batch)
-                    if type(out) == tuple and len(out) == 5:
+                    if type(out) == tuple:
                         out = out[0]
                     loss = self._compute_loss(out, batch)
 
@@ -170,7 +170,7 @@ class PropertyTrainer(BaseTrainer):
             with torch.no_grad():
                 batch = next(loader_iter).to(self.rank)
                 out = self._forward(batch.to(self.rank))
-                if type(out) == tuple and len(out) == 5:
+                if type(out) == tuple:
                     out = out[0]
                 loss = self._compute_loss(out, batch)
                 # Compute metrics
@@ -195,6 +195,8 @@ class PropertyTrainer(BaseTrainer):
         _metrics_predict = {}
         for i, batch in enumerate(loader):
             out = self._forward(batch.to(self.rank))
+            if type(out) == tuple:
+                out = out[0]
             loss = self._compute_loss(out, batch)
             _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
             self._metrics_predict = self.evaluator.update(
