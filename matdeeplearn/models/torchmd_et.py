@@ -185,9 +185,9 @@ class TorchMD_ET(nn.Module):
         x = self.out_norm(x)
         x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
         x = self.pool.reduce(x, data.batch)
-        x = x.squeeze()
-        #if x.shape[1] == 1:
-        #    x = x.view(-1)
+        #x = x.squeeze()
+        if x.shape[1] == 1:
+            x = x.view(-1)
 
         return x, vec, data.z, data.pos, data.batch
 
