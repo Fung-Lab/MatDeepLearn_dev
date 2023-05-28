@@ -104,7 +104,7 @@ class LineGraphMod(object):
             for u, v in edge_pairs
         ]
         edge_index_A = torch.tensor(edge_index_A)
-        edge_index_A = torch.transpose(edge_index_A, 0, 1)
+        edge_index_A = torch.transpose(edge_index_A, -1, 0)
         #data.edge_index_lg = edge_index_A
         data.edge_index_lg = triplet_pairs
         data.x_lg = data.edge_attr
