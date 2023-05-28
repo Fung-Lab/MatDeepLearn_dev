@@ -16,7 +16,6 @@ task:
   write_output: True
   use_amp: True 
   #Training print out frequency (print per n number of epochs)
-  verbosity: 1
 
 model:
   name: Matformer
@@ -60,6 +59,7 @@ optim:
   scheduler:
     scheduler_type: "ReduceLROnPlateau"
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+  verbosity: 1
 
 dataset:
   processed: False
