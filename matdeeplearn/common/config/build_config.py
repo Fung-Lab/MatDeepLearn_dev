@@ -1,12 +1,12 @@
 import ast
 import copy
-import os
 import logging
-
-from matdeeplearn.common.utils import DictTools
-from matdeeplearn.common.jobs import CONFIG_PATH
+import os
 
 import yaml
+
+from matdeeplearn.common.jobs import CONFIG_PATH
+from matdeeplearn.common.utils import DictTools
 
 
 def merge_dicts(dict1: dict, dict2: dict):
@@ -68,7 +68,9 @@ def parse_value(value):
     try:
         val = ast.literal_eval(value)
         if isinstance(val, list):
-            logging.warning(f"Ensure list elements (of type {type(val[0])}) are escaped correctly.")
+            logging.warning(
+                f"Ensure list elements (of type {type(val[0])}) are escaped correctly."
+            )
         return val
     except (ValueError, SyntaxError):
         # Use as string if nothing else worked

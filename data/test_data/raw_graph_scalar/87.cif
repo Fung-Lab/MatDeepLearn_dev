@@ -1,0 +1,35 @@
+data_image0
+_chemical_formula_structural       Pt10
+_chemical_formula_sum              "Pt10"
+_cell_length_a       17.1
+_cell_length_b       17.2
+_cell_length_c       17.3
+_cell_angle_alpha    90
+_cell_angle_beta     90
+_cell_angle_gamma    90
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Pt  Pt1       1.0  0.34919  0.54326  0.69846  1.0000
+  Pt  Pt2       1.0  0.42690  0.47772  0.60438  1.0000
+  Pt  Pt3       1.0  0.40815  0.53249  0.47614  1.0000
+  Pt  Pt4       1.0  0.33601  0.59489  0.38275  1.0000
+  Pt  Pt5       1.0  0.47684  0.35722  0.59141  1.0000
+  Pt  Pt6       1.0  0.39704  0.60682  0.26011  1.0000
+  Pt  Pt7       1.0  0.49647  0.53999  0.36194  1.0000
+  Pt  Pt8       1.0  0.40188  0.63010  0.58079  1.0000
+  Pt  Pt9       1.0  0.64866  0.51330  0.53283  1.0000
+  Pt  Pt10      1.0  0.63885  0.56263  0.40492  1.0000

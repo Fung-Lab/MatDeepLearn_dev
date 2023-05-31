@@ -1,29 +1,32 @@
 import json
 import logging
 import os
+import pathlib
 
 import numpy as np
+
+from typing import Union
 import pandas as pd
 import torch
-import pathlib
 import wandb
 from ase import io
-from torch_geometric.data import Data, InMemoryDataset, Batch
+from torch_geometric.data import Batch, Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from tqdm import tqdm
 
+from matdeeplearn.common.graph_data import CustomBatchingData
 from matdeeplearn.common.registry import registry
 from matdeeplearn.common.utils import DictTools
-from matdeeplearn.common.graph_data import CustomBatchingData
 from matdeeplearn.preprocessor.helpers import (
+    PerfTimer,
+    calculate_edges_master,
     clean_up,
     generate_edge_features,
     generate_node_features,
-    PerfTimer,
 )
 
 
-def process_data(dataset_config, wandb_config):
+def from_config(dataset_config, wandb_config):
     use_wandb = wandb_config.get("use_wandb", False)
 
     # modify config to reflect sweep parameters if being run
@@ -34,13 +37,19 @@ def process_data(dataset_config, wandb_config):
 
     preprocess_kwargs = dataset_config["preprocess_params"]
 
-    root_path = dataset_config["src"]
-    target_path = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
     cutoff_radius = preprocess_kwargs["cutoff_radius"]
     n_neighbors = preprocess_kwargs["n_neighbors"]
     num_offsets = preprocess_kwargs["num_offsets"]
     edge_steps = preprocess_kwargs["edge_steps"]
+    root_path_dict = dataset_config["src"]
+    target_file_path_dict = dataset_config["target_path"]
+    pt_path = dataset_config.get("pt_path", None)
+    prediction_level = dataset_config.get("prediction_level", "graph")
+    cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
+    n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
+    num_offsets = dataset_config["preprocess_params"]["num_offsets"]
+    edge_steps = dataset_config["preprocess_params"]["edge_steps"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
@@ -57,9 +66,10 @@ def process_data(dataset_config, wandb_config):
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
-        root_path=root_path,
-        target_file_path=target_path,
+        root_path_dict=root_path_dict,
+        target_file_path_dict=target_file_path_dict,
         pt_path=pt_path,
+        prediction_level=prediction_level,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
@@ -84,15 +94,23 @@ def process_data(dataset_config, wandb_config):
         device=device,
     )
 
-    processor.process()
+    return processor
+
+
+def process_data(dataset_config, wandb_config):
+    processor = from_config(dataset_config, wandb_config)
+    dataset = processor.process()
+
+    return dataset
 
 
 class DataProcessor:
     def __init__(
         self,
-        root_path: str,
-        target_file_path: str,
+        root_path_dict: Union[str, dict],
+        target_file_path_dict: Union[str, dict],
         pt_path: str,
+        prediction_level: str,
         r: float,
         n_neighbors: int,
         num_offsets: int,
@@ -171,10 +189,11 @@ class DataProcessor:
                 if True, certain messages will be printed
         """
 
-        self.root_path = root_path
-        self.target_file_path = target_file_path
+        self.root_path_dict = root_path_dict
+        self.target_file_path_dict = target_file_path_dict
         self.pt_path = pt_path
         self.r = r
+        self.prediction_level = prediction_level
         self.n_neighbors = n_neighbors
         self.num_offsets = num_offsets
         self.edge_steps = edge_steps
@@ -242,7 +261,12 @@ class DataProcessor:
             pos = torch.tensor(s.get_positions(), device=self.device, dtype=torch.float)
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
-            )
+            ).view(1, 3, 3)
+            if (
+                np.array(cell)
+                == np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+            ).all():
+                cell = torch.zeros((3, 3)).unsqueeze(0)
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             d["positions"] = pos
@@ -256,9 +280,11 @@ class DataProcessor:
                 for k, v in attributes.items():
                     d[k] = v
 
+            d["y"] = y[i]
+
             dict_structures.append(d)
 
-        return dict_structures, y
+        return dict_structures
 
     def get_csv_additional_attributes(self, structure_id):
         """
@@ -307,9 +333,18 @@ class DataProcessor:
             tqdm(original_structures[: self.num_examples], disable=self.disable_tqdm)
         ):
             d = {}
+            if len(s["atomic_numbers"]) == 1:
+                continue
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
-            cell2 = s["cell2"]
+            cell2 = None
+            if "cell2" in s:
+                cell2 = s["cell2"]
+            if "cell" in s:
+                cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+                if cell.shape[0] != 1:
+                    cell = cell.view(1, 3, 3)
+            else:
+                cell = torch.zeros((3, 3)).unsqueeze(0)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -329,19 +364,41 @@ class DataProcessor:
 
             # check y types
             _y = s["y"]
-            if isinstance(_y, str):
-                _y = float(_y)
-            elif isinstance(_y, list):
-                _y = [float(each) for each in _y]
+            if isinstance(_y, list) == False:
+                _y = np.array([_y], dtype=np.float32)
+            else:
+                _y = np.array(_y, dtype=np.float32)
+            # if isinstance(_y, str):
+            #    _y = float(_y)
+            # elif isinstance(_y, list):
+            #    _y = [float(each) for each in _y]
+
             y.append(_y)
 
-        y = np.array(y).reshape(-1, y_dim)
-        return dict_structures, y
+            d["y"] = np.array(_y)
 
-    def process(self, save=True):
-        logging.info("Data found at {}".format(self.root_path))
+        y = np.array(y)
+        return dict_structures
+
+    def process_split(self, data_list: dict, split: str, save: bool):
+        logging.info("Working on split {}".format(split))
+        logging.info(f"{split} dataset found at {self.root_path}")
         logging.info("Processing device: {}".format(self.device))
         logging.info("Checking for existing processed data with matching metadata...")
+
+        self.root_path = (
+            self.root_path_dict[split]
+            if isinstance(self.root_path_dict, dict)
+            else self.root_path_dict
+        )
+        if self.target_file_path_dict:
+            self.target_file_path = (
+                self.target_file_path_dict[split]
+                if isinstance(self.target_file_path_dict, dict)
+                else self.target_file_path_dict
+            )
+        else:
+            self.target_file_path = self.target_file_path_dict
 
         found_existing = False
         data_dir = pathlib.Path(self.pt_path).parent
@@ -357,7 +414,7 @@ class DataProcessor:
                             logging.info(
                                 f"Found existing processed data with matching metadata ({proc_dir}), skipping processing. Loading..."
                             )
-                            self.save_path = proc_dir / "data.pt"
+                            self.save_path = proc_dir / f"data_{split}.pt"
                             found_existing = True
                             break
                     except FileNotFoundError:
@@ -368,8 +425,8 @@ class DataProcessor:
         if not found_existing:
             logging.info("No existing processed data found. Processing...")
             dict_structures, y = self.src_check()
-            data_list = self.get_data_list(dict_structures, y)
-            data, slices = InMemoryDataset.collate(data_list)
+            data_list[split] = self.get_data_list(dict_structures, y)
+            data, slices = InMemoryDataset.collate(data_list[split])
 
             if save:
                 if os.path.exists(self.pt_path):
@@ -385,67 +442,148 @@ class DataProcessor:
                         self.pt_path = original_path + "_" + str(idx)
                     logging.debug(f"New processed data dir: {self.pt_path}")
                     os.makedirs(self.pt_path)
+
                 # save processed data
                 if self.pt_path:
                     if not os.path.exists(self.pt_path):
                         os.makedirs(self.pt_path)
-                    save_path = os.path.join(self.pt_path, "data.pt")
+                    save_path = os.path.join(self.pt_path, f"data_{split}.pt")
                 torch.save((data, slices), save_path)
+
                 # save metadata
                 with open(os.path.join(self.pt_path, "metadata.json"), "w") as f:
                     json.dump(self.metadata, f)
-                logging.info("Processed data saved successfully.")
+                logging.info(f"Processed {split} data saved successfully.")
 
-    def get_data_list(self, dict_structures, y):
+    def process(self, save=True):
+        data_list = {}
+        if isinstance(self.root_path_dict, dict):
+            if self.root_path_dict.get("train"):
+                self.process_split(data_list, "train", save)
+
+            if self.root_path_dict.get("val"):
+                self.process_split(data_list, "val", save)
+
+            if self.root_path_dict.get("test"):
+                self.process_split(data_list, "test", save)
+
+            if self.root_path_dict.get("predict"):
+                self.process_split(data_list, "predict", save)
+
+        else:
+            self.process_split(data_list, "full", save)
+
+        return data_list
+
+    def get_data_list(self, dict_structures):
         n_structures = len(dict_structures)
         data_list = [Data() for _ in range(n_structures)]
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
-            with PerfTimer() as t:
-                target_val = y[i]
-                structure = data_list[i]
+            with PerfTimer() as perf_timer:
+                if self.apply_pre_transform_processing:
+                    logging.info("Generating node features...")
+                    generate_node_features(
+                        data_list,
+                        self.n_neighbors,
+                        device=self.device,
+                        use_degree=self.use_degree,
+                    )
+                    logging.info("Generating edge features...")
+                    generate_edge_features(
+                        data_list, self.edge_steps, self.r, device=self.device
+                    )
 
-                pos = sdict["positions"]
-                cell = sdict["cell"]
-                cell2 = sdict.get("cell2", None)
-                atomic_numbers = sdict["atomic_numbers"]
-                structure_id = sdict["structure_id"]
+                    # target_val = y[i]
+                    data = data_list[i]
 
-                structure.n_atoms = torch.tensor([len(atomic_numbers)])
-                structure.pos = pos
-                structure.cell = cell
-                structure.cell2 = cell2
-                structure.y = torch.Tensor(np.array([target_val]))
-                structure.z = atomic_numbers
-                structure.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-                structure.structure_id = [[structure_id] * len(structure.y)]
+                    pos = sdict["positions"]
+                    cell = sdict["cell"]
+                    cell2 = sdict.get("cell2", None)
+                    atomic_numbers = sdict["atomic_numbers"]
+                    structure_id = sdict["structure_id"]
+                    target_val = sdict["y"]
+
+                    edge_gen_out = calculate_edges_master(
+                        self.edge_calc_method,
+                        self.all_neighbors,
+                        self.r,
+                        self.n_neighbors,
+                        self.num_offsets,
+                        structure_id,
+                        cell,
+                        pos,
+                        atomic_numbers,
+                    )
+                    edge_indices = edge_gen_out["edge_index"]
+                    edge_weights = edge_gen_out["edge_weights"]
+                    cell_offsets = edge_gen_out["cell_offsets"]
+                    edge_vec = edge_gen_out["edge_vec"]
+                    neighbors = edge_gen_out["neighbors"]
+
+                    if edge_vec.dim() > 2:
+                        edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
+
+                    data.edge_index, data.edge_weight = edge_indices, edge_weights
+                    data.edge_vec = edge_vec
+                    data.cell_offsets = cell_offsets
+                    data.neighbors = neighbors
+
+                    data.edge_descriptor = {}
+                    # data.edge_descriptor["mask"] = cd_matrix_masked
+                    data.edge_descriptor["distance"] = edge_weights
+                    data.distances = edge_weights
+
+                data.n_atoms = len(atomic_numbers)
+                data.pos = pos
+                data.cell = cell
+                data.cell2 = cell2
+
+                # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
+                data.y = torch.Tensor(np.array(target_val))
+                if self.prediction_level == "graph":
+                    if data.y.dim() > 1 and data.y.shape[0] != 0:
+                        raise ValueError(
+                            "Target labels do not have the correct dimensions for graph-level prediction."
+                        )
+                    elif data.y.dim() == 1:
+                        data.y = data.y.unsqueeze(0)
+                elif self.prediction_level == "node":
+                    if data.y.shape[0] != data.n_atoms:
+                        raise ValueError(
+                            "Target labels do not have the correct dimensions for node-level prediction."
+                        )
+                    elif data.y.dim() == 1:
+                        data.y = data.y.unsqueeze(1)
+                # print(data.y.shape)
+
+                data.z = atomic_numbers
+                data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+                # data.structure_id = [[structure_id] * len(data.y)]
+                data.structure_id = [structure_id]
 
                 # add additional attributes
                 if self.additional_attributes:
                     for attr in self.additional_attributes:
-                        structure.__setattr__(attr, sdict[attr])
+                        data.__setattr__(attr, sdict[attr])
 
-            if self.use_wandb:
-                wandb.log({"process_times": t.elapsed})
+                if self.use_wandb:
+                    wandb.log({"process_times": perf_timer.elapsed})
 
-        if self.apply_pre_transform_processing:
-            logging.info("Generating node features...")
-            generate_node_features(
-                data_list,
-                self.n_neighbors,
-                device=self.device,
-                use_degree=self.use_degree,
-            )
-            logging.info("Generating edge features...")
-            generate_edge_features(
-                data_list, self.edge_steps, self.r, device=self.device
-            )
+        # compile non-otf transforms
+        logging.debug("Applying transforms.")
+
+        # Ensure GetY exists to prevent downstream model errors
+        assert "GetY" in [
+            tf["name"] for tf in self.transforms
+        ], "The target transform GetY is required in config."
 
         # compile transforms
         transforms_list_unbatched = []
         transforms_list_batched = []
+
         for transform in self.transforms:
             entry = registry.get_transform_class(
                 transform["name"],
@@ -456,16 +594,17 @@ class DataProcessor:
                 transforms_list_unbatched.append(entry)
             elif transform.get("batch", False):
                 transforms_list_batched.append(entry)
+
         composition_unbatched = Compose(transforms_list_unbatched)
         composition_batched = Compose(transforms_list_batched)
 
         # perform unbatched transforms
         logging.info("Applying non-batch transforms...")
         for i, data in enumerate(tqdm(data_list, disable=self.disable_tqdm)):
-            with PerfTimer() as t:
+            with PerfTimer() as perf_timer:
                 data_list[i] = composition_unbatched(data)
             if self.use_wandb:
-                wandb.log({"transforms_times": t.elapsed})
+                wandb.log({"transforms_times": perf_timer.elapsed})
 
         # convert to custom data object
         for i, data in enumerate(data_list):

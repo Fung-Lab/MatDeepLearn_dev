@@ -1,30 +1,24 @@
 trainer: property
 
 task:
-  # run_mode: train
+  run_mode: "train"
   identifier: "my_train_job"
-  reprocess: False
-  parallel: True
-  # seed=0 means random initalization
-  # seed=0 means random initalization
-  seed: 0
-  #seed=0 means random initalization
-
+  parallel: False
   use_wandb: True
   wandb_entity: "fung-lab"
   wandb_project: "cgcnn_vn"
 
+  seed: 12345678
   # Defaults to run directory if not specified
-  # save_dir: "."
-  # checkpoint_dir: "."
-  write_output: True
-  parallel: True
-  #Training print out frequency (print per n number of epochs)
-  verbosity: 5
+  save_dir: 
+  continue_job: False
+  load_training_state: False
+  # Path to the checkpoint file
+  checkpoint_path: 
+  write_output: True  
 
 model:
-  name: CGCNN
-  load_model: False
+  name: CGCNN  
   save_model: True
   model_path: "cgcnn.pth"
   edge_steps: 50
@@ -41,9 +35,10 @@ model:
   batch_norm: True
   batch_track_stats: True
   act: "relu"
-  dropout_rate: 0.0
+  dropout_rate: 0.0  
 
 optim:
+  max_epochs: 40
   max_epochs: 250
   max_checkpoint_epochs: 0
   max_checkpoint_epochs: 0
@@ -61,24 +56,36 @@ optim:
   scheduler:
     scheduler_type: "ReduceLROnPlateau"
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
-
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+  
 dataset:
+  name: "test_data"
   processed: False
-  # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/raw/"
-  # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_npj/targets.csv"
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
+  src: data/test_data/data_graph_scalar.json
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  # Example: target_path: "data/raw_graph_scalar/targets.csv"
+  target_path: 
   # Path to save processed data.pt file
-  pt_path: "/global/homes/s/shuyijia/datasets/MP_data_npj/"
+  pt_path: "data/"
+  # Either "node" or "graph"
+  prediction_level: "graph"
+  
   transforms:
     - name: GetY
       args:
-        index: 0
-      otf: False
-  # Format of data files (limit to those supported by ASE)
+        # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
+        # For example, an index: 0 (default) will use the first entry in the target vector 
+        # if all values are to be predicted simultaneously, then specify index: -1
+        index: -1
+      otf: True # Optional parameter, default is False
+  all_neighbors : True
+  # one of mdl (minimum image convention), ocp (all neighbors included)
+  edge_calc_method: "mdl"
+  # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
-  # Method of obtaining atom idctionary: available:(onehot)
-  # Method of obtaining atom idctionary: available:(onehot)
+  # Method of obtaining atom dictionary: available: (onehot)
   node_representation: "onehot"
   additional_attributes: []
   # Print out processing info
@@ -88,9 +95,12 @@ dataset:
   # graph specific settings
   preprocess_params:
     cutoff_radius : 8.0
-    n_neighbors : 12
+    n_neighbors : 250
+    num_offsets: 1
     edge_steps : 50
-  # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.8
+  # Ratios for train/val/test split out of a total of less than 1
+  train_ratio: 0.85
   val_ratio: 0.05
-  test_ratio: 0.15
+  test_ratio: 0.10
+  
+

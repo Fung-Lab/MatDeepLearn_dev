@@ -6,9 +6,10 @@ import tempfile
 from datetime import datetime
 
 import torch
-import yaml
-
 import wandb
+import yaml
+from torch import distributed as dist
+
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
 from matdeeplearn.common.jobs import CONFIG_PATH, start_sweep_tasks
@@ -133,6 +134,12 @@ def main():
 
 
 if __name__ == "__main__":
+    # setup_logging()
+    local_rank = os.environ.get("LOCAL_RANK", None)
+    if local_rank == None or int(local_rank) == 0:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
 
