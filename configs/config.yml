@@ -14,7 +14,7 @@ task:
   continue_job: False
   load_training_state: False
   # Path to the checkpoint file
-  checkpoint_path: 
+  checkpoint_dir: 
   write_output: True  
 
 model:
