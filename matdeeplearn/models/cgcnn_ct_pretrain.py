@@ -185,7 +185,7 @@ class CGCNNCTPretrain(BaseModel):
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Post-GNN dense layers
-        '''
+        '''CT paper implementation
         crys_fea = self.pooling(atom_fea, crystal_atom_idx)
         crys_fea = self.conv_to_fc(self.conv_to_fc_softplus(crys_fea))
         crys_fea = self.conv_to_fc_softplus(crys_fea)
