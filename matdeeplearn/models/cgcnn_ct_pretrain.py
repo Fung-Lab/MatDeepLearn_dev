@@ -19,22 +19,22 @@ from matdeeplearn.models.base_model import BaseModel
 @registry.register_model("CGCNN_CTPRETRAIN")
 class CGCNNCTPretrain(BaseModel):
     def __init__(
-        self,
-        edge_steps,
-        self_loop,
-        data,
-        dim1=64,
-        dim2=64,
-        pre_fc_count=1,
-        gc_count=3,
-        post_fc_count=1,
-        pool="global_mean_pool",
-        pool_order="early",
-        batch_norm=True,
-        batch_track_stats=True,
-        act="relu",
-        dropout_rate=0.0,
-        **kwargs
+            self,
+            edge_steps,
+            self_loop,
+            data,
+            dim1=64,
+            dim2=64,
+            pre_fc_count=1,
+            gc_count=3,
+            post_fc_count=1,
+            pool="global_mean_pool",
+            pool_order="early",
+            batch_norm=True,
+            batch_track_stats=True,
+            act="relu",
+            dropout_rate=0.0,
+            **kwargs
     ):
         super(CGCNNCTPretrain, self).__init__(edge_steps, self_loop)
 
@@ -69,6 +69,14 @@ class CGCNNCTPretrain(BaseModel):
         self.pre_lin_list = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_embeding = self._setup_post_gnn_layers()
+        self.conv_to_fc = torch.nn.Linear(self.post_fc_dim, self.dim2)
+        self.conv_to_fc_softplus = torch.nn.Softplus()
+
+        self.fc_head = torch.nn.Sequential(
+            torch.nn.Linear(self.dim2, self.dim2),
+            torch.nn.Softplus(),
+            torch.nn.Linear(self.dim2, self.dim2)
+        )
 
         # Should processing_steps be a hypereparameter?
         if self.pool_order == "early" and self.pool == "set2set":
@@ -177,15 +185,23 @@ class CGCNNCTPretrain(BaseModel):
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Post-GNN dense layers
+        '''
+        crys_fea = self.pooling(atom_fea, crystal_atom_idx)
+        crys_fea = self.conv_to_fc(self.conv_to_fc_softplus(crys_fea))
+        crys_fea = self.conv_to_fc_softplus(crys_fea)
+        '''
         if self.pool_order == "early":
             if self.pool == "set2set":
                 out = self.set2set(out, data.batch)
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-            for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
-            out = self.lin_embeding(out)
+            out = self.conv_to_fc(self.conv_to_fc_softplus(out))
+            out = self.conv_to_fc_softplus(out)
+            out = self.fc_head(out)
+            # for i in range(0, len(self.post_lin_list)):
+            #     out = self.post_lin_list[i](out)
+            #     out = getattr(F, self.act)(out)
+            # out = self.lin_embeding(out)
 
         elif self.pool_order == "late":
             for i in range(0, len(self.post_lin_list)):
@@ -198,8 +214,4 @@ class CGCNNCTPretrain(BaseModel):
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
 
-        # if out.shape[1] == 1:
-        #     return out.view(-1)
-        # else:
-        #     return out
         return out
