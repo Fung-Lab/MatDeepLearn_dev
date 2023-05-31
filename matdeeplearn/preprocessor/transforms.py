@@ -25,6 +25,6 @@ class GetY(object):
         weight = 0.1
         rand_t = torch.rand(data.scaled.shape)
         rand_t_weighted = rand_t * weight
-        data.scaled = torch.mul(data.scaled, rand_t_weighted)
+        data.scaled = torch.add(data.scaled, rand_t_weighted)
 
         return data
