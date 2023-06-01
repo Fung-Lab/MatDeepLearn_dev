@@ -318,13 +318,13 @@ class BasicBlock(nn.Module):
         if self.downsample:
             identity = self.downsample(identity)
 
-        # if expand channel, also pad zeros to identity
-        if self.out_channels != self.in_channels:
-            identity = identity.transpose(-1, -2)
-            ch1 = (self.out_channels - self.in_channels) // 2
-            ch2 = self.out_channels - self.in_channels - ch1
-            identity = F.pad(identity, (ch1, ch2), "constant", 0)
-            identity = identity.transpose(-1, -2)
+        # # if expand channel, also pad zeros to identity
+        # if self.out_channels != self.in_channels:
+        #     identity = identity.transpose(-1, -2)
+        #     ch1 = (self.out_channels - self.in_channels) // 2
+        #     ch2 = self.out_channels - self.in_channels - ch1
+        #     identity = F.pad(identity, (ch1, ch2), "constant", 0)
+        #     identity = identity.transpose(-1, -2)
 
         # shortcut
         out += identity
