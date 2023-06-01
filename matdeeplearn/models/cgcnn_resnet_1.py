@@ -265,14 +265,12 @@ class BasicBlock(nn.Module):
         self,
         in_channels,
         out_channels,
-        kernel_size,
         stride,
         downsample,
     ):
         super(BasicBlock, self).__init__()
 
         self.in_channels = in_channels
-        self.kernel_size = kernel_size
         self.out_channels = out_channels
         self.stride = stride
         self.downsample = downsample
@@ -286,7 +284,7 @@ class BasicBlock(nn.Module):
             MyConv1dPadSame(
                 in_channels=in_channels,
                 out_channels=out_channels,
-                kernel_size=kernel_size,
+                kernel_size=3,
                 stride=self.stride,
                 groups=1,
             ),
@@ -298,7 +296,7 @@ class BasicBlock(nn.Module):
             MyConv1dPadSame(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                kernel_size=kernel_size,
+                kernel_size=3,
                 stride=1,
                 groups=self.groups,
             ),
