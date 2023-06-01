@@ -290,7 +290,7 @@ class BasicBlock(nn.Module):
         # the first conv
         self.bn1 = nn.BatchNorm1d(in_channels)
         self.relu1 = nn.ReLU()
-        self.do1 = nn.Dropout(p=0.5)
+        self.do1 = nn.Dropout(p=0.05)
         self.conv1 = MyConv1dPadSame(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -302,7 +302,7 @@ class BasicBlock(nn.Module):
         # the second conv
         self.bn2 = nn.BatchNorm1d(out_channels)
         self.relu2 = nn.ReLU()
-        self.do2 = nn.Dropout(p=0.5)
+        self.do2 = nn.Dropout(p=0.05)
         self.conv2 = MyConv1dPadSame(
             in_channels=out_channels,
             out_channels=out_channels,
