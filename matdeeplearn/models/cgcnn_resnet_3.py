@@ -9,7 +9,7 @@ from matdeeplearn.models.cgcnn import CGCNN
 
 
 @registry.register_model("CGCNN_RESNET_3")
-class CGCNN_RESNET_1(CGCNN):
+class CGCNN_RESNET_3(CGCNN):
     def __init__(
         self,
         edge_steps,
@@ -28,7 +28,7 @@ class CGCNN_RESNET_1(CGCNN):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN_RESNET_1, self).__init__(
+        super(CGCNN_RESNET_3, self).__init__(
             edge_steps,
             self_loop,
             data,
