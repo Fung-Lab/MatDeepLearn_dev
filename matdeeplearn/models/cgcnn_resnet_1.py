@@ -298,7 +298,7 @@ class BasicBlock(nn.Module):
                 out_channels=out_channels,
                 kernel_size=3,
                 stride=1,
-                groups=self.groups,
+                groups=1,
             ),
             nn.BatchNorm1d(out_channels),
         )
