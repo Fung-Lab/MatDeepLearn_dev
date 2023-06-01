@@ -2,10 +2,9 @@ import json
 import logging
 import os
 import pathlib
+from typing import Union
 
 import numpy as np
-
-from typing import Union
 import pandas as pd
 import torch
 import wandb
@@ -17,13 +16,11 @@ from tqdm import tqdm
 from matdeeplearn.common.graph_data import CustomBatchingData
 from matdeeplearn.common.registry import registry
 from matdeeplearn.common.utils import DictTools
-from matdeeplearn.preprocessor.helpers import (
-    PerfTimer,
-    calculate_edges_master,
-    clean_up,
-    generate_edge_features,
-    generate_node_features,
-)
+from matdeeplearn.preprocessor.helpers import (PerfTimer,
+                                               calculate_edges_master,
+                                               clean_up,
+                                               generate_edge_features,
+                                               generate_node_features)
 
 
 def from_config(dataset_config, wandb_config):
