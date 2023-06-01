@@ -10,11 +10,10 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
-from matdeeplearn.models.output_modules import EquivariantScalar
+from matdeeplearn.models.output_modules import EquivariantScalar, EquivariantVectorOutput
 from matdeeplearn.common.registry import registry
+
 @registry.register_model("torchmd_et")
-
-
 class TorchMD_ET(nn.Module):
     r"""The TorchMD equivariant Transformer architecture.
 
@@ -103,7 +102,10 @@ class TorchMD_ET(nn.Module):
         self.cutoff_lower = cutoff_lower
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
+        # both pool and output_model_noise are output heads
+        # in future, this should be generalized
         self.pool = EquivariantScalar(self.hidden_channels)
+        self.output_model_noise = EquivariantVectorOutput(self.hidden_channels, self.activation)
 
         act_class = act_class_mapping[activation]
 
@@ -181,10 +183,19 @@ class TorchMD_ET(nn.Module):
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
+
+        # predict noise
+        noise_pred = None
+        if self.output_model_noise is not None:
+            noise_pred = self.output_model_noise.pre_reduce(x, vec, data.z, data.pos, data.batch)
+
         x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
         x = self.pool.reduce(x, data.batch)
         if x.shape[1] == 1:
             x = x.view(-1)
+
+        if self.output_model_noise is not None:
+            return x, noise_pred
 
         return x, vec, data.z, data.pos, data.batch
 

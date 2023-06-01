@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch_sparse import coalesce
 
 from matdeeplearn.common.registry import registry
@@ -37,6 +38,24 @@ class GetY(object):
             #data.y = data.y[0][self.index]            
         return data
 
+
+@registry.register_transform("NoisyNode")
+class NoisyNode(object):
+    """
+    Add randomly sampled gaussian noise to
+    every position/coordinate of the data object
+    """
+    def __init__(self, std=0.1):
+        self.std = std
+
+    def __call__(self, data):
+        # generate noise
+        noise = torch.normal(0, self.std, data.pos.shape)
+        pos = data.pos + noise
+        
+        data.pos = pos
+        data.noise = noise
+        return data
 
 @registry.register_transform("NumNodeTransform")
 class NumNodeTransform(object):

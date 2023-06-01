@@ -139,7 +139,7 @@ def get_dataloader(
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=(sampler is None),
+        shuffle=(sampler is not None),
         num_workers=num_workers,
         pin_memory=True,
         sampler=sampler,

@@ -5,7 +5,7 @@ task:
   identifier: "my_train_job"
   parallel: False
   # If seed is not set, then it will be random every time
-  seed: 12345678
+  seed: 1234
   # Defaults to run directory if not specified
   save_dir: 
   continue_job: False
@@ -35,7 +35,7 @@ model:
   dropout_rate: 0.0  
 
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -43,7 +43,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 512
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -57,7 +57,7 @@ dataset:
   name: "test_data"
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/test_data/data_graph_scalar.json
+  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/Matbench/data_log_gvrh.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
@@ -72,11 +72,11 @@ dataset:
         # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
         # For example, an index: 0 (default) will use the first entry in the target vector 
         # if all values are to be predicted simultaneously, then specify index: -1
-        index: -1
+        index: 0
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl (minimum image convention), ocp (all neighbors included)
-  edge_calc_method: "mdl"
+  edge_calc_method: "ocp"
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # Method of obtaining atom dictionary: available: (onehot)

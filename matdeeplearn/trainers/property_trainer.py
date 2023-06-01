@@ -225,9 +225,9 @@ class PropertyTrainer(BaseTrainer):
 
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
             predict = (
-                batch_p if i == 0 else torch.concatenate((predict, batch_p), axis=0)
+                batch_p if i == 0 else torch.cat((predict, batch_p), axis=0)
             )
-            target = batch_t if i == 0 else torch.concatenate((target, batch_t), axis=0)
+            target = batch_t if i == 0 else torch.cat((target, batch_t), axis=0)
 
         if write_output == True:
             self.save_results(
