@@ -491,7 +491,7 @@ class ResNet1D(nn.Module):
         if self.use_bn:
             out = self.final_bn(out)
         out = self.final_relu(out)
-        out = out.mean(-1)
+        # out = out.mean(-1)
         if self.verbose:
             print("final pooling", out.shape)
         # out = self.do(out)
