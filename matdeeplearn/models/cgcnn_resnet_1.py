@@ -281,25 +281,15 @@ class BasicBlock(nn.Module):
 
         # the first conv
         self.conv1 = nn.Sequential(
-            MyConv1dPadSame(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=self.stride,
-                groups=1,
+            nn.Conv1d(
+                in_channels, out_channels, kernel_size=3, stride=self.stride, padding=1
             ),
             nn.BatchNorm1d(out_channels),
             nn.ReLU(),
         )
 
         self.conv2 = nn.Sequential(
-            MyConv1dPadSame(
-                in_channels=out_channels,
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=1,
-                groups=1,
-            ),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm1d(out_channels),
         )
 
