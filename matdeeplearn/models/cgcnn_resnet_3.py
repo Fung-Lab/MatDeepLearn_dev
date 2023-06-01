@@ -8,7 +8,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.cgcnn import CGCNN
 
 
-@registry.register_model("CGCNN_RESNET_1")
+@registry.register_model("CGCNN_RESNET_3")
 class CGCNN_RESNET_1(CGCNN):
     def __init__(
         self,
