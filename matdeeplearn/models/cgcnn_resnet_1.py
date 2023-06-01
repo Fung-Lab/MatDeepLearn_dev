@@ -267,11 +267,7 @@ class BasicBlock(nn.Module):
         out_channels,
         kernel_size,
         stride,
-        groups,
         downsample,
-        use_bn,
-        use_do,
-        is_first_block=False,
     ):
         super(BasicBlock, self).__init__()
 
@@ -279,15 +275,11 @@ class BasicBlock(nn.Module):
         self.kernel_size = kernel_size
         self.out_channels = out_channels
         self.stride = stride
-        self.groups = groups
         self.downsample = downsample
         if self.downsample:
             self.stride = stride
         else:
             self.stride = 1
-        self.is_first_block = is_first_block
-        self.use_bn = use_bn
-        self.use_do = use_do
 
         # the first conv
         self.conv1 = nn.Sequential(
@@ -296,7 +288,7 @@ class BasicBlock(nn.Module):
                 out_channels=out_channels,
                 kernel_size=kernel_size,
                 stride=self.stride,
-                groups=self.groups,
+                groups=1,
             ),
             nn.BatchNorm1d(in_channels),
             nn.ReLU(),
