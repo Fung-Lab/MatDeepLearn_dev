@@ -49,7 +49,7 @@ def get_dataset(
         Dataset = LargeCTPretrainDataset
         dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
                           augmentation_list=augmentation_list, transform=composition,
-                          mask_node_ratios=[0.1, 0.25],
+                          mask_node_ratios=[0.1, 0.1],
                           mask_edge_ratios=[0.1, 0.1],
                           distance=0.05,
                           min_distance=0,
@@ -58,7 +58,7 @@ def get_dataset(
         Dataset = CTPretrainDataset
         dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
                           augmentation_list=augmentation_list, transform=composition,
-                          mask_node_ratios=[0.1, 0.25],
+                          mask_node_ratios=[0.1, 0.1],
                           mask_edge_ratios=[0.1, 0.1],
                           distance=0.05,
                           min_distance=0)
