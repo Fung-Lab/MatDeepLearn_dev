@@ -1,0 +1,66 @@
+trainer: property
+
+task:
+  identifier: "CGCNN_RESNET_3_MP_DOS_baseline"
+  reprocess: False
+  parallel: True
+  seed: 0
+  write_output: True
+
+#  TODO: add more logging configs here
+logging:
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+  save_out: True # true if want to save throughout, false if only at end
+
+model:
+  name: CGCNN_RESNET_3
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  post_fc_count: 3
+  pool: "global_mean_pool"
+  pool_order: "early"
+  gc_count: 4
+  batch_norm: True
+  batch_track_stats: False
+  dropout_rate: 0.0
+
+optim:
+  max_epochs: 600
+  lr: 0.002
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+  batch_size: 200
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+
+dataset:
+  processed: True
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw_spd/data.json"
+  target_path: ""
+  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/spd/"
+#  src: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw/"
+#  target_path: ""
+#  pt_path: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/processed/spd/"
+  data_format: "json"
+  node_representation: "onehot"
+  additional_attributes: ["features", "scaled", "scaling_factor"]
+  verbose: True
+  target_index: 0
+  cutoff_radius : 8.0
+  n_neighbors : 12
+  edge_steps : 50
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
