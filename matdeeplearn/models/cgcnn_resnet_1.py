@@ -288,7 +288,7 @@ class BasicBlock(nn.Module):
                 stride=self.stride,
                 groups=1,
             ),
-            nn.BatchNorm1d(in_channels),
+            nn.BatchNorm1d(out_channels),
             nn.ReLU(),
         )
 
