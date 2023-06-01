@@ -265,8 +265,8 @@ class BasicBlock(nn.Module):
         self,
         in_channels,
         out_channels,
-        stride,
-        downsample,
+        stride=1,
+        downsample=None,
     ):
         super(BasicBlock, self).__init__()
 
