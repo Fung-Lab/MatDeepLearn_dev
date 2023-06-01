@@ -5,12 +5,16 @@ task:
   identifier: "cgcnn_vn_hmof"
   reprocess: False
   run_id: ""
-  parallel: True
   gpu: "cuda:0"
   seed: 0
+
+  save_dir:
+  continue_job: False
+  load_training_state: False
+
   # seed=0 means random initalization
   write_output: True
-  parallel: True
+  parallel: False
   # Training print out frequency (print per n number of epochs)
   verbosity: 1
   wandb:
@@ -34,7 +38,8 @@ task:
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
       # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
     metadata:
       architecture: "CGCNN_VN"
       cluster: "fung-cluster"
@@ -94,10 +99,12 @@ dataset:
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
   # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/data.json"
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
+  # src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json"
+  src: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/data.json"
   target_path: ""
   # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/raw_5k/ocp"
-  pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
+  # pt_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp"
+  pt_path: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -132,7 +139,7 @@ dataset:
   preprocess_params:
     cutoff_radius : 5.0
     n_neighbors : 250
-    process_batch_size : 100
+    process_batch_size : 10
     edge_calc_method: "ocp"
     num_offsets: 1
     edge_steps : 25

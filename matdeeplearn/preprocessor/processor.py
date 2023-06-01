@@ -377,20 +377,20 @@ class DataProcessor:
 
             d["y"] = np.array(_y)
 
-        y = np.array(y)
         return dict_structures
 
     def process_split(self, data_list: dict, split: str, save: bool):
-        logging.info("Working on split {}".format(split))
-        logging.info(f"{split} dataset found at {self.root_path}")
-        logging.info("Processing device: {}".format(self.device))
-        logging.info("Checking for existing processed data with matching metadata...")
-
         self.root_path = (
             self.root_path_dict[split]
             if isinstance(self.root_path_dict, dict)
             else self.root_path_dict
         )
+
+        logging.info("Working on split {}".format(split))
+        logging.info(f"{split} dataset found at {self.root_path}")
+        logging.info("Processing device: {}".format(self.device))
+        logging.info("Checking for existing processed data with matching metadata...")
+
         if self.target_file_path_dict:
             self.target_file_path = (
                 self.target_file_path_dict[split]
@@ -424,8 +424,8 @@ class DataProcessor:
 
         if not found_existing:
             logging.info("No existing processed data found. Processing...")
-            dict_structures, y = self.src_check()
-            data_list[split] = self.get_data_list(dict_structures, y)
+            dict_structures = self.src_check()
+            data_list[split] = self.get_data_list(dict_structures)
             data, slices = InMemoryDataset.collate(data_list[split])
 
             if save:
@@ -483,6 +483,16 @@ class DataProcessor:
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             with PerfTimer() as perf_timer:
+                # target_val = y[i]
+                data = data_list[i]
+
+                pos = sdict["positions"]
+                cell = sdict["cell"]
+                cell2 = sdict.get("cell2", None)
+                atomic_numbers = sdict["atomic_numbers"]
+                structure_id = sdict["structure_id"]
+                target_val = sdict["y"]
+
                 if self.apply_pre_transform_processing:
                     logging.info("Generating node features...")
                     generate_node_features(
@@ -495,16 +505,6 @@ class DataProcessor:
                     generate_edge_features(
                         data_list, self.edge_steps, self.r, device=self.device
                     )
-
-                    # target_val = y[i]
-                    data = data_list[i]
-
-                    pos = sdict["positions"]
-                    cell = sdict["cell"]
-                    cell2 = sdict.get("cell2", None)
-                    atomic_numbers = sdict["atomic_numbers"]
-                    structure_id = sdict["structure_id"]
-                    target_val = sdict["y"]
 
                     edge_gen_out = calculate_edges_master(
                         self.edge_calc_method,

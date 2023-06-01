@@ -39,17 +39,17 @@ class GetY(object):
 
         # Specify target.
         if self.index != -1:
-            #print("0", data.y.shape, data.y[:][self.index].shape, data.y[:, self.index].shape)
-            #data.y = data.y[:][self.index]
+            # print("0", data.y.shape, data.y[:][self.index].shape, data.y[:, self.index].shape)
+            # data.y = data.y[:][self.index]
             data.y = data.y[:, self.index]
-            #print("1", data.y.shape)
-            assert (data.y.dim() <= 2), "data.y dimension is incorrect"            
-            if data.y.dim() == 1 and data.y.shape[0] == data.x.shape[0]:
-                data.y = data.y.unsqueeze(1)  
+            # print("1", data.y.shape)
+            assert data.y.dim() <= 2, "data.y dimension is incorrect"
+            if data.y.dim() == 1 and data.y.shape[0] == data.num_nodes:
+                data.y = data.y.unsqueeze(1)
             elif data.y.dim() == 1 and data.y.shape[0] == 1:
-                data.y = data.y.unsqueeze(0)   
-            #print("2", data.y.shape)
-            #data.y = data.y[0][self.index]            
+                data.y = data.y.unsqueeze(0)
+            # print("2", data.y.shape)
+            # data.y = data.y[0][self.index]
         return data
 
 
@@ -84,7 +84,7 @@ class VirtualNodeGeneration(object):
             structure = Atoms(
                 numbers=data.z,
                 positions=data.pos,
-                cell=data.cell,
+                cell=data.cell.view(3, 3),
                 pbc=[1, 1, 1],
             )
             vpos, virtual_z = generate_virtual_nodes_ase(
@@ -360,6 +360,8 @@ class ToFloat(object):
         data.edge_attr_lg = data.edge_attr_lg.float()
 
         return data
+
+
 class RandomRotate(object):
     r"""Rotates node positions around a specific axis by a randomly sampled
     factor within a given interval.
