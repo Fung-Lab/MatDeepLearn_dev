@@ -298,6 +298,7 @@ class CTPretrainer(BaseTrainer):
         )
         # print(self.dataset["train"].data)
         # print(self.dataset["train"].slices)
+        print(self.model)
 
         if self.train_verbosity:
             logging.info("Starting regular training")
