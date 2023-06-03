@@ -8,7 +8,7 @@ task:
   # seed=0 means random initalization
   seed: 0
   # Defaults to run directory if not specified
-  # save_dir: "."
+  save_dir: "results/perturbing_15/"
   # checkpoint_dir: "."
   write_output: True
   parallel: True

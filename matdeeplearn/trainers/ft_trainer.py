@@ -115,7 +115,7 @@ class FinetuneTrainer(PropertyTrainer):
 
         try:
             checkpoints_folder = os.path.join(self.fine_tune_from, 'checkpoint')
-            load_state = torch.load(os.path.join(checkpoints_folder, 'best_checkpoint.pt'), map_location=self.device)
+            load_state = torch.load(os.path.join(checkpoints_folder, 'checkpoint.pt'), map_location=self.device)
             load_state = load_state["state_dict"]
 
             # checkpoint = torch.load('model_best.pth.tar', map_location=args.gpu)
