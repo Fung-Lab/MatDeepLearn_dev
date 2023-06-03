@@ -35,7 +35,7 @@ model:
   dropout_rate: 0.0  
 
 optim:
-  max_epochs: 200
+  max_epochs: 60
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -43,7 +43,7 @@ optim:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 256
+  batch_size: 128
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -88,7 +88,7 @@ dataset:
   # graph specific settings
   preprocess_params:
     cutoff_radius : 8.0
-    n_neighbors : 250
+    n_neighbors : 50
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of less than 1

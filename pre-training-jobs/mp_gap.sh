@@ -2,12 +2,12 @@
 #SBATCH -A m3641_g
 #SBATCH -C gpu
 #SBATCH -q regular
-#SBATCH -t 5:00:00
+#SBATCH -t 7:00:00
 #SBATCH -n 1
 #SBATCH --ntasks-per-node=1
 #SBATCH -c 10
 #SBATCH --gpus-per-task=1
-#SBATCH --mem=128G
+#SBATCH --mem=200G
 
 export SLURM_CPU_BIND="cores"
 module load python

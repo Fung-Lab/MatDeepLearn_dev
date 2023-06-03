@@ -30,7 +30,7 @@ class TorchLossWrapper(nn.Module):
         if noise_pred is None:
             raise ValueError("returned noise is None")
 
-        return self.loss_fn(noise_pred, target.noise)
+        return self.loss_fn(noise_pred, target.noise, reduction='sum')
 
 @registry.register_loss("DOSLoss")
 class DOSLoss(nn.Module):

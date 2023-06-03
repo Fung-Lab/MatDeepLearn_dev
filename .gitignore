@@ -169,6 +169,7 @@ dmypy.json
 
 # results
 **/*/results/
+results/
 
 server/
 
@@ -184,3 +185,5 @@ checkpoints/
 .pylintrc
 **/wandb/
 *.out
+data/data.pt
+data/**/*.pt
