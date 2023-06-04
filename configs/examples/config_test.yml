@@ -1,0 +1,104 @@
+trainer: property
+
+task:
+    run_mode: 'train'
+    identifier: 'my_train_job'
+    parallel: False
+    # seed=0 means random initalization
+    seed: 12345678
+    # Defaults to run directory if not specified
+    save_dir:
+    continue_job: False
+    load_training_state: False
+    # Path to the checkpoint file
+    checkpoint_path:
+    write_output: True
+    use_amp: True
+
+model:
+    name: CGCNN
+    save_model: True
+    model_path: 'my_model.pth'
+    edge_steps: 50
+    self_loop: True
+    # model attributes
+    dim1: 100
+    dim2: 150
+    pre_fc_count: 1
+    gc_count: 4
+    post_fc_count: 3
+    pool: 'global_mean_pool'
+    pool_order: 'early'
+    batch_norm: True
+    batch_track_stats: True
+    act: 'relu'
+    dropout_rate: 0.0
+
+optim:
+    max_epochs: 40
+    max_checkpoint_epochs: 0
+    lr: 0.002
+    # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+    loss:
+        loss_type: 'TorchLossWrapper'
+        loss_args: { 'loss_fn': 'l1_loss' }
+
+    batch_size: 100
+    optimizer:
+        optimizer_type: 'AdamW'
+        optimizer_args: {}
+    scheduler:
+        scheduler_type: 'ReduceLROnPlateau'
+        scheduler_args:
+            {
+                'mode': 'min',
+                'factor': 0.8,
+                'patience': 10,
+                'min_lr': 0.00001,
+                'threshold': 0.0002
+            }
+    #Training print out frequency (print per n number of epochs)
+    verbosity: 5
+
+dataset:
+    name: 'test_data'
+    processed: False
+    # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
+    src: '/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/data/test_data/data_graph_scalar.json'
+    # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+    # Example: target_path: "data/raw_graph_scalar/targets.csv"
+    target_path: ""
+    # Path to save processed data.pt file
+    pt_path: 'data/'
+    # Either "node" or "graph"
+    prediction_level: 'graph'
+
+    transforms:
+        - name: GetY
+          args:
+              # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
+              # For example, an index: 0 (default) will use the first entry in the target vector
+              # if all values are to be predicted simultaneously, then specify index: -1
+              index: -1
+          otf: True # Optional parameter, default is False
+    all_neighbors: True
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: 'mdl'
+    # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
+    data_format: 'json'
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: 'onehot'
+    additional_attributes: []
+    # Print out processing info
+    verbose: True
+    # Index of target column in targets.csv
+    # graph specific settings
+    preprocess_params:
+        cutoff_radius: 8.0
+        n_neighbors: 250
+        num_offsets: 1
+        edge_steps: 50
+    # Ratios for train/val/test split out of a total of less than 1
+    train_ratio: 0.85
+    val_ratio: 0.05
+    test_ratio: 0.10

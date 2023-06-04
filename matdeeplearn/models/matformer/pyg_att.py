@@ -1,11 +1,10 @@
 """Implementation based on the template of ALIGNN."""
 
-from typing import Tuple
+from typing import Tuple, Literal
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from pydantic.typing import Literal
 from torch import nn
 from matdeeplearn.models.matformer.utils import RBFExpansion
 from matdeeplearn.models.matformer.utils import angle_emb_mp
