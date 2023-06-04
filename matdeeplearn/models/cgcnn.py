@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch_geometric
@@ -13,8 +14,8 @@ from torch_geometric.nn import (
 from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.models.base_model import BaseModel
-
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
+from matdeeplearn.preprocessor.helpers import GaussianSmearing
 
 @registry.register_model("CGCNN")
 class CGCNN(BaseModel):
@@ -34,10 +35,9 @@ class CGCNN(BaseModel):
         batch_track_stats=True,
         act="relu",
         dropout_rate=0.0,
-        prediction_level="graph",
         **kwargs
     ):
-        super(CGCNN, self).__init__()
+        super(CGCNN, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -54,7 +54,8 @@ class CGCNN(BaseModel):
         self.edge_dim = edge_dim
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
-        self.prediction_level = prediction_level
+        
+        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_steps)
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
@@ -138,12 +139,18 @@ class CGCNN(BaseModel):
 
         return post_lin_list, lin_out
 
-    def forward(self, data):
-
+    @conditional_grad(torch.enable_grad())
+    def _forward(self, data):
+        
+        if self.otf_edge == True:
+            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+            data.edge_attr = self.distance_expansion(data.edge_weight) 
+            
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
-                out = self.pre_lin_list[i](data.x.float())
+                out = self.pre_lin_list[i](data.x)
                 out = getattr(F, self.act)(out)
             else:
                 out = self.pre_lin_list[i](out)
@@ -154,22 +161,22 @@ class CGCNN(BaseModel):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
+                        data.x, data.edge_index, data.edge_attr
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
+                        data.x, data.edge_index, data.edge_attr
                     )
             else:
-                if self.batch_norm:
+                if self.batch_norm:  
                     out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
+                        out, data.edge_index, data.edge_attr
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
+                        out, data.edge_index, data.edge_attr
                     )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
@@ -201,10 +208,45 @@ class CGCNN(BaseModel):
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
-            out = self.lin_out(out)        
-            
-        return out
-        #if out.shape[1] == 1:
-        #    return out.view(-1)
-        #else:
-        #    return out
+            out = self.lin_out(out)                
+                     
+        return out   
+        
+        
+    def forward(self, data):
+        
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None    
+                  
+        return output

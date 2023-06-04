@@ -52,7 +52,7 @@ if __name__ == "__main__":
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
-
+    
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])
 
