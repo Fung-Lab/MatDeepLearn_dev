@@ -44,7 +44,7 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         trainer = trainer_cls.from_config(config)
         # print("Sampler: ", trainer.train_sampler)
 
-        task_cls = registry.get_task_class(config["run_mode"])
+        task_cls = registry.get_task_class(config["task"]["run_mode"])
         assert task_cls is not None, "Task not found"
         task = task_cls(config)
         # start_time = time.time()

@@ -7,10 +7,11 @@ import torch.nn.functional as F
 class Evaluator:
     def __init__(self, task=None):
         self.task = task
-
+    
     def eval(self, prediction, target, loss_method, prev_metrics={}):
         metrics = prev_metrics
         res = loss_method(prediction, target)
+
         metrics = self.update(type(loss_method).__name__, res.item(), metrics)
 
         return metrics
@@ -22,7 +23,6 @@ class Evaluator:
                 "total": 0,
                 "numel": 0,
             }
-
         if isinstance(stat, dict):
             # If dictionary, we expect it to have `metric`, `total`, `numel`.
             metrics[key]["total"] += stat["total"]
