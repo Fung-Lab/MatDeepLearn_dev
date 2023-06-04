@@ -18,7 +18,7 @@ task:
   write_output: ["train", "val", "test"]
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: True  
+  use_amp: False  
 
 model:
   name: CGCNN    

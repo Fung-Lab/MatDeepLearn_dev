@@ -15,7 +15,7 @@ class TorchLossWrapper(nn.Module):
         super().__init__()
         self.loss_fn = getattr(F, loss_fn)
 
-    def forward(self, predictions: torch.Tensor, target: Batch):        
+    def forward(self, predictions: torch.Tensor, target: Batch):    
         return self.loss_fn(predictions["output"], target.y)
 
 

@@ -325,14 +325,13 @@ class PropertyTrainer(BaseTrainer):
         return loss
 
     def _backward(self, loss):
-        self.optimizer.zero_grad(set_to_none=True)
-        loss.backward()
+        self.optimizer.zero_grad(set_to_none=True) 
+        self.scaler.scale(loss).backward()
         if self.clip_grad_norm:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),
                 max_norm=self.clip_grad_norm,
-            )    
-        self.scaler.scale(loss).backward()
+            )           
         self.scaler.step(self.optimizer)
         self.scaler.update()            
         return grad_norm
