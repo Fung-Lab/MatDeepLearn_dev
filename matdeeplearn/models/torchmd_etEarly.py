@@ -12,12 +12,13 @@ from matdeeplearn.models.utils import (
     rbf_class_mapping,
     act_class_mapping,
 )
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.models.output_modules import EquivariantScalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_etEarly")
 
 
-class TorchMD_ET(nn.Module):
+class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
     Args:
@@ -43,7 +44,7 @@ class TorchMD_ET(nn.Module):
             the attention mechanism. (default: :obj:`"both"`)
         cutoff_lower (float, optional): Lower cutoff distance for interatomic interactions.
             (default: :obj:`0.0`)
-        cutoff_upper (float, optional): Upper cutoff distance for interatomic interactions.
+        self.cutoff_radius (float, optional): Upper cutoff distance for interatomic interactions.
             (default: :obj:`5.0`)
         max_z (int, optional): Maximum atomic number. Used for initializing embeddings.
             (default: :obj:`100`)
@@ -58,7 +59,9 @@ class TorchMD_ET(nn.Module):
 
     def __init__(
         self,
-	data=None,
+	    node_dim,
+        edge_dim,
+        output_dim,
         hidden_channels=128,
         num_layers=6,
         num_rbf=50,
@@ -69,8 +72,6 @@ class TorchMD_ET(nn.Module):
         neighbor_embedding=True,
         num_heads=8,
         distance_influence="both",
-        cutoff_lower=0.0,
-        cutoff_upper=5.0,
         max_z=100,
         max_num_neighbors=32,
         num_post_layers=1,
@@ -79,7 +80,7 @@ class TorchMD_ET(nn.Module):
         aggr="add",
         **kwargs
     ):
-        super(TorchMD_ET, self).__init__()
+        super(TorchMD_ET, self).__init__(**kwargs)
 
         assert distance_influence in ["keys", "values", "both", "none"]
         assert rbf_type in rbf_class_mapping, (
@@ -105,10 +106,10 @@ class TorchMD_ET(nn.Module):
         self.neighbor_embedding = neighbor_embedding
         self.num_heads = num_heads
         self.distance_influence = distance_influence
-        self.cutoff_lower = cutoff_lower
-        self.cutoff_upper = cutoff_upper
         self.max_z = max_z
         self.pool = pool
+        self.output_dim = output_dim
+        cutoff_lower = 0
 
         act_class = act_class_mapping[activation]
 
@@ -116,17 +117,17 @@ class TorchMD_ET(nn.Module):
 
         self.distance = Distance(
             cutoff_lower,
-            cutoff_upper,
+            self.cutoff_radius,
             max_num_neighbors=max_num_neighbors,
             return_vecs=True,
             loop=True,
         )
         self.distance_expansion = rbf_class_mapping[rbf_type](
-            cutoff_lower, cutoff_upper, num_rbf, trainable_rbf
+            cutoff_lower, self.cutoff_radius, num_rbf, trainable_rbf
         )
         self.neighbor_embedding = (
             NeighborEmbedding(
-                hidden_channels, num_rbf, cutoff_lower, cutoff_upper, self.max_z
+                hidden_channels, num_rbf, cutoff_lower, self.cutoff_radius, self.max_z
             ).jittable()
             if neighbor_embedding
             else None
@@ -142,7 +143,7 @@ class TorchMD_ET(nn.Module):
                 act_class,
                 attn_activation,
                 cutoff_lower,
-                cutoff_upper,
+                self.cutoff_radius,
                 aggr,
             ).jittable()
             self.attention_layers.append(layer)
@@ -157,7 +158,7 @@ class TorchMD_ET(nn.Module):
                 self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
             else:
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
-        self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
+        self.post_lin_list.append(nn.Linear(post_hidden_channels, self.output_dim))
 
         self.reset_parameters()
 
@@ -169,11 +170,9 @@ class TorchMD_ET(nn.Module):
         for attn in self.attention_layers:
             attn.reset_parameters()
         self.out_norm.reset_parameters()
-
-    def forward(
-        self,
-        data
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        
+    @conditional_grad(torch.enable_grad())
+    def _forward(self, data):
 
         x = self.embedding(data.z)
 
@@ -181,32 +180,78 @@ class TorchMD_ET(nn.Module):
         #assert (
         #    edge_vec is not None
         #), "Distance module did not return directional information"
-
-        edge_attr = self.distance_expansion(data.edge_weight)
-        mask = data.edge_index[0] != data.edge_index[1]
-        data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
-
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+            data.edge_attr = self.distance_expansion(data.edge_weight) 
+            
+        #mask = data.edge_index[0] != data.edge_index[1]        
+        #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
+        data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
+        
         if self.neighbor_embedding is not None:
-            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, edge_attr)
+            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
-            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, edge_attr, data.edge_vec)
+            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
-        x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-        for i in range(0, len(self.post_lin_list) - 1):
-            x = self.post_lin_list[i](x)
-            x = getattr(F, self.activation)(x)
-        x = self.post_lin_list[-1](x)
-        #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
-        #x = self.pool.reduce(x, data.batch)
-        if x.shape[1] == 1:
-            x = x.view(-1)
+        
+        if self.prediction_level == "graph":
+            x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+            for i in range(0, len(self.post_lin_list) - 1):
+                x = self.post_lin_list[i](x)
+                x = getattr(F, self.activation)(x)
+            x = self.post_lin_list[-1](x)
+            #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
+            #x = self.pool.reduce(x, data.batch)
+        elif self.prediction_level == "node":
+            for i in range(0, len(self.post_lin_list) - 1):
+                x = self.post_lin_list[i](x)
+                x = getattr(F, self.activation)(x)
+            x = self.post_lin_list[-1](x) 
+                    
+        return x
+        
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
 
-        return x, vec, data.z, data.pos, data.batch
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+                  
+        return output        
 
     def __repr__(self):
         return (
@@ -222,7 +267,7 @@ class TorchMD_ET(nn.Module):
             f"num_heads={self.num_heads}, "
             f"distance_influence={self.distance_influence}, "
             f"cutoff_lower={self.cutoff_lower}, "
-            f"cutoff_upper={self.cutoff_upper})"
+            f"self.cutoff_radius={self.self.cutoff_radius})"
         )
     @property
     def target_attr(self):

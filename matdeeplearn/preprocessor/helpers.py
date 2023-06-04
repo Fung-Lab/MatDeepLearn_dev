@@ -64,7 +64,6 @@ def calculate_edges_master(
             cell,
             r,
             n_neighbors,
-            device,
             offset_number=offset_number,
         )
 
@@ -83,7 +82,7 @@ def calculate_edges_master(
         cell = cell.view(1, 3, 3)
         
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            r, n_neighbors, pos, cell, torch.tensor([len(pos)])
+            r, n_neighbors, pos, cell, torch.tensor([len(pos)]), [True, True, True], offset_number
         )
 
         ocp_out = get_pbc_distances(
@@ -360,7 +359,7 @@ def get_distances(
 
 
 def get_cutoff_distance_matrix(
-    pos, cell, r, n_neighbors, device, offset_number=3
+    pos, cell, r, n_neighbors, offset_number=3
 ):
     """
     get the distance matrix
@@ -381,6 +380,8 @@ def get_cutoff_distance_matrix(
         n_neighbors: int
             max number of neighbors to be considered
     """
+    device = pos.device
+    
     if cell != None:
         cells, cell_coors = get_pbc_cells(cell, offset_number, device=device)
         distance_matrix, min_indices, atom_rij = get_distances_pbc(pos, cells, device=device)
@@ -474,7 +475,7 @@ def generate_node_features(input_data, n_neighbors, device, use_degree=False):
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = node_reps[data.z - 1].view(-1, n_features)
+        data.x = node_reps[data.z - 1].view(-1, n_features).float()
 
     #for i, data in enumerate(input_data):
         #input_data[i] = one_hot_degree(data, n_neighbors)
@@ -727,6 +728,7 @@ def radius_graph_pbc(
     cell: torch.Tensor,
     n_atoms: torch.Tensor,
     pbc: list[bool] = [True, True, True],
+    offset_number: int = 1,
 ):
     """
     Calculate the radius graph for a given structure with periodic boundary conditions, including all neighbors for each atom
@@ -820,8 +822,9 @@ def radius_graph_pbc(
     # if the required repetitions are very different between images
     # (which they usually are). Changing this to sparse (scatter) operations
     # might be worth the effort if this function becomes a bottleneck.
-    max_rep = [rep_a1.max(), rep_a2.max(), rep_a3.max()]
-
+    #max_rep = [rep_a1.max(), rep_a2.max(), rep_a3.max()]
+    max_rep = [min(rep_a1.max().detach(), offset_number), min(rep_a2.max().detach(), offset_number), min(rep_a3.max().detach(), offset_number)]
+    
     # Tensor of unit cells
     cells_per_dim = [
         torch.arange(-rep, rep + 1, device=device, dtype=torch.float) for rep in max_rep

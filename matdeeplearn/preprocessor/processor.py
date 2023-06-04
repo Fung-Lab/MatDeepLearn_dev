@@ -27,6 +27,9 @@ def from_config(dataset_config):
     target_path_dict = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
     prediction_level = dataset_config.get("prediction_level", "graph")
+    preprocess_edges = dataset_config["preprocess_params"]["preprocess_edges"]
+    preprocess_edge_features = dataset_config["preprocess_params"]["preprocess_edge_features"]
+    preprocess_nodes = dataset_config["preprocess_params"]["preprocess_nodes"]
     cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
     n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
     num_offsets = dataset_config["preprocess_params"]["num_offsets"]
@@ -34,11 +37,11 @@ def from_config(dataset_config):
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
-    node_representation = dataset_config.get("node_representation", "onehot")
+    node_representation = dataset_config["preprocess_params"].get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
-    all_neighbors = dataset_config["all_neighbors"]
-    edge_calc_method = dataset_config.get("edge_calc_method", "mdl")
+    all_neighbors = dataset_config["preprocess_params"]["all_neighbors"]
+    edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -46,6 +49,9 @@ def from_config(dataset_config):
         target_file_path=target_path_dict,
         pt_path=pt_path,
         prediction_level=prediction_level, 
+        preprocess_edges=preprocess_edges,
+        preprocess_edge_features=preprocess_edge_features,
+        preprocess_nodes=preprocess_nodes,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
@@ -79,6 +85,9 @@ class DataProcessor:
         target_file_path: str,
         pt_path: str,
         prediction_level: str, 
+        preprocess_edges, 
+        preprocess_edge_features,
+        preprocess_nodes,     
         r: float,
         n_neighbors: int,
         num_offsets: int,
@@ -151,6 +160,9 @@ class DataProcessor:
         self.pt_path = pt_path
         self.r = r
         self.prediction_level = prediction_level
+        self.preprocess_edges = preprocess_edges
+        self.preprocess_edge_features = preprocess_edge_features
+        self.preprocess_nodes = preprocess_nodes        
         self.n_neighbors = n_neighbors
         self.num_offsets = num_offsets
         self.edge_steps = edge_steps
@@ -412,32 +424,17 @@ class DataProcessor:
             pos = sdict["positions"]
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
+            #data.structure_id = [[structure_id] * len(data.y)]
             structure_id = sdict["structure_id"]
-            target_val = sdict["y"]
-
-            edge_gen_out = calculate_edges_master(
-                self.edge_calc_method,
-                self.all_neighbors,
-                self.r,
-                self.n_neighbors,
-                self.num_offsets,
-                structure_id,
-                cell,
-                pos,
-                atomic_numbers,
-            )
-            edge_indices = edge_gen_out["edge_index"]
-            edge_weights = edge_gen_out["edge_weights"]
-            cell_offsets = edge_gen_out["cell_offsets"]
-            edge_vec = edge_gen_out["edge_vec"]
-            neighbors = edge_gen_out["neighbors"]
-            if(edge_vec.dim() > 2):
-                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]  
-                         
+                    
             data.n_atoms = len(atomic_numbers)
             data.pos = pos
-            data.cell = cell     
+            data.cell = cell   
+            data.structure_id = [structure_id]  
+            data.z = atomic_numbers
+            data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             
+            target_val = sdict["y"]
             # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
             data.y = torch.Tensor(np.array(target_val)) 
             if self.prediction_level == "graph":
@@ -449,33 +446,51 @@ class DataProcessor:
                 if data.y.shape[0] != data.n_atoms:
                     raise ValueError('Target labels do not have the correct dimensions for node-level prediction.')
                 elif data.y.dim() == 1:
-                    data.y = data.y.unsqueeze(1)
-            #print(data.y.shape)      
-                      
-            data.z = atomic_numbers
-            data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-            data.edge_index, data.edge_weight = edge_indices, edge_weights
-            data.edge_vec = edge_vec
-            data.cell_offsets = cell_offsets
-            data.neighbors = neighbors            
-
-            data.edge_descriptor = {}
-            # data.edge_descriptor["mask"] = cd_matrix_masked
-            data.edge_descriptor["distance"] = edge_weights
-            data.distances = edge_weights
-            #data.structure_id = [[structure_id] * len(data.y)]
-            data.structure_id = [structure_id]
+                    data.y = data.y.unsqueeze(1)            
+            
+            if self.preprocess_edges == True:
+                edge_gen_out = calculate_edges_master(
+                    self.edge_calc_method,
+                    self.all_neighbors,
+                    self.r,
+                    self.n_neighbors,
+                    self.num_offsets,
+                    structure_id,
+                    cell,
+                    pos,
+                    atomic_numbers,
+                )
+                edge_indices = edge_gen_out["edge_index"]
+                edge_weights = edge_gen_out["edge_weights"]
+                cell_offsets = edge_gen_out["cell_offsets"]
+                edge_vec = edge_gen_out["edge_vec"]
+                neighbors = edge_gen_out["neighbors"]
+                if(edge_vec.dim() > 2):
+                    edge_vec = edge_vec[edge_indices[0], edge_indices[1]]  
+                                                      
+                data.edge_index, data.edge_weight = edge_indices, edge_weights
+                data.edge_vec = edge_vec
+                data.cell_offsets = cell_offsets
+                data.neighbors = neighbors            
+    
+                data.edge_descriptor = {}
+                # data.edge_descriptor["mask"] = cd_matrix_masked
+                data.edge_descriptor["distance"] = edge_weights
+                data.distances = edge_weights
+            
 
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
                     data.__setattr__(attr, sdict[attr])
 
-        logging.info("Generating node features...")
-        generate_node_features(data_list, self.n_neighbors, device=self.device)
+        if self.preprocess_nodes == True:            
+            logging.info("Generating node features...")
+            generate_node_features(data_list, self.n_neighbors, device=self.device)
 
-        logging.info("Generating edge features...")
-        generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+        if self.preprocess_edge_features == True:
+            logging.info("Generating edge features...")
+            generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
 
         # compile non-otf transforms
         logging.debug("Applying transforms.")

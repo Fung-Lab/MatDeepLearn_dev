@@ -42,14 +42,13 @@ class BaseTrainer(ABC):
         data_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
-        clip_grad_norm: int = None,
         max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
-        batch_tqdm: bool = False,
-        write_output: list = ["train", "val", "test"],
         save_dir: str = None,
-        checkpoint_path: str = None,      
+        checkpoint_path: str = None,
+        force_training: bool = False,
+        stress_training: bool = False,        
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -60,11 +59,8 @@ class BaseTrainer(ABC):
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
-        self.clip_grad_norm = clip_grad_norm
         self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
-        self.batch_tqdm = batch_tqdm
-        self.write_output = write_output
 
         self.epoch = 0
         self.step = 0
@@ -75,6 +71,9 @@ class BaseTrainer(ABC):
 
         self.save_dir = save_dir if save_dir else os.getcwd()
         self.checkpoint_path = checkpoint_path
+        
+        self.force_training = force_training
+        self.stress_training = stress_training
 
         self.evaluator = Evaluator()
 
@@ -143,16 +142,16 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-        clip_grad_norm = config["optim"].get("clip_grad_norm", None)
         verbosity = config["optim"].get("verbosity", None)
-        batch_tqdm = config["optim"].get("batch_tqdm", False)
-        write_output = config["task"].get("write_output", [])
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
         
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_path = config["task"].get("checkpoint_path", None)
+        
+        force_training = config["dataset"]["force_training"]
+        stress_training = config["dataset"]["stress_training"]
         
         if local_world_size > 1:
             dist.barrier()
@@ -166,14 +165,13 @@ class BaseTrainer(ABC):
             data_loader=data_loader,
             loss=loss,
             max_epochs=max_epochs,
-            clip_grad_norm=clip_grad_norm,
             max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
-            batch_tqdm=batch_tqdm,
-            write_output=write_output,
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
+            force_training=force_training,
+            stress_training=stress_training,
         )
 
     @staticmethod
@@ -249,7 +247,7 @@ class BaseTrainer(ABC):
         if dataset[0]["y"].ndim == 0:
             output_dim = 1
         else:
-            output_dim = dataset[0]["y"].shape[1]     
+            output_dim = dataset[0]["y"].shape[1]        
 
         # Determine if this is a node or graph level model
         if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
@@ -380,11 +378,11 @@ class BaseTrainer(ABC):
         logging.debug(
             f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
         )
-        if "train" in self.write_output:
-            self.predict(self.data_loader["train_loader"], "train")
-        if "val" in self.write_output and self.data_loader.get("val_loader"):
+
+        #self.predict(self.data_loader["train_loader"], "train")
+        if self.data_loader.get("val_loader"):
             self.predict(self.data_loader["val_loader"], "val")
-        if "test" in self.write_output and self.data_loader.get("test_loader"):    
+        if self.data_loader.get("test_loader"):    
             self.predict(self.data_loader["test_loader"], "test")
 
     def save_model(self, checkpoint_file, metric=None, training_state=True):
@@ -491,52 +489,9 @@ class BaseTrainer(ABC):
                 self.best_metric = checkpoint["best_metric"]
             if checkpoint.get("seed"): 
                 seed = checkpoint["seed"]
-                self.set_seed(seed)        
-            #todo: load dataset to recreate the same split as the prior run
-            #self._load_dataset(dataset_config, task)
-        
-    # Loads portion of model dict into a new model for fine tuning
-    def load_pre_trained_weights(self, load_training_state=False):
-        """Loads the pre-trained model from a checkpoint.pt file"""
-
-        if not self.checkpoint_path:
-            raise ValueError("No checkpoint directory specified in config.")
-            checkpoints_folder = os.path.join(self.fine_tune_from, 'checkpoint')
-            
-        load_model = torch.load(self.checkpoint_path, map_location=self.device)
-        load_state = load_model["state_dict"]
-        
-        model_state = self.model.state_dict()
-
-        print(model_state.keys())
-        for name, param in load_state.items():
-            #if name not in model_state or name.split('.')[0] in "post_lin_list":
-            if name not in model_state:
-                logging.debug('NOT loaded: %s', name)
-                continue
-            else:
-                logging.debug('loaded: %s', name)
-            if isinstance(param, torch.nn.parameter.Parameter):
-                # backwards compatibility for serialized parameters
-                param = param.data
-            model_state[name].copy_(param)
-        logging.info("Loaded pre-trained model with success.")
-
-        if load_training_state == True:
-            if checkpoint.get("optimizer"): 
-                self.optimizer.load_state_dict(checkpoint["optimizer"])
-            if checkpoint.get("scheduler"):     
-                self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
-                self.scheduler.update_lr()
-            #if checkpoint.get("epoch"): 
-            #    self.epoch = checkpoint["epoch"]
-            #if checkpoint.get("step"): 
-            #    self.step = checkpoint["step"]
-            #if checkpoint.get("best_metric"): 
-            #    self.best_metric = checkpoint["best_metric"]
-            if checkpoint.get("seed"): 
-                seed = checkpoint["seed"]
                 self.set_seed(seed)
+                
+            self._load_dataset
                 
     @staticmethod            
     def set_seed(seed):
