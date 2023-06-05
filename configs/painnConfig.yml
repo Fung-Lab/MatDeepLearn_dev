@@ -1,0 +1,107 @@
+trainer: property
+
+task:
+  # run_mode: train
+  identifier: "my_train_job"
+  reprocess: False
+  parallel: False
+  # seed=0 means random initalization
+  seed: 0
+  # Defaults to run directory if not specified
+  #save_dir: 
+  continue_job: False
+  load_training_state: False
+  # Path to the checkpoint file
+  #checkpoint_path: 
+  write_output: True
+  use_amp: True 
+  #Training print out frequency (print per n number of epochs)
+  
+
+model:
+  name: painnEarly
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  edge_steps: 50
+  self_loop: True
+  # model attributes
+  num_targets: 1
+  hidden_channels: 128
+  num_layers: 4
+  num_rbf: 128
+  cutoff: 8.0
+  max_neighbors: 250
+  rbf:  {"name": "gaussian"}
+  envelope:  {"name": "polynomial", "exponent": 5}
+  regress_forces: False
+  direct_forces: True
+  use_pbc: False
+  otf_graph: False
+  num_elements: 100
+  scale_file: 
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool"
+  activation: "relu"
+
+optim:
+  max_epochs: 400
+  max_checkpoint_epochs: 0
+  lr: 0.0005
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+
+  batch_size: 32
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+  verbosity: 5
+
+dataset:
+  processed: False
+  # Path to data files
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  #src: "/project/Rithwik/2D_data_npj/raw/"
+  src: "/project/Rithwik/MP_data_69K/data.json"
+  # Path to target file within data_path
+  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
+  target_path:
+  # Path to save processed data.pt file
+  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
+  #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  pt_path: "/project/Rithwik/MP_data_69K/"
+  prediction_level: "graph"
+  #Format of data files (limit to those supported by ASE)
+  transforms:
+    - name: GetY
+      args:
+        index: 0
+      otf: True # Optional parameter, default is False
+  all_neighbors : True
+  # one of mdl, ase, ocp
+  edge_calc_method: "ocp"
+  # Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  # Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  # Print out processing info
+  verbose: True
+  # Index of target column in targets.csv
+  # graph specific settings
+  preprocess_params:
+    cutoff_radius : 8.0
+    n_neighbors : 250
+    num_offsets: 1
+    edge_steps : 50
+  # Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.8408
+  val_ratio: 0.0764
+  test_ratio: 0.0828

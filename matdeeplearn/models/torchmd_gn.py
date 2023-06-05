@@ -61,6 +61,9 @@ class TorchMD_GN(nn.Module):
 
     def __init__(
         self,
+        node_dim,
+        edge_dim,
+        output_dim,
         hidden_channels=128,
         num_filters=128,
         num_layers=6,

@@ -7,6 +7,8 @@ from typing import Optional, Tuple
 
 import torch
 from torch import nn
+import torch_geometric.nn
+import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing, radius_graph
 from torch_scatter import scatter, segment_coo
 
@@ -27,7 +29,7 @@ from matdeeplearn.models.gemnet.layers.compat import load_scales_compat
 from .utils import get_edge_id, repeat_blocks
 
 
-@registry.register_model("painn")
+@registry.register_model("painnAll")
 class PaiNN(BaseModel):
     r"""PaiNN model based on the description in Schütt et al. (2021):
     Equivariant message passing for the prediction of tensorial properties
@@ -38,9 +40,6 @@ class PaiNN(BaseModel):
         self,
         #num_atoms,
         #bond_feat_dim,
-        node_dim,
-        edge_dim,
-        output_dim,
         num_targets=1,
         hidden_channels=512,
         num_layers=6,
@@ -55,6 +54,10 @@ class PaiNN(BaseModel):
         otf_graph=False,
         num_elements=83,
         scale_file: Optional[str] = None,
+        num_post_layers=1,
+        post_hidden_channels=64,
+        pool="global_mean_pool",
+        activation = "relu",
         **kwargs,
     ):
         super(PaiNN, self).__init__()
@@ -68,6 +71,7 @@ class PaiNN(BaseModel):
         self.direct_forces = direct_forces
         self.otf_graph = otf_graph
         self.use_pbc = use_pbc
+        self.activation = activation
 
         # Borrowed from GemNet.
         self.symmetric_edge_symmetrization = False
@@ -98,6 +102,17 @@ class PaiNN(BaseModel):
             ScaledSiLU(),
             nn.Linear(hidden_channels // 2, 1),
         )
+
+        self.num_post_layers = num_post_layers
+        self.post_hidden_channels = post_hidden_channels
+        self.post_lin_list = nn.ModuleList()
+        for i in range(self.num_post_layers):
+            if i == 0:
+                self.post_lin_list.append(nn.Linear(3 * hidden_channels, post_hidden_channels))
+            else:
+                self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+        self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
+        self.pool = pool
 
         if self.regress_forces is True and self.direct_forces is True:
             self.out_forces = PaiNNOutput(hidden_channels)
@@ -391,9 +406,18 @@ class PaiNN(BaseModel):
             x = getattr(self, "upd_out_scalar_scale_%d" % i)(x)
 
         #### Output block #####################################################
-
-        per_atom_energy = self.out_energy(x).squeeze(1)
-        energy = scatter(per_atom_energy, batch, dim=0)
+        mean = getattr(torch_geometric.nn, "global_mean_pool")(x, data.batch)
+        add = getattr(torch_geometric.nn, "global_add_pool")(x, data.batch)
+        ma = getattr(torch_geometric.nn, "global_max_pool")(x, data.batch)
+        x = torch.cat((mean, add, ma), 1)
+        print(x.size())
+        for i in range(0, len(self.post_lin_list) - 1):
+            x = self.post_lin_list[i](x)
+            x = getattr(F, self.activation)(x)
+        x = self.post_lin_list[-1](x)
+        energy = x
+        #per_atom_energy = self.out_energy(x).squeeze(1)
+        #energy = scatter(per_atom_energy, batch, dim=0)
         if self.regress_forces:
             if self.direct_forces:
                 forces = self.out_forces(x, vec)
@@ -410,6 +434,8 @@ class PaiNN(BaseModel):
                 )
                 return energy, forces
         else:
+            if energy.shape[1] == 1:
+                return energy.view(-1)
             return energy
 
     @property

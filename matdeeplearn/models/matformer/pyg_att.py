@@ -19,7 +19,9 @@ class Matformer(nn.Module):
 
     def __init__(
         self,
-        data,
+        node_dim,
+        edge_dim,
+        output_dim,
         conv_layers: int = 5,
         edge_layers: int = 0,
         atom_input_features: int = 92,
@@ -44,15 +46,15 @@ class Matformer(nn.Module):
         self.classification = classification
         self.use_angle = use_angle
         self.atom_embedding = nn.Linear(
-            data.num_features, node_features
+            node_dim, node_features
         )
         self.rbf = nn.Sequential(
             RBFExpansion(
                 vmin=0,
                 vmax=8.0,
-                bins=data.num_edge_features,
+                bins=edge_dim,
             ),
-            nn.Linear(data.num_edge_features, node_features),
+            nn.Linear((edge_dim), node_features),
             nn.Softplus(),
             nn.Linear(node_features, node_features),
         )
@@ -63,9 +65,9 @@ class Matformer(nn.Module):
                 RBFExpansion(
                     vmin=0,
                     vmax=8.0,
-                    bins=data.num_edge_features,
+                    bins=edge_dim,
                 ),
-                nn.Linear(data.num_edge_features, node_features),
+                nn.Linear((edge_dim), node_features),
                 nn.Softplus(),
                 nn.Linear(node_features, node_features)
             )

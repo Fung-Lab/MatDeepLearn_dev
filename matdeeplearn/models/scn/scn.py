@@ -75,6 +75,9 @@ class SphericalChannelNetwork(BaseModel):
         #num_atoms,  # not used
         #bond_feat_dim,  # not used
         #num_targets,  # not used
+        node_dim,
+        edge_dim,
+        output_dim,
         use_pbc=False,
         regress_forces=False,
         otf_graph=False,

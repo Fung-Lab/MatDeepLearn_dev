@@ -273,7 +273,7 @@ class PropertyTrainer(BaseTrainer):
                 del loss, batch, out 
             else:  
                 del batch, out 
-            
+
         if write_output == True:
             if labels == True:
                 self.save_results(

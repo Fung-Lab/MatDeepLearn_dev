@@ -5,15 +5,15 @@ task:
   identifier: "my_train_job"
   parallel: False
   # If seed is not set, then it will be random every time
-  seed: 12345678
+  seed: 0
   # Defaults to run directory if not specified
-  save_dir: 
+  #save_dir: 
   # continue from a previous job
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: 
+  #checkpoint_path: 
   # E.g. ["train", "val", "test"]
   write_output: ["train", "val", "test"]
   # Specify if labels are provided for the predict task
@@ -66,16 +66,20 @@ optim:
 dataset:
   name: "test_data"
   processed: False
-  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: "data/test_data/data_graph_scalar.json"
-  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
-  # Example: target_path: "data/raw_graph_scalar/targets.csv"
-  target_path: 
+  # Path to data files
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw"
+  #src: "/project/Rithwik/2D_data_npj/raw/"
+  #src: "/project/Rithwik/QM9/data.json"
+  #src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
+  #Path to target file within data_path
+  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
+  #target_path:
+
   # Path to save processed data.pt file
-  pt_path: "data/"
-  # Either "node" or "graph"
+  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
+  #pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
   prediction_level: "graph"
-  
   transforms:
     - name: GetY
       args:
@@ -111,8 +115,8 @@ dataset:
     node_representation: "onehot"    
     all_neighbors: True
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.8
+  train_ratio: 0.9
   val_ratio: 0.05
-  test_ratio: 0.15
+  test_ratio: 0.05
   
 

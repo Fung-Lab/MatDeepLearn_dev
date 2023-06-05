@@ -54,6 +54,9 @@ class TorchMD_T(nn.Module):
 
     def __init__(
         self,
+        node_dim,
+        edge_dim,
+        output_dim,
         hidden_channels=128,
         num_layers=6,
         num_rbf=50,

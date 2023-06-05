@@ -56,7 +56,9 @@ class TorchMD_ET(nn.Module):
 
     def __init__(
         self,
-	data=None,
+	    node_dim,
+        edge_dim,
+        output_dim,
         hidden_channels=128,
         num_layers=6,
         num_rbf=50,
@@ -183,6 +185,7 @@ class TorchMD_ET(nn.Module):
         x = self.out_norm(x)
         x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
         x = self.pool.reduce(x, data.batch)
+        #x = x.squeeze()
         if x.shape[1] == 1:
             x = x.view(-1)
 

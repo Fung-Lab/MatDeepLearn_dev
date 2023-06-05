@@ -40,6 +40,9 @@ class spinconv(BaseModel):
         self,
         #num_atoms,  # not used
         #bond_feat_dim,  # not used
+        node_dim,
+        edge_dim,
+        output_dim,
         num_targets=1,
         use_pbc=False,
         regress_forces=False,

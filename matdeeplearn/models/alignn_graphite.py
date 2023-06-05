@@ -16,29 +16,30 @@ class ALIGNN_GRAPHITE(BaseModel):
     Reference: https://www.nature.com/articles/s41524-021-00650-1.
     """
 
-    def __init__(self, dim=64, num_interactions=4, num_species=3, cutoff=3.0):
+    def __init__(self, node_dim, edge_dim, output_dim, hidden_features=64, alignn_layers=4, num_species=3, max_edge_distance=3.0, **kwargs):
         super().__init__()
 
-        self.dim = dim
-        self.num_interactions = num_interactions
-        self.cutoff = cutoff
+        self.dim = hidden_features
+        self.num_interactions = alignn_layers
+        self.cutoff = max_edge_distance
 
-        self.embed_atm = Embedding(num_species, dim)
-        self.embed_bnd = partial(bessel, start=0, end=cutoff, num_basis=dim)
+        #self.embed_atm = Embedding(data.num_features, hidden_features)
+        self.embed_atm = Linear(node_dim, hidden_features)
+        self.embed_bnd = partial(bessel, start=0, end=max_edge_distance, num_basis=hidden_features)
 
         self.atm_bnd_interactions = ModuleList()
         self.bnd_ang_interactions = ModuleList()
-        for _ in range(num_interactions):
-            self.atm_bnd_interactions.append(EGConv(dim, dim))
-            self.bnd_ang_interactions.append(EGConv(dim, dim))
+        for _ in range(alignn_layers):
+            self.atm_bnd_interactions.append(EGConv(hidden_features, hidden_features))
+            self.bnd_ang_interactions.append(EGConv(hidden_features, hidden_features))
 
         self.head = Sequential(
-            Linear(dim, dim),
+            Linear(hidden_features, hidden_features),
             SiLU(),
         )
 
         self.out = Sequential(
-            Linear(dim, 1),
+            Linear(hidden_features, 1),
         )
 
         self.reset_parameters()
@@ -60,17 +61,20 @@ class ALIGNN_GRAPHITE(BaseModel):
     def forward(self, data: Data):
         edge_index_G = data.edge_index
         edge_index_A = data.edge_index_lg
-        h_atm = self.embed_atm(data.x.type(torch.long))
-        h_bnd = self.embed_bnd(data.edge_attr)
+        h_atm = self.embed_atm(data.x.type(torch.float))
+        #h_bnd = self.embed_bnd(data.edge_attr)
+        h_bnd = self.embed_bnd(data.distances)
         h_ang = self.embed_ang(data.edge_attr_lg)
-
         for i in range(self.num_interactions):
             h_bnd, h_ang = self.bnd_ang_interactions[i](h_bnd, edge_index_A, h_ang)
             h_atm, h_bnd = self.atm_bnd_interactions[i](h_atm, edge_index_G, h_bnd)
-
         h = scatter(h_atm, data.batch, dim=0, reduce="add")
         h = self.head(h)
-        return self.out(h)
+        out = self.out(h)
+        if out.shape[1] == 1:
+            return out.view(-1)
+        else:
+            return out
 
     def __repr__(self):
         return (
@@ -121,17 +125,16 @@ class EGConv(MessagePassing):
         sigma_e = self.sigma(edge_attr)
         e_sum = scatter(src=sigma_e, index=i, dim=0)
         e_gated = sigma_e / (e_sum[i] + self.eps)
-
+        e_gated = e_gated.squeeze()
         # Update the nodes (this utilizes the gated edges)
         out = self.propagate(edge_index, x=x, e_gated=e_gated)
         out = self.W_src(x) + out
         out = x + self.act(self.norm_x(out))
-
+        edge_attr = edge_attr.squeeze()
         # Update the edges
         edge_attr = edge_attr + self.act(
             self.norm_e(self.W_A(x[i]) + self.W_B(x[j]) + self.W_C(edge_attr))
         )
-
         return out, edge_attr
 
     def message(self, x_j, e_gated):
