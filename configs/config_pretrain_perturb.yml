@@ -43,7 +43,7 @@ model:
   gradient_method: "nequip"
 
 optim:
-  max_epochs: 300
+  max_epochs: 15
   max_checkpoint_epochs: 0
   lr: 0.00001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -60,7 +60,7 @@ optim:
     scheduler_type: "ReduceLROnPlateau"
     scheduler_args: { "mode": "min", "factor": 0.8, "patience": 10, "min_lr": 0.00001, "threshold": 0.0002 }
   #Training print out frequency (print per n number of epochs)
-  verbosity: 5
+  verbosity: 1
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
 

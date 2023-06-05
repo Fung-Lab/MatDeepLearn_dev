@@ -154,7 +154,7 @@ class CTPretrainer(BaseTrainer):
         self.step = 0
         self.metrics = {}
         self.epoch_time = None
-        self.best_val_metric = 1e10
+        self.best_metric = 1e10
         self.best_model_state = None
 
         self.save_dir = save_dir if save_dir else os.getcwd()
@@ -472,10 +472,10 @@ class CTPretrainer(BaseTrainer):
                 # Update best val metric and model, and save best model and predicted outputs
                 if (
                         val_metrics[type(self.loss_fn).__name__]["metric"]
-                        < self.best_val_metric
+                        < self.best_metric
                 ):
                     # self.update_best_model(val_metrics)
-                    self.best_val_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
+                    self.best_metric = val_metrics[type(self.loss_fn).__name__]["metric"]
                     self.best_model_state = copy.deepcopy(self.model.state_dict())
 
                     self.save_model("best_checkpoint.pt", val_metrics, False)
