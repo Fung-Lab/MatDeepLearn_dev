@@ -101,7 +101,7 @@ def get_dataloader(
         shuffle=shuffle,
         num_workers=num_workers,
         sampler=sampler,
-        drop_last=True
+        drop_last=False
     )
 
     return loader
@@ -413,7 +413,6 @@ class CTPretrainer(BaseTrainer):
         )
         # print(self.dataset["train"].data)
         # print(self.dataset["train"].slices)
-        print(self.model)
 
         if self.train_verbosity:
             logging.info("Starting regular training")
@@ -439,6 +438,8 @@ class CTPretrainer(BaseTrainer):
 
                 # Get a batch of train data
                 batch1, batch2 = next(train_loader_iter)
+                if len(batch1) == 0:
+                    continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
 
@@ -500,6 +501,8 @@ class CTPretrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             with torch.no_grad():
                 batch1, batch2 = next(loader_iter)
+                if len(batch1) == 1:
+                    continue
                 out1 = self._forward(batch1.to(self.device))
                 out2 = self._forward(batch2.to(self.device))
                 loss = self._compute_loss(out1, out2)
