@@ -15,8 +15,34 @@ class TorchLossWrapper(nn.Module):
         super().__init__()
         self.loss_fn = getattr(F, loss_fn)
 
-    def forward(self, predictions: torch.Tensor, target: Batch):
-        return self.loss_fn(predictions, target.y)
+    def forward(self, predictions: torch.Tensor, target: Batch):    
+        return self.loss_fn(predictions["output"], target.y)
+
+
+@registry.register_loss("ForceLoss")
+class ForceLoss(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_force=0.1):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_force = weight_force
+
+    def forward(self, predictions: torch.Tensor, target: Batch):  
+        combined_loss = F.l1_loss(predictions["output"], target.y) + self.weight*F.l1_loss(predictions["pos_grad"], target.forces)
+        return combined_loss
+
+
+@registry.register_loss("ForceStressLoss")
+class ForceStressLoss(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_force=0.1, weight_stress=0.1):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_force = weight_force
+        self.weight_stress = weight_stress
+
+    def forward(self, predictions: torch.Tensor, target: Batch):  
+        combined_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y) + self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces) + self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
+        return combined_loss
+        
 
 @registry.register_loss("DOSLoss")
 class DOSLoss(nn.Module):

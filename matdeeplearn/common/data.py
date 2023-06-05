@@ -117,7 +117,7 @@ def get_dataset(
 
 
 def get_dataloader(
-    dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
+    dataset, batch_size: int, num_workers: int = 8, sampler=None, shuffle=True
 ):
     """
     Returns a single dataloader for a given dataset

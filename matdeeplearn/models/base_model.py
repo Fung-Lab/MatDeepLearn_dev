@@ -1,24 +1,50 @@
 import warnings
 from abc import ABCMeta, abstractmethod
+from functools import wraps
 
+import numpy as np 
 import torch
 import torch.nn as nn
 from torch_geometric.utils import dense_to_sparse
 
+from torch_scatter import segment_coo, segment_csr
+
 from matdeeplearn.preprocessor.helpers import (
-    add_selfloop,
+    clean_up,
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
+    calculate_edges_master,
+    get_pbc_distances,
+    radius_graph_pbc,
 )
 
 
 class BaseModel(nn.Module, metaclass=ABCMeta):
-    def __init__(self, edge_steps: int = 50, self_loop: bool = True) -> None:
+    def __init__(self,        
+        prediction_level="graph",
+        otf_edge=False,
+        graph_method="ocp",
+        gradient=False,
+        gradient_method="nequip",
+        cutoff_radius=8,
+        n_neighbors=None,
+        edge_steps=50,        
+        num_offsets=1,        
+        **kwargs
+        ) -> None:
         super(BaseModel, self).__init__()
+        
+        self.prediction_level = prediction_level
+        self.otf_edge = otf_edge
+        self.gradient = gradient
+        self.cutoff_radius = cutoff_radius
+        self.n_neighbors = n_neighbors
         self.edge_steps = edge_steps
-        self.self_loop = self_loop
-
+        self.graph_method = graph_method
+        self.num_offsets = num_offsets
+        self.gradient_method = gradient_method
+        
     @property
     @abstractmethod
     def target_attr(self):
@@ -61,7 +87,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
     def forward(self):
         """The forward method for the model."""
 
-    def generate_graph(self, data, r, n_neighbors, otf: bool = False):
+    def generate_graph(self, data, cutoff_radius, n_neighbors):
         """
         generates the graph on-the-fly.
 
@@ -80,10 +106,78 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                 otf == on-the-fly
                 if True, this function will be called
         """
-        if not otf:
-            warnings.warn("On-the-fly graph generation is called but otf is False")
-            return
-
+        #if not otf:
+        #    warnings.warn("On-the-fly graph generation is called but otf is False")
+        #    return
+        if self.gradient_method == "conventional":
+            data.pos.requires_grad_(True)
+            data.cell.requires_grad_(True)
+        elif self.gradient_method == "nequip":
+            data.pos.requires_grad_(True)
+            data.displacement = torch.zeros_like(data.cell)
+            data.displacement.requires_grad_(True)
+            symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
+            data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
+                    
+        if self.graph_method == "ocp":
+            edge_index, cell_offsets, neighbors = radius_graph_pbc(
+                cutoff_radius,
+                n_neighbors,
+                data.pos,
+                data.cell,
+                data.n_atoms,
+                [True, True, True],
+            )
+                                  
+            edge_gen_out = get_pbc_distances(
+                data.pos,
+                edge_index,
+                data.cell,
+                cell_offsets,
+                neighbors,
+                return_offsets=True,
+                return_distance_vec=True,
+            )
+            edge_index = edge_gen_out["edge_index"]
+            edge_weights = edge_gen_out["distances"]
+            offset_distance = edge_gen_out["offsets"]                
+            edge_vec = edge_gen_out["distance_vec"]
+            if(edge_vec.dim() > 2):
+                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]      
+                              
+        elif self.graph_method == "mdl":
+            edge_index_list = []
+            edge_weights_list = []
+            edge_vec_list = []
+            cell_offsets_list = []
+            for i in range(0, len(data)):
+                
+                cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
+                    data[i].pos,
+                    data[i].cell,
+                    cutoff_radius,
+                    n_neighbors,
+                    self.num_offsets,
+                )
+        
+                edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
+        
+                # get into correct shape for model stage
+                edge_vec = edge_vec[edge_index[0], edge_index[1]]
+                
+                edge_index_list.append(edge_index)                
+                edge_weights_list.append(edge_weights)
+                edge_vec_list.append(edge_vec)
+                cell_offsets_list.append(cell_offsets)
+            edge_index = torch.cat(edge_index_list, dim=1)
+            edge_weights = torch.cat(edge_weights_list)
+            edge_vec = torch.cat(edge_vec_list)
+            cell_offsets = torch.cat(cell_offsets_list)
+            neighbors = None
+            offset_distance = None
+        #print(edge_index.shape, edge_weights.shape, edge_vec.shape, cell_offsets.shape, neighbors.shape, offset_distance.shape)
+        
+        '''
         # get cutoff distance matrix
         cd_matrix, cell_offsets = get_cutoff_distance_matrix(
             data.pos, data.cell, r, n_neighbors
@@ -103,5 +197,27 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         # TODO
         # check if edge features that is normalized over the entire dataset can be skipped
         generate_edge_features(data, self.edge_steps)
+        '''
+        return (
+            edge_index,
+            edge_weights,
+            edge_vec,
+            cell_offsets,
+            offset_distance,
+            neighbors,
+        )
 
-        return data
+def conditional_grad(dec):
+    "Decorator to enable/disable grad depending on whether force/energy predictions are being made"
+    # Adapted from https://stackoverflow.com/questions/60907323/accessing-class-property-as-decorator-argument
+    def decorator(func):
+        @wraps(func)
+        def cls_method(self, *args, **kwargs):
+            f = func
+            if self.gradient == True:
+                f = dec(func)
+            return f(self, *args, **kwargs)
+
+        return cls_method
+
+    return decorator             

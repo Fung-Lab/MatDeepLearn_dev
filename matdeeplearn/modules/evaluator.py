@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class Evaluator:
     def __init__(self, task=None):
         self.task = task
-
+    
     def eval(self, prediction, target, loss_method, prev_metrics={}):
         metrics = prev_metrics
         res = loss_method(prediction, target)
