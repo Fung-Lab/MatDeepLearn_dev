@@ -448,7 +448,7 @@ class CTPretrainer(BaseTrainer):
                 out2 = self._forward(batch2)
                 loss = self._compute_loss(out1, out2)
                 # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
-                "Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i, loss.item)
+                logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i, loss.item))
                 self._backward(loss)
 
                 # Compute metrics
