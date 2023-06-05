@@ -103,7 +103,7 @@ class PaiNN(BaseModel):
         self.out_energy = nn.Sequential(
             nn.Linear(hidden_channels, hidden_channels // 2),
             ScaledSiLU(),
-            nn.Linear(hidden_channels // 2, 1),
+            nn.Linear(hidden_channels // 2, output_dim),
         )
 
         self.num_post_layers = num_post_layers
@@ -114,7 +114,7 @@ class PaiNN(BaseModel):
                 self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
             else:
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
-        self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
+        self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
         self.pool = pool
 
         if self.regress_forces is True and self.direct_forces is True:
@@ -362,7 +362,9 @@ class PaiNN(BaseModel):
         )
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         pos = data.pos
         batch = data.batch
         z = data.z.long()
@@ -409,7 +411,8 @@ class PaiNN(BaseModel):
             x = getattr(self, "upd_out_scalar_scale_%d" % i)(x)
 
         #### Output block #####################################################
-        x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+        if self.prediction_level == "graph":
+            x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.activation)(x)
@@ -450,6 +453,42 @@ class PaiNN(BaseModel):
             f"max_neighbors={self.max_neighbors}, "
             f"cutoff={self.cutoff})"
         )
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
 
 
 class PaiNNMessage(MessagePassing):

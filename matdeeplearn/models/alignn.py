@@ -9,7 +9,7 @@ from torch_geometric.nn import MessagePassing, global_mean_pool
 from torch_scatter import scatter
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.models.base_model import BaseModel
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
 
 
 @registry.register_model("ALIGNN")
@@ -71,7 +71,7 @@ class ALIGNN(BaseModel):
         )
 
         # prediction task
-        self.fc = Linear(hidden_features, output_features)
+        self.fc = Linear(hidden_features, output_dim)
 
         # linking which is performed post-readout
         self.link = None
@@ -89,7 +89,10 @@ class ALIGNN(BaseModel):
     def target_attr(self):
         return "y"
 
-    def forward(self, g: Data):
+    @conditional_grad(torch.enable_grad())
+    def _forward(self, g: Data):
+        if self.otf_edge == True:
+            Data.edge_index, Data.edge_weight, Data.edge_vec, _, _, _ = self.generate_graph(Data, self.cutoff_radius, self.n_neighbors)
         # initial node features
         g.x = g.x.to(dtype=torch.float)
         node_feats = self.atom_embedding(g.x)
@@ -116,14 +119,51 @@ class ALIGNN(BaseModel):
             )
 
         # readout
-        h = global_mean_pool(node_feats, g.batch)
+        h = node_feats
+        if self.prediction_level == "graph":
+            h = global_mean_pool(node_feats, g.batch)
         out = self.fc(h)
 
         if self.link:
             out = self.link(out)
 
         return torch.squeeze(out, -1)
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
 
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
 
 class ALIGNNConv(torch.nn.Module):
     """

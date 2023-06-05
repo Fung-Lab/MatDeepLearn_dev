@@ -20,6 +20,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
     conditional_grad,
 )
+from matdeeplearn.models.base_model import BaseModel
 
 try:
     import sympy as sym
@@ -169,7 +170,7 @@ class OutputPPBlock(torch.nn.Module):
         return self.lin(x)
 
 
-class DimeNetPlusPlus(torch.nn.Module):
+class DimeNetPlusPlus(BaseModel):
     r"""DimeNet++ implementation based on https://github.com/klicperajo/dimenet.
     Args:
         hidden_channels (int): Hidden embedding size.
@@ -342,7 +343,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
 
         super(DimeNetPlusPlusWrap, self).__init__(
             hidden_channels=hidden_channels,
-            out_channels=num_targets,
+            out_channels=output_dim,
             num_blocks=num_blocks,
             int_emb_size=int_emb_size,
             basis_emb_size=basis_emb_size,
@@ -358,6 +359,8 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         pos = data.pos
         batch = data.batch
         #(
@@ -418,31 +421,46 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         ):
             x = interaction_block(x, rbf, sbf, idx_kj, idx_ji)
             P += output_block(x, rbf, i, num_nodes=pos.size(0))
-
-        energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
+        if self.prediction_level == "graph":
+            energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
 
         return energy
 
     def forward(self, data):
-        if self.regress_forces:
-            data.pos.requires_grad_(True)
-        energy = self._forward(data)
-        
-        if self.regress_forces:
-            forces = -1 * (
-                torch.autograd.grad(
-                    energy,
-                    data.pos,
-                    grad_outputs=torch.ones_like(energy),
-                    create_graph=True,
-                    allow_unused=True,
-                )[0]
-            )
-            return energy, forces
-        elif energy.shape[1] == 1:
-            return energy.view(-1)
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
         else:
-            return energy
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
     @property
     def target_attr(self):
         return "y"

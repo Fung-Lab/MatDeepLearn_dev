@@ -244,7 +244,7 @@ class GemNetT(BaseModel):
                     emb_size_edge=emb_size_edge,
                     emb_size_rbf=emb_size_rbf,
                     nHidden=num_atom,
-                    num_targets=num_targets,
+                    num_targets=output_dim,
                     activation=activation,
                     output_init=output_init,
                     direct_forces=direct_forces,

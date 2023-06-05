@@ -340,7 +340,7 @@ class GemNetOC(BaseModel):
                     emb_size_edge=emb_size_edge,
                     emb_size_rbf=emb_size_rbf,
                     nHidden=num_atom,
-                    nHidden_afteratom=num_output_afteratom,
+                    nHidden_afteratom=output_dim,
                     activation=activation,
                     direct_forces=direct_forces,
                 )
@@ -373,7 +373,7 @@ class GemNetOC(BaseModel):
                 self.post_lin_list.append(nn.Linear(emb_size_atom, post_hidden_channels))
             else:
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
-        self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
+        self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
         self.pool = pool
         self.act = act
 
@@ -1244,7 +1244,9 @@ class GemNetOC(BaseModel):
         )
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
         pos = data.pos
         batch = data.batch
         atomic_numbers = data.z.long()
@@ -1329,7 +1331,8 @@ class GemNetOC(BaseModel):
         x_E = self.out_mlp_E(torch.cat(xs_E, dim=-1))
         if self.direct_forces:
             x_F = self.out_mlp_F(torch.cat(xs_F, dim=-1))
-        x = getattr(torch_geometric.nn, self.pool)(x_E, batch)
+        if self.prediction_level == "graph":
+            x = getattr(torch_geometric.nn, self.pool)(x_E, batch)
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.act)(x)
@@ -1386,6 +1389,42 @@ class GemNetOC(BaseModel):
         else:
             E_t = E_t.squeeze(1)  # (num_molecules)
             return E_t
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
 
     @property
     def num_params(self):

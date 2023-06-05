@@ -80,7 +80,7 @@ class EquivariantScalar(OutputModel):
                     activation=activation,
                     scalar_activation=True,
                 ),
-                GatedEquivariantBlock(hidden_channels // 2, 1, activation=activation),
+                GatedEquivariantBlock(hidden_channels // 2, self.output_dim, activation=activation),
             ]
         )
 

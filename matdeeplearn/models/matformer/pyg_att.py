@@ -10,11 +10,12 @@ from matdeeplearn.models.matformer.utils import RBFExpansion
 from matdeeplearn.models.matformer.utils import angle_emb_mp
 from torch_scatter import scatter
 from matdeeplearn.models.matformer.transformer import MatformerConv
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
 
 from matdeeplearn.common.registry import registry
 
 @registry.register_model("Matformer")
-class Matformer(nn.Module):
+class Matformer(BaseModel):
     """att pyg implementation."""
 
     def __init__(
@@ -134,7 +135,7 @@ class Matformer(nn.Module):
             self.softmax = nn.LogSoftmax(dim=1)
         else:
             self.fc_out = nn.Linear(
-                fc_features, output_features
+                fc_features, output_dim
             )
 
         self.link = None
@@ -151,7 +152,10 @@ class Matformer(nn.Module):
         elif link == "logit":
             self.link = torch.sigmoid
 
-    def forward(self, data) -> torch.Tensor:
+    @conditional_grad(torch.enable_grad())
+    def _forward(self, data) -> torch.Tensor:
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         #data, ldata, lattice = data
         data.x = data.x.to(dtype=torch.float)
         # initial node features: atom feature network...
@@ -177,7 +181,9 @@ class Matformer(nn.Module):
 
 
         # crystal-level readout
-        features = scatter(node_features, data.batch, dim=0, reduce="add")
+        if self.prediction_level == "graph":
+            features = scatter(node_features, data.batch, dim=0, reduce="add")
+        features = node_features
 
         if self.angle_lattice:
             # features *= F.sigmoid(lattice_emb)
@@ -196,3 +202,41 @@ class Matformer(nn.Module):
     @property
     def target_attr(self):
         return "y"
+    
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
+

@@ -247,10 +247,12 @@ class SphericalChannelNetwork(BaseModel):
             self.force_fc2 = nn.Linear(
                 self.sphere_channels, self.sphere_channels_reduce
             )
-            self.force_fc3 = nn.Linear(self.sphere_channels_reduce, 1)
+            self.force_fc3 = nn.Linear(self.sphere_channels_reduce, output_dim)
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
         self.batch_size = len(data.n_atoms)
@@ -419,7 +421,8 @@ class SphericalChannelNetwork(BaseModel):
         node_energy = node_energy.view(-1, self.num_sphere_samples, 1)
         node_energy = torch.sum(node_energy, dim=1) / self.num_sphere_samples
         energy = torch.zeros(len(data.n_atoms), device=pos.device)
-        energy.index_add_(0, data.batch, node_energy.view(-1))
+        if self.prediction_level == "graph":
+            energy.index_add_(0, data.batch, node_energy.view(-1))
 
         # Force estimation
         if self.regress_forces:
@@ -438,6 +441,42 @@ class SphericalChannelNetwork(BaseModel):
             return energy
         else:
             return energy, forces
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
 
     def _init_edge_rot_mat(self, data, edge_index, edge_distance_vec):
         edge_vec_0 = edge_distance_vec

@@ -12,10 +12,11 @@ from matdeeplearn.models.utils import (
 )
 from matdeeplearn.models.output_modules import EquivariantScalar
 from matdeeplearn.common.registry import registry
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
 @registry.register_model("torchmd_et")
 
 
-class TorchMD_ET(nn.Module):
+class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
     Args:
@@ -58,7 +59,7 @@ class TorchMD_ET(nn.Module):
         self,
 	    node_dim,
         edge_dim,
-        output_dim,
+        output_dim,      
         hidden_channels=128,
         num_layers=6,
         num_rbf=50,
@@ -157,10 +158,11 @@ class TorchMD_ET(nn.Module):
             attn.reset_parameters()
         self.out_norm.reset_parameters()
 
-    def forward(
+    @conditional_grad(torch.enable_grad())
+    def _forward(
         self,
         data
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    ):
 
         x = self.embedding(data.z)
 
@@ -168,6 +170,9 @@ class TorchMD_ET(nn.Module):
         #assert (
         #    edge_vec is not None
         #), "Distance module did not return directional information"
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+            data.edge_attr = self.distance_expansion(data.edge_weight)
 
         edge_attr = self.distance_expansion(data.edge_weight)
         mask = data.edge_index[0] != data.edge_index[1]
@@ -184,12 +189,13 @@ class TorchMD_ET(nn.Module):
             vec = vec + dvec
         x = self.out_norm(x)
         x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
-        x = self.pool.reduce(x, data.batch)
+        if self.prediction_level == "graph":
+            x = self.pool.reduce(x, data.batch)
         #x = x.squeeze()
         if x.shape[1] == 1:
             x = x.view(-1)
 
-        return x, vec, data.z, data.pos, data.batch
+        return x
 
     def __repr__(self):
         return (
@@ -210,7 +216,43 @@ class TorchMD_ET(nn.Module):
     @property
     def target_attr(self):
         return "y"
+    
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
 
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
 
 class EquivariantMultiHeadAttention(MessagePassing):
     def __init__(

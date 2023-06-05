@@ -24,7 +24,7 @@ from matdeeplearn.models.utils import (
     get_pbc_distances,
     radius_graph_pbc,
 )
-from matdeeplearn.models.ocpbase import BaseModel
+from matdeeplearn.models.ocpbase import BaseModel, conditional_grad
 
 try:
     from e3nn import o3
@@ -205,7 +205,7 @@ class spinconv(BaseModel):
             )
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
         self.batch_size = len(data.n_atoms)
@@ -318,8 +318,8 @@ class spinconv(BaseModel):
         energy = self.energyembeddingblock(
             energy, atomic_numbers, atomic_numbers
         )
-        
-        x = getattr(torch_geometric.nn, self.pool)(energy, data.batch)
+        if self.prediction_level == "graph":
+            x = getattr(torch_geometric.nn, self.pool)(energy, data.batch)
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.activation)(x)
@@ -351,6 +351,45 @@ class spinconv(BaseModel):
             return energy
         else:
             return energy, forces
+    
+    def forward(self, data):
+    
+        output = {}
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None
+        return output
 
     def _compute_forces_random_rotations(
         self,

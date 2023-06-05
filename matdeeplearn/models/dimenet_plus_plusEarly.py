@@ -371,12 +371,14 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
                 self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
             else:
                 self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
-        self.post_lin_list.append(nn.Linear(post_hidden_channels, 1))
+        self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
         pos = data.pos
         batch = data.batch
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         #(
         #    edge_index,
         #    dist,
@@ -430,8 +432,8 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         ):
             x = interaction_block(x, rbf, sbf, idx_kj, idx_ji)
             P += output_block(x, rbf, i, num_nodes=pos.size(0))
-        
-        energy = getattr(torch_geometric.nn, self.pool)(P, data.batch)
+        if self.prediction_level == "graph":
+            energy = getattr(torch_geometric.nn, self.pool)(P, data.batch)
         x = energy
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
@@ -443,25 +445,40 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         return energy
 
     def forward(self, data):
-        if self.regress_forces:
-            data.pos.requires_grad_(True)
-        energy = self._forward(data)
-        
-        if self.regress_forces:
-            forces = -1 * (
-                torch.autograd.grad(
-                    energy,
-                    data.pos,
-                    grad_outputs=torch.ones_like(energy),
-                    create_graph=True,
-                    allow_unused=True,
-                )[0]
-            )
-            return energy, forces
-        elif energy.shape[1] == 1:
-            return energy.view(-1)
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
         else:
-            return energy
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
     @property
     def target_attr(self):
         return "y"
