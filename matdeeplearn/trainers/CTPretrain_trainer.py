@@ -7,15 +7,25 @@ from typing import List
 
 import numpy as np
 import torch
+from torch import nn
+from torch.cuda.amp import GradScaler
+from torch import distributed as dist
+from torch.nn.parallel import DistributedDataParallel
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
+from torch.optim import Optimizer
+from torch.utils.data.distributed import DistributedSampler
+from torch_geometric.data import Dataset
 
 from matdeeplearn.common.data import get_otf_transforms, dataset_split
-from matdeeplearn.common.registry import registry
 from matdeeplearn.datasets.LargeCTPretain_dataset import LargeCTPretrainDataset
-from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 from matdeeplearn.datasets.CTPretain_dataset import CTPretrainDataset
+
+from matdeeplearn.common.registry import registry
+from matdeeplearn.models.base_model import BaseModel
+from matdeeplearn.modules.evaluator import Evaluator
+from matdeeplearn.modules.scheduler import LRScheduler
 
 
 def get_dataset(
@@ -101,24 +111,28 @@ def get_dataloader(
 class CTPretrainer(BaseTrainer):
     def __init__(
             self,
-            model,
-            dataset,
-            optimizer,
-            sampler,
-            scheduler,
-            train_loader,
-            val_loader,
-            test_loader,
-            loss,
-            max_epochs,
-            max_checkpoint_epochs,
-            identifier,
-            verbosity,
-            save_dir,
-            checkpoint_dir,
+            model: BaseModel,
+            dataset: Dataset,
+            optimizer: Optimizer,
+            sampler: DistributedSampler,
+            scheduler: LRScheduler,
+            train_loader: DataLoader,
+            val_loader: DataLoader,
+            test_loader: DataLoader,
+            loss: nn.Module,
+            max_epochs: int,
+            clip_grad_norm: int = None,
+            max_checkpoint_epochs: int = None,
+            identifier: str = None,
+            verbosity: int = None,
+            batch_tqdm: bool = False,
+            write_output: list = ["train", "val", "test"],
+            save_dir: str = None,
+            checkpoint_path: str = None,
+            use_amp: bool = False,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = model.to(self.device)
+        self.model = model
         self.dataset = dataset
         self.optimizer = optimizer
         self.train_sampler = sampler
@@ -130,8 +144,11 @@ class CTPretrainer(BaseTrainer):
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
+        self.clip_grad_norm = clip_grad_norm
         self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
+        self.batch_tqdm = batch_tqdm
+        self.write_output = write_output
 
         self.epoch = 0
         self.step = 0
@@ -141,9 +158,20 @@ class CTPretrainer(BaseTrainer):
         self.best_model_state = None
 
         self.save_dir = save_dir if save_dir else os.getcwd()
-        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_path = checkpoint_path
+        self.use_amp = use_amp
+
+        if self.use_amp:
+            logging.info("Using PyTorch automatic mixed-precision")
+
+        self.scaler = GradScaler(enabled=self.use_amp and self.device.type == "cuda")
 
         self.evaluator = Evaluator()
+
+        if self.train_sampler == None:
+            self.rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.rank = self.train_sampler.rank
 
         timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
@@ -174,22 +202,48 @@ class CTPretrainer(BaseTrainer):
             dataset
         """
 
+        cls.set_seed(config["task"].get("seed"))
+
+        if config["task"]["parallel"] == True and os.environ.get("LOCAL_WORLD_SIZE", None):
+            # os.environ["MASTER_ADDR"] = "localhost"
+            # os.environ["MASTER_PORT"] = "12355"
+            local_world_size = os.environ.get("LOCAL_WORLD_SIZE", None)
+            local_world_size = int(local_world_size)
+            dist.init_process_group(
+                "nccl", world_size=local_world_size, init_method="env://"
+            )
+            rank = int(dist.get_rank())
+        else:
+            rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            local_world_size = 1
         dataset = cls._load_dataset(config["dataset"])
-        model = cls._load_model(config["model"], dataset["train"])
-        optimizer = cls._load_optimizer(config["optim"], model)
-        sampler = cls._load_sampler(config["optim"], dataset["train"])
+        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size,
+                                rank)
+        optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
+        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
         train_loader, val_loader, test_loader = cls._load_dataloader(
-            config["optim"], config["dataset"], dataset, sampler
+            config["optim"],
+            config["dataset"],
+            dataset,
+            sampler,
         )
+
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
+        clip_grad_norm = config["optim"].get("clip_grad_norm", None)
+        verbosity = config["optim"].get("verbosity", None)
+        batch_tqdm = config["optim"].get("batch_tqdm", False)
+        write_output = config["task"].get("write_output", [])
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
-        verbosity = config["task"].get("verbosity", None)
+
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
-        checkpoint_dir = config["task"].get("checkpoint_dir", None)
+        checkpoint_path = config["task"].get("checkpoint_path", None)
+
+        if local_world_size > 1:
+            dist.barrier()
 
         return cls(
             model=model,
@@ -202,12 +256,71 @@ class CTPretrainer(BaseTrainer):
             test_loader=test_loader,
             loss=loss,
             max_epochs=max_epochs,
+            clip_grad_norm=clip_grad_norm,
             max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
             verbosity=verbosity,
+            batch_tqdm=batch_tqdm,
+            write_output=write_output,
             save_dir=save_dir,
-            checkpoint_dir=checkpoint_dir,
+            checkpoint_path=checkpoint_path,
+            use_amp=config["task"].get("use_amp", False),
         )
+
+    @staticmethod
+    def _load_model(model_config, graph_config, dataset, world_size, rank):
+        """Loads the model if from a config file."""
+
+        if dataset.get("train"):
+            dataset = dataset["train"]
+        else:
+            dataset = dataset[list(dataset.keys())[0]]
+
+        if isinstance(dataset, torch.utils.data.Subset):
+            dataset = dataset.dataset
+
+            # Obtain node, edge, and output dimensions for model initialization
+        node_dim = dataset.num_features
+        edge_dim = graph_config["edge_steps"]
+        if dataset[0][0]["y"].ndim == 0:
+            output_dim = 1
+        else:
+            output_dim = dataset[0][0]["y"].shape[1]
+
+            # Determine if this is a node or graph level model
+        if dataset[0][0]["y"].shape[0] == dataset[0][0]["x"].shape[0]:
+            model_config["prediction_level"] = "node"
+        elif dataset[0][0]["y"].shape[0] == 1:
+            model_config["prediction_level"] = "graph"
+        else:
+            raise ValueError(
+                "Target labels do not have the correct dimensions for node or graph-level prediction."
+            )
+
+        model_cls = registry.get_model_class(model_config["name"])
+        model = model_cls(
+            node_dim=node_dim,
+            edge_dim=edge_dim,
+            output_dim=output_dim,
+            data=dataset,
+            cutoff_radius=graph_config["cutoff_radius"],
+            n_neighbors=graph_config["n_neighbors"],
+            edge_steps=graph_config["edge_steps"],
+            graph_method=graph_config["edge_calc_method"],
+            num_offsets=graph_config["num_offsets"],
+            **model_config
+        )
+        model = model.to(rank)
+        # model = torch_geometric.compile(model)
+        # if model_config["load_model"] == True:
+        #    checkpoint = torch.load(model_config["model_path"])
+        #    model.load_state_dict(checkpoint["state_dict"])
+        if world_size > 1:
+            model = DistributedDataParallel(
+                model, device_ids=[rank], find_unused_parameters=False
+            )
+        return model
+
 
     @staticmethod
     def _load_dataset(dataset_config):
@@ -262,7 +375,9 @@ class CTPretrainer(BaseTrainer):
             train_loader = get_dataloader(
                 dataset["train"], batch_size=batch_size, sampler=sampler
             )
-            val_loader = get_dataloader(dataset["val"], batch_size=batch_size, sampler=sampler)
+            val_loader = get_dataloader(
+                dataset["val"], batch_size=batch_size, sampler=sampler
+            )
             test_loader = get_dataloader(
                 dataset["test"], batch_size=batch_size, sampler=sampler
             )
