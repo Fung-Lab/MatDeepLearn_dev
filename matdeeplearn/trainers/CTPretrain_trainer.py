@@ -420,6 +420,7 @@ class CTPretrainer(BaseTrainer):
                 f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
             )
         self.model = self.model.to(self.device)
+        print(len(self.dataset))
 
         for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()

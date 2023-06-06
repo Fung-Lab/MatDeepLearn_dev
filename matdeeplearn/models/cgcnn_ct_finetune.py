@@ -17,11 +17,10 @@ from matdeeplearn.models.base_model import BaseModel
 
 
 @registry.register_model("CGCNN_CTFINETUNE")
-class CGCNNCTPretrain(BaseModel):
+class CGCNNCTFinetune(BaseModel):
     def __init__(
             self,
             edge_steps,
-            self_loop,
             data,
             dim1=64,
             dim2=64,
@@ -36,7 +35,7 @@ class CGCNNCTPretrain(BaseModel):
             dropout_rate=0.0,
             **kwargs
     ):
-        super(CGCNNCTPretrain, self).__init__(edge_steps, self_loop)
+        super(CGCNNCTFinetune, self).__init__(edge_steps)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
