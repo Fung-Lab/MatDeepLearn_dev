@@ -17,8 +17,7 @@ from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
 
-from matdeeplearn.common.data import (DataLoader, dataset_split,
-                                      get_dataloader, get_dataset)
+from matdeeplearn.common.data import *
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
@@ -131,17 +130,25 @@ class BaseTrainer(ABC):
         else:
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
-        model = cls._load_model(config["model"], dataset, local_world_size, rank)
-        optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
-        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
-        data_loader = cls._load_dataloader(
+
+        dataset, data_loader = cls._load_dataloaders_mlc(
             config["optim"],
             config["dataset"],
-            dataset,
-            sampler,
-            config["task"]["run_mode"],
+            config["task"]["run_mode"]
         )
+        model = cls._load_model(config["model"], local_world_size, rank)
+        # dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        # model = cls._load_model(config["model"], dataset, local_world_size, rank)
+        optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
+        # sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
+        # data_loader = cls._load_dataloader(
+        #     config["optim"],
+        #     config["dataset"],
+        #     dataset,
+        #     sampler,
+        #     config["task"]["run_mode"],
+        # )
+        sampler = None
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
@@ -173,6 +180,41 @@ class BaseTrainer(ABC):
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
         )
+
+    @staticmethod
+    def _load_dataloaders_mlc(optim_config, dataset_config, task):
+        """
+        Loads the dataset using torch.utils.data.Dataset 
+        instead of torch_geometric.data.InMemoryDataset
+        """
+        batch_size = optim_config.get("batch_size")
+        num_workers = 8
+        std = dataset_config.get("std", 0.1)
+        loss_on = optim_config["loss"].get("loss_on")
+        path = dataset_config.get("src")
+
+        datawrapper = DataWrapper(
+            batch_size, num_workers, std, loss_on, paths=path
+        )
+        split_ratio = {
+            "train": dataset_config["train_ratio"],
+            "val": dataset_config["val_ratio"],
+            "test": dataset_config["test_ratio"]
+        }
+
+        train_ds, val_ds, test_ds, train_dl, val_dl, test_dl = datawrapper.get_all_loaders()
+        datasets = {
+            "train": train_ds, 
+            "val": val_ds, 
+            "test": test_ds
+        }
+        loaders = {
+            "train_loader": train_dl,
+            "val_loader": val_dl,
+            "test_loader": test_dl
+        }
+
+        return datasets, loaders
 
     @staticmethod
     def _load_dataset(dataset_config, task):
@@ -233,49 +275,61 @@ class BaseTrainer(ABC):
         return dataset
 
     @staticmethod
-    def _load_model(model_config, dataset, world_size, rank):
-        """Loads the model if from a config file."""
-
-        if dataset.get("train"):
-            dataset = dataset["train"]
-        else:
-            dataset = dataset[list(dataset.keys())[0]]
-
-        if isinstance(dataset, torch.utils.data.Subset):
-            dataset = dataset.dataset
-
-        # Obtain node, edge, and output dimensions for model initialization
-        node_dim = dataset.num_features
-        edge_dim = dataset.num_edge_features
-        if dataset[0]["y"].ndim == 0:
-            output_dim = 1
-        else:
-            output_dim = dataset[0]["y"].shape[1]
-
-        # Determine if this is a node or graph level model
-        if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
-            model_config["prediction_level"] = "node"
-        elif dataset[0]["y"].shape[0] == 1:
-            model_config["prediction_level"] = "graph"
-        else:
-            raise ValueError(
-                "Target labels do not have the correct dimensions for node or graph-level prediction."
-            )
-
+    def _load_model(model_config, world_size, rank):
         model_cls = registry.get_model_class(model_config["name"])
-        model = model_cls(
-            node_dim=node_dim, edge_dim=edge_dim, output_dim=output_dim, **model_config
-        )
+        model = model_cls(**model_config)
         model = model.to(rank)
-        # model = torch_geometric.compile(model)
-        # if model_config["load_model"] == True:
-        #    checkpoint = torch.load(model_config["model_path"])
-        #    model.load_state_dict(checkpoint["state_dict"])
+
         if world_size > 1:
             model = DistributedDataParallel(
                 model, device_ids=[rank], find_unused_parameters=False
             )
         return model
+
+    # @staticmethod
+    # def _load_model(model_config, dataset, world_size, rank):
+    #     """Loads the model if from a config file."""
+
+    #     if dataset.get("train"):
+    #         dataset = dataset["train"]
+    #     else:
+    #         dataset = dataset[list(dataset.keys())[0]]
+
+    #     if isinstance(dataset, torch.utils.data.Subset):
+    #         dataset = dataset.dataset
+
+    #     # Obtain node, edge, and output dimensions for model initialization
+    #     node_dim = dataset.num_features
+    #     edge_dim = dataset.num_edge_features
+    #     if dataset[0]["y"].ndim == 0:
+    #         output_dim = 1
+    #     else:
+    #         output_dim = dataset[0]["y"].shape[1]
+
+    #     # Determine if this is a node or graph level model
+    #     if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
+    #         model_config["prediction_level"] = "node"
+    #     elif dataset[0]["y"].shape[0] == 1:
+    #         model_config["prediction_level"] = "graph"
+    #     else:
+    #         raise ValueError(
+    #             "Target labels do not have the correct dimensions for node or graph-level prediction."
+    #         )
+
+    #     model_cls = registry.get_model_class(model_config["name"])
+    #     model = model_cls(
+    #         node_dim=node_dim, edge_dim=edge_dim, output_dim=output_dim, **model_config
+    #     )
+    #     model = model.to(rank)
+    #     # model = torch_geometric.compile(model)
+    #     # if model_config["load_model"] == True:
+    #     #    checkpoint = torch.load(model_config["model_path"])
+    #     #    model.load_state_dict(checkpoint["state_dict"])
+    #     if world_size > 1:
+    #         model = DistributedDataParallel(
+    #             model, device_ids=[rank], find_unused_parameters=False
+    #         )
+    #     return model
 
     @staticmethod
     def _load_optimizer(optim_config, model, world_size):
@@ -503,5 +557,5 @@ class BaseTrainer(ABC):
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.deterministic = False
         torch.backends.cudnn.benchmark = False

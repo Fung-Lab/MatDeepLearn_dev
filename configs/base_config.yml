@@ -1,0 +1,103 @@
+trainer: noisynode
+
+task:
+  run_mode: "train"
+  identifier: "my_train_job"
+  parallel: False
+  # If seed is not set, then it will be random every time
+  seed: 0
+  # Defaults to run directory if not specified
+  save_dir: 
+  continue_job: False
+  load_training_state: False
+  # Path to the checkpoint file
+  checkpoint_path: 
+  write_output: False
+  use_amp: True  
+
+model:
+  name: torchmd_et2
+  load_model: False
+  save_model: True
+  model_path: "my_model.pth"
+  #model attributes
+  hidden_channels: 256
+  num_filters: 128
+  num_layers: 8
+  num_rbf: 64
+  rbf_type: "expnorm"
+  trainable_rbf: True
+  activation: "silu"
+  attn_activation: "silu"
+  num_heads: 8
+  distance_influence: "both"
+  neighbor_embedding: True
+  cutoff_lower: 0.0
+  cutoff_upper: 8.0
+  max_z: 100
+  max_num_neighbors: 32
+  aggr: "add"
+  num_post_layers: 3
+  post_hidden_channels: 64
+  pool: "global_mean_pool" 
+  _target_attr: "y"
+
+optim:
+  max_epochs: 200
+  max_checkpoint_epochs: 0
+  lr: 0.0001
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "NoisyNodeLoss"
+    loss_on: "y"
+    loss_args: {"loss_fn": "l1_loss", "loss_on": "y"}
+
+  batch_size: 128
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 1
+  
+dataset:
+  name: "test_data"
+  processed: False
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
+  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/Matbench/data_dielectric.json
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  # Example: target_path: "data/raw_graph_scalar/targets.csv"
+  target_path: 
+  # Path to save processed data.pt file
+  pt_path: "data/"
+  # Either "node" or "graph"
+  prediction_level: "graph"
+  std: 0.1
+  
+  transforms:
+    
+  all_neighbors : True
+  # one of mdl (minimum image convention), ocp (all neighbors included)
+  edge_calc_method: "ocp"
+  # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
+  data_format: "json"
+  # Method of obtaining atom dictionary: available: (onehot)
+  node_representation: "onehot"
+  additional_attributes: []
+  # Print out processing info
+  verbose: True
+  # Index of target column in targets.csv
+  # graph specific settings
+  preprocess_params:
+    cutoff_radius : 8.0
+    n_neighbors : 50
+    num_offsets: 1
+    edge_steps : 50
+  # Ratios for train/val/test split out of a total of less than 1
+  train_ratio: 0.85
+  val_ratio: 0.05
+  test_ratio: 0.10
+  
+

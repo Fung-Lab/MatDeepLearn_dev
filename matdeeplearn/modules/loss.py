@@ -20,17 +20,31 @@ class TorchLossWrapper(nn.Module):
 
 @registry.register_loss("NoisyNodeLoss")
 class TorchLossWrapper(nn.Module):
-    def __init__(self, loss_fn="l1_loss"):
+    def __init__(self, loss_fn="l1_loss", loss_on="noise"):
+        """
+        loss_on: str
+            select which output to perform loss fn on
+            "noise": loss on noise only
+            "y": loss on target property
+            "all": loss on both target property and noise
+        """
         super().__init__()
         self.loss_fn = getattr(F, loss_fn)
+        self.loss_on = loss_on
 
     def forward(self, outputs: torch.Tensor, target: Batch):
         # only works for torchmd net now
         x, noise_pred = outputs
-        if noise_pred is None:
-            raise ValueError("returned noise is None")
 
-        return self.loss_fn(noise_pred, target.noise, reduction='sum')
+        if self.loss_on == "noise":
+            if noise_pred is None:
+                raise ValueError("returned noise is None")
+            return self.loss_fn(noise_pred, target.noise, reduction='sum')
+        elif self.loss_on == "y":
+            y_reshaped = target.y.view(-1,1)
+            return self.loss_fn(x, y_reshaped)
+        elif self.loss_on == "all":
+            raise NotImplementedError("not implemented")
 
 @registry.register_loss("DOSLoss")
 class DOSLoss(nn.Module):

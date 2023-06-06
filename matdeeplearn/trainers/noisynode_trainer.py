@@ -221,7 +221,7 @@ class NoisyNodeTrainer(BaseTrainer):
             # Node level prediction
             if batch_p.shape[0] > loader.batch_size:
                 node_level = True
-                node_ids = batch.z.cpu().numpy()
+                node_ids = batch.x.cpu().numpy()
                 structure_ids = np.repeat(
                     batch_ids, batch.n_atoms.cpu().numpy(), axis=0
                 )
@@ -248,7 +248,7 @@ class NoisyNodeTrainer(BaseTrainer):
         return predictions
 
     def _forward(self, batch_data):
-        output = self.model(batch_data)
+        output = self.model(batch_data.x, batch_data.pos, batch_data.batch, batch_data)
         return output
 
     def _compute_loss(self, out, batch_data):

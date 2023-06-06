@@ -13,4 +13,4 @@ export SLURM_CPU_BIND="cores"
 module load python
 conda activate mdl
 cd /global/homes/s/shuyijia/github/MatDeepLearn_dev/
-python scripts/main.py --run_mode=train --config_path=configs/torchmd_config.yml
+python scripts/test.py --run_mode=train --config_path=configs/test_config.yml

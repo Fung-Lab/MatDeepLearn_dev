@@ -553,7 +553,19 @@ class Distance(nn.Module):
         self.return_vecs = return_vecs
         self.loop = loop
 
-    def forward(self, pos, batch):
+    def forward(self, pos, batch, data=None):
+        if data is not None:
+            edge_index, unit_cell, num_neighbors_image = radius_graph_pbc(
+                data, self.cutoff_upper, self.max_num_neighbors
+            )
+            ocp_out = get_pbc_distances(
+                pos, edge_index, data.cell, unit_cell, num_neighbors_image,
+                return_offsets=True, return_distance_vec=self.return_vecs 
+            )
+
+            return ocp_out['edge_index'], ocp_out['distances'], ocp_out['distance_vec']
+
+
         edge_index = radius_graph(
             pos,
             r=self.cutoff_upper,
