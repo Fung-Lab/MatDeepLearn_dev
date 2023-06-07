@@ -131,10 +131,22 @@ dataset:
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: "mdl" 
+    # determine if edges are computed, if false, then they need to be computed on the fly   
+    preprocess_edges: True
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
+    preprocess_edge_features: True
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
+    preprocess_nodes: True
     cutoff_radius : 8.0
     n_neighbors : 250
-    num_offsets: 1
+    num_offsets: 2
     edge_steps : 50
+    self_loop: True
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: "onehot"    
+    all_neighbors: True
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8408
   val_ratio: 0.0764
