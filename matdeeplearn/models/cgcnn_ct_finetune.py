@@ -202,7 +202,7 @@ class CGCNNCTFinetune(BaseModel):
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
             out = self.conv_to_fc(self.conv_to_fc_softplus(out))
             out = self.conv_to_fc_softplus(out)
-            out = self.fc_out(out).view(-1)
+            out = self.fc_out(out)
             # for i in range(0, len(self.post_lin_list)):
             #     out = self.post_lin_list[i](out)
             #     out = getattr(F, self.act)(out)

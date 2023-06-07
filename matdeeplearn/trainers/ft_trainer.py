@@ -4,18 +4,90 @@ import time
 import os
 import copy
 from datetime import datetime
+from typing import List
 
 import numpy as np
 import torch
 from torch import distributed as dist
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch_geometric.transforms import Compose
+from torch_geometric.loader import DataLoader
 
 from tqdm import tqdm
-from matdeeplearn.common.data import get_dataloader
+from matdeeplearn.common.data import get_otf_transforms, dataset_split
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
+from matdeeplearn.preprocessor import LargeStructureDataset, StructureDataset
 from matdeeplearn.trainers.property_trainer import PropertyTrainer
+
+
+def get_dataset(
+        data_path,
+        processed_file_name,
+        transform_list: List[dict] = [],
+        large_dataset=False,
+):
+    """
+    get dataset according to data_path
+    this assumes that the data has already been processed and
+    data.pt file exists in data_path/processed/ folder
+
+    Parameters
+    ----------
+
+    data_path: str
+        path to the folder containing data.pt file
+
+    transform_list: transformation function/classes to be applied
+    """
+
+    # get on the fly transforms for use on dataset access
+    otf_transforms = get_otf_transforms(transform_list)
+
+    # check if large dataset is needed
+    if large_dataset:
+        Dataset = LargeStructureDataset
+    else:
+        Dataset = StructureDataset
+
+    composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
+
+    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
+
+    return dataset
+
+
+def get_dataloader(
+        dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
+):
+    """
+    Returns a single dataloader for a given dataset
+
+    Parameters
+    ----------
+        dataset: matdeeplearn.preprocessor.datasets.StructureDataset
+            a dataset object that contains the target data
+
+        batch_size: int
+            size of each batch
+
+        num_workers: int
+            how many subprocesses to use for data loading. 0 means that
+            the data will be loaded in the main process.
+    """
+
+    # load data
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        sampler=sampler,
+        drop_last=False
+    )
+
+    return loader
 
 
 @registry.register_trainer("finetune")
@@ -42,6 +114,8 @@ class FinetuneTrainer(PropertyTrainer):
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
+        self.fine_tune_from = checkpoint_path if checkpoint_path else ""
+        self._load_pre_trained_weights(self.model)
         self.dataset = dataset
         self.optimizer = optimizer
         self.train_sampler = sampler
@@ -83,6 +157,7 @@ class FinetuneTrainer(PropertyTrainer):
             "%Y-%m-%d-%H-%M-%S"
         )
         if identifier:
+            self.identifier = identifier
             self.timestamp_id = f"{self.timestamp_id}-{identifier}"
 
         if self.train_verbosity:
@@ -121,7 +196,7 @@ class FinetuneTrainer(PropertyTrainer):
         else:
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size,
                                 rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
@@ -131,7 +206,7 @@ class FinetuneTrainer(PropertyTrainer):
             config["dataset"],
             dataset,
             sampler,
-            config["task"]["run_mode"],
+            # config["task"]["run_mode"],
         )
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
@@ -224,6 +299,72 @@ class FinetuneTrainer(PropertyTrainer):
                 model, device_ids=[rank], find_unused_parameters=False
             )
         return model
+
+    @staticmethod
+    def _load_dataset(dataset_config):
+        """Loads the dataset if from a config file."""
+
+        dataset_path = dataset_config["pt_path"]  # data/test_data/processed/
+        dataset = {}
+        if isinstance(dataset_config["src"], dict):
+            dataset["train"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_train.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+            dataset["val"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_val.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+            dataset["test"] = get_dataset(
+                dataset_path,
+                processed_file_name="data_test.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+
+        else:
+            print("augmentation: ", dataset_config.get("augmentation"))
+            dataset["train"] = get_dataset(
+                dataset_path,
+                processed_file_name="data.pt",
+                transform_list=dataset_config.get("transforms", []),
+            )
+
+        return dataset
+
+    @staticmethod
+    def _load_dataloader(optim_config, dataset_config, dataset, sampler):
+
+        batch_size = optim_config.get("batch_size")
+        if isinstance(dataset_config["src"], dict):
+            train_loader = get_dataloader(
+                dataset["train"], batch_size=batch_size, sampler=sampler
+            )
+            val_loader = get_dataloader(
+                dataset["val"], batch_size=batch_size, sampler=sampler
+            )
+            test_loader = get_dataloader(
+                dataset["test"], batch_size=batch_size, sampler=sampler
+            )
+
+        else:
+            train_ratio = dataset_config["train_ratio"]
+            val_ratio = dataset_config["val_ratio"]
+            test_ratio = dataset_config["test_ratio"]
+            train_dataset, val_dataset, test_dataset = dataset_split(
+                dataset["train"], train_ratio, val_ratio, test_ratio
+            )
+
+            train_loader = get_dataloader(
+                train_dataset, batch_size=batch_size, sampler=sampler
+            )
+            val_loader = get_dataloader(val_dataset, batch_size=batch_size, sampler=sampler)
+            test_loader = get_dataloader(
+                test_dataset, batch_size=batch_size, sampler=sampler
+            ) if test_ratio != 0 else None
+
+        return {"train_loader": train_loader, "val_loader": val_loader, "test_loader": test_loader}
 
     # @classmethod
     # def from_config(cls, config):
@@ -490,7 +631,7 @@ class FinetuneTrainer(PropertyTrainer):
             os.makedirs(best_log_dir_name)
 
         with open(os.path.join(best_log_dir_name, "best_val_metric.csv"), "a+", encoding="utf-8", newline='') as f:
-            new_metric = [self.timestamp_id, self.best_val_metric, self.best_epoch]
+            new_metric = [self.timestamp_id, self.best_metric, self.best_epoch]
             csv_writer = csv.writer(f)
             if not os.path.getsize(os.path.join(best_log_dir_name, "best_val_metric.csv")):
                 csv_head = ["timestamp_id", "best_val_metric", "best_epoch"]
