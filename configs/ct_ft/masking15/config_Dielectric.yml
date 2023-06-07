@@ -66,7 +66,7 @@ optim:
 
 dataset:
   name: "CT_pretrain_data"
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
   src: data/Dielectric/data_dielectric.json
   #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
