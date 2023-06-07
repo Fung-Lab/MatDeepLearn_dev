@@ -23,7 +23,6 @@ model:
   load_model: False
   save_model: True
   model_path: "my_model.pth"
-  edge_steps: 50
   self_loop: True
   # model attributes
   num_targets: 1
