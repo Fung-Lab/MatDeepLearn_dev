@@ -178,10 +178,11 @@ class CGCNN_VN(BaseModel):
                         self.pool == "set2set"
                         or self.virtual_pool == "RealVirtualPooling"
                     ):
-                        if self.pool_choice == "both":
+                        if self.virtual_pool_kwargs.get("pool_choice") == "both":
                             lin = torch.nn.Linear(self.post_fc_dim * 2, self.dim2)
                         elif (
-                            self.pool_choice == "real" or self.pool_choice == "virtual"
+                            self.virtual_pool_kwargs.get("pool_choice") == "real"
+                            or self.virtual_pool_kwargs.get("pool_choice") == "virtual"
                         ):
                             lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
                     elif (
@@ -190,6 +191,12 @@ class CGCNN_VN(BaseModel):
                     ):
                         # We use 100 as embedding expansion in atomic num pooling
                         lin = self._setup_post_atomic_pooling_layers(post_fc=True)
+                    elif (
+                        self.pool_order == "early"
+                        and self.pool == "SelfAttentionRVPooling"
+                    ):
+                        # add 1 for the real/virtual class label bit
+                        lin_out = torch.nn.Linear(self.post_fc_dim + 1, self.output_dim)
                     else:
                         lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
                 else:

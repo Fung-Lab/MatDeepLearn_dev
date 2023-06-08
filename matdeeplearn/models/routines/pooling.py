@@ -4,8 +4,48 @@ import torch
 import torch_geometric
 from torch import nn
 from torch_geometric.data import Data
+from torch_geometric.nn import SAGPooling
+from torch_geometric.nn.conv import GCNConv
 
 from matdeeplearn.models.routines.attention import MetaPathImportance
+
+
+class SelfAttentionRVPooling(nn.Module):
+    def __init__(self, pool: str, **kwargs) -> None:
+        """
+        Concatenate a bit to node embedding (1 for real, 0 for virtual) and then perform self-attention pooling.
+        """
+        super().__init__()
+        in_channels = kwargs.get("in_channels")
+        ratio = kwargs.get("ratio")
+        nonlinearity = kwargs.get("nonlinearity", "tanh")
+        self.sag_pool = SAGPooling(
+            in_channels + 1, ratio=ratio, nonlinearity=nonlinearity, GNN=GCNConv
+        )
+        self.pooling = getattr(torch_geometric.nn, pool)
+
+    def forward(self, data: Data, out: torch.Tensor) -> torch.Tensor:
+        real_mask = (data.z != 100).unsqueeze(-1).to(out.dtype)
+        # shape (N, F + 1)
+        out = torch.cat((out, real_mask), dim=-1).to(torch.float)
+        edge_indices = torch.cat(
+            [
+                getattr(data, edge_label)
+                for edge_label in data.__dict__.get("_store").keys()
+                if edge_label.startswith("edge_index_")
+            ],
+            dim=-1,
+        )
+        edge_attrs = torch.cat(
+            [
+                getattr(data, edge_label)
+                for edge_label in data.__dict__.get("_store").keys()
+                if edge_label.startswith("edge_attr_")
+            ],
+            dim=0,
+        )
+        out = self.sag_pool(out, edge_indices, edge_attr=edge_attrs, batch=data.batch)
+        return self.pooling(out[0], data.batch)
 
 
 class RealVirtualAttention(nn.Module):

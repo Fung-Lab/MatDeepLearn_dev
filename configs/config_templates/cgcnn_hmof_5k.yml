@@ -69,8 +69,12 @@ model:
     gc_count: 4
     post_fc_count: 3
     pool: "global_mean_pool" # pooling reduction scheme
-    virtual_pool: "AtomicNumberPooling" # pooling method
-    pool_choice: "virtual" # whether to use virtual or real nodes or both in RealVirtualPooling
+    virtual_pool:
+      virtual_pool_name: "SelfAttentionRVPooling" # pooling method
+      args:
+        in_channels: 150
+        ratio: 0.5
+        nonlinearity: "tanh"
     mp_pattern: ["rr"]
     pool_order: "early"
     batch_norm: True
