@@ -12,13 +12,12 @@ import numpy as np
 import psutil
 import torch
 import torch.optim as optim
-from matplotlib import pyplot as plt
+from torch.utils.data import Subset
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 from torch import distributed as dist
-import torch_geometric
 from torch_geometric.data import Dataset
 
 import wandb
@@ -52,7 +51,6 @@ class BaseTrainer(ABC):
         verbosity: int = None,
         device: str = None,
         save_dir: str = None,
-        checkpoint_path: str = None,
         wandb_config: dict = None,
         model_config: dict = None,
         opt_config: dict = None,
@@ -86,7 +84,6 @@ class BaseTrainer(ABC):
         self.best_model_state = None
 
         self.save_dir = save_dir if save_dir else os.getcwd()
-        self.checkpoint_path = checkpoint_path
 
         self.evaluator = Evaluator()
 
@@ -177,7 +174,7 @@ class BaseTrainer(ABC):
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
 
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        dataset = cls._load_dataset(config["dataset"], metadata, config["run_mode"])
         sweep_config = (
             wandb.config.get("hyperparams", None)
             if wandb.run and config["task"]["wandb"]["sweep"]["do_sweep"]
@@ -196,7 +193,7 @@ class BaseTrainer(ABC):
             config["optim"],
             dataset,
             sampler,
-            config["task"]["run_mode"],
+            config["run_mode"],
         )
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
@@ -331,13 +328,13 @@ class BaseTrainer(ABC):
     def _load_model(model_config, dataset, sweep_config, world_size, rank):
         """Loads the model if from a config file."""
 
-        if dataset.get("train"):
-            dataset = dataset["train"]
-        else:
-            dataset = dataset[list(dataset.keys())[0]]
-
-        if isinstance(dataset, torch.utils.data.Subset):
+        if isinstance(dataset, Subset):
             dataset = dataset.dataset
+        else:
+            if "train" in dataset.keys():
+                dataset = dataset["train"]
+            else:
+                dataset = dataset[list(dataset.keys())[0]]
 
         # Obtain node, edge, and output dimensions for model initialization
         node_dim = dataset.num_features
@@ -348,10 +345,10 @@ class BaseTrainer(ABC):
             output_dim = dataset[0]["y"].shape[1]
 
         # Determine if this is a node or graph level model
-        if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
-            model_config["prediction_level"] = "node"
-        elif dataset[0]["y"].shape[0] == 1:
+        if output_dim == 1 or dataset[0]["y"].shape[0] == 1:
             model_config["prediction_level"] = "graph"
+        elif dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
+            model_config["prediction_level"] = "node"
         else:
             raise ValueError(
                 "Target labels do not have the correct dimensions for node or graph-level prediction."
@@ -565,16 +562,13 @@ class BaseTrainer(ABC):
                     "No checkpoint file found in W&B run history. Defaulting to local checkpoint file."
                 )
         if not checkpoint_file:
-            if not self.checkpoint_dir:
-                raise ValueError("No checkpoint directory specified in config.")
-
-            checkpoint_dir = os.path.join("results", self.checkpoint_dir)
+            checkpoint_dir = os.path.join("results", self.identifier)
             checkpoint_file = os.path.join(
                 checkpoint_dir, "checkpoint", "checkpoint.pt"
             )
 
         # Load params from checkpoint
-        checkpoint = torch.load(self.checkpoint_dir)
+        checkpoint = torch.load(checkpoint_file)
 
         if str(self.rank) not in ("cpu", "cuda"):
             self.model.module.load_state_dict(checkpoint["state_dict"])

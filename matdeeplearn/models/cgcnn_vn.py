@@ -16,9 +16,11 @@ from matdeeplearn.models.base_model import BaseModel
 class CGCNN_VN(BaseModel):
     def __init__(
         self,
+        node_dim,
+        edge_dim,
+        output_dim,
         edge_steps,
         self_loop,
-        data,
         dim1=100,
         dim2=150,
         pre_fc_count=1,
@@ -37,6 +39,10 @@ class CGCNN_VN(BaseModel):
     ):
         super(CGCNN_VN, self).__init__(edge_steps, self_loop)
 
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.output_dim = output_dim
+
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
         self.pool = pool
@@ -54,24 +60,14 @@ class CGCNN_VN(BaseModel):
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
 
-        # Relying on data object attributes (data.num_edge_features) not recommended
-        self.num_features = data.num_node_features
-        self.num_edge_features = edge_steps
-
-        assert len(self.mp_pattern) > 1, "Need at least 1 message passing routine."
+        assert len(self.mp_pattern) >= 1, "Need at least 1 message passing routine."
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
         if pre_fc_count == 0:
-            self.gc_dim, self.post_fc_dim = self.num_features, self.num_features
+            self.gc_dim, self.post_fc_dim = self.node_dim, self.node_dim
         else:
             self.gc_dim, self.post_fc_dim = dim1, dim1
-
-        # Determine output dimension length
-        if data[0][self.target_attr].ndim == 0:
-            self.output_dim = 1
-        else:
-            self.output_dim = len(data[0][self.target_attr])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
@@ -107,7 +103,7 @@ class CGCNN_VN(BaseModel):
         if self.pre_fc_count > 0:
             for i in range(self.pre_fc_count):
                 if i == 0:
-                    lin_r = torch.nn.Linear(self.num_features, self.dim1)
+                    lin_r = torch.nn.Linear(self.node_dim, self.dim1)
                 else:
                     lin_r = torch.nn.Linear(self.dim1, self.dim1)
                 pre_lin_list.append(lin_r)
@@ -119,9 +115,7 @@ class CGCNN_VN(BaseModel):
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for _ in range(self.gc_count):
-            conv = CGConv(
-                self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
-            )
+            conv = CGConv(self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False)
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
             if self.batch_norm:
