@@ -219,6 +219,7 @@ class CGCNN_VN(BaseModel):
         # Pre-GNN dense layers
         for j in range(0, len(self.pre_lin_list)):
             if j == 0:
+                print(data.x.device, self.pre_lin_list[j].weight.device)
                 out = self.pre_lin_list[j](data.x.float())
             else:
                 out = self.pre_lin_list[j](out)

@@ -6,7 +6,7 @@ task:
   reprocess: False
   parallel: True
   resume_run: False
-  gpu: "cuda:3"
+  device: "cuda:3"
   seed: 0
   # seed: 0 means random initalization
   write_output: True

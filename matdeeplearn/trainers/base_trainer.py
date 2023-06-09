@@ -48,8 +48,10 @@ class BaseTrainer(ABC):
         max_epochs: int,
         max_checkpoint_epochs: int = None,
         identifier: str = None,
+        checkpoint_path: str = None,
         verbosity: int = None,
         device: str = None,
+        parallel: bool = False,
         save_dir: str = None,
         wandb_config: dict = None,
         model_config: dict = None,
@@ -57,6 +59,7 @@ class BaseTrainer(ABC):
         dataset_config: dict = None,
     ):
         self.device = min_alloc_gpu(device)
+        self.parallel = parallel
         self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
@@ -67,6 +70,7 @@ class BaseTrainer(ABC):
         self.max_epochs = max_epochs
         self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
+        self.checkpoint_path = checkpoint_path
 
         self.save_dir = save_dir
         self.wandb_config = wandb_config
@@ -124,7 +128,10 @@ class BaseTrainer(ABC):
             if self.dataset.get("train"):
                 logging.debug(self.dataset["train"][0])
                 logging.debug(self.dataset["train"][0].x[0])
-                logging.debug(self.dataset["train"][0].y[0])
+                try:
+                    logging.debug(self.dataset["train"][0].y[0])
+                except IndexError:
+                    logging.debug(self.dataset["train"][0].y.item())
             else:
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
@@ -185,7 +192,9 @@ class BaseTrainer(ABC):
             dataset["train"],
             sweep_config,
             local_world_size,
-            rank,
+            rank
+            if config["task"]["parallel"]
+            else min_alloc_gpu(config["task"]["device"]),
         )
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(dataset, local_world_size, rank)
@@ -213,7 +222,7 @@ class BaseTrainer(ABC):
 
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
-        checkpoint_dir = config["task"].get("run_name", None)
+        checkpoint_path = config["task"].get("run_name", None)
 
         return cls(
             model=model,
@@ -226,10 +235,10 @@ class BaseTrainer(ABC):
             max_epochs=max_epochs,
             max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
+            checkpoint_path=checkpoint_path,
             verbosity=verbosity,
             device=device,
             save_dir=save_dir,
-            checkpoint_dir=checkpoint_dir,
             wandb_config=config["task"].get("wandb"),
             model_config=config["model"],
             opt_config=config["optim"],
@@ -562,7 +571,7 @@ class BaseTrainer(ABC):
                     "No checkpoint file found in W&B run history. Defaulting to local checkpoint file."
                 )
         if not checkpoint_file:
-            checkpoint_dir = os.path.join("results", self.identifier)
+            checkpoint_dir = os.path.join("results", self.checkpoint_path)
             checkpoint_file = os.path.join(
                 checkpoint_dir, "checkpoint", "checkpoint.pt"
             )

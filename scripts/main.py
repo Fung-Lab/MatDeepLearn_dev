@@ -245,7 +245,7 @@ if __name__ == "__main__":
                         job_config,
                     )
                 # NOTE: Hardcoded failsafe for single GPU case, will need to be updated for distributed
-                config["task"]["gpu"] = "cuda:0"
+                config["task"]["device"] = "cuda:0"
             elif sweep_params.get("system") == "local":
                 script = start_sweep_tasks(
                     sweep_params.get("system"),
@@ -256,7 +256,7 @@ if __name__ == "__main__":
                 )
                 # Use the automatic min allocation scheme,
                 # which takes place when the training is about to start
-                config["task"]["gpu"] = None
+                config["task"]["device"] = None
             else:
                 raise ValueError(
                     "Invalid system type for parallel sweep. Must be either '[phoenix,perlmutter]_slurm' or 'local'."

@@ -7,7 +7,7 @@ args:
   q: "inferno"
   C: "A100-40GB"
 options:
-  - "--gres=gpu:A100:1"
+  - "--gres=device:A100:1"
   - "--mem=0"
   - "--mail-type=BEGIN,END,FAIL"
   - "--mail-user=sidharth.baskaran@gatech.edu"

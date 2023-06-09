@@ -5,7 +5,7 @@ task:
   identifier: "cgcnn_vn_hmof"
   reprocess: False
   run_id: ""
-  gpu: "cuda:0"
+  device: "cuda:0"
   seed: 0
 
   save_dir:

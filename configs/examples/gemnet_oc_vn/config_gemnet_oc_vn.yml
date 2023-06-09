@@ -5,7 +5,7 @@ task:
   identifier: "gemnet_oc_vn-all-neighbor-OCP"
   reprocess: False
   parallel: True
-  gpu: "cuda:1"
+  device: "cuda:1"
   seed: 0
   # seed: 0 means random initalization
   write_output: True
