@@ -101,7 +101,7 @@ def get_dataloader(
         shuffle=shuffle,
         num_workers=num_workers,
         sampler=sampler,
-        drop_last=False
+        drop_last=True
     )
 
     return loader
