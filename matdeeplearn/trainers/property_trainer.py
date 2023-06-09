@@ -28,6 +28,7 @@ class PropertyTrainer(BaseTrainer):
         identifier,
         verbosity,
         device,
+        parallel,
         save_dir,
         checkpoint_path,
         wandb_config,
@@ -48,6 +49,7 @@ class PropertyTrainer(BaseTrainer):
             identifier,
             verbosity,
             device,
+            parallel,
             save_dir,
             checkpoint_path,
             wandb_config,
@@ -78,8 +80,7 @@ class PropertyTrainer(BaseTrainer):
             epoch_start_time = time.time()
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
-            skip_steps = self.step % len(self.train_loader)
-            train_loader_iter = iter(self.train_loader)
+            train_loader_iter = iter(self.data_loader["train_loader"])
 
         if self.max_checkpoint_epochs:
             logging.info("Starting training from checkpoint")
@@ -186,8 +187,8 @@ class PropertyTrainer(BaseTrainer):
 
         for i in range(0, len(loader_iter)):
             with torch.no_grad():
-                batch = next(loader_iter).to(self.rank)
-                out = self._forward(batch.to(self.rank))
+                batch = next(loader_iter)
+                out = self._forward(batch)
                 if type(out) == tuple and len(out) == 5:
                     out = out[0]
                 loss = self._compute_loss(out, batch)
@@ -212,7 +213,7 @@ class PropertyTrainer(BaseTrainer):
         node_level = False
         _metrics_predict = {}
         for i, batch in enumerate(loader):
-            out = self._forward(batch.to(self.rank))
+            out = self._forward(batch)
             loss = self._compute_loss(out, batch)
             _metrics_predict = self._compute_metrics(out, batch, _metrics_predict)
             self._metrics_predict = self.evaluator.update(
@@ -264,7 +265,8 @@ class PropertyTrainer(BaseTrainer):
         return predictions
 
     def _forward(self, batch_data):
-        output = self.model(batch_data)
+        device = self.rank if self.parallel else self.device
+        output = self.model(batch_data.to(device))
         return output
 
     def _compute_loss(self, out, batch_data):
