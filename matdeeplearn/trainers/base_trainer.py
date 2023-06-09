@@ -238,6 +238,7 @@ class BaseTrainer(ABC):
             checkpoint_path=checkpoint_path,
             verbosity=verbosity,
             device=device,
+            parallel=config["task"]["parallel"],
             save_dir=save_dir,
             wandb_config=config["task"].get("wandb"),
             model_config=config["model"],
