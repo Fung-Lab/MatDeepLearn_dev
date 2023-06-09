@@ -19,7 +19,6 @@ class CGCNN_VN(BaseModel):
         node_dim,
         edge_dim,
         output_dim,
-        edge_steps,
         self_loop,
         dim1=100,
         dim2=150,
@@ -37,7 +36,7 @@ class CGCNN_VN(BaseModel):
         act_nn="ReLU",
         dropout_rate=0.0,
     ):
-        super(CGCNN_VN, self).__init__(edge_steps, self_loop)
+        super(CGCNN_VN, self).__init__(edge_dim, self_loop)
 
         self.node_dim = node_dim
         self.edge_dim = edge_dim
@@ -187,10 +186,10 @@ class CGCNN_VN(BaseModel):
                         lin = self._setup_post_atomic_pooling_layers(post_fc=True)
                     elif (
                         self.pool_order == "early"
-                        and self.pool == "SelfAttentionRVPooling"
+                        and self.virtual_pool == "SelfAttentionRVPooling"
                     ):
                         # add 1 for the real/virtual class label bit
-                        lin_out = torch.nn.Linear(self.post_fc_dim + 1, self.output_dim)
+                        lin = torch.nn.Linear(self.post_fc_dim + 1, self.dim2)
                     else:
                         lin = torch.nn.Linear(self.post_fc_dim, self.dim2)
                 else:
@@ -219,7 +218,6 @@ class CGCNN_VN(BaseModel):
         # Pre-GNN dense layers
         for j in range(0, len(self.pre_lin_list)):
             if j == 0:
-                print(data.x.device, self.pre_lin_list[j].weight.device)
                 out = self.pre_lin_list[j](data.x.float())
             else:
                 out = self.pre_lin_list[j](out)

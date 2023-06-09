@@ -1,17 +1,24 @@
 import torch
+import math
+import numbers
+import torch_geometric
+import random
 from ase import Atoms
 from torch_geometric.data import Data
 from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomBatchingData, CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (calculate_edges_master,
-                                               compute_bond_angles,
-                                               custom_edge_feats,
-                                               custom_node_feats,
-                                               generate_virtual_nodes,
-                                               generate_virtual_nodes_ase,
-                                               get_mask, one_hot_degree)
+from matdeeplearn.preprocessor.helpers import (
+    calculate_edges_master,
+    compute_bond_angles,
+    custom_edge_feats,
+    custom_node_feats,
+    generate_virtual_nodes,
+    generate_virtual_nodes_ase,
+    get_mask,
+    one_hot_degree,
+)
 
 """
 here resides the transform classes needed for data processing
@@ -292,6 +299,8 @@ class VirtualEdgeGeneration(object):
 
         for attr, value in edge_kwargs.items():
             setattr(data.__dict__["_store"], attr, value)
+
+        data.num_edge_features = self.kwargs.get("edge_steps")
 
         return data
 

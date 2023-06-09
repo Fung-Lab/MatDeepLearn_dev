@@ -61,7 +61,6 @@ model:
   model_path: "cgcnn_vn.pth"
   # model hyperparams
   hyperparams:
-    edge_steps: 25
     self_loop: True
     dim1: 100
     dim2: 150
@@ -73,7 +72,7 @@ model:
     virtual_pool:
       virtual_pool_name: "SelfAttentionRVPooling" # pooling method
       args:
-        in_channels: 150
+        in_channels: 100
         ratio: 0.5
         nonlinearity: "tanh"
     mp_pattern: ["rr"]
@@ -87,6 +86,7 @@ model:
 optim:
   max_epochs: 250
   lr: 0.002
+  verbosity: 1
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}

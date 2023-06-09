@@ -18,7 +18,11 @@ class SelfAttentionRVPooling(nn.Module):
         super().__init__()
         in_channels = kwargs.get("in_channels")
         ratio = kwargs.get("ratio")
-        nonlinearity = kwargs.get("nonlinearity", "tanh")
+        nonlinear_fn = kwargs.get("nonlinearity", "tanh")
+        if nonlinear_fn == "tanh":
+            nonlinearity = torch.tanh
+        else:
+            nonlinearity = getattr(torch.nn.functional, nonlinear_fn)
         self.sag_pool = SAGPooling(
             in_channels + 1, ratio=ratio, nonlinearity=nonlinearity, GNN=GCNConv
         )
@@ -44,8 +48,10 @@ class SelfAttentionRVPooling(nn.Module):
             ],
             dim=0,
         )
-        out = self.sag_pool(out, edge_indices, edge_attr=edge_attrs, batch=data.batch)
-        return self.pooling(out[0], data.batch)
+        out, _, _, batch, _, _ = self.sag_pool(
+            out, edge_indices, edge_attr=edge_attrs, batch=data.batch
+        )
+        return self.pooling(out, batch)
 
 
 class RealVirtualAttention(nn.Module):

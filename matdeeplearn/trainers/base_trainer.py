@@ -46,17 +46,17 @@ class BaseTrainer(ABC):
         data_loader: DataLoader,
         loss: nn.Module,
         max_epochs: int,
-        max_checkpoint_epochs: int = None,
-        identifier: str = None,
-        checkpoint_path: str = None,
-        verbosity: int = None,
-        device: str = None,
-        parallel: bool = False,
-        save_dir: str = None,
-        wandb_config: dict = None,
-        model_config: dict = None,
-        opt_config: dict = None,
-        dataset_config: dict = None,
+        max_checkpoint_epochs: int,
+        identifier: str,
+        checkpoint_path: str,
+        verbosity: int,
+        device: str,
+        parallel: bool,
+        save_dir: str,
+        wandb_config: dict,
+        model_config: dict,
+        opt_config: dict,
+        dataset_config: dict,
     ):
         self.device = min_alloc_gpu(device)
         self.parallel = parallel
@@ -65,11 +65,14 @@ class BaseTrainer(ABC):
         self.optimizer = optimizer
         self.train_sampler = sampler
         self.data_loader = data_loader
+
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
         self.max_checkpoint_epochs = max_checkpoint_epochs
+
         self.train_verbosity = verbosity
+
         self.checkpoint_path = checkpoint_path
 
         self.save_dir = save_dir
@@ -225,25 +228,25 @@ class BaseTrainer(ABC):
         checkpoint_path = config["task"].get("run_name", None)
 
         return cls(
-            model=model,
-            dataset=dataset,
-            optimizer=optimizer,
-            sampler=sampler,
-            scheduler=scheduler,
-            data_loader=data_loader,
-            loss=loss,
-            max_epochs=max_epochs,
-            max_checkpoint_epochs=max_checkpoint_epochs,
-            identifier=identifier,
-            checkpoint_path=checkpoint_path,
-            verbosity=verbosity,
-            device=device,
-            parallel=config["task"]["parallel"],
-            save_dir=save_dir,
-            wandb_config=config["task"].get("wandb"),
-            model_config=config["model"],
-            opt_config=config["optim"],
-            dataset_config=config["dataset"],
+            model,
+            dataset,
+            optimizer,
+            sampler,
+            scheduler,
+            data_loader,
+            loss,
+            max_epochs,
+            max_checkpoint_epochs,
+            identifier,
+            checkpoint_path,
+            verbosity,
+            device,
+            config["task"]["parallel"],
+            save_dir,
+            config["task"].get("wandb"),
+            config["model"],
+            config["optim"],
+            config["dataset"],
         )
 
     @staticmethod
@@ -349,6 +352,14 @@ class BaseTrainer(ABC):
         # Obtain node, edge, and output dimensions for model initialization
         node_dim = dataset.num_features
         edge_dim = dataset.num_edge_features
+
+        # edge dim if not determined yet
+        if edge_dim == 0:
+            for key in dataset[0].__dict__["_store"]:
+                if key.startswith("edge_attr"):
+                    edge_dim = dataset[0].__dict__["_store"][key].size(-1)
+                    break
+
         if dataset[0]["y"].ndim == 0:
             output_dim = 1
         else:
@@ -486,6 +497,8 @@ class BaseTrainer(ABC):
         )
 
         self.predict(self.data_loader["train_loader"], "train")
+
+        # conditionally handle val and test
         if self.data_loader.get("val_loader"):
             self.predict(self.data_loader["val_loader"], "val")
         if self.data_loader.get("test_loader"):

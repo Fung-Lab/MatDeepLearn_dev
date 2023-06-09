@@ -137,24 +137,27 @@ class PropertyTrainer(BaseTrainer):
             if str(self.rank) in ("0", "cpu", "cuda"):
                 self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
-                # Evaluate on validation set if it exists
-                if self.data_loader.get("val_loader"):
-                    metric = self.validate("val")
-                else:
-                    metric = self.metrics
+                # Evaluate on validation amd test sets if they exists
+                val_metric = (
+                    self.validate(split="val")
+                    if self.data_loader.get("val_loader")
+                    else None
+                )
+                test_metric = (
+                    self.validate(split="test")
+                    if self.data_loader.get("test_loader")
+                    else None
+                )
 
                 # Train loop timings
                 self.epoch_time = time.time() - epoch_start_time
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
-                    if self.data_loader.get("val_loader"):
-                        self._log_metrics(metric)
-                    else:
-                        self._log_metrics()
+                    self._log_metrics(val_metrics=val_metric, test_metrics=test_metric)
 
                 # Update best val metric and model, and save best model and predicted outputs
-                if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
-                    self.update_best_model(metric)
+                if val_metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
+                    self.update_best_model(val_metric)
 
                 # step scheduler, using validation error
                 self._scheduler_step()
@@ -166,8 +169,8 @@ class PropertyTrainer(BaseTrainer):
                 self.model.load_state_dict(self.best_model_state)
 
             if self.data_loader.get("test_loader"):
-                metric = self.validate("test")
-                test_loss = metric[type(self.loss_fn).__name__]["metric"]
+                val_metric = self.validate("test")
+                test_loss = val_metric[type(self.loss_fn).__name__]["metric"]
             else:
                 test_loss = "N/A"
             logging.info("Test loss: " + str(test_loss))
@@ -252,7 +255,7 @@ class PropertyTrainer(BaseTrainer):
 
         if write_output == True:
             self.save_results(
-                np.column_stack((ids, target.cpu().numpy(), predict.cpu().numpy())),
+                np.column_stack((ids.squeeze(), target.cpu().numpy(), predict.cpu().numpy())),
                 results_dir,
                 f"{split}_predictions.csv",
                 node_level,
@@ -280,7 +283,8 @@ class PropertyTrainer(BaseTrainer):
 
     def _compute_metrics(self, out, batch_data, metrics):
         # TODO: finish this method
-        property_target = batch_data.to(self.rank)
+        device = self.rank if self.parallel else self.device
+        property_target = batch_data.to(device)
 
         metrics = self.evaluator.eval(
             out, property_target, self.loss_fn, prev_metrics=metrics
@@ -304,8 +308,8 @@ class PropertyTrainer(BaseTrainer):
             "epoch": int(self.epoch - 1),
             "lr": self.scheduler.lr,
             "train_loss": train_loss,
-            "val_loss": val_loss,
-            "test_loss": test_loss,
+            "val_loss": val_loss if val_loss != "N/A" else float("inf"),
+            "test_loss": test_loss if test_loss != "N/A" else float("inf"),
             "epoch_time": self.epoch_time,
         }
 
