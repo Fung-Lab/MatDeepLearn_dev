@@ -103,7 +103,8 @@ class PropertyTrainer(BaseTrainer):
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                            
+                    out = self._forward(batch)
+                    out["output"] = out["output"].squeeze()                                 
                     loss = self._compute_loss(out, batch)  
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
                 grad_norm = self._backward(loss)  
@@ -181,6 +182,7 @@ class PropertyTrainer(BaseTrainer):
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
             batch = next(loader_iter).to(self.rank)
             out = self._forward(batch.to(self.rank))
+            out["output"] = out["output"].squeeze()
             loss = self._compute_loss(out, batch)
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
@@ -215,9 +217,7 @@ class PropertyTrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             batch = next(loader_iter).to(self.rank)      
             out = self._forward(batch.to(self.rank))
-            print(out["output"].size())
             out["output"] = out["output"].squeeze()
-            print(out["output"].size())
             batch_p = out["output"].data.cpu().numpy()
             batch_ids = batch.structure_id 
             
