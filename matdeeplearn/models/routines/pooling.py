@@ -5,7 +5,7 @@ import torch_geometric
 from torch import nn
 from torch_geometric.data import Data
 from torch_geometric.nn import SAGPooling
-from torch_geometric.nn.conv import GCNConv
+from torch_geometric.nn.conv import CGConv
 
 from matdeeplearn.models.routines.attention import MetaPathImportance
 
@@ -24,7 +24,7 @@ class SelfAttentionRVPooling(nn.Module):
         else:
             nonlinearity = getattr(torch.nn.functional, nonlinear_fn)
         self.sag_pool = SAGPooling(
-            in_channels + 1, ratio=ratio, nonlinearity=nonlinearity, GNN=GCNConv
+            in_channels + 1, ratio=ratio, nonlinearity=nonlinearity, GNN=CGConv
         )
         self.pooling = getattr(torch_geometric.nn, pool)
 
