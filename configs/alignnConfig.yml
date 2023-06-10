@@ -13,7 +13,7 @@ task:
   load_training_state: False
   # Path to the checkpoint file
   #checkpoint_path: 
-  write_output: True
+  write_output: ["train", "val", "test"]
   use_amp: True 
   
 
@@ -65,7 +65,7 @@ dataset:
   # Path to target file within data_path
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
-  target_path:
+  #target_path:
   # Path to save processed data.pt file
   pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
   #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
