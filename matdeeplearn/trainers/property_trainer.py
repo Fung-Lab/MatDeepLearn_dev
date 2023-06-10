@@ -253,9 +253,15 @@ class PropertyTrainer(BaseTrainer):
             )
             target = batch_t if i == 0 else torch.concatenate((target, batch_t), axis=0)
 
-        if write_output == True:
+        if write_output:
             self.save_results(
-                np.column_stack((ids.squeeze(), target.cpu().numpy(), predict.cpu().numpy())),
+                np.column_stack(
+                    (
+                        np.expand_dims(ids, axis=1),
+                        target.cpu().numpy(),
+                        predict.cpu().numpy(),
+                    )
+                ),
                 results_dir,
                 f"{split}_predictions.csv",
                 node_level,

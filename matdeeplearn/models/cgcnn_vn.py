@@ -282,7 +282,5 @@ class CGCNN_VN(BaseModel):
         elif self.pool_order == "late":
             raise NotImplementedError("Late pooling not supported for CGCNN_VN")
 
-        if out.shape[1] == 1:
-            return out.view(-1)
-        else:
-            return out
+        # out shape should be (B, 1, n)
+        return out.view(-1, 1, self.output_dim)

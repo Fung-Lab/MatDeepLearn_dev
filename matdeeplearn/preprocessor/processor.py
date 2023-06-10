@@ -16,11 +16,13 @@ from tqdm import tqdm
 from matdeeplearn.common.graph_data import CustomBatchingData
 from matdeeplearn.common.registry import registry
 from matdeeplearn.common.utils import DictTools
-from matdeeplearn.preprocessor.helpers import (PerfTimer,
-                                               calculate_edges_master,
-                                               clean_up,
-                                               generate_edge_features,
-                                               generate_node_features)
+from matdeeplearn.preprocessor.helpers import (
+    PerfTimer,
+    calculate_edges_master,
+    clean_up,
+    generate_edge_features,
+    generate_node_features,
+)
 
 
 def from_config(dataset_config, wandb_config):
@@ -566,8 +568,8 @@ class DataProcessor:
                     for attr in self.additional_attributes:
                         data.__setattr__(attr, sdict[attr])
 
-                if self.use_wandb:
-                    wandb.log({"process_times": perf_timer.elapsed})
+            if self.use_wandb:
+                wandb.log({"process_times": perf_timer.elapsed})
 
         # compile non-otf transforms
         logging.debug("Applying transforms.")

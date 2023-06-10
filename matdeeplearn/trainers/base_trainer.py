@@ -275,13 +275,8 @@ class BaseTrainer(ABC):
                     continue
 
         if not found:
-            logging.info(
-                "No existing processed dataset with matching metadata found. Defaulting to config..."
-            )
-
-        if not os.path.exists(os.path.join(dataset_path, "data.pt")):
             raise FileNotFoundError(
-                f"Dataset path {dataset_path} does not exist. Specify processed=False in config to process data."
+                "No existing processed dataset with matching metadata found."
             )
 
         dataset = {}
@@ -315,7 +310,7 @@ class BaseTrainer(ABC):
             if task != "predict":
                 dataset_full = get_dataset(
                     dataset_path,
-                    processed_file_name="data.pt",
+                    processed_file_name="data_full.pt",
                     transform_list=dataset_config.get("transforms", []),
                 )
                 train_ratio = dataset_config["train_ratio"]
