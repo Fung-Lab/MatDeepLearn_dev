@@ -215,7 +215,9 @@ class PropertyTrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             batch = next(loader_iter).to(self.rank)      
             out = self._forward(batch.to(self.rank))
+            print(out["output"].size())
             out["output"] = out["output"].squeeze()
+            print(out["output"].size())
             batch_p = out["output"].data.cpu().numpy()
             batch_ids = batch.structure_id 
             
