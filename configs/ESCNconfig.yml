@@ -67,10 +67,16 @@ dataset:
   processed: False
   # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #src: "/project/Rithwik/2D_data_npj/raw/"
+  #src: "/project/Rithwik/QM9/data.json"
   # Path to target file within data_path
   target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
+  #target_path:
   # Path to save processed data.pt file
-  pt_path: "/global/homes/r/rithwiks/datasets/2D_data_npj/"
+  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
+  #pt_path: "/project/Rithwik/datasets/2D_data_npj/"
+  #pt_path: "/project/Rithwik/QM9/"
   prediction_level: "graph"
   transforms:
     - name: GetY
