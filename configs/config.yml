@@ -67,7 +67,7 @@ dataset:
   name: "test_data"
   processed: False
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
   #src: "/project/Rithwik/QM9/data.json"
   #src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
