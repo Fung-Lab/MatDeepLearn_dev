@@ -101,6 +101,7 @@ class spinconv(BaseModel):
         self.lmax = lmax
         self.scale_distances = scale_distances
         self.basis_width_scalar = basis_width_scalar
+        self.output_dim = output_dim
 
         if self.sphere_message in ["spharm", "rotspharmroll", "rotspharmwd"]:
             assert self.lmax, "lmax must be defined for spherical harmonics"
