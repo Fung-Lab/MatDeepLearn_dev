@@ -22,6 +22,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
     conditional_grad,
 )
+from matdeeplearn.models.base_model import BaseModel
 
 try:
     import sympy as sym
@@ -171,7 +172,7 @@ class OutputPPBlock(torch.nn.Module):
         return self.lin(x)
 
 
-class DimeNetPlusPlus(torch.nn.Module):
+class DimeNetPlusPlus(BaseModel):
     r"""DimeNet++ implementation based on https://github.com/klicperajo/dimenet.
     Args:
         hidden_channels (int): Hidden embedding size.
