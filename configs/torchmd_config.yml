@@ -29,7 +29,7 @@ model:
   hidden_channels: 256
   num_filters: 128
   num_layers: 8
-  num_rbf: 64
+  num_rbf: 50
   rbf_type: "expnorm"
   trainable_rbf: True
   activation: "silu"
