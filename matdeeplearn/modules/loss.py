@@ -16,6 +16,9 @@ class TorchLossWrapper(nn.Module):
         self.loss_fn = getattr(F, loss_fn)
 
     def forward(self, predictions: torch.Tensor, target: Batch):
+        # backward compatibility
+        if target.y.shape != predictions.shape:
+            target.y = target.y.view(predictions.shape)
         return self.loss_fn(predictions, target.y)
 
 @registry.register_loss("DOSLoss")
