@@ -324,7 +324,7 @@ class PropertyTrainer(BaseTrainer):
         return output
 
     def _compute_loss(self, out, batch_data):
-        print(out.size())
+        print(out["output"].size())
         loss = self.loss_fn(out, batch_data)
         return loss
 
