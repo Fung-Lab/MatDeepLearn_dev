@@ -183,7 +183,8 @@ class Matformer(BaseModel):
         # crystal-level readout
         if self.prediction_level == "graph":
             features = scatter(node_features, data.batch, dim=0, reduce="add")
-        features = node_features
+        else:
+            features = node_features
 
         if self.angle_lattice:
             # features *= F.sigmoid(lattice_emb)
