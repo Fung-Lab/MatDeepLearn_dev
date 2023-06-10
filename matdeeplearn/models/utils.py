@@ -410,6 +410,9 @@ class NeighborEmbedding(MessagePassing):
             edge_attr = edge_attr[mask]
 
         C = self.cutoff(edge_weight)
+        print(edge_attr.size())
+        print(self.distance_proj)
+        print(C.size())
         W = self.distance_proj(edge_attr) * C.view(-1, 1)
 
         x_neighbors = self.embedding(z)
