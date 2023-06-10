@@ -68,6 +68,7 @@ class EquivariantScalar(OutputModel):
         activation="silu",
         allow_prior_model=True,
         reduce_op="sum",
+        output_dim=1,
     ):
         super(EquivariantScalar, self).__init__(
             allow_prior_model=allow_prior_model, reduce_op=reduce_op
@@ -80,7 +81,7 @@ class EquivariantScalar(OutputModel):
                     activation=activation,
                     scalar_activation=True,
                 ),
-                GatedEquivariantBlock(hidden_channels // 2, self.output_dim, activation=activation),
+                GatedEquivariantBlock(hidden_channels // 2, output_dim, activation=activation),
             ]
         )
 

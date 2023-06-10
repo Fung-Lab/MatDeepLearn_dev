@@ -106,7 +106,7 @@ class TorchMD_ET(BaseModel):
         self.cutoff_lower = cutoff_lower
         self.cutoff_upper = cutoff_upper
         self.max_z = max_z
-        self.pool = EquivariantScalar(self.hidden_channels)
+        self.pool = EquivariantScalar(self.hidden_channels, output_dim=output_dim)
 
         act_class = act_class_mapping[activation]
 
