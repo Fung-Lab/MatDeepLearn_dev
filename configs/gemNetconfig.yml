@@ -85,6 +85,7 @@ optim:
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
+  clip_grad_norm: 10
 
   batch_size: 50
   optimizer:

@@ -332,11 +332,6 @@ class PropertyTrainer(BaseTrainer):
                 self.model.parameters(),
                 max_norm=self.clip_grad_norm,
             )
-        else:
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                max_norm=self.clip_grad_norm,
-            )    
         self.scaler.step(self.optimizer)
         self.scaler.update()            
         return grad_norm
