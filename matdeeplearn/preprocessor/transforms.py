@@ -36,7 +36,7 @@ From PyG:
 """
 
 
-@registry.register_transform("TokenGTData")
+@registry.register_transform("TokenGTGeneration")
 class TokenGTGeneration(object):
     def __init__(self, **kwargs: dict) -> None:
         self.max_n = kwargs.get("max_n", 512)
