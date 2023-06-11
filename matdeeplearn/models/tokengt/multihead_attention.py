@@ -6,14 +6,11 @@ import math
 from typing import Optional, Tuple
 
 import torch
-from fairseq import utils
-from fairseq.modules.fairseq_dropout import FairseqDropout
-from fairseq.modules.quant_noise import quant_noise
+from einops import rearrange, repeat
 from torch import Tensor, nn
 
-from einops import rearrange, repeat
-
 from .performer_pytorch import FastAttention
+from .quant_noise import quant_noise
 
 
 class MultiheadAttention(nn.Module):
@@ -50,8 +47,8 @@ class MultiheadAttention(nn.Module):
         assert not self.self_attention or self.qkv_same_dim, "Self-attention requires QKV to be of the same size"
         assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
 
-        self.attention_dropout_module = FairseqDropout(attention_dropout, module_name=self.__class__.__name__)
-        self.dropout_module = FairseqDropout(dropout, module_name=self.__class__.__name__)
+        self.attention_dropout_module = nn.Dropout(attention_dropout)
+        self.dropout_module = nn.Dropout(dropout)
         self.k_proj = quant_noise(nn.Linear(self.kdim, embed_dim, bias=bias), q_noise, qn_block_size)
         self.v_proj = quant_noise(nn.Linear(self.vdim, embed_dim, bias=bias), q_noise, qn_block_size)
         self.q_proj = quant_noise(nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size)
@@ -172,7 +169,7 @@ class MultiheadAttention(nn.Module):
         if before_softmax:
             return attn_weights, v
 
-        attn_weights_float = utils.softmax(attn_weights, dim=-1, onnx_trace=self.onnx_trace)  # [bsz * num_heads, tgt_len, src_len]
+        attn_weights_float = nn.functional.softmax(attn_weights, dim=-1, onnx_trace=self.onnx_trace)  # [bsz * num_heads, tgt_len, src_len]
         attn_weights = attn_weights_float.type_as(attn_weights)
         attn_probs = self.attention_dropout_module(attn_weights)
 

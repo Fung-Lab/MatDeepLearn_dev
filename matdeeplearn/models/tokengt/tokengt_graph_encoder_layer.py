@@ -6,36 +6,33 @@ from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
-from fairseq.modules import LayerNorm
-from fairseq.modules.fairseq_dropout import FairseqDropout
 
+from .droppath import DropPath
+from .feedforward import FeedForward
 from .multihead_attention import MultiheadAttention
 from .multihead_performer_attention import MultiheadPerformerAttention
-from .feedforward import FeedForward
-from .droppath import DropPath
 
 
 class TokenGTGraphEncoderLayer(nn.Module):
     def __init__(
-            self,
-            embedding_dim: int = 768,
-            ffn_embedding_dim: int = 3072,
-            encoder_layers: int = 12,
-            num_attention_heads: int = 8,
-            dropout: float = 0.1,
-            attention_dropout: float = 0.1,
-            activation_dropout: float = 0.1,
-            drop_path: float = 0.0,
-            performer: bool = False,
-            performer_nb_features: int = None,
-            performer_generalized_attention: bool = False,
-            activation_fn: str = "relu",
-            export: bool = False,
-            q_noise: float = 0.0,
-            qn_block_size: int = 8,
-            init_fn: Callable = None,
-            layernorm_style: str = "postnorm",
-            return_attention: bool = False,
+        self,
+        embedding_dim: int = 768,
+        ffn_embedding_dim: int = 3072,
+        encoder_layers: int = 12,
+        num_attention_heads: int = 8,
+        dropout: float = 0.1,
+        attention_dropout: float = 0.1,
+        activation_dropout: float = 0.1,
+        drop_path: float = 0.0,
+        performer: bool = False,
+        performer_nb_features: int = None,
+        performer_generalized_attention: bool = False,
+        activation_fn: str = "relu",
+        q_noise: float = 0.0,
+        qn_block_size: int = 8,
+        init_fn: Callable = None,
+        layernorm_style: str = "postnorm",
+        return_attention: bool = False,
     ) -> None:
         super().__init__()
 
@@ -53,9 +50,7 @@ class TokenGTGraphEncoderLayer(nn.Module):
         self.layernorm_style = layernorm_style
         self.return_attention = return_attention
 
-        self.dropout_module = FairseqDropout(
-            dropout, module_name=self.__class__.__name__
-        )
+        self.dropout_module = nn.Dropout(dropout)
 
         # Initialize blocks
         self.self_attn = self.build_self_attention(
@@ -68,14 +63,14 @@ class TokenGTGraphEncoderLayer(nn.Module):
             dropout=dropout,
             self_attention=True,
             q_noise=q_noise,
-            qn_block_size=qn_block_size
+            qn_block_size=qn_block_size,
         )
 
         # layer norm associated with the self attention layer
-        self.self_attn_layer_norm = LayerNorm(self.embedding_dim, export=export)
+        self.self_attn_layer_norm = nn.LayerNorm(self.embedding_dim)
 
         # drop path for stochastic depth
-        self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.feedforward = self.build_FFN(
             self.embedding_dim,
@@ -85,25 +80,25 @@ class TokenGTGraphEncoderLayer(nn.Module):
             activation_fn,
             activation_dropout,
             dropout,
-            module_name=self.__class__.__name__
+            module_name=self.__class__.__name__,
         )
 
         # layer norm associated with the position wise feed-forward NN
-        self.final_layer_norm = LayerNorm(self.embedding_dim, export=export)
+        self.final_layer_norm = nn.LayerNorm(self.embedding_dim)
 
         # drop path for stochastic depth
-        self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
     def build_FFN(
-            self,
-            embedding_dim,
-            ffn_embedding_dim,
-            q_noise,
-            qn_block_size,
-            activation_fn,
-            activation_dropout,
-            dropout,
-            module_name
+        self,
+        embedding_dim,
+        ffn_embedding_dim,
+        q_noise,
+        qn_block_size,
+        activation_fn,
+        activation_dropout,
+        dropout,
+        module_name,
     ):
         return FeedForward(
             embedding_dim=embedding_dim,
@@ -117,17 +112,17 @@ class TokenGTGraphEncoderLayer(nn.Module):
         )
 
     def build_self_attention(
-            self,
-            embed_dim,
-            num_attention_heads,
-            performer,
-            performer_nb_features,
-            performer_generalized_attention,
-            attention_dropout,
-            dropout,
-            self_attention,
-            q_noise,
-            qn_block_size
+        self,
+        embed_dim,
+        num_attention_heads,
+        performer,
+        performer_nb_features,
+        performer_generalized_attention,
+        attention_dropout,
+        dropout,
+        self_attention,
+        q_noise,
+        qn_block_size,
     ):
         if performer:
             return MultiheadPerformerAttention(
@@ -149,18 +144,22 @@ class TokenGTGraphEncoderLayer(nn.Module):
                 dropout=dropout,
                 self_attention=True,
                 q_noise=q_noise,
-                qn_block_size=qn_block_size
+                qn_block_size=qn_block_size,
             )
 
-    def performer_finetune_setup(self, performer_nb_features, performer_generalized_attention):
-        self.self_attn.performer_finetune_setup(performer_nb_features, performer_generalized_attention)
+    def performer_finetune_setup(
+        self, performer_nb_features, performer_generalized_attention
+    ):
+        self.self_attn.performer_finetune_setup(
+            performer_nb_features, performer_generalized_attention
+        )
 
     def forward(
-            self,
-            x: torch.Tensor,
-            self_attn_bias: Optional[torch.Tensor] = None,
-            self_attn_mask: Optional[torch.Tensor] = None,
-            self_attn_padding_mask: Optional[torch.Tensor] = None,
+        self,
+        x: torch.Tensor,
+        self_attn_bias: Optional[torch.Tensor] = None,
+        self_attn_mask: Optional[torch.Tensor] = None,
+        self_attn_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
         LayerNorm is applied either before or after the self-attention/ffn

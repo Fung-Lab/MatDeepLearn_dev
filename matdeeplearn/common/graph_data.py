@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor
 
 from matdeeplearn.common.registry import registry
+
+
+@registry.register_data_type("tokengt_data")
+class TokenGTData(Data):
+    def __inc__(self, key: str, value: Any, *args, **kwargs) -> Any:
+        return super().__inc__(key, value, *args, **kwargs)
+    
+    def __cat_dim__(self, key: str, value: Any, *args, **kwargs) -> Any:
+        return super().__cat_dim__(key, value, *args, **kwargs)
 
 
 @registry.register_data_type("custom_batching")

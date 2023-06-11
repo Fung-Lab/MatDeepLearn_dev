@@ -1,6 +1,5 @@
 from typing import Optional, Tuple
 
-import torch
 from torch import Tensor, nn
 
 from .multihead_attention import MultiheadAttention
@@ -14,19 +13,19 @@ class MultiheadPerformerAttention(MultiheadAttention):
     """
 
     def __init__(
-            self,
-            embed_dim,
-            num_heads,
-            kdim=None,
-            vdim=None,
-            performer_nb_features=None,
-            performer_generalized_attention=False,
-            attention_dropout=0.0,
-            dropout=0.0,
-            bias=True,
-            self_attention=False,
-            q_noise=0.0,
-            qn_block_size=8,
+        self,
+        embed_dim,
+        num_heads,
+        kdim=None,
+        vdim=None,
+        performer_nb_features=None,
+        performer_generalized_attention=False,
+        attention_dropout=0.0,
+        dropout=0.0,
+        bias=True,
+        self_attention=False,
+        q_noise=0.0,
+        qn_block_size=8,
     ):
         super().__init__(
             embed_dim,
@@ -38,7 +37,7 @@ class MultiheadPerformerAttention(MultiheadAttention):
             bias,
             self_attention,
             q_noise,
-            qn_block_size
+            qn_block_size,
         )
         assert attention_dropout == 0.0
         self.fast_attention = FastAttention(
@@ -47,23 +46,23 @@ class MultiheadPerformerAttention(MultiheadAttention):
             causal=False,
             generalized_attention=performer_generalized_attention,
             kernel_fn=nn.ReLU(),
-            no_projection=False
+            no_projection=False,
         )
 
     def prepare_for_onnx_export_(self):
         raise NotImplementedError
 
     def forward(
-            self,
-            query,
-            key: Optional[Tensor],
-            value: Optional[Tensor],
-            attn_bias: Optional[Tensor],
-            key_padding_mask: Optional[Tensor] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[Tensor] = None,
-            before_softmax: bool = False,
-            need_head_weights: bool = False,
+        self,
+        query,
+        key: Optional[Tensor],
+        value: Optional[Tensor],
+        attn_bias: Optional[Tensor],
+        key_padding_mask: Optional[Tensor] = None,
+        need_weights: bool = True,
+        attn_mask: Optional[Tensor] = None,
+        before_softmax: bool = False,
+        need_head_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Input shape: Time x Batch x Channel
 
@@ -91,5 +90,5 @@ class MultiheadPerformerAttention(MultiheadAttention):
             need_weights,
             attn_mask,
             before_softmax,
-            need_head_weights
+            need_head_weights,
         )
