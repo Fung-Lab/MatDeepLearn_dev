@@ -64,6 +64,8 @@ def from_config(dataset_config, wandb_config):
     batch_process = dataset_config.get("batch_process", False)
     device: str = dataset_config.get("device", "cpu")
 
+    trim_config = dataset_config.get("trim_config", [])
+
     processor = DataProcessor(
         root_path_dict=root_path_dict,
         target_file_path_dict=target_file_path_dict,
@@ -88,6 +90,7 @@ def from_config(dataset_config, wandb_config):
         batch_size=preprocess_kwargs.get("process_batch_size", 1),
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
+        trim_config=trim_config,
         force_preprocess=dataset_config.get("force_preprocess", False),
         num_examples=dataset_config.get("num_examples", 0),
         device=device,
@@ -129,6 +132,7 @@ class DataProcessor:
         batch_process: bool = False,
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
+        trim_config: list[dict] = None,
         force_preprocess: bool = False,
         num_examples: int = None,
         device: str = "cpu",
@@ -210,6 +214,7 @@ class DataProcessor:
         self.batch_size = batch_size
         self.use_wandb = use_wandb
         self.preprocess_kwargs = preprocess_kwargs
+        self.trim_config = trim_config
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -596,6 +601,24 @@ class DataProcessor:
 
         composition_unbatched = Compose(transforms_list_unbatched)
         composition_batched = Compose(transforms_list_batched)
+
+        def reject_fn(item, boundary, comparison):
+            if comparison == "gt":
+                return item > boundary
+            elif comparison == "lt":
+                return item < boundary
+            elif comparison == "eq":
+                return item == boundary
+
+        # for TokenGT, we need to reject items that are too large
+        data_list = [
+            item
+            for item in data_list
+            if item is not None
+            and item.x.size(0) <= self.preprocess_kwargs.get("max_node", float("inf"))
+            and item.edge_attr.size(0)
+            <= self.preprocess_kwargs.get("max_edge", float("inf"))
+        ]
 
         # perform unbatched transforms
         logging.info("Applying non-batch transforms...")

@@ -6,9 +6,11 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
+
 
 from .layer_drop import LayerDropModuleList
 from .multihead_attention import MultiheadAttention
@@ -16,7 +18,6 @@ from .performer_pytorch import ProjectionUpdater
 from .quant_noise import quant_noise as apply_quant_noise_
 from .tokengt_graph_encoder_layer import TokenGTGraphEncoderLayer
 from .tokenizer import GraphFeatureTokenizer
-from .wrapper import preprocess_item
 
 
 def init_graphormer_params(module):
@@ -43,13 +44,13 @@ def init_graphormer_params(module):
         normal_(module.v_proj.weight.data)
 
 
-
 @registry.register_model("TokenGT")
 class TokenGTGraphEncoder(BaseModel):
     def __init__(
         self,
         num_atoms: int,
         num_edges: int,
+        output_dim: int,
         rand_node_id: bool = False,
         rand_node_id_dim: int = 64,
         orf_node_id: bool = False,
@@ -205,6 +206,17 @@ class TokenGTGraphEncoder(BaseModel):
                 self.layers, performer_feature_redraw_interval
             )
 
+        # output projection to graph-level prediction
+        self.output_dim = output_dim
+        self.graph_output_projection = nn.Linear(
+            self.embedding_dim,
+            self.output_dim,
+        )
+        
+    @property
+    def target_attr(self):
+        return "y"
+
     def performer_fix_projection_matrices_(self):
         self.performer_proj_updater.feature_redraw_interval = None
 
@@ -270,14 +282,24 @@ class TokenGTGraphEncoder(BaseModel):
 
     def forward(
         self,
-        batched_data,
+        data,
         perturb=None,
         last_state_only: bool = False,
         token_embeddings: Optional[torch.Tensor] = None,
         attn_mask: Optional[torch.Tensor] = None,
     ):
-        # TODO convert PyG data object to batched data input dict
-        
+        # convert PyG data object to batched data input dict
+        batched_data = dict(
+            node_data=data.node_data,
+            in_degree=data.in_degree,
+            out_degree=data.out_degree,
+            node_num=data.node_num,
+            lap_eigvec=data.lap_eigvec,
+            lap_eigval=data.lap_eigval,
+            edge_index=data.edge_index,
+            edge_data=data.edge_data,
+            edge_num=data.edge_num,
+        )
 
         if self.performer and self.performer_auto_check_redraw:
             self.performer_proj_updater.redraw_projections()
@@ -327,11 +349,13 @@ class TokenGTGraphEncoder(BaseModel):
 
         graph_rep = x[0, :, :]
 
-        if last_state_only:
-            inner_states = [x]
-            
+        # if last_state_only:
+        #     inner_states = [x]
 
-        if self.traceable:
-            return torch.stack(inner_states), graph_rep, attn_dict
-        else:
-            return inner_states, graph_rep, attn_dict
+        # if self.traceable:
+        #     return torch.stack(inner_states), graph_rep, attn_dict
+        # else:
+        #     return inner_states, graph_rep, attn_dict
+
+        out = self.graph_output_projection(graph_rep)
+        return out.view(-1, 1, self.output_dim)

@@ -28,6 +28,7 @@ class TokenGTGraphEncoderLayer(nn.Module):
         performer_nb_features: int = None,
         performer_generalized_attention: bool = False,
         activation_fn: str = "relu",
+        export: bool = False,
         q_noise: float = 0.0,
         qn_block_size: int = 8,
         init_fn: Callable = None,
