@@ -50,7 +50,7 @@ class BaseTrainer(ABC):
         identifier: str,
         checkpoint_path: str,
         verbosity: int,
-        device: str,
+        rank: torch.device,
         parallel: bool,
         save_dir: str,
         wandb_config: dict,
@@ -58,9 +58,8 @@ class BaseTrainer(ABC):
         opt_config: dict,
         dataset_config: dict,
     ):
-        self.device = min_alloc_gpu(device)
         self.parallel = parallel
-        self.model = model.to(self.device)
+        self.model = model
         self.dataset = dataset
         self.optimizer = optimizer
         self.train_sampler = sampler
@@ -72,6 +71,7 @@ class BaseTrainer(ABC):
         self.max_checkpoint_epochs = max_checkpoint_epochs
 
         self.train_verbosity = verbosity
+        self.rank = rank
 
         self.checkpoint_path = checkpoint_path
 
@@ -94,12 +94,7 @@ class BaseTrainer(ABC):
 
         self.evaluator = Evaluator()
 
-        if self.train_sampler == None:
-            self.rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.rank = self.train_sampler.rank
-
-        timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
+        timestamp = torch.tensor(datetime.now().timestamp()).to(self.rank)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
             "%Y-%m-%d-%H-%M-%S"
         )
@@ -109,22 +104,22 @@ class BaseTrainer(ABC):
         self.identifier = identifier
 
         if self.train_verbosity:
-            # MPS and CUDA support
-            if self.device.type == "cuda":
+            # MPS and CUDA support, TODO parallel support
+            if self.rank.type == "cuda":
                 logging.info(
                     f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
                 )
                 logging.info(
-                    f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
-                    f"available memory: {1e-9 * torch.cuda.mem_get_info(device)[0]:3f} GB"
+                    f"GPU: {self.rank} ({torch.cuda.get_device_name(self.rank)}), "
+                    f"available memory: {1e-9 * torch.cuda.mem_get_info(self.rank)[0]:3f} GB"
                 )
-            elif self.device.type == "cpu":
+            elif self.rank.type == "cpu":
                 logging.warning("Training on CPU, this will be slow")
                 logging.info(f"available CPUs: {os.cpu_count()}")
                 stats = psutil.virtual_memory()  # returns a named tuple
                 available = getattr(stats, "available")
                 logging.info(f"available memory: {1e-9 * available:3f} GB")
-            elif self.device.type == "mps":
+            elif self.rank.type == "mps":
                 logging.info("Training with MPS backend")
 
             logging.info(f"Dataset used: {self.dataset}")
@@ -171,7 +166,7 @@ class BaseTrainer(ABC):
 
         cls.set_seed(config["task"].get("seed"))
 
-        if config["task"]["parallel"] == True:
+        if config["task"]["parallel"]:
             # os.environ["MASTER_ADDR"] = "localhost"
             # os.environ["MASTER_PORT"] = "12355"
             local_world_size = os.environ.get("LOCAL_WORLD_SIZE", None)
@@ -181,10 +176,11 @@ class BaseTrainer(ABC):
             )
             rank = int(dist.get_rank())
         else:
-            rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            rank = min_alloc_gpu(config["task"].get("device", None))
             local_world_size = 1
 
         dataset = cls._load_dataset(config["dataset"], metadata, config["run_mode"])
+
         sweep_config = (
             wandb.config.get("hyperparams", None)
             if wandb.run and config["task"]["wandb"]["sweep"]["do_sweep"]
@@ -195,9 +191,7 @@ class BaseTrainer(ABC):
             dataset["train"],
             sweep_config,
             local_world_size,
-            rank
-            if config["task"]["parallel"]
-            else min_alloc_gpu(config["task"]["device"]),
+            rank,
         )
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(dataset, local_world_size, rank)
@@ -221,8 +215,6 @@ class BaseTrainer(ABC):
         if local_world_size > 1:
             dist.barrier()
 
-        device = config["task"].get("gpu", None)
-
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_path = config["task"].get("run_name", None)
@@ -240,7 +232,7 @@ class BaseTrainer(ABC):
             identifier,
             checkpoint_path,
             verbosity,
-            device,
+            rank,
             config["task"]["parallel"],
             save_dir,
             config["task"].get("wandb"),

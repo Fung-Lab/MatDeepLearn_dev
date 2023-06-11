@@ -72,6 +72,9 @@ def min_alloc_gpu(device: str = None):
             raise ValueError("Invalid CUDA device ordinal, fix device choice in config")
         logging.debug(f"Using CUDA device {device}")
         return torch.device(device)
+    elif device:
+        # explicit option
+        return torch.device(device)
     else:
         if torch.backends.mps.is_available():
             if not torch.backends.mps.is_built():

@@ -497,49 +497,6 @@ class DataProcessor:
                 structure_id = sdict["structure_id"]
                 target_val = sdict["y"]
 
-                if self.apply_pre_transform_processing:
-                    logging.info("Generating node features...")
-                    generate_node_features(
-                        data_list,
-                        self.n_neighbors,
-                        device=self.device,
-                        use_degree=self.use_degree,
-                    )
-                    logging.info("Generating edge features...")
-                    generate_edge_features(
-                        data_list, self.edge_steps, self.r, device=self.device
-                    )
-
-                    edge_gen_out = calculate_edges_master(
-                        self.edge_calc_method,
-                        self.all_neighbors,
-                        self.r,
-                        self.n_neighbors,
-                        self.num_offsets,
-                        structure_id,
-                        cell,
-                        pos,
-                        atomic_numbers,
-                    )
-                    edge_indices = edge_gen_out["edge_index"]
-                    edge_weights = edge_gen_out["edge_weights"]
-                    cell_offsets = edge_gen_out["cell_offsets"]
-                    edge_vec = edge_gen_out["edge_vec"]
-                    neighbors = edge_gen_out["neighbors"]
-
-                    if edge_vec.dim() > 2:
-                        edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
-
-                    data.edge_index, data.edge_weight = edge_indices, edge_weights
-                    data.edge_vec = edge_vec
-                    data.cell_offsets = cell_offsets
-                    data.neighbors = neighbors
-
-                    data.edge_descriptor = {}
-                    # data.edge_descriptor["mask"] = cd_matrix_masked
-                    data.edge_descriptor["distance"] = edge_weights
-                    data.distances = edge_weights
-
                 data.n_atoms = len(atomic_numbers)
                 data.pos = pos
                 data.cell = cell
@@ -567,6 +524,49 @@ class DataProcessor:
                 data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
                 # data.structure_id = [[structure_id] * len(data.y)]
                 data.structure_id = [structure_id]
+
+                if self.apply_pre_transform_processing:
+                    edge_gen_out = calculate_edges_master(
+                        self.edge_calc_method,
+                        self.all_neighbors,
+                        data,
+                        self.r,
+                        self.n_neighbors,
+                        self.num_offsets,
+                        remove_virtual_edges=False,
+                        experimental_distance=False,
+                        batching=False,
+                        device=self.device,
+                    )
+
+                    edge_indices = edge_gen_out["edge_index"]
+                    edge_weights = edge_gen_out["edge_weights"]
+                    cell_offsets = edge_gen_out["cell_offsets"]
+                    edge_vec = edge_gen_out["edge_vec"]
+                    neighbors = edge_gen_out["neighbors"]
+
+                    if edge_vec.dim() > 2:
+                        edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
+
+                    data.edge_index, data.edge_weight = edge_indices, edge_weights
+                    data.edge_vec = edge_vec
+                    data.cell_offsets = cell_offsets
+                    data.neighbors = neighbors
+
+                    data.edge_descriptor = {}
+                    # data.edge_descriptor["mask"] = cd_matrix_masked
+                    data.edge_descriptor["distance"] = edge_weights
+                    data.distances = edge_weights
+
+                    data = generate_node_features(
+                        data,
+                        self.n_neighbors,
+                        device=self.device,
+                        use_degree=self.use_degree,
+                    )
+                    generate_edge_features(
+                        data, self.edge_steps, self.r, device=self.device
+                    )
 
                 # add additional attributes
                 if self.additional_attributes:
@@ -602,15 +602,8 @@ class DataProcessor:
         composition_unbatched = Compose(transforms_list_unbatched)
         composition_batched = Compose(transforms_list_batched)
 
-        def reject_fn(item, boundary, comparison):
-            if comparison == "gt":
-                return item > boundary
-            elif comparison == "lt":
-                return item < boundary
-            elif comparison == "eq":
-                return item == boundary
-
-        # for TokenGT, we need to reject items that are too large
+        # for TokenGT or fixed-input models, we may need to reject items that are too large
+        before = len(data_list)
         data_list = [
             item
             for item in data_list
@@ -619,6 +612,8 @@ class DataProcessor:
             and item.edge_attr.size(0)
             <= self.preprocess_kwargs.get("max_edge", float("inf"))
         ]
+        if len(data_list) != before:
+            logging.info("Removed items that were incompatible with model.")
 
         # perform unbatched transforms
         logging.info("Applying non-batch transforms...")

@@ -6,7 +6,6 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
@@ -48,9 +47,11 @@ def init_graphormer_params(module):
 class TokenGTGraphEncoder(BaseModel):
     def __init__(
         self,
-        num_atoms: int,
-        num_edges: int,
+        node_dim: int,
+        edge_dim: int,
         output_dim: int,
+        num_atoms: int = None,
+        num_edges: int = None,
         rand_node_id: bool = False,
         rand_node_id_dim: int = 64,
         orf_node_id: bool = False,
@@ -88,8 +89,8 @@ class TokenGTGraphEncoder(BaseModel):
         qn_block_size: int = 8,
         return_attention: bool = False,
     ) -> None:
+        super(TokenGTGraphEncoder, self).__init__(edge_dim)
 
-        super(TokenGTGraphEncoder, self).__init__()
         self.dropout_module = nn.Dropout(dropout)
         self.layerdrop = layerdrop
         self.embedding_dim = embedding_dim
@@ -212,7 +213,7 @@ class TokenGTGraphEncoder(BaseModel):
             self.embedding_dim,
             self.output_dim,
         )
-        
+
     @property
     def target_attr(self):
         return "y"
@@ -293,7 +294,7 @@ class TokenGTGraphEncoder(BaseModel):
             node_data=data.node_data,
             in_degree=data.in_degree,
             out_degree=data.out_degree,
-            node_num=data.node_num,
+            node_num=data.num_nodes,
             lap_eigvec=data.lap_eigvec,
             lap_eigval=data.lap_eigval,
             edge_index=data.edge_index,

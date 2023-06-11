@@ -42,11 +42,15 @@ class TokenGTGeneration(object):
         self.max_n = kwargs.get("max_n", 512)
 
     def __call__(self, data: Data) -> Data:
+        if data.batch:
+            raise ValueError("Batching not supported for TokenGTGeneration")
+
         edge_int_feature, edge_index, node_int_feature = (
             data.edge_attr,
             data.edge_index,
             data.x,
         )
+
         node_data = convert_to_single_emb(node_int_feature)
         if len(edge_int_feature.size()) == 1:
             edge_int_feature = edge_int_feature[:, None]
@@ -73,6 +77,8 @@ class TokenGTGeneration(object):
         data.out_degree = in_degree
         data.lap_eigvec = lap_eigvec
         data.lap_eigval = lap_eigval
+
+        data.edge_num = edge_data.size(-1)
 
         return data
 

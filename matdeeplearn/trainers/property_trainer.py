@@ -27,7 +27,7 @@ class PropertyTrainer(BaseTrainer):
         max_checkpoint_epochs,
         identifier,
         verbosity,
-        device,
+        rank,
         parallel,
         save_dir,
         checkpoint_path,
@@ -48,7 +48,7 @@ class PropertyTrainer(BaseTrainer):
             max_checkpoint_epochs,
             identifier,
             verbosity,
-            device,
+            rank,
             parallel,
             save_dir,
             checkpoint_path,
@@ -274,8 +274,7 @@ class PropertyTrainer(BaseTrainer):
         return predictions
 
     def _forward(self, batch_data):
-        device = self.rank if self.parallel else self.device
-        output = self.model(batch_data.to(device))
+        output = self.model(batch_data.to(self.rank))
         return output
 
     def _compute_loss(self, out, batch_data):
@@ -289,8 +288,7 @@ class PropertyTrainer(BaseTrainer):
 
     def _compute_metrics(self, out, batch_data, metrics):
         # TODO: finish this method
-        device = self.rank if self.parallel else self.device
-        property_target = batch_data.to(device)
+        property_target = batch_data.to(self.rank)
 
         metrics = self.evaluator.eval(
             out, property_target, self.loss_fn, prev_metrics=metrics
