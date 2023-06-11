@@ -24,8 +24,8 @@ class CustomBatchingData(Data):
         return super().__cat_dim__(key, value, *args, **kwargs)
 
 
-@registry.register_data_type("custom_data")
-class CustomData(Data):
+@registry.register_data_type("virtual_node_data")
+class VirtualNodeData(Data):
     """
     Custom graph data object which performs correct batching
 

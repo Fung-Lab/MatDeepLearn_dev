@@ -14,7 +14,7 @@ from torch_geometric.loader import DataLoader
 from torch_scatter import scatter_min, segment_coo, segment_csr
 from torch import scatter
 from torch_sparse import SparseTensor
-from matdeeplearn.common.graph_data import CustomData, CustomBatchingData
+from matdeeplearn.common.graph_data import VirtualNodeData, CustomBatchingData
 from functools import wraps
 
 
@@ -52,7 +52,7 @@ def scatter_det(*args, **kwargs):
 def calculate_edges_master(
     method: Literal["ase", "ocp", "mdl"],
     all_neighbors: bool,
-    data: Union[CustomData, CustomBatchingData],
+    data: Union[VirtualNodeData, CustomBatchingData],
     r: float,
     n_neighbors: int,
     offset_number: int,
@@ -1240,7 +1240,7 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
     return mask_num_neighbors, num_neighbors_image
 
 
-def compute_neighbors(data: CustomData, edge_index):
+def compute_neighbors(data: VirtualNodeData, edge_index):
     # Get number of neighbors
     # segment_coo assumes sorted index
     ones = edge_index[1].new_ones(1).expand_as(edge_index[1])

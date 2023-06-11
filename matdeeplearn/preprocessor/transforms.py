@@ -7,7 +7,7 @@ from ase import Atoms
 from torch_geometric.data import Data
 from torch_sparse import coalesce
 
-from matdeeplearn.common.graph_data import CustomBatchingData, CustomData
+from matdeeplearn.common.graph_data import CustomBatchingData, VirtualNodeData
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     calculate_edges_master,
@@ -135,7 +135,7 @@ class VirtualEdgeGeneration(object):
         ]
         self.kwargs = kwargs
 
-    def __call__(self, data: Data) -> CustomData:
+    def __call__(self, data: Data) -> VirtualNodeData:
         use_batching = isinstance(data, CustomBatchingData) and hasattr(
             data, "_slice_dict"
         )
