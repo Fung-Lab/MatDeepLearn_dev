@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from torch_geometric.nn import MessagePassing
 from torch_scatter import scatter
 
-from matdeeplearn.common.graph_data import CustomData
+from matdeeplearn.common.graph_data import VirtualNodeData
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.layers.utils import (
     CosineCutoff,
@@ -203,7 +203,7 @@ class TorchMD_Net_ET(nn.Module):
         self.out_norm.reset_parameters()
 
     def forward(
-        self, data: CustomData
+        self, data: VirtualNodeData
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
 
         x = self.embedding(data.z)

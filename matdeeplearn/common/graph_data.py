@@ -12,7 +12,7 @@ from matdeeplearn.common.registry import registry
 class TokenGTData(Data):
     def __inc__(self, key: str, value: Any, *args, **kwargs) -> Any:
         return super().__inc__(key, value, *args, **kwargs)
-    
+
     def __cat_dim__(self, key: str, value: Any, *args, **kwargs) -> Any:
         return super().__cat_dim__(key, value, *args, **kwargs)
 
@@ -33,8 +33,8 @@ class CustomBatchingData(Data):
         return super().__cat_dim__(key, value, *args, **kwargs)
 
 
-@registry.register_data_type("custom_data")
-class CustomData(Data):
+@registry.register_data_type("virtual_node_data")
+class VirtualNodeData(Data):
     """
     Custom graph data object which performs correct batching
 
