@@ -83,8 +83,17 @@ class BaseTrainer(ABC):
             )
             logging.info(f"Dataset used: {self.dataset}")
             logging.debug(self.dataset[0])
-            logging.debug(self.dataset[0].x[0])
-            logging.debug(self.dataset[0].x[-1])
+            # torch.set_printoptions(profile="full")
+            # x = dataset[0].scaled
+            # y = dataset[0].scaled_norm
+            #
+            # x_1 = dataset[100].scaled
+            # y_1 = dataset[100].scaled_norm
+            #
+            #
+            # logging.debug(self.dataset[0].x[0])
+            # logging.debug(self.dataset[0].x[-1])
+
             logging.debug(self.model)
 
     @classmethod
