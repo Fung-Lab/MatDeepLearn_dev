@@ -22,7 +22,7 @@ class GetY(object):
             data.y = data.y[0][self.index]
 
         # add in noise for DOS
-        weight = 0.5
+        weight = 1.0
         rand_t = torch.rand(data.scaled.shape) - 0.5  # range: [-0.5,0.5]
         rand_t_weighted = rand_t * weight
         data.scaled_norm = data.scaled
