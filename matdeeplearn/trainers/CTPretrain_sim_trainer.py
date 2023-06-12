@@ -450,7 +450,7 @@ class CTPretrainer(BaseTrainer):
                 p2, z2 = self._forward(batch2)
                 loss = self._compute_loss(p1, z1, p2, z2)
                 # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
-                if i % 10 == 0:
+                if i % 100 == 0:
                     logging.info(
                         "Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i, loss.item()))
                 total_loss += loss.item() * len(batch1)
