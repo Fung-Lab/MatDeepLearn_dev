@@ -494,7 +494,7 @@ class CTPretrainer(BaseTrainer):
                     )
 
                 # step scheduler, using validation error
-                self._scheduler_step()
+                self._scheduler_step(val_loss)
 
         return self.best_model_state
 
@@ -622,10 +622,10 @@ class CTPretrainer(BaseTrainer):
         """Initializes task-specific info. Implemented by derived classes."""
         pass
 
-    def _scheduler_step(self):
+    def _scheduler_step(self, val_loss):
         if self.scheduler.scheduler_type == "ReduceLROnPlateau":
             self.scheduler.step(
-                metrics=self.metrics[type(self.loss_fn).__name__]["metric"]
+                metrics=val_loss
             )
         else:
             self.scheduler.step()
