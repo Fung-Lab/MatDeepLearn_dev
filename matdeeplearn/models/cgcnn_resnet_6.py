@@ -8,8 +8,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.cgcnn import CGCNN
 
 
-@registry.register_model("CGCNN_RESNET_5")
-class CGCNN_RESNET_5(CGCNN):
+@registry.register_model("CGCNN_RESNET_6")
+class CGCNN_RESNET_6(CGCNN):
     def __init__(
         self,
         edge_steps,
@@ -28,7 +28,7 @@ class CGCNN_RESNET_5(CGCNN):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN_RESNET_5, self).__init__(
+        super(CGCNN_RESNET_6, self).__init__(
             edge_steps,
             self_loop,
             data,
@@ -58,7 +58,7 @@ class CGCNN_RESNET_5(CGCNN):
         #     n_classes=128,
         # )
 
-        self.cnn = ResNet(BasicBlock, [2, 2, 2, 2])
+        self.cnn = ResNet(BasicBlock, [3, 4, 6, 3])
 
     def setup_cnn(self):
         self.conv_layer1 = Sequential(
@@ -145,14 +145,11 @@ class CGCNN_RESNET_5(CGCNN):
     def forward(self, data):
         # get DOS out
         # dos_unscaled = torch.swapaxes(data.scaled * data.scaling_factor.view(-1, 1, 1).expand_as(data.scaled), 1,2)
-        dos_unscaled = data.scaled * data.scaling_factor.view(-1, 1, 1).expand_as(
-            data.scaled
-        )
-
-        # try scaled dos just to see
-
+        # dos_unscaled = data.scaled * data.scaling_factor.view(-1, 1, 1).expand_as(
+        #     data.scaled
+        # )
         # dos_out = self.cnn_forward(dos_unscaled)
-        dos_out = self.cnn(dos_unscaled)
+        dos_out = self.cnn(data.scaled)
 
         # print(data.scaled.unsqueeze(1).shape, dos_out.shape)
 
@@ -331,21 +328,18 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_channels = 64
         self.conv1 = nn.Sequential(
-            nn.Conv1d(3, 64, kernel_size=7, stride=1, padding=3),
+            nn.Conv1d(3, 64, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm1d(64),
             nn.ReLU(),
         )
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
         # self.maxpool = MyMaxPool1dPadSame(kernel_size=self.stride)
         self.layer0 = self._make_layer(block, 64, layers[0], stride=1)
-        self.layer1 = self._make_layer(block, 128, layers[1], stride=1)
-        self.layer2 = self._make_layer(block, 256, layers[2], stride=1)
-        self.layer3 = self._make_layer(block, 512, layers[3], stride=1)
+        self.layer1 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer2 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer3 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
-        # add activation
         self.fc = nn.Linear(512, num_classes)
-
-    #     could be worth trying additional layer and relu
 
     def _make_layer(self, block, channels, blocks, stride=1):
         downsample = None
