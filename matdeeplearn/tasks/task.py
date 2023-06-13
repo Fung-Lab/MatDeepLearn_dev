@@ -14,14 +14,13 @@ class BaseTask:
 
     def setup(self, trainer):
         self.trainer = trainer
-        checkpoint = self.config.get("checkpoint", None)
-        if checkpoint is not None:
-            self.trainer.load_checkpoint(self.config["checkpoint"])
-
-        # save checkpoint path to runner state for slurm resubmissions
-        # self.chkpt_path = os.path.join(
-        #     self.trainer.config["cmd"]["checkpoint_dir"], "checkpoint.pt"
-        # )
+        use_checkpoint = self.config["task"].get("continue_job", False)
+        if use_checkpoint:
+            logging.info("Attempting to load checkpoint...")
+            self.trainer.load_checkpoint(
+                self.config["task"].get("load_training_state", True)
+            )
+            logging.info("Recent checkpoint loaded successfully.")
 
     def run(self):
         raise NotImplementedError
@@ -44,6 +43,28 @@ class TrainTask(BaseTask):
     def run(self):
         try:
             self.trainer.train()
+        except RuntimeError as e:
+            self._process_error(e)
+            raise e
+
+
+@registry.register_task("finetune")
+class FineTuneTask(BaseTask):
+    def setup(self, trainer):
+        self.trainer = trainer
+        assert self.config["task"][
+            "checkpoint_path"
+        ], "Specify checkpoint directory for loading the model"
+        logging.info("Attempting to load checkpoint...")
+        self.trainer.load_pre_trained_weights(
+            self.config["task"].get("load_training_state", False)
+        )
+        logging.info("Pretrained model loaded successfully.")
+
+    def run(self):
+        try:
+            self.trainer.train()
+
         except RuntimeError as e:
             self._process_error(e)
             raise e

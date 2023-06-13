@@ -27,6 +27,10 @@ class PropertyTrainer(BaseTrainer):
         identifier,
         verbosity,
         save_out,
+        write_output,
+        save_dir,
+        checkpoint_path,
+        use_amp,
     ):
         super().__init__(
             model,
@@ -42,6 +46,10 @@ class PropertyTrainer(BaseTrainer):
             identifier,
             verbosity,
             save_out,
+            write_output,
+            save_dir,
+            checkpoint_path,
+            use_amp,
         )
 
     def train(self):

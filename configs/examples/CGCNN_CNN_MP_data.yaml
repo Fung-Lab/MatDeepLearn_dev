@@ -6,6 +6,7 @@ task:
   parallel: True
   seed: 0
   write_output: True
+  checkpoint_path: "/global/cfs/projectdirs/m3641/Sarah/results/2023-05-24-23-02-40-DOSPredict_MP_DOS/best_checkpoint.pt"
 
 #  TODO: add more logging configs here
 logging:
@@ -20,8 +21,8 @@ model:
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
-  dim1: 100
-  dim2: 150
+  dim1: 370
+  dim2: 370
   pre_fc_count: 1
   post_fc_count: 3
   pool: "global_mean_pool"

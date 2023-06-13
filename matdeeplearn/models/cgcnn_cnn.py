@@ -47,16 +47,16 @@ class CGCNN_CNN(CGCNN):
         )
 
         # set up CNN
-        # self.setup_cnn()
-        self.cnn = ResNet1D(
-            in_channels=3,
-            base_filters=64,
-            kernel_size=3,
-            stride=2,
-            groups=1,
-            n_block=4,
-            n_classes=128,
-        )
+        self.setup_cnn()
+        # self.cnn = ResNet1D(
+        #     in_channels=3,
+        #     base_filters=64,
+        #     kernel_size=3,
+        #     stride=2,
+        #     groups=1,
+        #     n_block=4,
+        #     n_classes=128,
+        # )
 
     def setup_cnn(self):
         self.conv_layer1 = Sequential(

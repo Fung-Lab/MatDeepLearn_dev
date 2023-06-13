@@ -2,9 +2,11 @@ import copy
 import csv
 import logging
 import os
+import random
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn
@@ -42,6 +44,10 @@ class BaseTrainer(ABC):
         identifier: str = None,
         verbosity: int = None,
         save_out: bool = True,
+        write_output: list = ["train", "val", "test"],
+        save_dir: str = None,
+        checkpoint_path: str = None,
+        use_amp: bool = False,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -58,6 +64,7 @@ class BaseTrainer(ABC):
         self.max_epochs = max_epochs
         self.train_verbosity = verbosity
         self.save_out = save_out
+        self.checkpoint_path = checkpoint_path
 
         self.epoch = 0
         self.step = 0
@@ -117,6 +124,11 @@ class BaseTrainer(ABC):
         verbosity = config["logging"].get("verbosity", None)
         save_out = config["logging"].get("save_out", True)
 
+        # pass in custom results home dir and load in prev checkpoint dir
+        save_dir = config["task"].get("save_dir", None)
+        checkpoint_path = config["task"].get("checkpoint_path", None)
+        write_output = config["task"].get("write_output", [])
+
         run = wandb.init(
             settings=wandb.Settings(start_method="fork"),
             project="DOS_cgcnn",
@@ -146,6 +158,10 @@ class BaseTrainer(ABC):
             identifier=identifier,
             verbosity=verbosity,
             save_out=save_out,
+            write_output=write_output,
+            save_dir=save_dir,
+            checkpoint_path=checkpoint_path,
+            use_amp=config["task"].get("use_amp", False),
         )
 
     @staticmethod
@@ -302,7 +318,126 @@ class BaseTrainer(ABC):
                     csvwriter.writerow(output[i - 1, :])
         return filename
 
-    def load_checkpoint(self):
+    # TODO: streamline this from PR #12
+    def load_checkpoint(self, load_training_state=True):
         """Loads the model from a checkpoint.pt file"""
-        # TODO: implement this method
-        pass
+
+        if not self.checkpoint_path:
+            raise ValueError("No checkpoint directory specified in config.")
+
+        # checkpoint_path = glob.glob(os.path.join(self.checkpoint_path, "results", "*"))
+        # checkpoint_file = os.path.join(checkpoint_path, "checkpoint", "checkpoint.pt")
+
+        # Load params from checkpoint
+        checkpoint = torch.load(self.checkpoint_path)
+
+        if str(self.rank) not in ("cpu", "cuda"):
+            self.model.module.load_state_dict(checkpoint["state_dict"])
+            self.best_model_state = copy.deepcopy(self.model.module.state_dict())
+        else:
+            self.model.load_state_dict(checkpoint["state_dict"])
+            self.best_model_state = copy.deepcopy(self.model.state_dict())
+
+        if load_training_state:
+            if checkpoint.get("optimizer"):
+                self.optimizer.load_state_dict(checkpoint["optimizer"])
+            if checkpoint.get("scheduler"):
+                self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
+                self.scheduler.update_lr()
+            if checkpoint.get("epoch"):
+                self.epoch = checkpoint["epoch"]
+            if checkpoint.get("step"):
+                self.step = checkpoint["step"]
+            if checkpoint.get("best_metric"):
+                self.best_metric = checkpoint["best_metric"]
+            if checkpoint.get("seed"):
+                seed = checkpoint["seed"]
+                self.set_seed(seed)
+            if checkpoint.get("scaler"):
+                self.scaler.load_state_dict(checkpoint["scaler"])
+                # todo: load dataset to recreate the same split as the prior run
+            # self._load_dataset(dataset_config, task)
+
+    # Loads portion of model dict into a new model for fine tuning
+    def load_pre_trained_weights(self, load_training_state=False):
+        """Loads the pre-trained model from a checkpoint.pt file"""
+
+        if not self.checkpoint_path:
+            raise ValueError("No checkpoint directory specified in config.")
+            # checkpoints_folder = os.path.join(self.fine_tune_from, "checkpoint")
+
+        load_model = torch.load(self.checkpoint_path, map_location=self.device)
+        load_state = load_model["state_dict"]
+
+        model_state = self.model.state_dict()
+
+        print(model_state.keys())
+        for name, param in load_state.items():
+            # if name not in model_state or name.split('.')[0] in "post_lin_list":
+            # if name == 'pre_lin_list.0.0.weight':
+            #     model_state['pre_lin_list.0.weight'].copy_(param)
+            # if name == 'pre_lin_list.0.0.bias':
+            #     model_state['pre_lin_list.0.bias'].copy_(param)
+
+            if name == "conv_list.0.mlp.0.weight":
+                model_state["conv_list.0.lin_f.weight"].copy_(param)
+            elif name == "conv_list.0.mlp.0.bias":
+                model_state["conv_list.0.lin_f.bias"].copy_(param)
+
+            elif name == "conv_list.1.mlp.0.weight":
+                model_state["conv_list.1.lin_f.weight"].copy_(param)
+            elif name == "conv_list.1.mlp.0.bias":
+                model_state["conv_list.1.lin_f.bias"].copy_(param)
+
+            elif name == "conv_list.2.mlp.0.weight":
+                model_state["conv_list.2.lin_f.weight"].copy_(param)
+            elif name == "conv_list.2.mlp.0.bias":
+                model_state["conv_list.2.lin_f.bias"].copy_(param)
+
+            elif name == "conv_list.3.mlp.0.weight":
+                model_state["conv_list.3.lin_f.weight"].copy_(param)
+            elif name == "conv_list.3.mlp.0.bias":
+                model_state["conv_list.3.lin_f.bias"].copy_(param)
+
+            else:
+                if name not in model_state:
+                    logging.debug("NOT loaded: %s", name)
+                    continue
+                else:
+                    logging.debug("loaded: %s", name)
+                if isinstance(param, torch.nn.parameter.Parameter):
+                    # backwards compatibility for serialized parameters
+                    param = param.data
+                model_state[name].copy_(param)
+        logging.info("Loaded pre-trained model with success.")
+
+        # if load_training_state == True:
+        #     if checkpoint.get("optimizer"):
+        #         self.optimizer.load_state_dict(checkpoint["optimizer"])
+        #     if checkpoint.get("scheduler"):
+        #         self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
+        #         self.scheduler.update_lr()
+        #     # if checkpoint.get("epoch"):
+        #     #    self.epoch = checkpoint["epoch"]
+        #     # if checkpoint.get("step"):
+        #     #    self.step = checkpoint["step"]
+        #     # if checkpoint.get("best_metric"):
+        #     #    self.best_metric = checkpoint["best_metric"]
+        #     if checkpoint.get("seed"):
+        #         seed = checkpoint["seed"]
+        #         self.set_seed(seed)
+        #     if checkpoint.get("scaler"):
+        #         self.scaler.load_state_dict(checkpoint["scaler"])
+
+    @staticmethod
+    def set_seed(seed):
+        # https://pytorch.org/docs/stable/notes/randomness.html
+        if seed is None:
+            return
+
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
