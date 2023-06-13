@@ -19,7 +19,7 @@ task:
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: True  
-  
+
 model:
   name: CGCNN     
   # model attributes
