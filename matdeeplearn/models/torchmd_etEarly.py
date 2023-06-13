@@ -222,28 +222,15 @@ class TorchMD_ET(BaseModel):
         output["output"] =  out
 
         if self.gradient == True and out.requires_grad == True:         
-            if self.gradient_method == "conventional":
-                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-                grad = torch.autograd.grad(
-                        out,
-                        [data.pos, data.cell],
-                        grad_outputs=torch.ones_like(out),
-                        create_graph=self.training) 
-                forces = -1 * grad[0]
-                stress = grad[1] 
-                stress = stress / volume.view(-1, 1, 1)
-            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
-            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
-            elif self.gradient_method == "nequip":
-                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-                grad = torch.autograd.grad(
-                        out,
-                        [data.pos, data.displacement],
-                        grad_outputs=torch.ones_like(out),
-                        create_graph=self.training) 
-                forces = -1 * grad[0]
-                stress = grad[1]
-                stress = stress / volume.view(-1, 1, 1)         
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+            grad = torch.autograd.grad(
+                    out,
+                    [data.pos, data.displacement],
+                    grad_outputs=torch.ones_like(out),
+                    create_graph=self.training) 
+            forces = -1 * grad[0]
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)         
 
             output["pos_grad"] =  forces
             output["cell_grad"] =  stress

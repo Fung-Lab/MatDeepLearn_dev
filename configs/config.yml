@@ -18,7 +18,7 @@ task:
   write_output: ["train", "val", "test"]
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: False  
+  use_amp: True  
 
 model:
   name: CGCNN    
@@ -38,8 +38,6 @@ model:
   otf_edge: False 
   # compute gradients w.r.t to positions and cell, requires otf_edge=True  
   gradient: False
-  # method of computing gradients: "conventional" or "nequip"
-  gradient_method: "nequip"
 
 optim:
   max_epochs: 400

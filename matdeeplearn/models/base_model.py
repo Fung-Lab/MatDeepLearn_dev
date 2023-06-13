@@ -26,7 +26,6 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         otf_edge=False,
         graph_method="ocp",
         gradient=False,
-        gradient_method="nequip",
         cutoff_radius=8,
         n_neighbors=None,
         edge_steps=50,        
@@ -43,7 +42,6 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         self.edge_steps = edge_steps
         self.graph_method = graph_method
         self.num_offsets = num_offsets
-        self.gradient_method = gradient_method
         
     @property
     @abstractmethod
@@ -106,19 +104,20 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                 otf == on-the-fly
                 if True, this function will be called
         """
-        #if not otf:
-        #    warnings.warn("On-the-fly graph generation is called but otf is False")
-        #    return
-        if self.gradient_method == "conventional":
+
+        #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+        #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                 
+        if self.gradient:
             data.pos.requires_grad_(True)
-            data.cell.requires_grad_(True)
-        elif self.gradient_method == "nequip":
-            data.pos.requires_grad_(True)
-            data.displacement = torch.zeros_like(data.cell)
+            data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
             data.displacement.requires_grad_(True)
             symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
+            data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
             data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
-                    
+
+        if torch.sum(data.cell) == 0:
+            self.graph_method = "mdl"
+                            
         if self.graph_method == "ocp":
             edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 cutoff_radius,
