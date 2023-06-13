@@ -4,7 +4,7 @@ task:
   #run_mode: "train"
   identifier: "my_train_job"
   parallel: False
-  # seed=0 means random initalization
+  # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
@@ -14,15 +14,14 @@ task:
   load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: 
-  #checkpoint_path:
   # E.g. ["train", "val", "test"]
   write_output: ["val", "test"]
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: True  
- 
+
 model:
-  name: CGCNN    
+  name: CGCNN     
   # model attributes
   dim1: 100
   dim2: 150
@@ -39,24 +38,22 @@ model:
   otf_edge: True 
   # compute gradients w.r.t to positions and cell, requires otf_edge=True  
   gradient: True
-  # method of computing gradients: "conventional" or "nequip"
-  gradient_method: "nequip"
 
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.0002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {"loss_fn": "l1_loss"}
     loss_type: "ForceStressLoss"
-    loss_args: {"weight_energy": 0.1, "weight_force": 50.0, "weight_stress": 10.0}
+    loss_args: {"weight_energy": 0.01, "weight_force": 50.0, "weight_stress": 50.0}
     #loss_type: "ForceLoss"
-    #loss_args: {"weight_energy": 1.0, "weight_force": 0.9}
+    #loss_args: {"weight_energy": 1.0, "weight_force": 1.0}
   clip_grad_norm: 10
          
-  batch_size: 100
+  batch_size: 40
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -66,11 +63,11 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
   name: "test_data"
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data.json"
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
