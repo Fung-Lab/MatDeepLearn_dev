@@ -321,11 +321,6 @@ class DataProcessor:
 
         dict_structures = []
         y = []
-        y_dim = (
-            len(original_structures[0]["y"])
-            if isinstance(original_structures[0]["y"], list)
-            else 1
-        )
 
         logging.info(
             "(JSON) Converting data to standardized form for downstream processing."
