@@ -87,7 +87,7 @@ class TorchMD(BaseTrainer):
                 self.model.train()
 
                 # Get a batch of train data
-                batch = next(train_loader_iter).to(self.device)
+                batch = next(train_loader_iter).to(self.rank)
 
                 # Compute forward, loss, backward
                 # out = self._forward(batch)
@@ -138,8 +138,8 @@ class TorchMD(BaseTrainer):
 
         for i in range(0, len(loader_iter)):
             with torch.no_grad():
-                batch = next(loader_iter).to(self.device)
-                batch = batch.to(self.device)
+                batch = next(loader_iter).to(self.rank)
+                batch = batch.to(self.rank)
                 # out = self._forward(batch.to(self.device))
                 out = self._forward(batch.z, batch.pos, batch.batch)[0]
                 loss = self._compute_loss(out, batch)
@@ -158,7 +158,7 @@ class TorchMD(BaseTrainer):
         ids = []
         node_level_predictions = False
         for i, batch in enumerate(loader):
-            batch = batch.to(self.device)
+            batch = batch.to(self.rank)
             # out = self._forward(batch.to(self.device))
             out = self._forward(batch.z, batch.pos, batch.batch)[0]
             # if out is a tuple, then it's scaled data
@@ -198,7 +198,7 @@ class TorchMD(BaseTrainer):
         return output
 
     def _compute_loss(self, out, batch_data):
-        loss = self.loss_fn(out, batch_data.to(self.device))
+        loss = self.loss_fn(out, batch_data.to(self.rank))
         return loss
 
     def _backward(self, loss):
@@ -208,7 +208,7 @@ class TorchMD(BaseTrainer):
 
     def _compute_metrics(self, out, batch_data, metrics):
         # TODO: finish this method
-        property_target = batch_data.to(self.device)
+        property_target = batch_data.to(self.rank)
 
         metrics = self.evaluator.eval(
             out, property_target, self.loss_fn, prev_metrics=metrics

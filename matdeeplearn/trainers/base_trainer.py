@@ -50,20 +50,25 @@ class BaseTrainer(ABC):
         identifier: str,
         checkpoint_path: str,
         verbosity: int,
-        rank: torch.device,
-        parallel: bool,
+        rank: str,
         save_dir: str,
         wandb_config: dict,
         model_config: dict,
         opt_config: dict,
         dataset_config: dict,
     ):
-        self.parallel = parallel
-        self.model = model
-        self.dataset = dataset
-        self.optimizer = optimizer
+        self.rank = rank
         self.train_sampler = sampler
         self.data_loader = data_loader
+
+        if self.train_sampler == None:
+            self.rank = min_alloc_gpu(self.rank)
+        else:
+            self.rank = self.train_sampler.rank
+
+        self.model = model.to(self.rank)
+        self.dataset = dataset
+        self.optimizer = optimizer
 
         self.scheduler = scheduler
         self.loss_fn = loss
@@ -110,8 +115,8 @@ class BaseTrainer(ABC):
                     f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
                 )
                 logging.info(
-                    f"GPU: {self.rank} ({torch.cuda.get_device_name(self.rank)}), "
-                    f"available memory: {1e-9 * torch.cuda.mem_get_info(self.rank)[0]:3f} GB"
+                    f"GPU: {self.rank} ({torch.cuda.get_device_name(rank)}), "
+                    f"available memory: {1e-9 * torch.cuda.mem_get_info(rank)[0]:3f} GB"
                 )
             elif self.rank.type == "cpu":
                 logging.warning("Training on CPU, this will be slow")
@@ -135,7 +140,7 @@ class BaseTrainer(ABC):
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
-            if str(self.rank) not in ("cpu", "cuda"):
+            if isinstance(self.model, DistributedDataParallel):
                 logging.debug(self.model.module)
             else:
                 logging.debug(self.model)
@@ -215,6 +220,8 @@ class BaseTrainer(ABC):
         if local_world_size > 1:
             dist.barrier()
 
+        device = config["task"].get("device", None)
+
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
         checkpoint_path = config["task"].get("run_name", None)
@@ -232,8 +239,7 @@ class BaseTrainer(ABC):
             identifier,
             checkpoint_path,
             verbosity,
-            rank,
-            config["task"]["parallel"],
+            device,
             save_dir,
             config["task"].get("wandb"),
             config["model"],
@@ -473,7 +479,7 @@ class BaseTrainer(ABC):
     def update_best_model(self, metric):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             self.best_model_state = copy.deepcopy(self.model.module.state_dict())
         else:
             self.best_model_state = copy.deepcopy(self.model.state_dict())
@@ -493,7 +499,7 @@ class BaseTrainer(ABC):
 
     def save_model(self, checkpoint_file, metric=None, training_state=True):
         """Saves the model state dict"""
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             if training_state:
                 state = {
                     "epoch": self.epoch,
@@ -580,7 +586,7 @@ class BaseTrainer(ABC):
         # Load params from checkpoint
         checkpoint = torch.load(checkpoint_file)
 
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             self.model.module.load_state_dict(checkpoint["state_dict"])
             self.best_model_state = copy.deepcopy(self.model.module.state_dict())
         else:
