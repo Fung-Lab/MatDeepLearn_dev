@@ -284,17 +284,29 @@ class GaussianSmearing(torch.nn.Module):
     """
 
     def __init__(
-        self, start=0.0, stop=5.0, resolution=50, width=0.05, device="cpu", **kwargs
+        self,
+        start=0.0,
+        stop=5.0,
+        resolution=50,
+        width=0.05,
+        rescale=1,
+        device="cpu",
+        **kwargs,
     ):
         super(GaussianSmearing, self).__init__()
         offset = torch.linspace(start, stop, resolution, device=device)
         # self.coeff = -0.5 / (offset[1] - offset[0]).item() ** 2
         self.coeff = -0.5 / ((stop - start) * width) ** 2
+        self.rescale_precision = rescale
         self.register_buffer("offset", offset)
 
     def forward(self, dist):
         dist = dist.unsqueeze(-1) - self.offset.view(1, -1)
-        return torch.exp(self.coeff * torch.pow(dist, 2))
+        out = torch.exp(self.coeff * torch.pow(dist, 2))
+        out = self.rescale_precision * out
+        if self.rescale_precision > 1:
+            out = out.to(torch.int)
+        return out
 
 
 def normalize_edge(dataset, descriptor_label):
@@ -657,8 +669,8 @@ def generate_node_features(input_data, n_neighbors, use_degree, device):
             input_data[i] = one_hot_degree(data, n_neighbors)
 
 
-def generate_edge_features(input_data, edge_steps, r, device):
-    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
+def generate_edge_features(input_data, edge_steps, r, rescale, device):
+    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, rescale, device=device)
 
     if isinstance(input_data, Data):
         input_data = [input_data]

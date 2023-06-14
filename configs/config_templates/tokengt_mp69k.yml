@@ -166,6 +166,8 @@ dataset:
     use_degree: False
     max_node: 512
     max_edge: 2048
+    # for edge_attributes
+    rescale_precision: 1000
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05
