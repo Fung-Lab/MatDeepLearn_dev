@@ -104,7 +104,7 @@ class BaseTrainer(ABC):
         self.identifier = identifier
 
         if self.train_verbosity:
-            # MPS and CUDA support, TODO parallel support
+            # MPS and CUDA support, TODO parallel support to recognize multiple GPUs
             if self.rank.type == "cuda":
                 logging.info(
                     f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
