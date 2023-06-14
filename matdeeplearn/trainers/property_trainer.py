@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import wandb
 from torch import distributed as dist
+from torch.nn.parallel import DistributedDataParallel
 
 from matdeeplearn.common.data import get_dataloader
 from matdeeplearn.common.registry import registry
@@ -28,7 +29,6 @@ class PropertyTrainer(BaseTrainer):
         identifier,
         verbosity,
         device,
-        parallel,
         save_dir,
         checkpoint_path,
         wandb_config,
@@ -49,7 +49,6 @@ class PropertyTrainer(BaseTrainer):
             identifier,
             verbosity,
             device,
-            parallel,
             save_dir,
             checkpoint_path,
             wandb_config,
@@ -67,7 +66,7 @@ class PropertyTrainer(BaseTrainer):
         # start_epoch = self.step // len(self.train_loader)
         start_epoch = int(self.epoch)
 
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             dist.barrier()
 
         end_epoch = (
@@ -90,7 +89,7 @@ class PropertyTrainer(BaseTrainer):
 
         if self.train_verbosity:
             logging.info("Starting regular training")
-            if str(self.rank) not in ("cpu", "cuda"):
+            if isinstance(self.model, DistributedDataParallel):
                 logging.info(
                     f"running for {end_epoch - start_epoch} epochs on {type(self.model.module).__name__} model"
                 )
@@ -128,7 +127,7 @@ class PropertyTrainer(BaseTrainer):
 
             self.epoch = epoch + 1
 
-            if str(self.rank) not in ("cpu", "cuda"):
+            if isinstance(self.model, DistributedDataParallel):
                 dist.barrier()
 
             # TODO: could add param to eval and save on increments instead of every time
@@ -205,7 +204,7 @@ class PropertyTrainer(BaseTrainer):
     def predict(self, loader, split, results_dir="train_results", write_output=True):
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             loader = get_dataloader(
                 loader.dataset, batch_size=loader.batch_size, sampler=None
             )
@@ -228,7 +227,7 @@ class PropertyTrainer(BaseTrainer):
             #    out = out[0] * out[1].view(-1, 1).expand_as(out[0])
 
             batch_p = out.data
-            if str(self.rank) not in ("cpu", "cuda"):
+            if isinstance(self.model, DistributedDataParallel):
                 batch_t = batch[self.model.module.target_attr]
             else:
                 batch_t = batch[self.model.target_attr]
@@ -274,7 +273,7 @@ class PropertyTrainer(BaseTrainer):
         return predictions
 
     def _forward(self, batch_data):
-        device = self.rank if self.parallel else self.device
+        device = self.rank
         output = self.model(batch_data.to(device))
         return output
 
@@ -289,7 +288,7 @@ class PropertyTrainer(BaseTrainer):
 
     def _compute_metrics(self, out, batch_data, metrics):
         # TODO: finish this method
-        device = self.rank if self.parallel else self.device
+        device = self.rank
         property_target = batch_data.to(device)
 
         metrics = self.evaluator.eval(

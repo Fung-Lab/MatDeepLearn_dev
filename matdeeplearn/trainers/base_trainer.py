@@ -50,21 +50,25 @@ class BaseTrainer(ABC):
         identifier: str,
         checkpoint_path: str,
         verbosity: int,
-        device: str,
-        parallel: bool,
+        rank: str,
         save_dir: str,
         wandb_config: dict,
         model_config: dict,
         opt_config: dict,
         dataset_config: dict,
     ):
-        self.device = min_alloc_gpu(device)
-        self.parallel = parallel
-        self.model = model.to(self.device)
-        self.dataset = dataset
-        self.optimizer = optimizer
+        self.rank = rank
         self.train_sampler = sampler
         self.data_loader = data_loader
+
+        if self.train_sampler == None:
+            self.rank = min_alloc_gpu(self.rank)
+        else:
+            self.rank = self.train_sampler.rank
+
+        self.model = model.to(self.rank)
+        self.dataset = dataset
+        self.optimizer = optimizer
 
         self.scheduler = scheduler
         self.loss_fn = loss
@@ -94,12 +98,7 @@ class BaseTrainer(ABC):
 
         self.evaluator = Evaluator()
 
-        if self.train_sampler == None:
-            self.rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.rank = self.train_sampler.rank
-
-        timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
+        timestamp = torch.tensor(datetime.now().timestamp()).to(self.rank)
         self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
             "%Y-%m-%d-%H-%M-%S"
         )
@@ -110,21 +109,21 @@ class BaseTrainer(ABC):
 
         if self.train_verbosity:
             # MPS and CUDA support
-            if self.device.type == "cuda":
+            if self.rank.type == "cuda":
                 logging.info(
                     f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
                 )
                 logging.info(
-                    f"GPU: {self.device} ({torch.cuda.get_device_name(device)}), "
-                    f"available memory: {1e-9 * torch.cuda.mem_get_info(device)[0]:3f} GB"
+                    f"GPU: {self.rank} ({torch.cuda.get_device_name(rank)}), "
+                    f"available memory: {1e-9 * torch.cuda.mem_get_info(rank)[0]:3f} GB"
                 )
-            elif self.device.type == "cpu":
+            elif self.rank.type == "cpu":
                 logging.warning("Training on CPU, this will be slow")
                 logging.info(f"available CPUs: {os.cpu_count()}")
                 stats = psutil.virtual_memory()  # returns a named tuple
                 available = getattr(stats, "available")
                 logging.info(f"available memory: {1e-9 * available:3f} GB")
-            elif self.device.type == "mps":
+            elif self.rank.type == "mps":
                 logging.info("Training with MPS backend")
 
             logging.info(f"Dataset used: {self.dataset}")
@@ -140,7 +139,7 @@ class BaseTrainer(ABC):
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
-            if str(self.rank) not in ("cpu", "cuda"):
+            if isinstance(self.model, DistributedDataParallel):
                 logging.debug(self.model.module)
             else:
                 logging.debug(self.model)
@@ -221,7 +220,7 @@ class BaseTrainer(ABC):
         if local_world_size > 1:
             dist.barrier()
 
-        device = config["task"].get("gpu", None)
+        device = config["task"].get("device", None)
 
         # pass in custom results home dir and load in prev checkpoint dir
         save_dir = config["task"].get("save_dir", None)
@@ -241,7 +240,6 @@ class BaseTrainer(ABC):
             checkpoint_path,
             verbosity,
             device,
-            config["task"]["parallel"],
             save_dir,
             config["task"].get("wandb"),
             config["model"],
@@ -481,7 +479,7 @@ class BaseTrainer(ABC):
     def update_best_model(self, metric):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             self.best_model_state = copy.deepcopy(self.model.module.state_dict())
         else:
             self.best_model_state = copy.deepcopy(self.model.state_dict())
@@ -501,7 +499,7 @@ class BaseTrainer(ABC):
 
     def save_model(self, checkpoint_file, metric=None, training_state=True):
         """Saves the model state dict"""
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             if training_state:
                 state = {
                     "epoch": self.epoch,
@@ -588,7 +586,7 @@ class BaseTrainer(ABC):
         # Load params from checkpoint
         checkpoint = torch.load(checkpoint_file)
 
-        if str(self.rank) not in ("cpu", "cuda"):
+        if isinstance(self.model, DistributedDataParallel):
             self.model.module.load_state_dict(checkpoint["state_dict"])
             self.best_model_state = copy.deepcopy(self.model.module.state_dict())
         else:
