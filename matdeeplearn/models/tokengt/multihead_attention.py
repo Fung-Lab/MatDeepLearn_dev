@@ -20,17 +20,17 @@ class MultiheadAttention(nn.Module):
     """
 
     def __init__(
-            self,
-            embed_dim,
-            num_heads,
-            kdim=None,
-            vdim=None,
-            attention_dropout=0.0,
-            dropout=0.0,
-            bias=True,
-            self_attention=False,
-            q_noise=0.0,
-            qn_block_size=8
+        self,
+        embed_dim,
+        num_heads,
+        kdim=None,
+        vdim=None,
+        attention_dropout=0.0,
+        dropout=0.0,
+        bias=True,
+        self_attention=False,
+        q_noise=0.0,
+        qn_block_size=8,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -40,30 +40,44 @@ class MultiheadAttention(nn.Module):
         self.self_attention = self_attention
         self.qkv_same_dim = self.kdim == embed_dim and self.vdim == embed_dim
         self.head_dim = embed_dim // num_heads
-        self.scaling = self.head_dim ** -0.5
+        self.scaling = self.head_dim**-0.5
         self.attention_dropout = attention_dropout
 
         assert self.self_attention, "Only support self attention"
-        assert not self.self_attention or self.qkv_same_dim, "Self-attention requires QKV to be of the same size"
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        assert (
+            not self.self_attention or self.qkv_same_dim
+        ), "Self-attention requires QKV to be of the same size"
+        assert (
+            self.head_dim * num_heads == self.embed_dim
+        ), "embed_dim must be divisible by num_heads"
 
         self.attention_dropout_module = nn.Dropout(attention_dropout)
         self.dropout_module = nn.Dropout(dropout)
-        self.k_proj = quant_noise(nn.Linear(self.kdim, embed_dim, bias=bias), q_noise, qn_block_size)
-        self.v_proj = quant_noise(nn.Linear(self.vdim, embed_dim, bias=bias), q_noise, qn_block_size)
-        self.q_proj = quant_noise(nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size)
-        self.out_proj = quant_noise(nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size)
+        self.k_proj = quant_noise(
+            nn.Linear(self.kdim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
+        self.v_proj = quant_noise(
+            nn.Linear(self.vdim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
+        self.q_proj = quant_noise(
+            nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
+        self.out_proj = quant_noise(
+            nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
         self.reset_parameters()
         self.onnx_trace = False
 
-    def performer_finetune_setup(self, performer_nb_features, performer_generalized_attention):
+    def performer_finetune_setup(
+        self, performer_nb_features, performer_generalized_attention
+    ):
         self.fast_attention = FastAttention(
             self.head_dim,
             performer_nb_features,
             causal=False,
             generalized_attention=performer_generalized_attention,
             kernel_fn=nn.ReLU(),
-            no_projection=False
+            no_projection=False,
         )
         self.forward = self.forward_performer
 
@@ -87,16 +101,16 @@ class MultiheadAttention(nn.Module):
             nn.init.constant_(self.out_proj.bias, 0.0)
 
     def forward(
-            self,
-            query,
-            key: Optional[Tensor],
-            value: Optional[Tensor],
-            attn_bias: Optional[Tensor],
-            key_padding_mask: Optional[Tensor] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[Tensor] = None,
-            before_softmax: bool = False,
-            need_head_weights: bool = False,
+        self,
+        query,
+        key: Optional[Tensor],
+        value: Optional[Tensor],
+        attn_bias: Optional[Tensor],
+        key_padding_mask: Optional[Tensor] = None,
+        need_weights: bool = True,
+        attn_mask: Optional[Tensor] = None,
+        before_softmax: bool = False,
+        need_head_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Input shape: Time x Batch x Channel
 
@@ -134,7 +148,11 @@ class MultiheadAttention(nn.Module):
         v = self.v_proj(query)  # [T, B, D]
         q *= self.scaling
 
-        q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
+        q = (
+            q.contiguous()
+            .view(tgt_len, bsz * self.num_heads, self.head_dim)
+            .transpose(0, 1)
+        )
         k = k.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         assert k.size(1) == src_len
@@ -163,13 +181,17 @@ class MultiheadAttention(nn.Module):
         if key_padding_mask is not None:
             # don't attend to padding symbols
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights = attn_weights.masked_fill(key_padding_mask[:, None, None, :].to(torch.bool), float("-inf"))
+            attn_weights = attn_weights.masked_fill(
+                key_padding_mask[:, None, None, :].to(torch.bool), float("-inf")
+            )
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         if before_softmax:
             return attn_weights, v
 
-        attn_weights_float = nn.functional.softmax(attn_weights, dim=-1, onnx_trace=self.onnx_trace)  # [bsz * num_heads, tgt_len, src_len]
+        attn_weights_float = nn.functional.softmax(
+            attn_weights, dim=-1
+        )  # [bsz * num_heads, tgt_len, src_len]
         attn_weights = attn_weights_float.type_as(attn_weights)
         attn_probs = self.attention_dropout_module(attn_weights)
 
@@ -182,7 +204,11 @@ class MultiheadAttention(nn.Module):
 
         attn_weights: Optional[Tensor] = None
         if need_weights:
-            attn_weights = attn_weights_float.view(bsz, self.num_heads, tgt_len, src_len).transpose(1, 0)  # [num_heads, bsz, tgt_len, src_len]
+            attn_weights = attn_weights_float.view(
+                bsz, self.num_heads, tgt_len, src_len
+            ).transpose(
+                1, 0
+            )  # [num_heads, bsz, tgt_len, src_len]
             if not need_head_weights:
                 # average attention weights over heads
                 attn_weights = attn_weights.mean(dim=0)
@@ -201,8 +227,8 @@ class MultiheadAttention(nn.Module):
                 # in_proj_weight used to be q + k + v with same dimensions
                 dim = int(state_dict[k].shape[0] / 3)
                 items_to_add[prefix + "q_proj.weight"] = state_dict[k][:dim]
-                items_to_add[prefix + "k_proj.weight"] = state_dict[k][dim: 2 * dim]
-                items_to_add[prefix + "v_proj.weight"] = state_dict[k][2 * dim:]
+                items_to_add[prefix + "k_proj.weight"] = state_dict[k][dim : 2 * dim]
+                items_to_add[prefix + "v_proj.weight"] = state_dict[k][2 * dim :]
 
                 keys_to_remove.append(k)
 
@@ -210,8 +236,10 @@ class MultiheadAttention(nn.Module):
                 if k_bias in state_dict.keys():
                     dim = int(state_dict[k].shape[0] / 3)
                     items_to_add[prefix + "q_proj.bias"] = state_dict[k_bias][:dim]
-                    items_to_add[prefix + "k_proj.bias"] = state_dict[k_bias][dim: 2 * dim]
-                    items_to_add[prefix + "v_proj.bias"] = state_dict[k_bias][2 * dim:]
+                    items_to_add[prefix + "k_proj.bias"] = state_dict[k_bias][
+                        dim : 2 * dim
+                    ]
+                    items_to_add[prefix + "v_proj.bias"] = state_dict[k_bias][2 * dim :]
 
                     keys_to_remove.append(prefix + "in_proj_bias")
 
@@ -222,16 +250,16 @@ class MultiheadAttention(nn.Module):
             state_dict[key] = value
 
     def forward_performer(
-            self,
-            query,
-            key: Optional[Tensor],
-            value: Optional[Tensor],
-            attn_bias: Optional[Tensor],
-            key_padding_mask: Optional[Tensor] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[Tensor] = None,
-            before_softmax: bool = False,
-            need_head_weights: bool = False,
+        self,
+        query,
+        key: Optional[Tensor],
+        value: Optional[Tensor],
+        attn_bias: Optional[Tensor],
+        key_padding_mask: Optional[Tensor] = None,
+        need_weights: bool = True,
+        attn_mask: Optional[Tensor] = None,
+        before_softmax: bool = False,
+        need_head_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Input shape: Time x Batch x Channel
 
@@ -283,9 +311,11 @@ class MultiheadAttention(nn.Module):
             assert key_padding_mask.size(1) == src_len
             key_padding_mask = key_padding_mask.to(torch.bool)[:, None, :, None]
 
-        q, k, v = map(lambda t: rearrange(t, 'n b (h d) -> b h n d', h=self.num_heads), (q, k, v))
+        q, k, v = map(
+            lambda t: rearrange(t, "n b (h d) -> b h n d", h=self.num_heads), (q, k, v)
+        )
         attn = self.fast_attention(q, k, v, key_padding_mask)
-        attn = rearrange(attn, 'b h n d -> n b (h d)')
+        attn = rearrange(attn, "b h n d -> n b (h d)")
 
         attn = self.out_proj(attn)
         attn = self.dropout_module(attn)

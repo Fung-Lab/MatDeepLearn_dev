@@ -51,10 +51,12 @@ class TokenGTGeneration(object):
             data.x,
         )
 
-        node_data = convert_to_single_emb(node_int_feature)
+        # node_data = convert_to_single_emb(node_int_feature)
+        node_data = node_int_feature
         if len(edge_int_feature.size()) == 1:
             edge_int_feature = edge_int_feature[:, None]
-        edge_data = convert_to_single_emb(edge_int_feature)
+        # edge_data = convert_to_single_emb(edge_int_feature)
+        edge_data = edge_int_feature
 
         N = node_int_feature.size(0)
         dense_adj = torch.zeros([N, N], dtype=torch.bool)
@@ -78,7 +80,8 @@ class TokenGTGeneration(object):
         data.lap_eigvec = lap_eigvec
         data.lap_eigval = lap_eigval
 
-        data.edge_num = edge_data.size(-1)
+        data.edge_num = int(edge_data.size(0))
+        data.node_num = int(node_data.size(0))
 
         return data
 

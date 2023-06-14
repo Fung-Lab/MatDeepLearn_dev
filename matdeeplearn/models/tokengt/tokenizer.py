@@ -282,12 +282,6 @@ class GraphFeatureTokenizer(nn.Module):
             batched_data["edge_num"],
         )
 
-        print(
-            "embed table",
-            (self.atom_encoder.num_embeddings, self.atom_encoder.embedding_dim),
-        )
-        print("node and edge data shapes", node_data.shape, edge_data.shape)
-
         node_feature = self.atom_encoder(node_data).sum(-2)  # [sum(n_node), D]
         edge_feature = self.edge_encoder(edge_data.to(node_data.dtype)).sum(
             -2

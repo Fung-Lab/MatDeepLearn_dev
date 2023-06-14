@@ -294,7 +294,7 @@ class TokenGTGraphEncoder(BaseModel):
             node_data=data.node_data,
             in_degree=data.in_degree,
             out_degree=data.out_degree,
-            node_num=data.num_nodes,
+            node_num=data.node_num,
             lap_eigvec=data.lap_eigvec,
             lap_eigval=data.lap_eigval,
             edge_index=data.edge_index,
