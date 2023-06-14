@@ -59,7 +59,7 @@ def prof_ctx(profile_key="CPU"):
     logging.info(prof.key_averages().table(row_limit=10))
 
 
-def min_alloc_gpu(device: str = None):
+def min_alloc_gpu(device: str = None) -> torch.device:
     """Returns the GPU with least allocated memory for training
 
     Returns:

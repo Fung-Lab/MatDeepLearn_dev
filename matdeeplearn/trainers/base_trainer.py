@@ -61,7 +61,7 @@ class BaseTrainer(ABC):
         self.train_sampler = sampler
         self.data_loader = data_loader
 
-        if self.train_sampler == None:
+        if not self.train_sampler:
             self.rank = min_alloc_gpu(self.rank)
         else:
             self.rank = self.train_sampler.rank
