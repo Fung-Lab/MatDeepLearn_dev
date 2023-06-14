@@ -133,7 +133,7 @@ class PropertyTrainer(BaseTrainer):
             # TODO: could add param to eval and save on increments instead of every time
 
             # Save current model
-            if str(self.rank) in ("0", "cpu", "cuda"):
+            if not isinstance(self.model, DistributedDataParallel) or str(self.rank) in ("0", "cpu", "cuda"):
                 self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation amd test sets if they exists
