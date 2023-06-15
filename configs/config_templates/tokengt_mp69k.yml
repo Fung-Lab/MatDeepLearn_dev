@@ -90,6 +90,7 @@ model:
     traceable: False
     q_noise: 0.0
     qn_block_size: 8
+    edge_feat_scale: 1000
     return_attention: False
 
 optim:
@@ -128,7 +129,7 @@ dataset:
   transforms:
     - name: GetY
       args:
-        index: 0
+        index: 1
       otf: False
     # - name: VirtualNodeGeneration
     #   args:

@@ -36,6 +36,7 @@ class GraphFeatureTokenizer(nn.Module):
         type_id,
         hidden_dim,
         n_layers,
+        scale,
     ):
         super(GraphFeatureTokenizer, self).__init__()
 
@@ -55,6 +56,7 @@ class GraphFeatureTokenizer(nn.Module):
         self.lap_node_id_sign_flip = lap_node_id_sign_flip
 
         self.type_id = type_id
+        self.scale = scale
 
         if self.rand_node_id:
             self.rand_encoder = nn.Linear(2 * rand_node_id_dim, hidden_dim, bias=False)
@@ -283,7 +285,9 @@ class GraphFeatureTokenizer(nn.Module):
         )
 
         node_feature = self.atom_encoder(node_data).sum(-2)  # [sum(n_node), D]
-        edge_feature = self.edge_encoder(edge_data.to(node_data.dtype)).sum(
+        edge_feature = (
+            self.edge_encoder(edge_data.to(node_data.dtype)) / self.scale
+        ).sum(
             -2
         )  # [sum(n_edge), D]
         device = node_feature.device

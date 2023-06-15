@@ -87,6 +87,7 @@ class TokenGTGraphEncoder(BaseModel):
         traceable: bool = False,
         q_noise: float = 0.0,
         qn_block_size: int = 8,
+        edge_feat_scale: int = 1,
         return_attention: bool = False,
     ) -> None:
         super(TokenGTGraphEncoder, self).__init__(edge_dim)
@@ -113,6 +114,7 @@ class TokenGTGraphEncoder(BaseModel):
             type_id=type_id,
             hidden_dim=embedding_dim,
             n_layers=num_encoder_layers,
+            scale=edge_feat_scale
         )
         self.performer_finetune = performer_finetune
         self.embed_scale = embed_scale
