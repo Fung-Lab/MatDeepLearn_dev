@@ -90,11 +90,11 @@ class ChainRunner3:  # submitit.helpers.Checkpointable):
 
             model_state = self.trainer.model.state_dict()
 
-            print(model_state.keys())
+            logging.debug(model_state.keys())
             for name, param in load_state.items():
                 model_state[name].copy_(param)
 
-            print("loaded pretrained model")
+            logging.info("loaded pretrained model")
 
             self.task.setup(self.trainer)
 
@@ -171,7 +171,7 @@ class ChainRunner3:  # submitit.helpers.Checkpointable):
 if __name__ == "__main__":
     # setup_logging()
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.INFO)
 
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
