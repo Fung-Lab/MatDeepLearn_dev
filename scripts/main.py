@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     config = build_config(args, override_args)
 
-    if os.path.exists(args.config_path):
+    if config["task"]["wandb"]["use_wandb"] and os.path.exists(args.config_path):
         temp = tempfile.NamedTemporaryFile(delete=False, suffix=".yml")
         with open(temp.name, "w") as tmp:
             yaml.dump(config, tmp)

@@ -76,7 +76,6 @@ class BaseTrainer(ABC):
         self.max_checkpoint_epochs = max_checkpoint_epochs
 
         self.train_verbosity = verbosity
-        self.rank = rank
 
         self.checkpoint_path = checkpoint_path
 
@@ -210,7 +209,7 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-        verbosity = config["optim"].get("verbosity", None)
+        verbosity = config["optim"].get("verbosity", 1)
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
 

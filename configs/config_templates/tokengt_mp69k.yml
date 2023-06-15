@@ -5,12 +5,11 @@ task:
   identifier: "cgcnn_vn_mp69k"
   reprocess: False
   run_id: ""
-  parallel: True
+  parallel: False
   device: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True
-  parallel: True
   # Training print out frequency (print per n number of epochs)
   verbosity: 1
   wandb:
@@ -56,10 +55,12 @@ model:
   model_path: "tokengt.pth"
   # model hyperparams
   hyperparams:
+    num_atoms: 512
+    num_edges: 1024
     rand_node_id: False
-    rand_node_id_dim: 64
+    rand_node_id_dim: 32
     orf_node_id: False
-    orf_node_id_dim: 64
+    orf_node_id_dim: 32
     lap_node_id: False
     lap_node_id_k: 8
     lap_node_id_sign_flip: False
@@ -72,9 +73,9 @@ model:
     performer_generalized_attention: False
     performer_auto_check_redraw: True
     num_encoder_layers: 12
-    embedding_dim: 768
-    ffn_embedding_dim: 768
-    num_attention_heads: 32
+    embedding_dim: 512
+    ffn_embedding_dim: 512
+    num_attention_heads: 16
     dropout: 0.1
     attention_dropout: 0.1
     activation_dropout: 0.1
@@ -94,10 +95,11 @@ model:
 optim:
   max_epochs: 250
   lr: 0.002
+  verbosity: 1
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 64
+  batch_size: 4
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -110,7 +112,7 @@ dataset:
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
- src: "/nethome/sbaskaran31/projects/Sidharth/MP_data_69K/raw"
+  src: "/nethome/sbaskaran31/projects/Sidharth/MP_data_69K/raw"
   # src: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw"
   # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw"
   # src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/raw"

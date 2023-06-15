@@ -100,7 +100,7 @@ optim:
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 64
+  batch_size: 2
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -159,7 +159,7 @@ dataset:
   verbose: True
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
-    cutoff_radius : 5.0
+    cutoff_radius : 8.0
     n_neighbors : 250
     process_batch_size : 100
     edge_calc_method: "ocp"
