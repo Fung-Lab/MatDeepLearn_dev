@@ -49,10 +49,12 @@ dataset:
   processed: True
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
   target_path: ""
-  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+#  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/MP_DOS_data/chain_predictions/"
 #  src: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw/"
 #  target_path: ""
 #  pt_path: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/processed/MP_DOS_data/"
+#  pt_path: "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_chain_predicted/"
   data_format: "json"
   node_representation: "onehot"
   additional_attributes: ["features", "scaled", "scaling_factor"]
