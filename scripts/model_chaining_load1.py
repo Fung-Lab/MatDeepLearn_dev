@@ -136,8 +136,8 @@ class ChainRunner3:  # submitit.helpers.Checkpointable):
 
         # save data
         data, slices = InMemoryDataset.collate(new_data_list)
-        save_path = "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_chain_predicted/data.pt"
-        "/global/cfs/projectdirs/m3641/Sarah/datasets/MP_DOS_data/chain_predictions/data.pt"
+        # save_path = "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_chain_predicted/data.pt"
+        save_path = "/global/cfs/projectdirs/m3641/Sarah/datasets/MP_DOS_data/chain_predictions/data.pt"
         torch.save((data, slices), save_path)
 
         # run second task with saved data
