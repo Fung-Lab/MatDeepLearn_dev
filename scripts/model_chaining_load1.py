@@ -84,7 +84,7 @@ class ChainRunner3:  # submitit.helpers.Checkpointable):
             # train model 1
             # model = self.task.run()
             # model_path = "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/Results/2023-05-24-23-02-40-DOSPredict_MP_DOS/best_checkpoint.pt"
-            model_path = "/global/cfs/projectdirs/m3641/Sarah/results/2023-05-24-23-02-40-DOSPredict_MP_DOS/best_checkpoint.pt"
+            model_path = "/global/cfs/projectdirs/m3641/Sarah/results/2023-05-24-23-02-40-DOSPredict_MP_DOS/checkpoint/best_checkpoint.pt"
             load_model = torch.load(model_path, map_location=self.trainer.device)
             load_state = load_model["state_dict"]
 
