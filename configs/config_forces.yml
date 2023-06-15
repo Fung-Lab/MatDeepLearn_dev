@@ -18,7 +18,7 @@ task:
   write_output: ["val", "test"]
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: True  
+  use_amp: False  
 
 model:
   name: CGCNN     
@@ -30,9 +30,9 @@ model:
   post_fc_count: 3
   pool: "global_add_pool"
   pool_order: "early"
-  batch_norm: True
+  batch_norm: False
   batch_track_stats: True
-  act: "relu"
+  act: "silu"
   dropout_rate: 0.0
   # Compute edge features on the fly
   otf_edge: True 
@@ -42,7 +42,7 @@ model:
 optim:
   max_epochs: 250
   max_checkpoint_epochs: 0
-  lr: 0.0002
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -53,7 +53,7 @@ optim:
     #loss_args: {"weight_energy": 1.0, "weight_force": 1.0}
   clip_grad_norm: 10
          
-  batch_size: 40
+  batch_size: 120
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
