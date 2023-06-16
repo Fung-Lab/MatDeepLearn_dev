@@ -2,7 +2,7 @@ trainer: property
 
 task:
   identifier: "CGCNN_MP_DOS_node_level_prediction"
-  parallel: True
+  parallel: False
   seed: 0
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
