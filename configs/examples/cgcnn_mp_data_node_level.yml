@@ -78,6 +78,7 @@ dataset:
     preprocess_nodes: True
     cutoff_radius: 8.0
     n_neighbors: 12
+    num_offsets: 1
     edge_steps: 50
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
