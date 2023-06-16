@@ -10,7 +10,7 @@ task:
   # Path to the checkpoint.pt file
   checkpoint_path:
   write_output: [ "train", "val", "test" ]
-  use_amp: True
+  use_amp: False
 
 model:
   name: CGCNN
