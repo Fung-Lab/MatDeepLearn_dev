@@ -1,0 +1,89 @@
+trainer: property
+
+task:
+  identifier: "CGCNN_MP_DOS_baseline"
+  parallel: True
+  seed: 0
+  continue_job: False
+  # spefcify if the training state is loaded: epochs, learning rate, etc
+  load_training_state: False
+  # Path to the checkpoint.pt file
+  checkpoint_path:
+  write_output: [ "train", "val", "test" ]
+  use_amp: True
+
+model:
+  name: CGCNN
+  dim1: 200
+  dim2: 200
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 2
+  pool: "global_mean_pool"
+  pool_order: "early"
+  batch_norm: True
+  batch_track_stats: False
+  act: "relu"
+  dropout_rate: 0.0
+  otf_edge: False
+  gradient: False
+
+optim:
+  max_epochs: 600
+  max_checkpoint_epochs: 0
+  lr: 0.001246899
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: {"loss_fn": "l1_loss"}
+  batch_size: 170
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+  verbosity: 5
+  # tdqm progress bar per batch in the epoch
+  batch_tqdm: False
+
+dataset:
+  name: "mp_data"
+  processed: True
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
+  target_path: ""
+  pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+  prediction_level: "graph"
+
+  transforms:
+    - name: GetY
+      args:
+        # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
+        # For example, an index: 0 (default) will use the first entry in the target vector
+        # if all values are to be predicted simultaneously, then specify index: -1
+        index: 0
+      otf: True # Optional parameter, default is False
+
+  data_format: "json"
+  additional_attributes: ["features", "scaled", "scaling_factor"]
+  verbose: True
+
+  preprocess_params:
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: "mdl"
+    # determine if edges are computed, if false, then they need to be computed on the fly
+    preprocess_edges: True
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
+    preprocess_edge_features: True
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
+    preprocess_nodes: True
+    cutoff_radius: 8.0
+    n_neighbors: 12
+    edge_steps: 50
+    self_loop: True
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: "onehot"
+    all_neighbors: True
+
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15
