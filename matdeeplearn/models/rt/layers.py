@@ -8,14 +8,14 @@ from torch import nn
 class RTLayer(nn.Module):
     def __init__(
         self,
-        node_dim: int,
-        node_hidden: int,
-        edge_dim: int,
-        edge_hidden_1: int,
-        edge_hidden_2: int,
-        heads: int,
-        dropout: float,
-        disable_edge_updates: bool,
+        node_dim: int = None,
+        node_hidden: int = None,
+        edge_dim: int = None,
+        edge_hidden_1: int = None,
+        edge_hidden_2: int = None,
+        heads: int = None,
+        dropout: float = None,
+        disable_edge_updates: bool = False,
     ) -> None:
         super().__init__()
         self.node_dim = node_dim
@@ -43,7 +43,7 @@ class RTLayer(nn.Module):
         self.node_drop_2 = nn.Dropout(self.dropout)
         self.node_ln_2 = nn.LayerNorm(self.node_dim)
         # edge layers
-        self.edge_fc_1 = nn.Linear(self.edge_dim, self.edge_hidden_1)
+        self.edge_fc_1 = nn.Linear(self.edge_hidden_1, self.edge_dim)
         self.edge_fc_2 = nn.Linear(self.edge_dim, self.edge_dim)
         self.edge_drop_1 = nn.Dropout(self.dropout)
         self.edge_ln_1 = nn.LayerNorm(self.edge_dim)
@@ -67,6 +67,7 @@ class RTLayer(nn.Module):
 
         # edge updates
         if not self.disable_edge_updates:
+            # (B, N, N, Nd)
             source_nodes = x.unsqueeze(1)
             expanded_source_nodes = torch.tile(source_nodes, (1, x.size(1), 1, 1))
             target_nodes = x.unsqueeze(2)
@@ -81,6 +82,7 @@ class RTLayer(nn.Module):
                     expanded_source_nodes,
                     expanded_target_nodes,
                 ],
+                dim=-1,
             )
             # compute edge updates
             residuals = self.edge_fc_1(update_args)
@@ -179,7 +181,7 @@ class RTAttention(nn.Module):
         # (B * H, N, 1, N, 1) * (B * H, N, N, 1, Nd / H)
         attn = attn.unsqueeze(-3).permute(0, 1, 4, 2, 3)
         value = value.unsqueeze(-2).permute(0, 1, 4, 2, 3)
-        new_nodes = torch.matmul(attn, value).squeeze()
+        new_nodes = torch.matmul(attn, value).squeeze(-1).squeeze(-1)
 
         # (B, N, Nd)
         return self.reshape_from_batches(new_nodes)
