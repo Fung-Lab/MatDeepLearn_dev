@@ -17,8 +17,12 @@ from torch.optim import Optimizer
 from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
 
-from matdeeplearn.common.data import (DataLoader, dataset_split,
-                                      get_dataloader, get_dataset)
+from matdeeplearn.common.data import (
+    DataLoader,
+    dataset_split,
+    get_dataloader,
+    get_dataset,
+)
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
@@ -80,7 +84,7 @@ class BaseTrainer(ABC):
 
         self.evaluator = Evaluator()
 
-        if self.train_sampler == None:
+        if self.train_sampler is None:
             self.rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.rank = self.train_sampler.rank
@@ -127,7 +131,7 @@ class BaseTrainer(ABC):
 
         cls.set_seed(config["task"].get("seed"))
 
-        if config["task"]["parallel"] == True:
+        if config["task"]["parallel"]:
             # os.environ["MASTER_ADDR"] = "localhost"
             # os.environ["MASTER_PORT"] = "12355"
             local_world_size = os.environ.get("LOCAL_WORLD_SIZE", None)
@@ -140,7 +144,13 @@ class BaseTrainer(ABC):
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
         dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
-        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
+        model = cls._load_model(
+            config["model"],
+            config["dataset"]["preprocess_params"],
+            dataset,
+            local_world_size,
+            rank,
+        )
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
         data_loader = cls._load_dataloader(
@@ -254,17 +264,17 @@ class BaseTrainer(ABC):
             dataset = dataset["train"]
         else:
             dataset = dataset[list(dataset.keys())[0]]
-                    
-        if isinstance(dataset, torch.utils.data.Subset): 
-            dataset = dataset.dataset 
-        
-        # Obtain node, edge, and output dimensions for model initialization    
-        node_dim = dataset.num_features   
-        edge_dim = graph_config["edge_steps"] 
+
+        if isinstance(dataset, torch.utils.data.Subset):
+            dataset = dataset.dataset
+
+        # Obtain node, edge, and output dimensions for model initialization
+        node_dim = dataset.num_features
+        edge_dim = graph_config["edge_steps"]
         if dataset[0]["y"].ndim == 0:
             output_dim = 1
         else:
-            output_dim = dataset[0]["y"].shape[1]     
+            output_dim = dataset[0]["y"].shape[1]
 
         # Determine if this is a node or graph level model
         if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
@@ -275,19 +285,19 @@ class BaseTrainer(ABC):
             raise ValueError(
                 "Target labels do not have the correct dimensions for node or graph-level prediction."
             )
-
+        logging.info(f"Training {model_config['prediction_level']}-level")
         model_cls = registry.get_model_class(model_config["name"])
         model = model_cls(
-                  node_dim=node_dim, 
-                  edge_dim=edge_dim, 
-                  output_dim=output_dim, 
-                  cutoff_radius=graph_config["cutoff_radius"], 
-                  n_neighbors=graph_config["n_neighbors"], 
-                  edge_steps=graph_config["edge_steps"], 
-                  graph_method=graph_config["edge_calc_method"], 
-                  num_offsets=graph_config["num_offsets"], 
-                  **model_config
-                  )
+            node_dim=node_dim,
+            edge_dim=edge_dim,
+            output_dim=output_dim,
+            cutoff_radius=graph_config["cutoff_radius"],
+            n_neighbors=graph_config["n_neighbors"],
+            edge_steps=graph_config["edge_steps"],
+            graph_method=graph_config["edge_calc_method"],
+            num_offsets=graph_config["num_offsets"],
+            **model_config,
+        )
         model = model.to(rank)
         # model = torch_geometric.compile(model)
         # if model_config["load_model"] == True:
@@ -407,7 +417,7 @@ class BaseTrainer(ABC):
             self.predict(self.data_loader["train_loader"], "train")
         if "val" in self.write_output and self.data_loader.get("val_loader"):
             self.predict(self.data_loader["val_loader"], "val")
-        if "test" in self.write_output and self.data_loader.get("test_loader"):    
+        if "test" in self.write_output and self.data_loader.get("test_loader"):
             self.predict(self.data_loader["test_loader"], "test")
 
     def save_model(self, checkpoint_file, metric=None, training_state=True):
@@ -420,7 +430,7 @@ class BaseTrainer(ABC):
                     "state_dict": self.model.module.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                     "scheduler": self.scheduler.scheduler.state_dict(),
-                    "scaler":self.scaler.state_dict(),
+                    "scaler": self.scaler.state_dict(),
                     "best_metric": self.best_metric,
                     "identifier": self.timestamp_id,
                     "seed": torch.random.initial_seed(),
@@ -435,7 +445,7 @@ class BaseTrainer(ABC):
                     "state_dict": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
                     "scheduler": self.scheduler.scheduler.state_dict(),
-                    "scaler":self.scaler.state_dict(),
+                    "scaler": self.scaler.state_dict(),
                     "best_metric": self.best_metric,
                     "identifier": self.timestamp_id,
                     "seed": torch.random.initial_seed(),
@@ -451,10 +461,12 @@ class BaseTrainer(ABC):
 
         torch.save(state, filename)
         del state
-        
+
         return filename
 
-    def save_results(self, output, results_dir, filename, node_level_predictions=False, labels=True):
+    def save_results(
+        self, output, results_dir, filename, node_level_predictions=False, labels=True
+    ):
         results_path = os.path.join(
             self.save_dir, "results", self.timestamp_id, results_dir
         )
@@ -465,14 +477,14 @@ class BaseTrainer(ABC):
         id_headers = ["structure_id"]
         if node_level_predictions:
             id_headers += ["node_id"]
-            
-        if labels==True:
+
+        if labels:
             num_cols = (shape[1] - len(id_headers)) // 2
             headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols
         else:
-            num_cols = (shape[1] - len(id_headers))
-            headers = id_headers + ["prediction"] * num_cols        
-        
+            num_cols = shape[1] - len(id_headers)
+            headers = id_headers + ["prediction"] * num_cols
+
         with open(filename, "w") as f:
             csvwriter = csv.writer(f)
             for i in range(0, len(output)):
@@ -502,7 +514,7 @@ class BaseTrainer(ABC):
             self.model.load_state_dict(checkpoint["state_dict"])
             self.best_model_state = copy.deepcopy(self.model.state_dict())
 
-        if load_training_state == True:
+        if load_training_state:
             if checkpoint.get("optimizer"):
                 self.optimizer.load_state_dict(checkpoint["optimizer"])
             if checkpoint.get("scheduler"):
@@ -516,56 +528,56 @@ class BaseTrainer(ABC):
                 self.best_metric = checkpoint["best_metric"]
             if checkpoint.get("seed"):
                 seed = checkpoint["seed"]
-                self.set_seed(seed) 
+                self.set_seed(seed)
             if checkpoint.get("scaler"):
-                self.scaler.load_state_dict(checkpoint["scaler"])                
-            #todo: load dataset to recreate the same split as the prior run
-            #self._load_dataset(dataset_config, task)
-        
+                self.scaler.load_state_dict(checkpoint["scaler"])
+            # todo: load dataset to recreate the same split as the prior run
+            # self._load_dataset(dataset_config, task)
+
     # Loads portion of model dict into a new model for fine tuning
     def load_pre_trained_weights(self, load_training_state=False):
         """Loads the pre-trained model from a checkpoint.pt file"""
 
         if not self.checkpoint_path:
             raise ValueError("No checkpoint directory specified in config.")
-            checkpoints_folder = os.path.join(self.fine_tune_from, 'checkpoint')
-            
+            # checkpoints_folder = os.path.join(self.fine_tune_from, "checkpoint")
+
         load_model = torch.load(self.checkpoint_path, map_location=self.device)
         load_state = load_model["state_dict"]
-        
+
         model_state = self.model.state_dict()
 
         print(model_state.keys())
         for name, param in load_state.items():
-            #if name not in model_state or name.split('.')[0] in "post_lin_list":
+            # if name not in model_state or name.split('.')[0] in "post_lin_list":
             if name not in model_state:
-                logging.debug('NOT loaded: %s', name)
+                logging.debug("NOT loaded: %s", name)
                 continue
             else:
-                logging.debug('loaded: %s', name)
+                logging.debug("loaded: %s", name)
             if isinstance(param, torch.nn.parameter.Parameter):
                 # backwards compatibility for serialized parameters
                 param = param.data
             model_state[name].copy_(param)
         logging.info("Loaded pre-trained model with success.")
 
-        if load_training_state == True:
-            if checkpoint.get("optimizer"): 
-                self.optimizer.load_state_dict(checkpoint["optimizer"])
-            if checkpoint.get("scheduler"):     
-                self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
-                self.scheduler.update_lr()
-            #if checkpoint.get("epoch"): 
-            #    self.epoch = checkpoint["epoch"]
-            #if checkpoint.get("step"): 
-            #    self.step = checkpoint["step"]
-            #if checkpoint.get("best_metric"): 
-            #    self.best_metric = checkpoint["best_metric"]
-            if checkpoint.get("seed"): 
-                seed = checkpoint["seed"]
-                self.set_seed(seed)
-            if checkpoint.get("scaler"):
-                self.scaler.load_state_dict(checkpoint["scaler"])
+        # if load_training_state:
+        #     if checkpoint.get("optimizer"):
+        #         self.optimizer.load_state_dict(checkpoint["optimizer"])
+        #     if checkpoint.get("scheduler"):
+        #         self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
+        #         self.scheduler.update_lr()
+        #     # if checkpoint.get("epoch"):
+        #     #    self.epoch = checkpoint["epoch"]
+        #     # if checkpoint.get("step"):
+        #     #    self.step = checkpoint["step"]
+        #     # if checkpoint.get("best_metric"):
+        #     #    self.best_metric = checkpoint["best_metric"]
+        #     if checkpoint.get("seed"):
+        #         seed = checkpoint["seed"]
+        #         self.set_seed(seed)
+        #     if checkpoint.get("scaler"):
+        #         self.scaler.load_state_dict(checkpoint["scaler"])
 
     @staticmethod
     def set_seed(seed):
@@ -577,6 +589,6 @@ class BaseTrainer(ABC):
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        #torch.autograd.set_detect_anomaly(True)
+        # torch.autograd.set_detect_anomaly(True)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
