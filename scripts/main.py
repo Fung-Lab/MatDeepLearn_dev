@@ -48,7 +48,7 @@ if __name__ == "__main__":
     local_rank = os.environ.get("LOCAL_RANK", None)
     if local_rank is None or int(local_rank) == 0:
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.INFO)
+        root_logger.setLevel(logging.DEBUG)
 
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
