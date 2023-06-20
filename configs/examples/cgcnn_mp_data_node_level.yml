@@ -27,14 +27,15 @@ model:
   dropout_rate: 0.0
   otf_edge: False
   gradient: False
+  prediction_level: "node"
 
 optim:
   max_epochs: 600
   max_checkpoint_epochs: 0
   lr: 0.001246899
   loss:
-    loss_type: "DOSLoss"
-    loss_args: { "loss_fn": "l1_loss", "scaling_weight": 0.05, "cumsum_weight": 0.005, "features_weight": 0.15 }
+    loss_type: "TorchLossWrapper"
+    loss_args: { "loss_fn": "l1_loss" }
   batch_size: 170
   optimizer:
     optimizer_type: "AdamW"
@@ -52,7 +53,6 @@ dataset:
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
   target_path: ""
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
-  prediction_level: "node"
 
   transforms:
     - name: GetY

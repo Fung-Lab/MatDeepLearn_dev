@@ -1,16 +1,24 @@
+import math
+import numbers
+import random
+
 import torch
+import torch_geometric
 from torch_geometric.data import Data
+from torch_geometric.transforms import LinearTransformation
 from torch_geometric.utils import dense_to_sparse
 from torch_sparse import coalesce
 
 from matdeeplearn.common.graph_data import CustomData
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import (compute_bond_angles,
-                                               custom_edge_feats,
-                                               custom_node_feats,
-                                               generate_virtual_nodes,
-                                               get_cutoff_distance_matrix,
-                                               get_mask)
+from matdeeplearn.preprocessor.helpers import (
+    compute_bond_angles,
+    custom_edge_feats,
+    custom_node_feats,
+    generate_virtual_nodes,
+    get_cutoff_distance_matrix,
+    get_mask,
+)
 
 """
 here resides the transform classes needed for data processing
@@ -32,6 +40,8 @@ class GetY(object):
         # Specify target.
         if self.index != -1:
             data.y = data.y[0][self.index]
+
+        data.x = data.x.float()
         return data
 
 
@@ -94,7 +104,7 @@ class VirtualNodes(object):
                 self.device,
                 experimental=False,
                 offset_number=self.offset_number,
-                remove_virtual_edges=False
+                remove_virtual_edges=False,
             )
 
             edge_index, edge_weight = dense_to_sparse(cd_matrix)
@@ -227,6 +237,8 @@ class ToFloat(object):
         data.edge_attr_lg = data.edge_attr_lg.float()
 
         return data
+
+
 class RandomRotate(object):
     r"""Rotates node positions around a specific axis by a randomly sampled
     factor within a given interval.

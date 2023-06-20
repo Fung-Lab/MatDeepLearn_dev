@@ -27,6 +27,7 @@ model:
   dropout_rate: 0.0
   otf_edge: False
   gradient: False
+  prediction_level: "graph"
 
 optim:
   max_epochs: 600
@@ -52,7 +53,6 @@ dataset:
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
   target_path: ""
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
-  prediction_level: "graph"
 
   transforms:
     - name: GetY

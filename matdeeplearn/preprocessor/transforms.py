@@ -1,4 +1,10 @@
+import math
+import numbers
+import random
+
 import torch
+import torch_geometric
+from torch_geometric.transforms import LinearTransformation
 from torch_sparse import coalesce
 
 from matdeeplearn.common.registry import registry
@@ -24,17 +30,18 @@ class GetY(object):
     def __call__(self, data):
         # Specify target.
         if self.index != -1:
-            #print("0", data.y.shape, data.y[:][self.index].shape, data.y[:, self.index].shape)
-            #data.y = data.y[:][self.index]
+            # print("0", data.y.shape, data.y[:][self.index].shape, data.y[:, self.index].shape)
+            # data.y = data.y[:][self.index]
             data.y = data.y[:, self.index]
-            #print("1", data.y.shape)
-            assert (data.y.dim() <= 2), "data.y dimension is incorrect"            
+            # print("1", data.y.shape)
+            assert data.y.dim() <= 2, "data.y dimension is incorrect"
             if data.y.dim() == 1 and data.y.shape[0] == data.x.shape[0]:
-                data.y = data.y.unsqueeze(1)  
+                data.y = data.y.unsqueeze(1)
             elif data.y.dim() == 1 and data.y.shape[0] == 1:
-                data.y = data.y.unsqueeze(0)   
-            #print("2", data.y.shape)
-            #data.y = data.y[0][self.index]            
+                data.y = data.y.unsqueeze(0)
+            # print("2", data.y.shape)
+            # data.y = data.y[0][self.index]
+        data.x = data.x.float()
         return data
 
 
@@ -66,7 +73,7 @@ class LineGraphMod(object):
             angles, idx_kj, idx_ji = compute_bond_angles(
                 data.pos, data.cell_offsets, data.edge_index, data.num_nodes
             )
-        except:
+        except Exception:
             angles, idx_kj, idx_ji = compute_bond_angles(
                 data.pos, None, data.edge_index, data.num_nodes
             )
@@ -99,6 +106,8 @@ class ToFloat(object):
         data.edge_attr_lg = data.edge_attr_lg.float()
 
         return data
+
+
 class RandomRotate(object):
     r"""Rotates node positions around a specific axis by a randomly sampled
     factor within a given interval.
