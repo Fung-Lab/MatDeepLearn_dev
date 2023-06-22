@@ -9,7 +9,7 @@ task:
   load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path:
-  write_output: []
+  write_output: ["test"]
   use_amp: False
 
 model:
@@ -52,8 +52,10 @@ dataset:
   name: "mp_data"
   processed: True
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw/data.json"
+#  src: "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw"
   target_path: ""
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/"
+#  pt_path: "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_data/processed/MP_DOS_data/"
 
   transforms:
     - name: GetY
