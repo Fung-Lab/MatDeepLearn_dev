@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from torch import distributed as dist
 from torch.cuda.amp import autocast
-
 from tqdm import tqdm
+
 from matdeeplearn.common.data import get_dataloader
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
@@ -51,7 +51,7 @@ class PropertyTrainer(BaseTrainer):
             batch_tqdm,
             write_output,
             save_dir,
-            checkpoint_path,          
+            checkpoint_path,
             use_amp,
         )
 
@@ -81,8 +81,8 @@ class PropertyTrainer(BaseTrainer):
                 logging.info(
                     f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
                 )
-     
-        for epoch in range(start_epoch, end_epoch):            
+
+        for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
@@ -90,45 +90,52 @@ class PropertyTrainer(BaseTrainer):
             train_loader_iter = iter(self.data_loader["train_loader"])
             # metrics for every epoch
             _metrics = {}
-            
-            #for i in range(skip_steps, len(self.train_loader)):
-            pbar = tqdm(range(0, len(self.data_loader["train_loader"])), disable=not self.batch_tqdm)
-            for i in pbar:                                
-                #self.epoch = epoch + (i + 1) / len(self.train_loader)
-                #self.step = epoch * len(self.train_loader) + i + 1
-                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024)) 
+
+            # for i in range(skip_steps, len(self.train_loader)):
+            pbar = tqdm(
+                range(0, len(self.data_loader["train_loader"])),
+                disable=not self.batch_tqdm,
+            )
+            for i in pbar:
+                # self.epoch = epoch + (i + 1) / len(self.train_loader)
+                # self.step = epoch * len(self.train_loader) + i + 1
+                # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
                 self.model.train()
                 # Get a batch of train data
-                batch = next(train_loader_iter).to(self.rank) 
-                #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
-                # Compute forward, loss, backward    
+                batch = next(train_loader_iter).to(self.rank)
+                # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))
+                # Compute forward, loss, backward
                 with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                            
-                    loss = self._compute_loss(out, batch)  
-                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
-                grad_norm = self._backward(loss)  
-                pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
+                    out = self._forward(batch)
+                    loss = self._compute_loss(out, batch)
+                # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
+                grad_norm = self._backward(loss)
+                pbar.set_description(
+                    "Batch Loss {:.4f}, grad norm {:.4f}".format(
+                        loss.item(), grad_norm.item()
+                    )
+                )
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
-                #  keep option to log metrics per epoch  
-                _metrics = self._compute_metrics(out, batch, _metrics)               
-                self.metrics = self.evaluator.update("loss", loss.item(), _metrics)     
+                #  keep option to log metrics per epoch
+                _metrics = self._compute_metrics(out, batch, _metrics)
+                self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
 
             self.epoch = epoch + 1
 
             if str(self.rank) not in ("cpu", "cuda"):
                 dist.barrier()
 
-            # TODO: could add param to eval and save on increments instead of every time  
-            
-            # Save current model      
-            torch.cuda.empty_cache()                 
+            # TODO: could add param to eval and save on increments instead of every time
+
+            # Save current model
+            torch.cuda.empty_cache()
             if str(self.rank) in ("0", "cpu", "cuda"):
                 self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation set if it exists
                 if self.data_loader.get("val_loader"):
-                    metric = self.validate("val") 
+                    metric = self.validate("val")
                 else:
                     metric = self.metrics
 
@@ -148,8 +155,8 @@ class PropertyTrainer(BaseTrainer):
                 # step scheduler, using validation error
                 self._scheduler_step()
 
-            torch.cuda.empty_cache()        
-        
+            torch.cuda.empty_cache()
+
         if self.best_model_state:
             if str(self.rank) in "0":
                 self.model.module.load_state_dict(self.best_model_state)
@@ -164,7 +171,7 @@ class PropertyTrainer(BaseTrainer):
             logging.info("Test loss: " + str(test_loss))
 
         return self.best_model_state
-        
+
     @torch.no_grad()
     def validate(self, split="val"):
         self.model.eval()
@@ -178,31 +185,33 @@ class PropertyTrainer(BaseTrainer):
             loader_iter = iter(self.data_loader["train_loader"])
 
         for i in range(0, len(loader_iter)):
-            #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
+            # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
             batch = next(loader_iter).to(self.rank)
             out = self._forward(batch.to(self.rank))
             loss = self._compute_loss(out, batch)
             # Compute metrics
-            #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
+            # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
             metrics = self._compute_metrics(out, batch, metrics)
             metrics = evaluator.update("loss", loss.item(), metrics)
             del loss, batch, out
-        
+
         torch.cuda.empty_cache()
-        
+
         return metrics
 
     @torch.no_grad()
-    def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True):        
+    def predict(
+        self, loader, split, results_dir="train_results", write_output=True, labels=True
+    ):
         self.model.eval()
-         
+
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
         if str(self.rank) not in ("cpu", "cuda"):
             loader = get_dataloader(
                 loader.dataset, batch_size=loader.batch_size, sampler=None
             )
-            
+
         evaluator, metrics = Evaluator(), {}
         predict, target = None, None
         ids = []
@@ -213,108 +222,180 @@ class PropertyTrainer(BaseTrainer):
         node_level = False
         loader_iter = iter(loader)
         for i in range(0, len(loader_iter)):
-            batch = next(loader_iter).to(self.rank)      
+            batch = next(loader_iter).to(self.rank)
             out = self._forward(batch.to(self.rank))
             batch_p = out["output"].data.cpu().numpy()
-            batch_ids = batch.structure_id 
-            
-            if labels == True:
+            batch_ids = batch.structure_id
+
+            if labels:
                 loss = self._compute_loss(out, batch)
                 metrics = self._compute_metrics(out, batch, metrics)
-                metrics = evaluator.update(
-                    "loss", loss.item(), metrics
-                )                                 
-                if str(self.rank) not in ("cpu", "cuda"): 
+                metrics = evaluator.update("loss", loss.item(), metrics)
+                if str(self.rank) not in ("cpu", "cuda"):
                     batch_t = batch[self.model.module.target_attr].cpu().numpy()
                 else:
-                    batch_t = batch[self.model.target_attr].cpu().numpy()             
-                #batch_ids = np.array(
+                    batch_t = batch[self.model.target_attr].cpu().numpy()
+                # batch_ids = np.array(
                 #    [item for sublist in batch.structure_id for item in sublist]
-                #)
-                        
-            # Node level prediction 
-            if batch_p.shape[0] > loader.batch_size:                 
+                # )
+
+            # Node level prediction
+            if batch_p.shape[0] > loader.batch_size:
 
                 node_level = True
                 node_ids = batch.z.cpu().numpy()
-                structure_ids = np.repeat(
-                    batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
-                )
+                s_ids = [s_id[0][0] for s_id in batch.structure_id]
+                structure_ids = np.repeat(s_ids, batch.n_atoms.cpu().numpy(), axis=0)
                 batch_ids = np.column_stack((structure_ids, node_ids))
-            
-            if out.get("pos_grad") != None:
-                batch_p_pos_grad = out["pos_grad"].data.cpu().numpy()
-                node_ids_pos_grad = batch.z.cpu().numpy()
-                structure_ids_pos_grad = np.repeat(
-                    batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
-                )
-                batch_ids_pos_grad = np.column_stack((structure_ids_pos_grad, node_ids_pos_grad)) 
-                ids_pos_grad = batch_ids_pos_grad if i == 0 else np.row_stack((ids_pos_grad, batch_ids_pos_grad))            
-                predict_pos_grad = batch_p_pos_grad if i == 0 else np.concatenate((predict_pos_grad, batch_p_pos_grad), axis=0)
-                if "forces" in batch:
-                    batch_t_pos_grad = batch["forces"].cpu().numpy()      
-                    target_pos_grad = batch_t_pos_grad if i == 0 else np.concatenate((target_pos_grad, batch_t_pos_grad), axis=0)
 
-            if out.get("cell_grad") != None:  
-                batch_p_cell_grad = out["cell_grad"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
-                batch_ids_cell_grad = batch.structure_id               
-                ids_cell_grad = batch_ids_cell_grad if i == 0 else np.row_stack((ids_cell_grad, batch_ids_cell_grad))            
-                predict_cell_grad = batch_p_cell_grad if i == 0 else np.concatenate((predict_cell_grad, batch_p_cell_grad), axis=0)
-                if "stress" in batch:
-                    batch_t_cell_grad = batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
-                    target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)                          
-                         
+            predict_pos_grad, predict_cell_grad = None, None
+            if out.get("pos_grad") is not None:
+                predict_pos_grad, ids_pos_grad = self.predict_pos_grad(
+                    batch, out, predict_pos_grad, ids_pos_grad, target_pos_grad, i
+                )
+
+            if out.get("cell_grad") is not None:
+                predict_cell_grad, ids_cell_grad = self.predict_cell_grad(
+                    batch, out, predict_cell_grad, ids_cell_grad, target_cell_grad, i
+                )
+
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
             predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
-            if labels == True:
-                target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
-            
-            if labels == True:
-                del loss, batch, out 
-            else:  
-                del batch, out 
-            
-        if write_output == True:
-            if labels == True:
+            if labels:
+                target = (
+                    batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
+                )
+
+            if labels:
+                del loss, batch, out
+            else:
+                del batch, out
+
+        if write_output:
+            if labels:
                 self.save_results(
-                    np.column_stack((ids, target, predict)), results_dir, f"{split}_predictions.csv", node_level
+                    np.column_stack((ids, target, predict)),
+                    results_dir,
+                    f"{split}_predictions.csv",
+                    node_level,
                 )
             else:
                 self.save_results(
-                    np.column_stack((ids, predict)), results_dir, f"{split}_predictions.csv", node_level
+                    np.column_stack((ids, predict)),
+                    results_dir,
+                    f"{split}_predictions.csv",
+                    node_level,
                 )
-                            
-            #if out.get("pos_grad") != None:
+
+            # if out.get("pos_grad") != None:
             if len(ids_pos_grad) > 0:
-                if isinstance(target_pos_grad, np.ndarray):  
+                if isinstance(target_pos_grad, np.ndarray):
                     self.save_results(
-                        np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
+                        np.column_stack(
+                            (ids_pos_grad, target_pos_grad, predict_pos_grad)
+                        ),
+                        results_dir,
+                        f"{split}_predictions_pos_grad.csv",
+                        True,
+                        True,
                     )
-                else: 
+                else:
                     self.save_results(
-                        np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
-                    )                           
-            #if out.get("cell_grad") != None:
+                        np.column_stack((ids_pos_grad, predict_pos_grad)),
+                        results_dir,
+                        f"{split}_predictions_pos_grad.csv",
+                        True,
+                        False,
+                    )
+            # if out.get("cell_grad") != None:
             if len(ids_cell_grad) > 0:
-                if isinstance(target_cell_grad, np.ndarray):  
+                if isinstance(target_cell_grad, np.ndarray):
                     self.save_results(
-                        np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
+                        np.column_stack(
+                            (ids_cell_grad, target_cell_grad, predict_cell_grad)
+                        ),
+                        results_dir,
+                        f"{split}_predictions_cell_grad.csv",
+                        False,
+                        True,
                     )
-                else:            
+                else:
                     self.save_results(
-                        np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
-                    )    
-                            
-        if labels == True:
+                        np.column_stack((ids_cell_grad, predict_cell_grad)),
+                        results_dir,
+                        f"{split}_predictions_cell_grad.csv",
+                        False,
+                        False,
+                    )
+
+        if labels:
             predict_loss = metrics[type(self.loss_fn).__name__]["metric"]
-            logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))        
-            predictions = {"ids":ids, "predict":predict, "target":target}
+            logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))
+            predictions = {"ids": ids, "predict": predict, "target": target}
         else:
-            predictions = {"ids":ids, "predict":predict}
-            
+            predictions = {"ids": ids, "predict": predict}
+
         torch.cuda.empty_cache()
-        
-        return predictions 
+
+        return predictions
+
+    def predict_pos_grad(
+        self, batch, out, predict_pos_grad, ids_pos_grad, target_pos_grad, i
+    ):
+        batch_p_pos_grad = out["pos_grad"].data.cpu().numpy()
+        node_ids_pos_grad = batch.z.cpu().numpy()
+        structure_ids_pos_grad = np.repeat(
+            batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
+        )
+        batch_ids_pos_grad = np.column_stack(
+            (structure_ids_pos_grad, node_ids_pos_grad)
+        )
+        ids_pos_grad = (
+            batch_ids_pos_grad
+            if i == 0
+            else np.row_stack((ids_pos_grad, batch_ids_pos_grad))
+        )
+        predict_pos_grad = (
+            batch_p_pos_grad
+            if i == 0
+            else np.concatenate((predict_pos_grad, batch_p_pos_grad), axis=0)
+        )
+        if "forces" in batch:
+            batch_t_pos_grad = batch["forces"].cpu().numpy()
+            target_pos_grad = (
+                batch_t_pos_grad
+                if i == 0
+                else np.concatenate((target_pos_grad, batch_t_pos_grad), axis=0)
+            )
+        return predict_pos_grad, ids_pos_grad
+
+    def predict_cell_grad(
+        self, batch, out, predict_cell_grad, ids_cell_grad, target_cell_grad, i
+    ):
+        batch_p_cell_grad = (
+            out["cell_grad"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+        )
+        batch_ids_cell_grad = batch.structure_id
+        ids_cell_grad = (
+            batch_ids_cell_grad
+            if i == 0
+            else np.row_stack((ids_cell_grad, batch_ids_cell_grad))
+        )
+        predict_cell_grad = (
+            batch_p_cell_grad
+            if i == 0
+            else np.concatenate((predict_cell_grad, batch_p_cell_grad), axis=0)
+        )
+        if "stress" in batch:
+            batch_t_cell_grad = (
+                batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+            )
+            target_cell_grad = (
+                batch_t_cell_grad
+                if i == 0
+                else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)
+            )
+        return predict_cell_grad, ids_cell_grad
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
@@ -325,15 +406,15 @@ class PropertyTrainer(BaseTrainer):
         return loss
 
     def _backward(self, loss):
-        self.optimizer.zero_grad(set_to_none=True) 
+        self.optimizer.zero_grad(set_to_none=True)
         self.scaler.scale(loss).backward()
         if self.clip_grad_norm:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),
                 max_norm=self.clip_grad_norm,
-            )           
+            )
         self.scaler.step(self.optimizer)
-        self.scaler.update()            
+        self.scaler.update()
         return grad_norm
 
     def _compute_metrics(self, out, batch_data, metrics):
