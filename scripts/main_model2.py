@@ -25,8 +25,8 @@ class Runner2:  # submitit.helpers.Checkpointable):
             self.task = ctx.task
             self.trainer = ctx.trainer
 
-            model_path = "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/Results/best_checkpoint.pt"
-            # model_path = "/global/cfs/projectdirs/m3641/Sarah/results/2023-06-21-19-25-04-CGCNN_MP_DOS_node_level_prediction/checkpoint/best_checkpoint.pt"
+            # model_path = "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/Results/best_checkpoint.pt"
+            model_path = "/global/cfs/projectdirs/m3641/Sarah/results/2023-06-21-19-25-04-CGCNN_MP_DOS_node_level_prediction/checkpoint/best_checkpoint.pt"
             load_model = torch.load(model_path, map_location=self.trainer.device)
             load_state = load_model["state_dict"]
 
