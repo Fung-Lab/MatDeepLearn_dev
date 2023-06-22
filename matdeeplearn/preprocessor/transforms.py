@@ -57,6 +57,31 @@ class GetY(object):
         return data
 
 
+@registry.register_transform("RTTransform")
+class RTTransform(object):
+    def __init__(self, **kwargs: dict) -> None:
+        pass
+
+    def __call__(self, data: Data) -> Data:
+        edge_gen_out = calculate_edges_master(
+            self.kwargs.get("edge_calc_method"),
+            self.kwargs.get("all_neighbors"),
+            data,
+            cutoff,
+            self.kwargs.get("n_neighbors"),
+            self.kwargs.get("num_offsets"),
+            remove_virtual_edges=False,
+            experimental_distance=False,
+            device=self.device,
+        )
+
+        edge_index = edge_gen_out["edge_index"]
+        edge_weight = edge_gen_out["edge_weights"]
+        edge_vec = edge_gen_out["edge_vec"]
+        cell_offsets = edge_gen_out["cell_offsets"]
+        edge_vec = edge_gen_out["edge_vec"]
+
+
 @registry.register_transform("DegreeNodeAttr")
 class DegreeNodeAttr(object):
     """Add degree as node attribute."""
