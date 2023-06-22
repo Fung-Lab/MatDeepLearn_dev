@@ -41,7 +41,7 @@ class GetY(object):
         if self.index != -1:
             data.y = data.y[0][self.index]
 
-        data.y = data.scaled
+        # data.y = data.scaled
         data.x = data.x.float()
         return data
 
