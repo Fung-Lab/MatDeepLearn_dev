@@ -225,8 +225,8 @@ class PropertyTrainer(BaseTrainer):
             batch = next(loader_iter).to(self.rank)
             out = self._forward(batch.to(self.rank))
             batch_p = out["output"].data.cpu().numpy()
-            batch_ids = [s_id[0][0] for s_id in batch.structure_id]
-            # batch_ids = batch.structure_id
+            # batch_ids = [s_id[0][0] for s_id in batch.structure_id]
+            batch_ids = batch.structure_id
 
             if labels:
                 loss = self._compute_loss(out, batch)
