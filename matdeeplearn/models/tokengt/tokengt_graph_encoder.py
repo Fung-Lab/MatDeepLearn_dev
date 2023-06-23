@@ -10,7 +10,6 @@ import torch.nn as nn
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
 
-
 from .layer_drop import LayerDropModuleList
 from .multihead_attention import MultiheadAttention
 from .performer_pytorch import ProjectionUpdater
@@ -211,7 +210,7 @@ class TokenGTGraphEncoder(BaseModel):
 
         # output projection to graph-level prediction
         self.output_dim = output_dim
-        self.graph_output_projection = nn.Linear(
+        self.out_proj = nn.Linear(
             self.embedding_dim,
             self.output_dim,
         )
@@ -360,5 +359,5 @@ class TokenGTGraphEncoder(BaseModel):
         # else:
         #     return inner_states, graph_rep, attn_dict
 
-        out = self.graph_output_projection(graph_rep)
+        out = self.out_proj(graph_rep)
         return out.view(-1, 1, self.output_dim)

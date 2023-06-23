@@ -40,31 +40,48 @@ From PyG:
 class TokenGTGeneration(object):
     def __init__(self, **kwargs: dict) -> None:
         self.max_n = kwargs.get("max_n", 512)
+        self.edge_bin_size = kwargs.get("edge_bin_size", 100)
 
     def __call__(self, data: Data) -> Data:
+        """
+        See
+        https://github.com/jw9730/tokengt/blob/main/large-scale-regression/tokengt/data/wrapper.py
+        for details
+        """
+
         if data.batch:
             raise ValueError("Batching not supported for TokenGTGeneration")
 
-        edge_int_feature, edge_index, node_int_feature = (
+        # dimensions of node and edge features should be same
+        assert (
+            data.x.shape[1] == data.edge_attr.shape[1]
+        ), "node and edge features should have same dimensions"
+
+        edge_feature, edge_index, node_feature = (
             data.edge_attr,
             data.edge_index,
             data.x,
         )
 
-        # node_data = convert_to_single_emb(node_int_feature)
-        node_data = node_int_feature
-        if len(edge_int_feature.size()) == 1:
-            edge_int_feature = edge_int_feature[:, None]
-        # edge_data = convert_to_single_emb(edge_int_feature)
-        edge_data = edge_int_feature
+        # bin the Gaussian basis edge features into discrete indices
+        edge_int_feature = torch.round(edge_feature * self.edge_bin_size).to(
+            node_feature.dtype
+        )
 
-        N = node_int_feature.size(0)
+        node_data = convert_to_single_emb(node_feature)
+        node_data = node_feature
+        if len(edge_feature.size()) == 1:
+            edge_feature = edge_feature[:, None]
+        edge_data = convert_to_single_emb(edge_int_feature)
+
+        N = node_feature.size(0)
         dense_adj = torch.zeros([N, N], dtype=torch.bool)
         dense_adj[edge_index[0, :], edge_index[1, :]] = True
         in_degree = dense_adj.long().sum(dim=1).view(-1)
         lap_eigvec, lap_eigval = lap_eig(dense_adj, N, in_degree)  # [N, N], [N,]
         lap_eigval = lap_eigval[None, :].expand_as(lap_eigvec)
 
+        # these are empirically better than ORFs
         lap_eigvec = F.pad(
             lap_eigvec, (0, self.max_n - lap_eigvec.size(1)), value=float("0")
         )
@@ -80,8 +97,8 @@ class TokenGTGeneration(object):
         data.lap_eigvec = lap_eigvec
         data.lap_eigval = lap_eigval
 
-        data.edge_num = int(edge_data.size(0))
-        data.node_num = int(node_data.size(0))
+        data.edge_num = [int(edge_data.size(0))]
+        data.node_num = [int(node_data.size(0))]
 
         return data
 

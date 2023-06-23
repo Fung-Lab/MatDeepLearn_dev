@@ -36,19 +36,13 @@ class GraphFeatureTokenizer(nn.Module):
         type_id,
         hidden_dim,
         n_layers,
-        scale,
     ):
         super(GraphFeatureTokenizer, self).__init__()
 
         self.encoder_embed_dim = hidden_dim
 
-        # self.atom_encoder = nn.Embedding(num_atoms, hidden_dim, padding_idx=0)
-        # self.edge_encoder = nn.Embedding(num_edges, hidden_dim, padding_idx=0)
-
-        # To sub for nn.Embedding, use no bias
-        self.atom_encoder = nn.LazyLinear(hidden_dim, bias=False)
-        self.edge_encoder = nn.LazyLinear(hidden_dim, bias=False)
-
+        self.atom_encoder = nn.Embedding(num_atoms, hidden_dim, padding_idx=0)
+        self.edge_encoder = nn.Embedding(num_edges, hidden_dim, padding_idx=0)
         self.graph_token = nn.Embedding(1, hidden_dim)
         self.null_token = nn.Embedding(1, hidden_dim)  # this is optional
 
@@ -61,7 +55,6 @@ class GraphFeatureTokenizer(nn.Module):
         self.lap_node_id_sign_flip = lap_node_id_sign_flip
 
         self.type_id = type_id
-        self.scale = scale
 
         if self.rand_node_id:
             self.rand_encoder = nn.Linear(2 * rand_node_id_dim, hidden_dim, bias=False)
@@ -95,6 +88,7 @@ class GraphFeatureTokenizer(nn.Module):
         :param perturb: Tensor([B, max(node_num), D])
         :return: padded_index: LongTensor([B, T, 2]), padded_feature: Tensor([B, T, D]), padding_mask: BoolTensor([B, T])
         """
+
         seq_len = [n + e for n, e in zip(node_num, edge_num)]
         b = len(seq_len)
         d = node_feature.size(-1)
@@ -289,11 +283,8 @@ class GraphFeatureTokenizer(nn.Module):
             batched_data["edge_num"],
         )
 
-        # [sum(n_edge), Dn] -> [sum(n_edge), D]
-        node_feature = self.atom_encoder(node_data)  # [sum(n_node), D]
-        # [sum(n_edge), De] -> [sum(n_edge), D]
-        edge_feature = self.edge_encoder(edge_data)  # [sum(n_edge), D]
-
+        node_feature = self.atom_encoder(node_data).sum(-2)  # [sum(n_node), D]
+        edge_feature = self.edge_encoder(edge_data).sum(-2)  # [sum(n_edge), D]
         device = node_feature.device
         dtype = node_feature.dtype
 
