@@ -56,17 +56,17 @@ model:
   model_path: "tokengt.pth"
   # model hyperparams
   hyperparams:
-    num_atoms: 512
-    num_edges: 1024
+    num_atoms: 51200
+    num_edges: 51200
     rand_node_id: False
     rand_node_id_dim: 64
     orf_node_id: False
     orf_node_id_dim: 64
-    lap_node_id: False
+    lap_node_id: True
     lap_node_id_k: 8
     lap_node_id_sign_flip: False
     lap_node_id_eig_dropout: 0.0
-    type_id: False
+    type_id: True
     stochastic_depth: False
     performer: False
     performer_finetune: False
@@ -164,12 +164,11 @@ dataset:
     process_batch_size : 100
     edge_calc_method: "ocp"
     num_offsets: 1
-    edge_steps : 25
+    edge_steps : 100
     all_neighbors: True
     use_degree: False
     max_node: 512
     max_edge: 2048
-    rescale: 1000
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05

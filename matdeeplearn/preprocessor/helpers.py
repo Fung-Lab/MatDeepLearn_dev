@@ -289,7 +289,6 @@ class GaussianSmearing(torch.nn.Module):
         stop=5.0,
         resolution=50,
         width=0.05,
-        rescale=1,
         device="cpu",
         **kwargs,
     ):
@@ -297,15 +296,11 @@ class GaussianSmearing(torch.nn.Module):
         offset = torch.linspace(start, stop, resolution, device=device)
         # self.coeff = -0.5 / (offset[1] - offset[0]).item() ** 2
         self.coeff = -0.5 / ((stop - start) * width) ** 2
-        self.rescale_precision = rescale
         self.register_buffer("offset", offset)
 
     def forward(self, dist):
         dist = dist.unsqueeze(-1) - self.offset.view(1, -1)
         out = torch.exp(self.coeff * torch.pow(dist, 2))
-        out = self.rescale_precision * out
-        if self.rescale_precision > 1:
-            out = out.to(torch.int)
         return out
 
 
