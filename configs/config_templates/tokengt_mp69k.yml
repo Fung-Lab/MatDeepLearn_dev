@@ -15,7 +15,7 @@ task:
   wandb:
     use_wandb: True
     wandb_entity: "fung-lab"
-    wandb_project: "cgcnn_vn_new"
+    wandb_project: "tokengt"
     notes: "try MP dataset"
     tags: ["test"]
     track_params:
@@ -121,7 +121,7 @@ dataset:
   # target_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/targets.csv"
   # target_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/targets.csv"
   # target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/targets.csv"
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/MP_data_69K/raw/processed/ocp"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/MP_data_69K/processed/ocp"
   # pt_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw/processed/ocp"
   # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw/processed/ocp"
   # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69k/raw/processed/ocp"
