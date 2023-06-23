@@ -97,8 +97,8 @@ class TokenGTGeneration(object):
         data.lap_eigvec = lap_eigvec
         data.lap_eigval = lap_eigval
 
-        data.edge_num = [int(edge_data.size(0))]
-        data.node_num = [int(node_data.size(0))]
+        data.edge_num = int(edge_data.size(0))
+        data.node_num = int(node_data.size(0))
 
         return data
 

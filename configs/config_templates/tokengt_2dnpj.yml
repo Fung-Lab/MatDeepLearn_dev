@@ -6,7 +6,7 @@ task:
   reprocess: False
   run_id: ""
   parallel: False
-  device: "cuda:1"
+  device: "cuda:0"
   seed: 0
   # seed=0 means random initalization
   write_output: True

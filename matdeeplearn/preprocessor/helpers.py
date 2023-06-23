@@ -665,7 +665,7 @@ def generate_node_features(input_data, n_neighbors, use_degree, device):
 
 
 def generate_edge_features(input_data, edge_steps, r, rescale, device):
-    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, rescale, device=device)
+    distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
 
     if isinstance(input_data, Data):
         input_data = [input_data]
