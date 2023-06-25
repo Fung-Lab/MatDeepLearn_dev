@@ -1,11 +1,21 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor
 
 from matdeeplearn.common.registry import registry
+
+
+@registry.register_data_type("tokengt_data")
+class TokenGTData(Data):
+    """Modifies TokenGT data to remove increment for edge_index.
+    We batch edge indices as [sum(n_edges), 2],
+    but need to reset the index each time a new graph is added."""
+
+    def __inc__(self, key: str, value: Any, *args, **kwargs) -> Any:
+        return 0
 
 
 @registry.register_data_type("custom_batching")

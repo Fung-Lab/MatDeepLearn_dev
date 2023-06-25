@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from matdeeplearn.common.graph_data import (
     CustomBatchingData,
     VirtualNodeData,
+    TokenGTData,
 )
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
@@ -100,7 +101,7 @@ class TokenGTGeneration(object):
         data.edge_num = int(edge_data.size(0))
         data.node_num = int(node_data.size(0))
 
-        return data
+        return TokenGTData.from_dict(data.to_dict())
 
 
 @registry.register_transform("GetY")

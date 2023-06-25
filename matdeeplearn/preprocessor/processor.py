@@ -622,11 +622,10 @@ class DataProcessor:
             if self.use_wandb:
                 wandb.log({"transforms_times": perf_timer.elapsed})
 
-        # convert to custom data object
-        for i, data in enumerate(data_list):
-            data_list[i] = CustomBatchingData.from_dict(data.to_dict())
-
         if len(transforms_list_batched) > 0:
+            # convert to custom data object
+            for i, data in enumerate(data_list):
+                data_list[i] = CustomBatchingData.from_dict(data.to_dict())
             # perform batch transforms
             logging.info(
                 f"Applying batch transforms with batch size {self.batch_size}..."

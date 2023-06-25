@@ -131,16 +131,10 @@ class GraphFeatureTokenizer(nn.Module):
             torch.less(token_pos, node_num + edge_num),
         )
 
-        print(padded_edge_mask.sum(), edge_index.shape)
-
         padded_index = torch.zeros(
             b, max_len, 2, device=device, dtype=torch.long
         )  # [B, T, 2]
-        
-        print(padded_index[padded_node_mask, :].shape)
-        print(padded_index[padded_edge_mask, :])
 
-        # FIXME the issue is likely originating here
         padded_index[padded_node_mask, :] = node_index.t()
         padded_index[padded_edge_mask, :] = edge_index.t()
 
@@ -229,14 +223,9 @@ class GraphFeatureTokenizer(nn.Module):
 
         padded_node_id[node_mask] = node_id
 
-        # FIXME to avoid issue, max_n should be max_len or
         # adjust padded_index to reflect correct index range
         padded_node_id = padded_node_id[:, :, None, :].expand(b, max_n, 2, d)
         padded_index = padded_index[..., None].expand(b, max_len, 2, d)
-
-        # print("padded_node_id", padded_node_id.shape)
-        # print("padded_index", padded_index.max(dim=-1).values[1], padded_index.shape)
-        exit(0)
 
         index_embed = padded_node_id.gather(1, padded_index)  # [B, T, 2, D]
 
@@ -303,9 +292,6 @@ class GraphFeatureTokenizer(nn.Module):
             batched_data["edge_data"],
             batched_data["edge_num"],
         )
-
-        print("node num", node_num)
-        print("edge num", edge_num)
 
         node_feature = self.atom_encoder(node_data).sum(-2)  # [sum(n_node), D]
         edge_feature = self.edge_encoder(edge_data).sum(-2)  # [sum(n_edge), D]
