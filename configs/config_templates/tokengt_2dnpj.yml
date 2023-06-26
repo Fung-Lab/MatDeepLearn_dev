@@ -35,8 +35,8 @@ task:
     log_artifacts:
       # - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py.py"
       # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
+      - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
+      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
     metadata:
       architecture: "TokenGT"
       cluster: "local"
@@ -73,10 +73,10 @@ model:
     performer_feature_redraw_interval: 1000
     performer_generalized_attention: False
     performer_auto_check_redraw: True
-    num_encoder_layers: 12
-    embedding_dim: 768
-    ffn_embedding_dim: 768
-    num_attention_heads: 32
+    num_encoder_layers: 8
+    embedding_dim: 256
+    ffn_embedding_dim: 512
+    num_attention_heads: 8
     dropout: 0.1
     attention_dropout: 0.1
     activation_dropout: 0.1
@@ -113,18 +113,18 @@ dataset:
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
-  src: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/raw"
+  # src: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/raw"
   # src: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw"
   # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw"
-  # src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/raw"
-  target_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/targets.csv"
+  src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/raw"
+  # target_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/targets.csv"
   # target_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/targets.csv"
   # target_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/targets.csv"
-  # target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/targets.csv"
-  pt_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/processed/ocp"
+  target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/targets.csv"
+  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/processed/ocp"
   # pt_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw/processed/ocp"
   # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw/processed/ocp"
-  # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69k/raw/processed/ocp"
+  pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/processed/ocp"
   # transforms
   transforms:
     - name: GetY
@@ -144,7 +144,7 @@ dataset:
     #   batch: True
     - name: TokenGTGeneration
       args:
-        placeholder: "test"
+        edge_bin_size: 10
       otf: False
       batch: False
   # use for passing into global config

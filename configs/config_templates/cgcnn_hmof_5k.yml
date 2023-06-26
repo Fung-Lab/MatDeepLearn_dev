@@ -38,9 +38,9 @@ task:
             - 'dataset.preprocess_params.use_degree'
         log_artifacts:
             # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-            # - '/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py'
+            - '/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py'
             # - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-            - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+            # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
         metadata:
             architecture: 'CGCNN_VN'
             cluster: 'fung-cluster'
@@ -111,14 +111,14 @@ dataset:
     num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
     # Path to data files
     # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/data.json"
-    # src: '/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json'
+    src: '/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/data.json'
     # src: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/data.json"
-    src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
+    # src: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/data.json"
     target_path: ''
     # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/hMOF/raw_5k/ocp"
-    # pt_path: '/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp'
+    pt_path: '/global/cfs/projectdirs/m3641/Shared/Materials_datasets/hMOF/raw_5k/ocp'
     # pt_path: "/Users/sidbaskaran/Desktop/research/hMOF/raw_5k/ocp"
-    pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp_2"
+    # pt_path: "/nethome/sbaskaran31/projects/Sidharth/hMOF/raw_5k/ocp_2"
     # transforms
     transforms:
         - name: GetY
