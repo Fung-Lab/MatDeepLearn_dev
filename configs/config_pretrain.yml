@@ -107,7 +107,7 @@ dataset:
     n_neighbors: 250
     num_offsets: 2
     edge_steps: 50
-    self_loop: True
+    self_loop: False
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: "onehot"
     all_neighbors: True
