@@ -881,20 +881,16 @@ class LargeCTPretrainDataset(InMemoryDataset):
         return [self.processed_file_name]
 
     def __getitem__(self, idx):
-        if random.random() < 0.5:
-            self.augmentation_list = ["perturbing"]
-        else:
-            self.augmentation_list = ["node_masking", "edge_masking"]
-
+        subdata1, subdata2 = None, None
         if "perturbing" in self.augmentation_list:
             subdata1 = self.processer.process([self.dict_structures[idx]], perturb=True)
             subdata2 = self.processer.process([self.dict_structures[idx]], perturb=True)
-            return subdata1, subdata2
+            # return subdata1, subdata2
 
         subdata = self.processer.process([self.dict_structures[idx]])
 
-        subdata1 = copy.deepcopy(subdata)
-        subdata2 = copy.deepcopy(subdata)
+        # subdata1 = copy.deepcopy(subdata)
+        # subdata2 = copy.deepcopy(subdata)
 
         def mask_node(mask_node_ratio1, mask_node_ratio2):
             x = subdata.x
