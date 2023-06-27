@@ -41,7 +41,8 @@ class GetY(object):
                 data.y = data.y.unsqueeze(0)
             # print("2", data.y.shape)
             # data.y = data.y[0][self.index]
-        data.y = data.scaled
+        data.y = data.scaled.reshape(data.scaled.shape[0], 1200)
+
         data.x = data.x.float()
         return data
 

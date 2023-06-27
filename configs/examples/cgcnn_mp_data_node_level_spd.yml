@@ -32,12 +32,12 @@ model:
 optim:
   max_epochs: 600
   max_checkpoint_epochs: 0
-  lr: 0.001246899
+  lr: 0.002
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: { "loss_fn": "l1_loss" }
   clip_grad_norm: 10
-  batch_size: 170
+  batch_size: 100
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
