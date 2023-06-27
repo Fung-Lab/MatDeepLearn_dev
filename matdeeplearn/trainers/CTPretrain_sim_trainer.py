@@ -583,8 +583,11 @@ class CTPretrainer(BaseTrainer):
         return p.detach(), z
 
     def _compute_loss(self, p1, z1, p2, z2):
-        loss = -(self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
-        return loss
+        CosineSimilarity_loss = 1 - (self.criterion(p1, z2).mean() + self.criterion(p2, z1).mean()) * 0.5
+        out1 = torch.nn.functional.normalize(z1, dim=1)
+        out2 = torch.nn.functional.normalize(z2, dim=1)
+        Barlow_loss = self.loss_fn(out1, out2)
+        return CosineSimilarity_loss * 10 + Barlow_loss
 
     def _backward(self, loss):
         self.optimizer.zero_grad()
