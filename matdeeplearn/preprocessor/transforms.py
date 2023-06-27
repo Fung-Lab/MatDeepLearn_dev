@@ -4,6 +4,7 @@ import numbers
 import torch_geometric
 import random
 from ase import Atoms
+from torch.nn import functional as F
 from torch_geometric.data import Data
 from torch_sparse import coalesce
 
@@ -60,26 +61,43 @@ class GetY(object):
 @registry.register_transform("RTTransform")
 class RTTransform(object):
     def __init__(self, **kwargs: dict) -> None:
-        pass
+        self.max_nodes = kwargs.get("max_nodes", 256)
 
     def __call__(self, data: Data) -> Data:
-        edge_gen_out = calculate_edges_master(
-            self.kwargs.get("edge_calc_method"),
-            self.kwargs.get("all_neighbors"),
-            data,
-            cutoff,
-            self.kwargs.get("n_neighbors"),
-            self.kwargs.get("num_offsets"),
-            remove_virtual_edges=False,
-            experimental_distance=False,
-            device=self.device,
+        if data.batch:
+            raise NotImplementedError("Batching not supported yet for RTTransform")
+
+        # pad node features
+        padded_x = torch.zeros((self.max_nodes, data.x.size(1)))
+        padded_x[: data.x.size(0), :] = data.x
+
+        # pad edge features, [2, E + N]
+        src = torch.arange(data.x.size(0), self.max_nodes).repeat_interleave(
+            self.max_nodes - data.x.size(0)
+        )
+        dest = torch.flatten(
+            torch.arange(data.x.size(0), self.max_nodes)
+            .unsqueeze(0)
+            .repeat(self.max_nodes - data.x.size(0), 1)
         )
 
-        edge_index = edge_gen_out["edge_index"]
-        edge_weight = edge_gen_out["edge_weights"]
-        edge_vec = edge_gen_out["edge_vec"]
-        cell_offsets = edge_gen_out["cell_offsets"]
-        edge_vec = edge_gen_out["edge_vec"]
+        new_edges = torch.stack([src, dest], dim=0)
+        new_edge_index = torch.cat([data.edge_index, new_edges], dim=1)
+
+        new_edge_attr = torch.zeros((new_edge_index.size(1), data.edge_attr.size(1)))
+        new_edge_attr[: data.edge_attr.size(0), :] = data.edge_attr
+
+        src_key_padding_mask = torch.full(
+            (self.max_nodes, self.max_nodes), float("-inf")
+        )
+        src_key_padding_mask[: data.x.size(0), : data.x.size(0)] = 0
+
+        data.edge_index = new_edge_index
+        data.src_key_padding_mask = src_key_padding_mask
+        data.x = padded_x
+        data.edge_attr = new_edge_attr
+
+        return data
 
 
 @registry.register_transform("DegreeNodeAttr")

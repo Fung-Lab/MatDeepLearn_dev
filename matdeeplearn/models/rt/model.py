@@ -121,7 +121,7 @@ class RTModel(BaseModel):
         x = torch.stack(unbatch(data.x, data.batch), dim=0)
 
         for i in range(self.layers):
-            x, dense_adj = self.rt_blocks[i](x, dense_adj)
+            x, dense_adj = self.rt_blocks[i](x, dense_adj, data.src_key_padding_mask)
 
         # global readout from graph token
         out_graph = x[:, 0, :]

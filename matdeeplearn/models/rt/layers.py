@@ -64,9 +64,16 @@ class RTLayer(nn.Module):
         self.edge_drop_2 = nn.Dropout(self.dropout)
         self.edge_ln_2 = nn.LayerNorm(self.edge_dim)
 
-    def forward(self, x: torch.Tensor, dense_adj: torch.Tensor) -> None:
+    def forward(
+        self,
+        x: torch.Tensor,
+        dense_adj: torch.Tensor,
+        src_key_padding_mask: torch.Tensor = None,
+    ) -> None:
         # node updates
-        attn_node_outs = self.attn_layer(x, dense_adj)
+        attn_node_outs = self.attn_layer(
+            x, dense_adj, src_key_padding_mask=src_key_padding_mask
+        )
         residuals = self.node_fc_1(attn_node_outs)
         residuals = self.node_drop_1(residuals)
         x = self.node_ln_1(x + residuals)
@@ -143,7 +150,7 @@ class RTAttention(nn.Module):
         assert (
             embed_dim % self.heads == 0
         ), "Embedding dimension must be divisible by number of heads"
-        sub_dim = embed_dim // self.heads
+        sub_dim = max(1, embed_dim // self.heads)
         if query:
             return (
                 x.reshape(batch_size, seq_len, self.heads, sub_dim)
@@ -162,7 +169,7 @@ class RTAttention(nn.Module):
         Adapted from https://github.com/CyberZHG/torch-multi-head-attention
         """
         batch_size, seq_len, seq_len, embed_dim = x.size()
-        sub_dim = embed_dim // self.heads
+        sub_dim = max(1, embed_dim // self.heads)
         return (
             x.reshape(batch_size, seq_len, seq_len, self.heads, sub_dim)
             .permute(0, 3, 1, 2, 4)
@@ -182,6 +189,7 @@ class RTAttention(nn.Module):
         self,
         x: torch.Tensor,
         dense_adj: torch.Tensor,
+        src_key_padding_mask: torch.Tensor = None,
     ) -> torch.Tensor:
         # compute (B * H, N, 1, Nd / H) + (B * H, N, N, Nd / H) via broadcasting
         query = self.reshape_nodes_to_batches(
@@ -196,7 +204,13 @@ class RTAttention(nn.Module):
 
         # attention score computation, (B * H, N, N, 1, Nd / H) * (B * H, N, N, Nd / H, 1)
         scores = torch.matmul(query.unsqueeze(-2), key.unsqueeze(-1)) * self.scale
-        attn = F.softmax(scores.squeeze(-2), dim=-2)
+
+        if src_key_padding_mask:
+            # (B, N, N) -> (B * H, N, N, 1)
+            mask = self.reshape_edges_to_batches(src_key_padding_mask.unsqueeze(-1))
+            scores = scores.squeeze(-2) + mask
+
+        attn = F.softmax(scores, dim=-2)
 
         # (B * H, N, 1, N, 1) * (B * H, N, N, 1, Nd / H)
         attn = attn.unsqueeze(-3).permute(0, 1, 4, 2, 3)

@@ -64,6 +64,8 @@ def from_config(dataset_config, wandb_config):
     batch_process = dataset_config.get("batch_process", False)
     device: str = dataset_config.get("device", "cpu")
 
+    trim_config = dataset_config.get("trim_config", [])
+
     processor = DataProcessor(
         root_path_dict=root_path_dict,
         target_file_path_dict=target_file_path_dict,
@@ -88,6 +90,7 @@ def from_config(dataset_config, wandb_config):
         batch_size=preprocess_kwargs.get("process_batch_size", 1),
         use_wandb=use_wandb,
         preprocess_kwargs=preprocess_kwargs,
+        trim_config=trim_config,
         force_preprocess=dataset_config.get("force_preprocess", False),
         num_examples=dataset_config.get("num_examples", 0),
         device=device,
@@ -129,6 +132,7 @@ class DataProcessor:
         batch_process: bool = False,
         use_wandb: bool = False,
         preprocess_kwargs: dict = {},
+        trim_config: list[dict] = None,
         force_preprocess: bool = False,
         num_examples: int = None,
         device: str = "cpu",
@@ -210,6 +214,7 @@ class DataProcessor:
         self.batch_size = batch_size
         self.use_wandb = use_wandb
         self.preprocess_kwargs = preprocess_kwargs
+        self.trim_config = trim_config
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
@@ -491,6 +496,25 @@ class DataProcessor:
                 data.pos = pos
                 data.cell = cell
                 data.cell2 = cell2
+
+                # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
+                data.y = torch.Tensor(np.array(target_val))
+                if self.prediction_level == "graph":
+                    if data.y.dim() > 1 and data.y.shape[0] != 0:
+                        raise ValueError(
+                            "Target labels do not have the correct dimensions for graph-level prediction."
+                        )
+                    elif data.y.dim() == 1:
+                        data.y = data.y.unsqueeze(0)
+                elif self.prediction_level == "node":
+                    if data.y.shape[0] != data.n_atoms:
+                        raise ValueError(
+                            "Target labels do not have the correct dimensions for node-level prediction."
+                        )
+                    elif data.y.dim() == 1:
+                        data.y = data.y.unsqueeze(1)
+                # print(data.y.shape)
+
                 data.z = atomic_numbers
                 data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
                 # data.structure_id = [[structure_id] * len(data.y)]
@@ -504,7 +528,12 @@ class DataProcessor:
                         self.r,
                         self.n_neighbors,
                         self.num_offsets,
+                        remove_virtual_edges=False,
+                        experimental_distance=False,
+                        batching=False,
+                        device=self.device,
                     )
+
                     edge_indices = edge_gen_out["edge_index"]
                     edge_weights = edge_gen_out["edge_weights"]
                     cell_offsets = edge_gen_out["cell_offsets"]
@@ -524,33 +553,18 @@ class DataProcessor:
                     data.edge_descriptor["distance"] = edge_weights
                     data.distances = edge_weights
 
-                    generate_node_features(
+                    data = generate_node_features(
                         data,
                         self.n_neighbors,
                         device=self.device,
                         use_degree=self.use_degree,
                     )
                     generate_edge_features(
-                        data, self.edge_steps, self.r, device=self.device
+                        data,
+                        self.edge_steps,
+                        self.r,
+                        device=self.device,
                     )
-
-                # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
-                data.y = torch.Tensor(np.array(target_val))
-                if self.prediction_level == "graph":
-                    if data.y.dim() > 1 and data.y.shape[0] != 0:
-                        raise ValueError(
-                            "Target labels do not have the correct dimensions for graph-level prediction."
-                        )
-                    elif data.y.dim() == 1:
-                        data.y = data.y.unsqueeze(0)
-                elif self.prediction_level == "node":
-                    if data.y.shape[0] != data.n_atoms:
-                        raise ValueError(
-                            "Target labels do not have the correct dimensions for node-level prediction."
-                        )
-                    elif data.y.dim() == 1:
-                        data.y = data.y.unsqueeze(1)
-                # print(data.y.shape)
 
                 # add additional attributes
                 if self.additional_attributes:
@@ -578,13 +592,26 @@ class DataProcessor:
                 # merge config parameters with global processing parameters
                 **{**transform.get("args", {}), **self.preprocess_kwargs},
             )
-            if not transform["otf"] and not transform.get("batch", False):
+            if not transform.get("otf", False) and not transform.get("batch", False):
                 transforms_list_unbatched.append(entry)
             elif transform.get("batch", False):
                 transforms_list_batched.append(entry)
 
         composition_unbatched = Compose(transforms_list_unbatched)
         composition_batched = Compose(transforms_list_batched)
+
+        # for TokenGT or fixed-input models, we may need to reject items that are too large
+        before = len(data_list)
+        data_list = [
+            item
+            for item in data_list
+            if item is not None
+            and item.x.size(0) <= self.preprocess_kwargs.get("max_node", float("inf"))
+            and item.edge_attr.size(0)
+            <= self.preprocess_kwargs.get("max_edge", float("inf"))
+        ]
+        if len(data_list) != before:
+            logging.info("Removed items that were incompatible with model.")
 
         # perform unbatched transforms
         logging.info("Applying non-batch transforms...")
@@ -594,11 +621,10 @@ class DataProcessor:
             if self.use_wandb:
                 wandb.log({"transforms_times": perf_timer.elapsed})
 
-        # convert to custom data object
-        for i, data in enumerate(data_list):
-            data_list[i] = CustomBatchingData.from_dict(data.to_dict())
-
         if len(transforms_list_batched) > 0:
+            # convert to custom data object
+            for i, data in enumerate(data_list):
+                data_list[i] = CustomBatchingData.from_dict(data.to_dict())
             # perform batch transforms
             logging.info(
                 f"Applying batch transforms with batch size {self.batch_size}..."

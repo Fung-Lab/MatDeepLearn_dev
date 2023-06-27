@@ -28,8 +28,8 @@ task:
       - "dataset.preprocess_params.edge_steps"
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
-      - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/rt/model.py"
-      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/rt/model.py"
+      - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/rt/model.py"
     metadata:
       architecture: "RTModel"
       cluster: "fung-cluster"
@@ -83,18 +83,24 @@ dataset:
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
-  src: "/Users/sidbaskaran/Desktop/research/2D_data_npj/raw"
+  # src: "/Users/sidbaskaran/Desktop/research/2D_data_npj/raw"
   # src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/raw"
-  target_path: "/Users/sidbaskaran/Desktop/research/2D_data_npj/targets.csv"
+  src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/raw"
+  # target_path: "/Users/sidbaskaran/Desktop/research/2D_data_npj/targets.csv"
   # target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/targets.csv"
-  pt_path: "/Users/sidbaskaran/Desktop/research/2D_data_npj/processed/ocp"
+  target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/targets.csv"
+  # pt_path: "/Users/sidbaskaran/Desktop/research/2D_data_npj/processed/ocp"
   # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69k/raw/processed/ocp"
+  pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/processed/ocp"
   # transforms
   transforms:
     - name: GetY
       args:
         index: 0
       otf: False
+    - name: RTTransform
+      args:
+        max_nodes: 12
   # use for passing into global config
   # one of MDL, ASE, OCP
   use_sweep_params: False
