@@ -34,9 +34,9 @@ task:
       - "dataset.preprocess_params.use_degree"
     log_artifacts:
       # - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py.py"
-      - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
+      # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
       # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
-      # - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
+      - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
     metadata:
       architecture: "TokenGT"
       cluster: "local"
@@ -103,27 +103,29 @@ optim:
   batch_size: 2
   optimizer:
     optimizer_type: "AdamW"
-    optimizer_args: {"lr": 0, "betas": (0.9, 0.98), "eps": 1e-9}
+    optimizer_args: 
+      betas: [0.9, 0.98]
+      eps: 0.000000001
   scheduler:
-    scheduler_type: "ReduceLROnPlateau"
-    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+    scheduler_type: "LambdaLR"
+    scheduler_args: {"batch_size": 2, "warmup_steps": 4000, "epochs": 250}
 
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
   force_preprocess: False
   num_examples: 0 # set to 0 when using full dataset, else will take the first "num_examples" examples
   # Path to data files
-  # src: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/raw"
+  src: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/raw"
   # src: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw"
-  src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/2D_data_npj/raw"
+  # src: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/2D_data_npj/raw"
   # src: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/raw"
-  # target_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/targets.csv"
+  target_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/targets.csv"
   # target_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/targets.csv"
-  target_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/2D_data_npj/targets.csv"
+  # target_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/2D_data_npj/targets.csv"
   # target_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/targets.csv"
-  # pt_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/processed/ocp"
+  pt_path: "/nethome/sbaskaran31/projects/Sidharth/2D_data_npj/processed/ocp"
   # pt_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw/processed/ocp"
-  pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/2D_data_npj/raw/processed/ocp"
+  # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/2D_data_npj/raw/processed/ocp"
   # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/2D_data_npj/processed/ocp"
   # transforms
   transforms:

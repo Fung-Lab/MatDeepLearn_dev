@@ -10,7 +10,7 @@ class LRScheduler:
         self.optimizer = optimizer
         self.scheduler_type = scheduler_type
 
-        if self.scheduler_type == "LRLambda":
+        if self.scheduler_type == "LambdaLR":
             self.scheduler = get_linear_schedule_with_warmup(
                 optimizer,
                 model_parameters["warmup_steps"],
@@ -28,16 +28,6 @@ class LRScheduler:
         scheduler_type = optim_config["scheduler_type"]
         scheduler_args = optim_config["scheduler_args"]
         return cls(optimizer, scheduler_type, **scheduler_args)
-
-    def warmup(current_step: int):
-        if current_step < args.warmup_steps:  # current_step / warmup_steps * base_lr
-            return float(current_step / args.warmup_steps)
-        else:  # (num_training_steps - current_step) / (num_training_steps - warmup_steps) * base_lr
-            return max(
-                0.0,
-                float(args.training_steps - current_step)
-                / float(max(1, args.training_steps - args.warmup_steps)),
-            )
 
     def step(self, metrics=None, epoch=None):
         if self.scheduler_type == "Null":
