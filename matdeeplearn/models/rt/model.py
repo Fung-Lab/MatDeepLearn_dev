@@ -33,6 +33,24 @@ class RTModel(BaseModel):
         edge_level_output: bool = False,
         **kwargs,
     ) -> None:
+        """Relational Transformer model,
+        as described in https://openreview.net/pdf?id=cFuMmbWiN6 (ICLR 2023).
+        Implementation ported from original Jax and Haiku-based code from authors.
+
+        Args:
+            node_dim (int): node feature dimension
+            edge_dim (int): edge feature dimension
+            output_dim (int): the output dimension for readout
+            node_hidden (int, optional): node hidden dim. Defaults to None.
+            edge_hidden_1 (int, optional): first edge hidden dim. Defaults to None.
+            edge_hidden_2 (int, optional): second edge hidden dim. Defaults to None.
+            heads (int, optional):  number of attention heads per attention layer. Defaults to 1.
+            layers (int, optional): number of attention blocks to stack. Defaults to 1.
+            dropout (float, optional): dropout probability. Defaults to None.
+            disable_edge_updates (bool, optional): whether or not to update edge features in addition to nodes. Defaults to False.
+            node_level_output (bool, optional): whether or not to perform readout with node as a head. Defaults to False.
+            edge_level_output (bool, optional): whether or not to perform reaodut with node as a head. Defaults to False.
+        """
         super(RTModel, self).__init__(edge_dim)
         del kwargs
         self.node_dim = node_dim
@@ -66,6 +84,10 @@ class RTModel(BaseModel):
         )
 
         self.out_proj = nn.Linear(node_dim, output_dim)
+
+    @property
+    def target_attr(self):
+        return "y"
 
     @staticmethod
     def unbatch_edge_attr(

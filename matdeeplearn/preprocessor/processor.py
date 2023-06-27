@@ -487,29 +487,23 @@ class DataProcessor:
                 structure_id = sdict["structure_id"]
                 target_val = sdict["y"]
 
-                if self.apply_pre_transform_processing:
-                    logging.info("Generating node features...")
-                    generate_node_features(
-                        data_list,
-                        self.n_neighbors,
-                        device=self.device,
-                        use_degree=self.use_degree,
-                    )
-                    logging.info("Generating edge features...")
-                    generate_edge_features(
-                        data_list, self.edge_steps, self.r, device=self.device
-                    )
+                data.n_atoms = len(atomic_numbers)
+                data.pos = pos
+                data.cell = cell
+                data.cell2 = cell2
+                data.z = atomic_numbers
+                data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+                # data.structure_id = [[structure_id] * len(data.y)]
+                data.structure_id = [structure_id]
 
+                if self.apply_pre_transform_processing:
                     edge_gen_out = calculate_edges_master(
                         self.edge_calc_method,
                         self.all_neighbors,
+                        data,
                         self.r,
                         self.n_neighbors,
                         self.num_offsets,
-                        structure_id,
-                        cell,
-                        pos,
-                        atomic_numbers,
                     )
                     edge_indices = edge_gen_out["edge_index"]
                     edge_weights = edge_gen_out["edge_weights"]
@@ -530,10 +524,15 @@ class DataProcessor:
                     data.edge_descriptor["distance"] = edge_weights
                     data.distances = edge_weights
 
-                data.n_atoms = len(atomic_numbers)
-                data.pos = pos
-                data.cell = cell
-                data.cell2 = cell2
+                    generate_node_features(
+                        data,
+                        self.n_neighbors,
+                        device=self.device,
+                        use_degree=self.use_degree,
+                    )
+                    generate_edge_features(
+                        data, self.edge_steps, self.r, device=self.device
+                    )
 
                 # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
                 data.y = torch.Tensor(np.array(target_val))
@@ -552,11 +551,6 @@ class DataProcessor:
                     elif data.y.dim() == 1:
                         data.y = data.y.unsqueeze(1)
                 # print(data.y.shape)
-
-                data.z = atomic_numbers
-                data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-                # data.structure_id = [[structure_id] * len(data.y)]
-                data.structure_id = [structure_id]
 
                 # add additional attributes
                 if self.additional_attributes:

@@ -17,6 +17,18 @@ class RTLayer(nn.Module):
         dropout: float = None,
         disable_edge_updates: bool = False,
     ) -> None:
+        """Relational transformer attention layer
+
+        Args:
+            node_dim (int, optional): node feature dimension. Defaults to None.
+            node_hidden (int, optional): hidden dimension for node features. Defaults to None.
+            edge_dim (int, optional): edge feature dimension. Defaults to None.
+            edge_hidden_1 (int, optional): first edge hidden dim. Defaults to None.
+            edge_hidden_2 (int, optional): second edge hidden dim. Defaults to None.
+            heads (int, optional): number of attention heads for MHA. Defaults to None.
+            dropout (float, optional): dropout probability. Defaults to None.
+            disable_edge_updates (bool, optional): whether or not to update edge features (node features always updated). Defaults to False.
+        """
         super().__init__()
         self.node_dim = node_dim
         self.node_hidden = node_hidden
@@ -100,6 +112,14 @@ class RTLayer(nn.Module):
 
 class RTAttention(nn.Module):
     def __init__(self, node_dim, heads, hidden_dim, edge_dim) -> None:
+        """RT attention module
+
+        Args:
+            node_dim (int): node hidden dimension
+            heads (int): number of attention heads
+            hidden_dim (int): hidden dim to use in FFN
+            edge_dim (int): edge feature dimension
+        """
         super().__init__()
         self.heads = heads
         self.hidden_dim = hidden_dim

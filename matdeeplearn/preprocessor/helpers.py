@@ -120,9 +120,12 @@ def calculate_edges_master(
         # OCP requires a different format for the cell
         cell = cell.view(-1, 3, 3)
 
+        if not batching:
+            n_atoms = torch.tensor([data.n_atoms])
+
         # Calculate neighbors to allow compatibility with models like GemNet_OC
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            r, n_neighbors, pos, cell, data.n_atoms, use_thresh=True
+            r, n_neighbors, pos, cell, n_atoms, use_thresh=True
         )
 
         ocp_out = get_pbc_distances(
