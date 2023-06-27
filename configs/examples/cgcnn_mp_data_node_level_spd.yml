@@ -51,11 +51,15 @@ optim:
 dataset:
   name: "mp_data_spd"
   processed: True
+#  src: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw/"
+#  target_path: ""
+#  pt_path: "/Users/seisenach3/Documents/Georgia\ Tech/Fung\ Lab/MatDeepLearn/data/dos_data/processed/spd/"
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_DOS_data/raw_spd/data.json"
 #  src: "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_data/MP_DOS_data/raw"
   target_path: ""
   pt_path: "/global/cfs/projectdirs/m3641/Sarah/datasets/processed/MP_DOS_data/spd/"
 #  pt_path: "/Users/seisenach3/Documents/Georgia Tech/Fung Lab/MatDeepLearn/data/dos_data/processed/MP_DOS_data/"
+
 
   transforms:
     - name: GetY
