@@ -627,7 +627,7 @@ class FinetuneTrainer(PropertyTrainer):
             logging.info("Test loss: " + str(test_loss))
 
         best_log_dir_name = os.path.join(self.save_dir, self.fine_tune_from, self.identifier) \
-            if self.identifier[-2:] == "ft" else os.path.join(self.save_dir, "results/scratch/", self.identifier)
+            if self.fine_tune_from else os.path.join(self.save_dir, "results/scratch/", self.identifier)
         if not os.path.exists(best_log_dir_name):
             os.makedirs(best_log_dir_name)
 
