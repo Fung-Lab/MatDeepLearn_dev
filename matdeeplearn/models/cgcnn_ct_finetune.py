@@ -115,7 +115,7 @@ class CGCNNCTFinetune(BaseModel):
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
             conv = CGConv(
-                self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=True
+                self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
             )
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
