@@ -49,7 +49,7 @@ from .utils import (
 )
 
 
-@registry.register_model("gemnet_ocAll")
+@registry.register_model("gemnet_ocOriginal")
 class GemNetOC(BaseModel):
     """
     Arguments
@@ -187,6 +187,9 @@ class GemNetOC(BaseModel):
         self,
         #num_atoms: Optional[int],
         #bond_feat_dim: int,
+        node_dim,
+        edge_dim,
+        output_dim,
         num_targets: int = 1,
         num_spherical: int = 7,
         num_radial: int = 6,
@@ -330,7 +333,7 @@ class GemNetOC(BaseModel):
                     emb_size_edge=emb_size_edge,
                     emb_size_rbf=emb_size_rbf,
                     nHidden=num_atom,
-                    nHidden_afteratom=num_output_afteratom,
+                    nHidden_afteratom=output_dim,
                     activation=activation,
                     direct_forces=direct_forces,
                 )
@@ -866,30 +869,35 @@ class GemNetOC(BaseModel):
                 subgraph["vector"] = subgraph["vector"][edge_mask]
 
         empty_image = subgraph["num_neighbors"] == 0
-        if torch.any(empty_image):
-            raise ValueError(
-                f"An image has no neighbors: id={data.id[empty_image]}, "
-                f"sid={data.sid[empty_image]}, fid={data.fid[empty_image]}"
-            )
+        #if torch.any(empty_image):
+        #    raise ValueError(
+        #        f"An image has no neighbors: id={data.id[empty_image]}, "
+        #        f"sid={data.sid[empty_image]}, fid={data.fid[empty_image]}"
+        #    )
         return subgraph
 
     def generate_graph_dict(self, data, cutoff, max_neighbors):
         """Generate a radius/nearest neighbor graph."""
         otf_graph = cutoff > 6 or max_neighbors > 50 or self.otf_graph
 
-        (
-            edge_index,
-            edge_dist,
-            distance_vec,
-            cell_offsets,
-            _,  # cell offset distances
-            num_neighbors,
-        ) = self.generate_graph(
-            data,
-            cutoff=cutoff,
-            max_neighbors=max_neighbors,
-            otf_graph=otf_graph,
-        )
+        #(
+        #    edge_index,
+        #    edge_dist,
+        #    distance_vec,
+        #    cell_offsets,
+        #    _,  # cell offset distances
+        #    num_neighbors,
+        #) = self.generate_graph(
+        #    data,
+        #    cutoff=cutoff,
+        #    max_neighbors=max_neighbors,
+        #    otf_graph=otf_graph,
+        #)
+        edge_index = data.edge_index
+        edge_dist = data.distances
+        distance_vec = data.edge_vec
+        cell_offsets = data.cell_offsets
+        num_neighbors = data.neighbors
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         edge_vector = -distance_vec / edge_dist[:, None]
@@ -1218,7 +1226,9 @@ class GemNetOC(BaseModel):
         )
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
         pos = data.pos
         batch = data.batch
         atomic_numbers = data.z.long()
@@ -1308,14 +1318,15 @@ class GemNetOC(BaseModel):
             if self.direct_forces:
                 F_st = self.out_forces(x_F.float())
         nMolecules = torch.max(batch) + 1
-        if self.extensive:
-            E_t = scatter_det(
-                E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
-            )  # (nMolecules, num_targets)
-        else:
-            E_t = scatter_det(
-                E_t, batch, dim=0, dim_size=nMolecules, reduce="mean"
-            )  # (nMolecules, num_targets)
+        if self.prediction_level == "graph":
+            if self.extensive:
+                E_t = scatter_det(
+                    E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
+                )  # (nMolecules, num_targets)
+            else:
+                E_t = scatter_det(
+                    E_t, batch, dim=0, dim_size=nMolecules, reduce="mean"
+                )  # (nMolecules, num_targets)
         if self.regress_forces:
             if self.direct_forces:
                 if self.forces_coupled:  # enforce F_st = F_ts
@@ -1353,6 +1364,42 @@ class GemNetOC(BaseModel):
         else:
             E_t = E_t.squeeze(1)  # (num_molecules)
             return E_t
+    def forward(self, data):
+    
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            if self.gradient_method == "conventional":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.cell],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1] 
+                stress = stress / volume.view(-1, 1, 1)
+            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
+            elif self.gradient_method == "nequip":
+                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+                grad = torch.autograd.grad(
+                        out,
+                        [data.pos, data.displacement],
+                        grad_outputs=torch.ones_like(out),
+                        create_graph=self.training) 
+                forces = -1 * grad[0]
+                stress = grad[1]
+                stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
+        else:
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None  
+        return output
 
     @property
     def num_params(self):

@@ -45,6 +45,7 @@ model:
   num_post_layers: 3
   post_hidden_channels: 64
   pool: "global_mean_pool"
+  pool_order:
 
 optim:
   max_epochs: 400

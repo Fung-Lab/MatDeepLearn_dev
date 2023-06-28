@@ -7,6 +7,8 @@ from typing import Optional, Tuple
 
 import torch
 from torch import nn
+import torch_geometric.nn
+import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing, radius_graph
 from torch_scatter import scatter, segment_coo
 
@@ -55,6 +57,11 @@ class PaiNN(BaseModel):
         otf_graph=False,
         num_elements=83,
         scale_file: Optional[str] = None,
+        num_post_layers=1,
+        post_hidden_channels=64,
+        pool="global_mean_pool",
+        activation = "relu",
+        pool_order = "early",
         **kwargs,
     ):
         super(PaiNN, self).__init__()
@@ -68,6 +75,7 @@ class PaiNN(BaseModel):
         self.direct_forces = direct_forces
         self.otf_graph = otf_graph
         self.use_pbc = use_pbc
+        self.activation = activation
 
         # Borrowed from GemNet.
         self.symmetric_edge_symmetrization = False
@@ -98,6 +106,18 @@ class PaiNN(BaseModel):
             ScaledSiLU(),
             nn.Linear(hidden_channels // 2, output_dim),
         )
+        self.pool_order = pool_order
+        if self.pool_order == "early":
+            self.num_post_layers = num_post_layers
+            self.post_hidden_channels = post_hidden_channels
+            self.post_lin_list = nn.ModuleList()
+            for i in range(self.num_post_layers):
+                if i == 0:
+                    self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
+                else:
+                    self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+            self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
+            self.pool = pool
 
         if self.regress_forces is True and self.direct_forces is True:
             self.out_forces = PaiNNOutput(hidden_channels)
@@ -393,10 +413,18 @@ class PaiNN(BaseModel):
             x = getattr(self, "upd_out_scalar_scale_%d" % i)(x)
 
         #### Output block #####################################################
-
-        per_atom_energy = self.out_energy(x).squeeze(1)
-        if self.prediction_level == "graph":
-            energy = scatter(per_atom_energy, batch, dim=0)
+        if self.prediction_level == "graph" and self.pool_order == "early":
+            x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+        if self.pool_order == "early":
+            for i in range(0, len(self.post_lin_list) - 1):
+                x = self.post_lin_list[i](x)
+                x = getattr(F, self.activation)(x)
+            x = self.post_lin_list[-1](x)
+            energy = x
+        else:
+            per_atom_energy = self.out_energy(x).squeeze(1)
+            if self.prediction_level == "graph":
+                energy = scatter(per_atom_energy, batch, dim=0)
         if self.regress_forces:
             if self.direct_forces:
                 forces = self.out_forces(x, vec)
@@ -413,6 +441,8 @@ class PaiNN(BaseModel):
                 )
                 return energy, forces
         else:
+            if energy.shape[1] == 1:
+                return energy.view(-1)
             return energy
 
     @property

@@ -10,6 +10,9 @@ from typing import Optional
 
 import numpy as np
 import torch
+from torch import nn
+import torch_geometric.nn
+import torch.nn.functional as F
 from torch_geometric.nn import radius_graph
 from torch_scatter import scatter, segment_coo
 
@@ -242,6 +245,11 @@ class GemNetOC(BaseModel):
         num_elements: int = 83,
         otf_graph: bool = False,
         scale_file: Optional[str] = None,
+        num_post_layers=3,
+        post_hidden_channels=64,
+        pool="global_mean_pool",
+        act = "relu",
+        pool_order = "early",
         **kwargs,  # backwards compatibility with deprecated arguments
     ):
         super().__init__()
@@ -358,6 +366,20 @@ class GemNetOC(BaseModel):
         self.out_energy = Dense(
             emb_size_atom, num_targets, bias=False, activation=None
         )
+        self.pool_order = pool_order
+        if self.pool_order == "early":
+            self.num_post_layers = num_post_layers
+            self.post_hidden_channels = post_hidden_channels
+            self.post_lin_list = nn.ModuleList()
+            for i in range(self.num_post_layers):
+                if i == 0:
+                    self.post_lin_list.append(nn.Linear(emb_size_atom, post_hidden_channels))
+                else:
+                    self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+            self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
+            self.pool = pool
+            self.act = act
+
         if direct_forces:
             out_mlp_F = [
                 Dense(
@@ -776,7 +798,6 @@ class GemNetOC(BaseModel):
             [edge_index_directed, edge_index_directed.flip(0)],
             dim=1,
         )
-
         # Count remaining edges per image
         batch_edge = torch.repeat_interleave(
             torch.arange(
@@ -1313,20 +1334,29 @@ class GemNetOC(BaseModel):
         x_E = self.out_mlp_E(torch.cat(xs_E, dim=-1))
         if self.direct_forces:
             x_F = self.out_mlp_F(torch.cat(xs_F, dim=-1))
-        with torch.cuda.amp.autocast(False):
-            E_t = self.out_energy(x_E.float())
-            if self.direct_forces:
-                F_st = self.out_forces(x_F.float())
-        nMolecules = torch.max(batch) + 1
-        if self.prediction_level == "graph":
-            if self.extensive:
-                E_t = scatter_det(
-                    E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
-                )  # (nMolecules, num_targets)
-            else:
-                E_t = scatter_det(
-                    E_t, batch, dim=0, dim_size=nMolecules, reduce="mean"
-                )  # (nMolecules, num_targets)
+        if self.prediction_level == "graph" and self.pool_order == "early":
+            x = getattr(torch_geometric.nn, self.pool)(x_E, batch)
+        if self.pool_order == "early":
+            for i in range(0, len(self.post_lin_list) - 1):
+                x = self.post_lin_list[i](x)
+                x = getattr(F, self.act)(x)
+            x = self.post_lin_list[-1](x)
+            E_t = x
+        else:
+            with torch.cuda.amp.autocast(False):
+                E_t = self.out_energy(x_E.float())
+                if self.direct_forces:
+                    F_st = self.out_forces(x_F.float())
+            nMolecules = torch.max(batch) + 1
+            if self.prediction_level == "graph":
+                if self.extensive:
+                    E_t = scatter_det(
+                        E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
+                    )  # (nMolecules, num_targets)
+                else:
+                    E_t = scatter_det(
+                        E_t, batch, dim=0, dim_size=nMolecules, reduce="mean"
+                    )  # (nMolecules, num_targets)
         if self.regress_forces:
             if self.direct_forces:
                 if self.forces_coupled:  # enforce F_st = F_ts

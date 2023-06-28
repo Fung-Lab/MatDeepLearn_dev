@@ -1,6 +1,8 @@
 
 import torch
 from torch import nn
+import torch.nn.functional as F
+import torch_geometric.nn
 from torch_geometric.nn import radius_graph
 from torch_geometric.nn.inits import glorot_orthogonal
 
@@ -14,7 +16,7 @@ from torch_geometric.nn.models.dimenet import (
 from torch_geometric.nn.resolver import activation_resolver
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
-from matdeeplearn.preprocessor.helpers import triplets, tripletsOld
+from matdeeplearn.preprocessor.helpers import triplets
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
@@ -332,6 +334,11 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         num_before_skip=1,
         num_after_skip=2,
         num_output_layers=3,
+        num_post_layers=1,
+        post_hidden_channels=64,
+        pool="global_mean_pool",
+        activation="relu",
+        pool_order="early"
         **kwargs,
     ):
         self.num_targets = num_targets
@@ -343,7 +350,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
 
         super(DimeNetPlusPlusWrap, self).__init__(
             hidden_channels=hidden_channels,
-            out_channels=output_dim,
+            out_channels=hidden_channels,
             num_blocks=num_blocks,
             int_emb_size=int_emb_size,
             basis_emb_size=basis_emb_size,
@@ -356,13 +363,26 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
             num_after_skip=num_after_skip,
             num_output_layers=num_output_layers,
         )
+        self.num_post_layers = num_post_layers
+        self.post_hidden_channels = post_hidden_channels
+        self.post_lin_list = nn.ModuleList()
+        self.pool = pool
+        self.activation = activation
+        self.pool_order = pool_order
+        if self.pool_order == "early":
+            for i in range(self.num_post_layers):
+                if i == 0:
+                    self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
+                else:
+                    self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+            self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
-        if self.otf_edge == True:
-            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         pos = data.pos
         batch = data.batch
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
         #(
         #    edge_index,
         #    dist,
@@ -376,19 +396,14 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         #data.cell_offsets = cell_offsets
         #data.neighbors = neighbors
         j, i = data.edge_index
-        dist = data.distances   
-        try:
-            idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
-                data.edge_index,
-                data.cell_offsets,
-                num_nodes=data.z.size(0),)
-        except:
-            _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = tripletsOld(data.edge_index, num_nodes=data.z.size(0))
-        
-        try:
-            offsets = data.cell_offsets
-        except:
-            offsets = None
+        dist = data.distances
+
+        idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
+            data.edge_index,
+            data.cell_offsets,
+            num_nodes=data.z.size(0),
+        )
+        offsets = data.cell_offsets
 
         # Calculate angles.
         pos_i = pos[idx_i].detach()
@@ -421,10 +436,22 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         ):
             x = interaction_block(x, rbf, sbf, idx_kj, idx_ji)
             P += output_block(x, rbf, i, num_nodes=pos.size(0))
-        if self.prediction_level == "graph":
+        if self.prediction_level == "graph" and self.pool_order == "early":
+            energy = getattr(torch_geometric.nn, self.pool)(P, data.batch)
+            x = energy
+        elif self.prediction_level == "graph":
             energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
+            x = energy
+        else:
+            x = P
 
-        return energy
+        if self.pool_order == "early":
+            for i in range(0, len(self.post_lin_list) - 1):
+                x = self.post_lin_list[i](x)
+                x = getattr(F, self.activation)(x)
+            x = self.post_lin_list[-1](x)
+
+        return x
 
     def forward(self, data):
         output = {}
