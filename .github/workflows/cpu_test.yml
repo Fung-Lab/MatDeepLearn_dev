@@ -1,0 +1,78 @@
+name: Test MDL on CPU
+
+on: 
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}    
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Mambaforge
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        miniforge-variant: Mambaforge
+        miniforge-version: latest
+        activate-environment: matdeeplearn
+        use-mamba: true
+        
+    - name: Get Date
+      id: get-date
+      run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT        
+      shell: bash
+      
+    - name: Create env.yaml
+      run: |
+        mamba install conda-merge
+        conda-merge env.common.yaml env.cpu.yaml > env.yaml          
+      
+    - name: Cache Conda env
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.CONDA }}/envs
+        key:
+          conda-${{ runner.os }}--${{ runner.arch }}--${{
+          steps.get-date.outputs.today }}-${{
+          hashFiles('env.yaml') }}-${{ env.CACHE_NUMBER
+          }}
+      env:
+        # Increase this value to reset cache if env.yaml has not changed
+        CACHE_NUMBER: 0
+      id: cache    
+    
+    - name: Update environment
+      run: |
+        cat env.yaml
+        mamba env update -n matdeeplearn -f env.yaml
+      if: steps.cache.outputs.cache-hit != 'true'    
+    
+    - name: Lint with flake8
+      run: |
+        mamba install flake8
+        # stop the build if there are Python syntax errors. Undefined names are ignored
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --ignore F821 
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --ignore F821       
+
+    - name: Test CPU dependencies
+      run: |
+        conda activate matdeeplearn
+        python -m pip install -e .
+        python scripts/main.py --help
+        
+    - name: Test with pytest
+      run: |
+        mamba install pytest
+        export PYTHONPATH=matdeeplearn
+        python -m pytest   
+        conda deactivate

@@ -174,8 +174,7 @@ server/
 
 # tests
 testing/*
-test*.py
-test*.ipynb
+
 
 checkpoints/
 
