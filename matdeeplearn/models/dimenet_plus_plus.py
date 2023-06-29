@@ -338,7 +338,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         post_hidden_channels=64,
         pool="global_mean_pool",
         activation="relu",
-        pool_order="early"
+        pool_order="early",
         **kwargs,
     ):
         self.num_targets = num_targets
