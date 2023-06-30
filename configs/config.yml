@@ -1,8 +1,8 @@
 trainer: property
 
 task:
-  #run_mode: "train"
-  identifier: "my_train_job"
+  #run_mode: train
+  identifier: my_train_job
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -15,7 +15,7 @@ task:
   # Path to the checkpoint.pt file
   checkpoint_path: 
   # E.g. ["train", "val", "test"]
-  write_output: ["train", "val", "test"]
+  write_output: [train, val, test]
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: True  
@@ -28,11 +28,11 @@ model:
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
-  pool: "global_add_pool"
-  pool_order: "early"
+  pool: global_add_pool
+  pool_order: early
   batch_norm: True
   batch_track_stats: True
-  act: "relu"
+  act: relu
   dropout_rate: 0.0
   # Compute edge features on the fly
   otf_edge: False 
@@ -40,39 +40,39 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 400
+  max_epochs: 40
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    loss_type: "TorchLossWrapper"
-    loss_args: {"loss_fn": "l1_loss"}
+    loss_type: TorchLossWrapper
+    loss_args: {loss_fn: l1_loss}
   clip_grad_norm: 10
          
   batch_size: 100
   optimizer:
-    optimizer_type: "AdamW"
+    optimizer_type: AdamW
     optimizer_args: {}
   scheduler:
-    scheduler_type: "ReduceLROnPlateau"
-    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+    scheduler_type: ReduceLROnPlateau
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 5
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
   
 dataset:
-  name: "test_data"
+  name: test_data
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: "data/test_data/data_graph_scalar.json"
+  src: data/test_data/data_graph_scalar.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: "data/"
+  pt_path: data/
   # Either "node" or "graph"
-  prediction_level: "graph"
+  prediction_level: graph
   
   transforms:
     - name: GetY
@@ -83,8 +83,8 @@ dataset:
         index: -1
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
-  data_format: "json"
-  # E.g. additional_attributes: ["forces", "stress"]
+  data_format: json
+  # E.g. additional_attributes: [forces, stress]
   additional_attributes: 
   #additional_attributes:
   # Print out processing info
@@ -93,7 +93,7 @@ dataset:
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: "mdl" 
+    edge_calc_method: mdl 
     # determine if edges are computed, if false, then they need to be computed on the fly   
     preprocess_edges: True
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
@@ -106,11 +106,9 @@ dataset:
     edge_steps : 50
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
-    node_representation: "onehot"    
+    node_representation: onehot    
     all_neighbors: True
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
-  
-
