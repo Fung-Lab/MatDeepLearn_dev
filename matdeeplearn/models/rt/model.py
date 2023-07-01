@@ -19,9 +19,11 @@ from matdeeplearn.models.rt.layers import RTLayer
 class RTModel(BaseModel):
     def __init__(
         self,
-        node_dim: int,
-        edge_dim: int,
-        output_dim: int,
+        node_dim: int = None,
+        edge_dim: int = None,
+        output_dim: int = None,
+        node_dim_proj: int = None,
+        edge_dim_proj: int = None,
         node_hidden: int = None,
         edge_hidden_1: int = None,
         edge_hidden_2: int = None,
@@ -66,13 +68,16 @@ class RTModel(BaseModel):
         self.node_level_output = node_level_output
         self.edge_level_output = edge_level_output
 
+        self.node_enc = nn.Linear(node_dim, node_dim_proj)
+        self.edge_enc = nn.Linear(edge_dim, edge_dim_proj)
+
         # define layers
         self.rt_blocks = nn.ModuleList(
             [
                 RTLayer(
-                    node_dim=node_dim,
+                    node_dim=node_dim_proj,
                     node_hidden=node_hidden,
-                    edge_dim=edge_dim,
+                    edge_dim=edge_dim_proj,
                     edge_hidden_1=edge_hidden_1,
                     edge_hidden_2=edge_hidden_2,
                     heads=heads,
@@ -83,7 +88,7 @@ class RTModel(BaseModel):
             ]
         )
 
-        self.out_proj = nn.Linear(node_dim, output_dim)
+        self.out_proj = nn.Linear(node_dim_proj, output_dim)
 
     @property
     def target_attr(self):
@@ -119,6 +124,10 @@ class RTModel(BaseModel):
             dim=0,
         )
         x = torch.stack(unbatch(data.x, data.batch), dim=0)
+
+        # project to common feature space
+        x = self.node_enc(x)
+        dense_adj = self.edge_enc(dense_adj)
 
         for i in range(self.layers):
             x, dense_adj = self.rt_blocks[i](x, dense_adj, data.src_key_padding_mask)

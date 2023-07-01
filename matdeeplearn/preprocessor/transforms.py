@@ -8,7 +8,10 @@ from torch.nn import functional as F
 from torch_geometric.data import Data
 from torch_sparse import coalesce
 
-from matdeeplearn.common.graph_data import CustomBatchingData, VirtualNodeData
+from matdeeplearn.common.graph_data import (
+    CustomBatchingData,
+    VirtualNodeData,
+)
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     calculate_edges_master,
@@ -87,15 +90,31 @@ class RTTransform(object):
         new_edge_attr = torch.zeros((new_edge_index.size(1), data.edge_attr.size(1)))
         new_edge_attr[: data.edge_attr.size(0), :] = data.edge_attr
 
-        src_key_padding_mask = torch.full(
-            (self.max_nodes, self.max_nodes), float("-inf")
+        src_key_padding_mask = torch.zeros((self.max_nodes, self.max_nodes))
+        src_key_padding_mask[: data.x.size(0), : data.x.size(0)] = 1
+
+        null_rows = (
+            torch.logical_not(torch.all(src_key_padding_mask == 0, dim=-1))
+            .unsqueeze(-1)
+            .repeat(1, src_key_padding_mask.size(-1))
         )
-        src_key_padding_mask[: data.x.size(0), : data.x.size(0)] = 0
+
+        place_inf = torch.logical_and(
+            null_rows,
+            src_key_padding_mask == 0,
+        )
+
+        src_key_padding_mask.masked_fill_(place_inf, float("-inf"))
+
+        data.src_key_padding_mask = src_key_padding_mask.unsqueeze(0)
+        data.null_row_mask = torch.logical_not(null_rows).unsqueeze(0)
 
         data.edge_index = new_edge_index
-        data.src_key_padding_mask = src_key_padding_mask
+
         data.x = padded_x
         data.edge_attr = new_edge_attr
+
+        data.num_nodes = self.max_nodes
 
         return data
 

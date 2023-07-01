@@ -8,6 +8,19 @@ from torch_geometric.typing import OptTensor
 from matdeeplearn.common.registry import registry
 
 
+@registry.register_data_type("no_increment_batch")
+class NoIncrementBatch(Data):
+    def __inc__(self, key, value, *args, **kwargs) -> int:
+        return 0
+
+    def __cat_dim__(self, key, value, *args, **kwargs) -> int:
+        if any(
+            [k == key for k in ["cell", "u", "cell2", "structure_id", "neighbors", "y"]]
+        ):
+            return None
+        return super().__cat_dim__(key, value, *args, **kwargs)
+
+
 @registry.register_data_type("custom_batching")
 class CustomBatchingData(Data):
     def __inc__(self, key, value, *args, **kwargs) -> int:

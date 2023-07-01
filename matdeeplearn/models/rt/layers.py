@@ -169,7 +169,11 @@ class RTAttention(nn.Module):
         Adapted from https://github.com/CyberZHG/torch-multi-head-attention
         """
         batch_size, seq_len, seq_len, embed_dim = x.size()
-        sub_dim = max(1, embed_dim // self.heads)
+        sub_dim = embed_dim // self.heads
+        # for masks
+        if sub_dim == 0:
+            x = x[..., None, :].expand(-1, -1, -1, self.heads, -1)
+            sub_dim = 1
         return (
             x.reshape(batch_size, seq_len, seq_len, self.heads, sub_dim)
             .permute(0, 3, 1, 2, 4)
@@ -190,6 +194,7 @@ class RTAttention(nn.Module):
         x: torch.Tensor,
         dense_adj: torch.Tensor,
         src_key_padding_mask: torch.Tensor = None,
+        null_rows_mask: torch.Tensor = None,
     ) -> torch.Tensor:
         # compute (B * H, N, 1, Nd / H) + (B * H, N, N, Nd / H) via broadcasting
         query = self.reshape_nodes_to_batches(
@@ -205,12 +210,13 @@ class RTAttention(nn.Module):
         # attention score computation, (B * H, N, N, 1, Nd / H) * (B * H, N, N, Nd / H, 1)
         scores = torch.matmul(query.unsqueeze(-2), key.unsqueeze(-1)) * self.scale
 
-        if src_key_padding_mask:
+        if src_key_padding_mask is not None and null_rows_mask is not None:
             # (B, N, N) -> (B * H, N, N, 1)
-            mask = self.reshape_edges_to_batches(src_key_padding_mask.unsqueeze(-1))
-            scores = scores.squeeze(-2) + mask
+            src_mask = self.reshape_edges_to_batches(src_key_padding_mask.unsqueeze(-1))
+            null_mask = self.reshape_edges_to_batches(null_rows_mask.unsqueeze(-1))
+            scores = scores.unsqueeze(-2) + src_mask
 
-        attn = F.softmax(scores, dim=-2)
+        attn = F.softmax(scores, dim=-2).masked_fill(null_mask, 0)
 
         # (B * H, N, 1, N, 1) * (B * H, N, N, 1, Nd / H)
         attn = attn.unsqueeze(-3).permute(0, 1, 4, 2, 3)

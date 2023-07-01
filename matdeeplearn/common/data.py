@@ -112,7 +112,7 @@ def get_dataset(
     transforms = []
     # set transform method
     for transform in transform_list:
-        if transform["otf"]:
+        if transform.get("otf", False):
             transforms.append(
                 registry.get_transform_class(
                     transform["name"],

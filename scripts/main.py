@@ -21,6 +21,8 @@ from matdeeplearn.preprocessor.processor import process_data
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 torch.autograd.set_detect_anomaly(True)
 
+torch.set_printoptions(profile="full")
+
 
 class Runner:
     def __init__(self):
