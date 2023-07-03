@@ -130,7 +130,9 @@ class RTModel(BaseModel):
         dense_adj = self.edge_enc(dense_adj)
 
         for i in range(self.layers):
-            x, dense_adj = self.rt_blocks[i](x, dense_adj, data.src_key_padding_mask)
+            x, dense_adj = self.rt_blocks[i](
+                x, dense_adj, data.src_key_padding_mask, data.null_row_mask
+            )
 
         # global readout from graph token
         out_graph = x[:, 0, :]

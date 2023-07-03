@@ -69,10 +69,14 @@ class RTLayer(nn.Module):
         x: torch.Tensor,
         dense_adj: torch.Tensor,
         src_key_padding_mask: torch.Tensor = None,
+        null_row_mask: torch.Tensor = None,
     ) -> None:
         # node updates
         attn_node_outs = self.attn_layer(
-            x, dense_adj, src_key_padding_mask=src_key_padding_mask
+            x,
+            dense_adj,
+            src_key_padding_mask=src_key_padding_mask,
+            null_row_mask=null_row_mask,
         )
         residuals = self.node_fc_1(attn_node_outs)
         residuals = self.node_drop_1(residuals)
@@ -194,7 +198,7 @@ class RTAttention(nn.Module):
         x: torch.Tensor,
         dense_adj: torch.Tensor,
         src_key_padding_mask: torch.Tensor = None,
-        null_rows_mask: torch.Tensor = None,
+        null_row_mask: torch.Tensor = None,
     ) -> torch.Tensor:
         # compute (B * H, N, 1, Nd / H) + (B * H, N, N, Nd / H) via broadcasting
         query = self.reshape_nodes_to_batches(
@@ -210,11 +214,12 @@ class RTAttention(nn.Module):
         # attention score computation, (B * H, N, N, 1, Nd / H) * (B * H, N, N, Nd / H, 1)
         scores = torch.matmul(query.unsqueeze(-2), key.unsqueeze(-1)) * self.scale
 
-        if src_key_padding_mask is not None and null_rows_mask is not None:
+        if src_key_padding_mask is not None and null_row_mask is not None:
             # (B, N, N) -> (B * H, N, N, 1)
             src_mask = self.reshape_edges_to_batches(src_key_padding_mask.unsqueeze(-1))
-            null_mask = self.reshape_edges_to_batches(null_rows_mask.unsqueeze(-1))
-            scores = scores.unsqueeze(-2) + src_mask
+            null_mask = self.reshape_edges_to_batches(null_row_mask.unsqueeze(-1))
+
+            scores = scores.squeeze(-2) + src_mask
 
         attn = F.softmax(scores, dim=-2).masked_fill(null_mask, 0)
 

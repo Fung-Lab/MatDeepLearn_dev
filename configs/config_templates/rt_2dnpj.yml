@@ -54,9 +54,9 @@ model:
         edge_dim_proj: 64
         node_hidden: 256
         edge_hidden_1: 384
-        edge_hidden_2: 256
-        heads: 4
-        layers: 4
+        edge_hidden_2: 128
+        heads: 8
+        layers: 8
         dropout: 0.1
         disable_edge_updates: False
         node_level_output: False
@@ -65,10 +65,11 @@ model:
 optim:
     max_epochs: 250
     lr: 0.002
+    verbosity: 1
     loss:
         loss_type: 'TorchLossWrapper'
         loss_args: { 'loss_fn': 'l1_loss' }
-    batch_size: 16
+    batch_size: 64
     optimizer:
         optimizer_type: 'AdamW'
         optimizer_args:
@@ -76,7 +77,7 @@ optim:
             eps: 0.000000001
     scheduler:
         scheduler_type: 'LambdaLR'
-        scheduler_args: { 'batch_size': 2, 'warmup_steps': 4000, 'epochs': 250 }
+        scheduler_args: { 'batch_size': 64, 'warmup_steps': 4000, 'epochs': 250 }
 
 dataset:
     processed: False # if False, need to preprocessor data and generate .pt file
