@@ -76,8 +76,10 @@ optim:
             betas: [0.9, 0.98]
             eps: 0.000000001
     scheduler:
+        step: 'step' # "epoch" or "step"
         scheduler_type: 'LambdaLR'
-        scheduler_args: { 'batch_size': 64, 'warmup_steps': 4000, 'epochs': 250 }
+        scheduler_args:
+            { 'batch_size': 64, 'warmup_steps': 4000, 'epochs': 250 }
 
 dataset:
     processed: False # if False, need to preprocessor data and generate .pt file

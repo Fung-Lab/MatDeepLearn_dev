@@ -1,5 +1,6 @@
-import torch
 from functools import partial
+
+import torch
 from torch.optim.lr_scheduler import LambdaLR
 
 
@@ -48,7 +49,10 @@ class LRScheduler:
 
 
 def _get_linear_schedule_with_warmup_lr_lambda(
-    current_step: int, *, num_warmup_steps: int, num_training_steps: int
+    current_step: int,
+    *,
+    num_warmup_steps: int,
+    num_training_steps: int,
 ):
     if current_step < num_warmup_steps:
         return float(current_step) / float(max(1, num_warmup_steps))

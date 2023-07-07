@@ -125,6 +125,10 @@ class PropertyTrainer(BaseTrainer):
                 _metrics = self._compute_metrics(out, batch, _metrics)
                 self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
 
+                # step scheduler, using validation error
+                if self.opt_config.get("step", "epoch") == "step":
+                    self._scheduler_step()
+
             self.epoch = epoch + 1
 
             if isinstance(self.model, DistributedDataParallel):
@@ -133,7 +137,9 @@ class PropertyTrainer(BaseTrainer):
             # TODO: could add param to eval and save on increments instead of every time
 
             # Save current model
-            if not isinstance(self.model, DistributedDataParallel) or str(self.rank) in ("0", "cpu", "cuda"):
+            if not isinstance(self.model, DistributedDataParallel) or str(
+                self.rank
+            ) in ("0", "cpu", "cuda"):
                 self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation amd test sets if they exists
@@ -159,7 +165,8 @@ class PropertyTrainer(BaseTrainer):
                     self.update_best_model(val_metric)
 
                 # step scheduler, using validation error
-                self._scheduler_step()
+                if self.opt_config.get("step", "epoch") == "epoch":
+                    self._scheduler_step()
 
         if self.best_model_state:
             if str(self.rank) in "0":
