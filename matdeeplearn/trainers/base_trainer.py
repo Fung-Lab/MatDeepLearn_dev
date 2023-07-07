@@ -108,7 +108,7 @@ class BaseTrainer(ABC):
         self.identifier = identifier
 
         if self.train_verbosity:
-            # MPS and CUDA support
+            # MPS and CUDA support, TODO parallel support to recognize multiple GPUs
             if self.rank.type == "cuda":
                 logging.info(
                     f"GPU is available: {torch.cuda.is_available()}, Quantity: {torch.cuda.device_count()}"
@@ -170,7 +170,7 @@ class BaseTrainer(ABC):
 
         cls.set_seed(config["task"].get("seed"))
 
-        if config["task"]["parallel"] == True:
+        if config["task"]["parallel"]:
             # os.environ["MASTER_ADDR"] = "localhost"
             # os.environ["MASTER_PORT"] = "12355"
             local_world_size = os.environ.get("LOCAL_WORLD_SIZE", None)
@@ -180,10 +180,11 @@ class BaseTrainer(ABC):
             )
             rank = int(dist.get_rank())
         else:
-            rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            rank = min_alloc_gpu(config["task"].get("device", None))
             local_world_size = 1
 
         dataset = cls._load_dataset(config["dataset"], metadata, config["run_mode"])
+
         sweep_config = (
             wandb.config.get("hyperparams", None)
             if wandb.run and config["task"]["wandb"]["sweep"]["do_sweep"]
@@ -194,9 +195,7 @@ class BaseTrainer(ABC):
             dataset["train"],
             sweep_config,
             local_world_size,
-            rank
-            if config["task"]["parallel"]
-            else min_alloc_gpu(config["task"]["device"]),
+            rank,
         )
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(dataset, local_world_size, rank)
@@ -210,7 +209,7 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-        verbosity = config["optim"].get("verbosity", None)
+        verbosity = config["optim"].get("verbosity", 1)
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
 

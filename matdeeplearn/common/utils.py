@@ -68,9 +68,14 @@ def min_alloc_gpu(device: str = None) -> torch.device:
     # MPS and CUDA support
     if device and device.startswith("cuda") and torch.cuda.is_available():
         # check device ordinal validity
-        if int(device[-1]) >= torch.cuda.device_count():
+        if device == "cuda":
+            device = "cuda:0"
+        elif int(device[-1]) >= torch.cuda.device_count():
             raise ValueError("Invalid CUDA device ordinal, fix device choice in config")
         logging.debug(f"Using CUDA device {device}")
+        return torch.device(device)
+    elif device:
+        # explicit option
         return torch.device(device)
     else:
         if torch.backends.mps.is_available():
@@ -93,6 +98,7 @@ def min_alloc_gpu(device: str = None) -> torch.device:
         else:
             logging.warning("GPU or MPS is not available, defaulting to train on CPU")
             return torch.device("cpu")
+
 
 class DictTools:
     """Useful static dict tools for working with nested dicts"""

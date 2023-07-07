@@ -563,6 +563,7 @@ class DataProcessor:
                         data,
                         self.edge_steps,
                         self.r,
+                        self.preprocess_kwargs.get("rescale", 1),
                         device=self.device,
                     )
 

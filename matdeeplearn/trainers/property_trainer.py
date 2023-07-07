@@ -263,8 +263,8 @@ class PropertyTrainer(BaseTrainer):
             self.save_results(
                 np.column_stack(
                     (
-                        np.reshape(ids, tuple(predict.shape)),
-                        np.reshape(target.cpu().numpy(), tuple(predict.shape)),
+                        np.expand_dims(ids, axis=1),
+                        target.cpu().numpy(),
                         predict.cpu().numpy(),
                     )
                 ),

@@ -52,7 +52,7 @@ def scatter_det(*args, **kwargs):
 def calculate_edges_master(
     method: Literal["ase", "ocp", "mdl"],
     all_neighbors: bool,
-    data: Union[VirtualNodeData, CustomBatchingData],
+    data: Union[Data, VirtualNodeData, CustomBatchingData],
     r: float,
     n_neighbors: int,
     offset_number: int,
@@ -120,8 +120,9 @@ def calculate_edges_master(
         # OCP requires a different format for the cell
         cell = cell.view(-1, 3, 3)
 
-        if not batching:
-            n_atoms = torch.tensor([data.n_atoms])
+        # serial processing mode
+        if not isinstance(data, CustomBatchingData):
+            n_atoms = torch.tensor([data.n_atoms], device=device)
 
         # Calculate neighbors to allow compatibility with models like GemNet_OC
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
@@ -179,6 +180,43 @@ def get_mask(
 
     edge_mask = torch.argwhere(cond1 & cond2).squeeze(1)
     return edge_mask
+
+
+@torch.jit.script
+def convert_to_single_emb(x, offset: int = 512):
+    feature_num = x.size(1) if len(x.size()) > 1 else 1
+    feature_offset = 1 + torch.arange(0, feature_num * offset, offset, dtype=torch.long)
+    x = x + feature_offset
+    return x
+
+
+def eig(sym_mat):
+    # (sorted) eigenvectors with numpy
+    EigVal, EigVec = np.linalg.eigh(sym_mat)
+
+    # for eigval, take abs because numpy sometimes computes the first eigenvalue approaching 0 from the negative
+    eigvec = torch.from_numpy(EigVec).float()  # [N, N (channels)]
+    eigval = torch.from_numpy(
+        np.sort(np.abs(np.real(EigVal)))
+    ).float()  # [N (channels),]
+    return eigvec, eigval  # [N, N (channels)]  [N (channels),]
+
+
+def lap_eig(dense_adj, number_of_nodes, in_degree):
+    """
+    Graph positional encoding v/ Laplacian eigenvectors
+    https://github.com/DevinKreuzer/SAN/blob/main/data/molecules.py
+    """
+    dense_adj = dense_adj.detach().float().numpy()
+    in_degree = in_degree.detach().float().numpy()
+
+    # Laplacian
+    A = dense_adj
+    N = np.diag(in_degree.clip(1) ** -0.5)
+    L = np.eye(number_of_nodes) - N @ A @ N
+
+    eigvec, eigval = eig(L)
+    return eigvec, eigval  # [N, N (channels)]  [N (channels),]
 
 
 def threshold_sort(all_distances: torch.Tensor, r: float, n_neighbors: int):
@@ -246,7 +284,13 @@ class GaussianSmearing(torch.nn.Module):
     """
 
     def __init__(
-        self, start=0.0, stop=5.0, resolution=50, width=0.05, device="cpu", **kwargs
+        self,
+        start=0.0,
+        stop=5.0,
+        resolution=50,
+        width=0.05,
+        device="cpu",
+        **kwargs,
     ):
         super(GaussianSmearing, self).__init__()
         offset = torch.linspace(start, stop, resolution, device=device)
@@ -256,7 +300,8 @@ class GaussianSmearing(torch.nn.Module):
 
     def forward(self, dist):
         dist = dist.unsqueeze(-1) - self.offset.view(1, -1)
-        return torch.exp(self.coeff * torch.pow(dist, 2))
+        out = torch.exp(self.coeff * torch.pow(dist, 2))
+        return out
 
 
 def normalize_edge(dataset, descriptor_label):
@@ -619,7 +664,7 @@ def generate_node_features(input_data, n_neighbors, use_degree, device):
             input_data[i] = one_hot_degree(data, n_neighbors)
 
 
-def generate_edge_features(input_data, edge_steps, r, device):
+def generate_edge_features(input_data, edge_steps, r, rescale, device):
     distance_gaussian = GaussianSmearing(0, 1, edge_steps, 0.2, device=device)
 
     if isinstance(input_data, Data):
