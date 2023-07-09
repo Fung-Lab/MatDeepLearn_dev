@@ -1,6 +1,7 @@
 import os
 import copy
 import random
+import itertools
 import json
 import numpy as np
 import pandas as pd
@@ -387,6 +388,8 @@ class LargeDataProcessor:
             data.structure_id = [structure_id]
             data.z = atomic_numbers
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+            super_edge_index = list(itertools.permutations(range(len(atomic_numbers)), 2))
+            data.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
 
             target_val = sdict["y"]
             # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
@@ -939,15 +942,15 @@ if __name__ == '__main__':
 
     print(dataset[10][0])
     print(len(dataset))
-    # loader = DataLoader(
-    #     dataset,
-    #     batch_size=2,
-    #     shuffle=False,
-    #     num_workers=1,
-    #     sampler=None,
-    # )
-    # print(len(loader))
-    # for batch1, batch2 in loader:
-    #     print(batch1)
-    #     print(batch2, "\n")
-    #     break
+    loader = DataLoader(
+        dataset,
+        batch_size=2,
+        shuffle=False,
+        num_workers=1,
+        sampler=None,
+    )
+    print(len(loader))
+    for batch1, batch2 in loader:
+        print(batch1)
+        print(batch2, "\n")
+        break

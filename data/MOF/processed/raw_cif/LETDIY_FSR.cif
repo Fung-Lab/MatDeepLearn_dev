@@ -1,0 +1,47 @@
+data_image0
+_chemical_formula_structural       Cu4H4C4Br4N6
+_chemical_formula_sum              "Cu4 H4 C4 Br4 N6"
+_cell_length_a       7.00572
+_cell_length_b       7.21488
+_cell_length_c       7.85095
+_cell_angle_alpha    113.878
+_cell_angle_beta     113.098
+_cell_angle_gamma    96.9212
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Cu  Cu1       1.0  0.99999  0.00000  1.00000  1.0000
+  Cu  Cu2       1.0  0.50001  0.00002  0.00000  1.0000
+  Cu  Cu3       1.0  0.20293  0.45225  0.90353  1.0000
+  Cu  Cu4       1.0  0.79715  0.54778  0.09647  1.0000
+  H   H1        1.0  0.69511  0.75906  0.48766  1.0000
+  H   H2        1.0  0.29072  0.72873  0.48774  1.0000
+  H   H3        1.0  0.30491  0.24094  0.51232  1.0000
+  H   H4        1.0  0.70931  0.27128  0.51229  1.0000
+  C   C1        1.0  0.86730  0.77734  0.53887  1.0000
+  C   C2        1.0  0.16990  0.76159  0.53893  1.0000
+  C   C3        1.0  0.13269  0.22265  0.46109  1.0000
+  C   C4        1.0  0.83011  0.23842  0.46110  1.0000
+  Br  Br1       1.0  0.25595  0.80601  0.14994  1.0000
+  Br  Br2       1.0  0.39446  0.34271  0.14956  1.0000
+  Br  Br3       1.0  0.74396  0.19395  0.85006  1.0000
+  Br  Br4       1.0  0.60547  0.65727  0.85047  1.0000
+  N   N1        1.0  0.02327  0.87568  0.74205  1.0000
+  N   N2        1.0  0.21773  0.86640  0.74206  1.0000
+  N   N3        1.0  0.97673  0.12432  0.25794  1.0000
+  N   N4        1.0  0.78226  0.13359  0.25793  1.0000
+  N   N5        1.0  0.95176  0.70287  0.40568  1.0000
+  N   N6        1.0  0.04826  0.29713  0.59432  1.0000

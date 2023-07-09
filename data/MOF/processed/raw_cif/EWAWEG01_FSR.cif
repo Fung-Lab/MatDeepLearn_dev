@@ -1,0 +1,45 @@
+data_image0
+_chemical_formula_structural       Hg2H4C2N10Cl2
+_chemical_formula_sum              "Hg2 H4 C2 N10 Cl2"
+_cell_length_a       5.71632
+_cell_length_b       6.35285
+_cell_length_c       7.47076
+_cell_angle_alpha    90.0007
+_cell_angle_beta     90.0006
+_cell_angle_gamma    90.3559
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  Hg  Hg1       1.0  0.73905  0.99236  0.91518  1.0000
+  Hg  Hg2       1.0  0.26095  0.00764  0.41518  1.0000
+  H   H1        1.0  0.10795  0.63192  0.04355  1.0000
+  H   H2        1.0  0.89206  0.36809  0.54355  1.0000
+  H   H3        1.0  0.10799  0.35777  0.04412  1.0000
+  H   H4        1.0  0.89202  0.64223  0.54411  1.0000
+  C   C1        1.0  0.81099  0.49287  0.95863  1.0000
+  C   C2        1.0  0.18901  0.50713  0.45862  1.0000
+  N   N1        1.0  0.68585  0.32174  0.90747  1.0000
+  N   N2        1.0  0.31415  0.67826  0.40747  1.0000
+  N   N3        1.0  0.48879  0.38975  0.82149  1.0000
+  N   N4        1.0  0.51121  0.61026  0.32149  1.0000
+  N   N5        1.0  0.48925  0.59190  0.82046  1.0000
+  N   N6        1.0  0.51075  0.40810  0.32045  1.0000
+  N   N7        1.0  0.68683  0.66258  0.90554  1.0000
+  N   N8        1.0  0.31317  0.33742  0.40554  1.0000
+  N   N9        1.0  0.01405  0.49431  0.04781  1.0000
+  N   N10       1.0  0.98594  0.50569  0.54780  1.0000
+  Cl  Cl1       1.0  0.19540  0.99468  0.03328  1.0000
+  Cl  Cl2       1.0  0.80460  0.00533  0.53328  1.0000
