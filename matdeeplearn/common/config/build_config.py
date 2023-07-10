@@ -104,6 +104,18 @@ def build_config(args, args_override):
         config["task"]["run_mode"] = args.run_mode
     if args.seed != None:    
         config["task"]["seed"] = args.seed
+    if args.gpu_id != None:
+        config["task"]["gpu_id"] = args.gpu_id
+    if args.src_dir != None:
+        config["dataset"]["src"] = args.src_dir
+    if args.batch_size != None:
+        config["optim"]["batch_size"] = args.batch_size
+    if args.pt_path != None:
+        config["dataset"]["pt_path"] = args.pt_path
+    if args.target_path != None:
+        config["dataset"]["target_path"] = args.target_path
+    if args.global_pool != None:
+        config["model"]["pool"] = args.global_pool
     #
     # Submit
     config["submit"] = args.submit

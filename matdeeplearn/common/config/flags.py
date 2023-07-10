@@ -42,6 +42,40 @@ class Flags:
             type=int,
             help="seed for data split, 0=random",
         )
+        self.parser.add_argument(
+            "--gpu_id",
+            type=str,
+            help="GPU ID to use",
+        )
+
+        self.parser.add_argument(
+            "--src_dir",
+            type=str,
+            help="Source dataset directory",
+        )
+
+        self.parser.add_argument(
+            "--batch_size",
+            type=int,
+            help="Batch size",
+        )
+
+        self.parser.add_argument(
+            "--pt_path",
+            type=str,
+            help="Path to data.pt",
+        )
+
+        self.parser.add_argument(
+            "--target_path",
+            type=str,
+            help="Path to target.csv",
+        )
+        self.parser.add_argument(
+            "--global_pool",
+            type=str,
+            help="Global pooling method",
+        )
         # parser.add_argument(
         #     "--model_path",
         #     default=None,
