@@ -15,7 +15,8 @@ class LRScheduler:
             self.scheduler = get_linear_schedule_with_warmup(
                 optimizer,
                 model_parameters["warmup_steps"],
-                model_parameters["epochs"] * model_parameters["batch_size"],
+                model_parameters["epochs"]
+                * (model_parameters["num_examples"] // model_parameters["batch_size"]),
             )
         else:
             self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(

@@ -2,7 +2,7 @@ trainer: property
 
 task:
   # run_mode: train
-  identifier: "cgcnn_vn_mp69k"
+  identifier: "tokengt_mp69k"
   reprocess: False
   run_id: ""
   parallel: False
@@ -10,13 +10,14 @@ task:
   seed: 0
   # seed=0 means random initalization
   write_output: True
+  parallel: False
   # Training print out frequency (print per n number of epochs)
   verbosity: 1
   wandb:
     use_wandb: True
     wandb_entity: "fung-lab"
     wandb_project: "tokengt"
-    notes: "try MP dataset"
+    notes: "try 2d dataset"
     tags: ["test"]
     track_params:
       - "model.hyperparams.mp_pattern"
@@ -34,12 +35,12 @@ task:
     log_artifacts:
       # - "/Users/sidbaskaran/Desktop/research/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py.py"
       # - "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
-      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/cgcnn_vn.py"
+      # - "/global/cfs/projectdirs/m3641/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
       - "/nethome/sbaskaran31/projects/Sidharth/MatDeepLearn_dev/matdeeplearn/models/tokengt/tokengt_graph_encoder.py"
     metadata:
       architecture: "TokenGT"
       cluster: "local"
-      dataset: "MP_data_69K"
+      dataset: "2D_data_npj"
     sweep:
       parallel: True
       do_sweep: False # ignore rest of config if False
@@ -55,27 +56,27 @@ model:
   model_path: "tokengt.pth"
   # model hyperparams
   hyperparams:
-    num_atoms: 512
-    num_edges: 1024
+    num_atoms: 51200
+    num_edges: 51200
     rand_node_id: False
-    rand_node_id_dim: 32
+    rand_node_id_dim: 64
     orf_node_id: False
-    orf_node_id_dim: 32
-    lap_node_id: False
+    orf_node_id_dim: 64
+    lap_node_id: True
     lap_node_id_k: 8
     lap_node_id_sign_flip: False
     lap_node_id_eig_dropout: 0.0
-    type_id: False
+    type_id: True
     stochastic_depth: False
     performer: False
     performer_finetune: False
     performer_feature_redraw_interval: 1000
     performer_generalized_attention: False
     performer_auto_check_redraw: True
-    num_encoder_layers: 12
-    embedding_dim: 512
+    num_encoder_layers: 8
+    embedding_dim: 256
     ffn_embedding_dim: 512
-    num_attention_heads: 16
+    num_attention_heads: 8
     dropout: 0.1
     attention_dropout: 0.1
     activation_dropout: 0.1
@@ -90,7 +91,6 @@ model:
     traceable: False
     q_noise: 0.0
     qn_block_size: 8
-    edge_feat_scale: 1000
     return_attention: False
 
 optim:
@@ -100,13 +100,15 @@ optim:
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
-  batch_size: 4
+  batch_size: 8
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
   scheduler:
-    scheduler_type: "ReduceLROnPlateau"
-    scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
+    step: 'step' # "epoch" or "step"
+    scheduler_type: 'LambdaLR'
+    scheduler_args:
+        { 'batch_size': 8, 'num_examples': 4000, 'warmup_steps': 4000, 'epochs': 100 }
 
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
@@ -124,12 +126,12 @@ dataset:
   pt_path: "/nethome/sbaskaran31/projects/Sidharth/MP_data_69K/processed/ocp"
   # pt_path: "/Users/sidbaskaran/Desktop/research/MP_data_69K/raw/processed/ocp"
   # pt_path: "/storage/home/hcoda1/9/sbaskaran31/p-vfung3-0/MP_data_69K/raw/processed/ocp"
-  # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69k/raw/processed/ocp"
+  # pt_path: "/global/cfs/projectdirs/m3641/Sidharth/datasets/MP_data_69K/processed/ocp"
   # transforms
   transforms:
     - name: GetY
       args:
-        index: 1
+        index: 0
       otf: False
     # - name: VirtualNodeGeneration
     #   args:
@@ -144,7 +146,7 @@ dataset:
     #   batch: True
     - name: TokenGTGeneration
       args:
-        placeholder: "test"
+        edge_bin_size: 10
       otf: False
       batch: False
   # use for passing into global config
@@ -159,18 +161,16 @@ dataset:
   verbose: True
   # graph specific settings: preprocessing hyperparams
   preprocess_params:
-    cutoff_radius : 5.0
+    cutoff_radius : 8.0
     n_neighbors : 250
     process_batch_size : 100
     edge_calc_method: "ocp"
     num_offsets: 1
-    edge_steps : 25
+    edge_steps : 100
     all_neighbors: True
     use_degree: False
     max_node: 512
     max_edge: 2048
-    # for edge_attributes
-    rescale_precision: 1
   # Ratios for train/val/test split out of a total of 1
   train_ratio: 0.8
   val_ratio: 0.05

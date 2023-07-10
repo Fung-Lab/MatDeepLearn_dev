@@ -126,7 +126,9 @@ class BaseTrainer(ABC):
             elif self.rank.type == "mps":
                 logging.info("Training with MPS backend")
 
-            logging.info(f"Dataset used: {self.dataset}")
+            sizes = {key: len(ds) for key, ds in self.dataset.items()}
+
+            logging.info(f"Dataset used: {sizes}")
             if self.dataset.get("train"):
                 logging.debug(self.dataset["train"][0])
                 logging.debug(self.dataset["train"][0].x[0])

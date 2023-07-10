@@ -126,7 +126,7 @@ class PropertyTrainer(BaseTrainer):
                 self.metrics = self.evaluator.update("loss", loss.item(), _metrics)
 
                 # step scheduler, using validation error
-                if self.opt_config.get("step", "epoch") == "step":
+                if self.opt_config["scheduler"].get("step", "epoch") == "step":
                     self._scheduler_step()
 
             self.epoch = epoch + 1
@@ -165,7 +165,7 @@ class PropertyTrainer(BaseTrainer):
                     self.update_best_model(val_metric)
 
                 # step scheduler, using validation error
-                if self.opt_config.get("step", "epoch") == "epoch":
+                if self.opt_config["scheduler"].get("step", "epoch") == "epoch":
                     self._scheduler_step()
 
         if self.best_model_state:
