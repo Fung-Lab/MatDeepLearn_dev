@@ -69,7 +69,7 @@ optim:
     loss:
         loss_type: 'TorchLossWrapper'
         loss_args: { 'loss_fn': 'l1_loss' }
-    batch_size: 64
+    batch_size: 10
     optimizer:
         optimizer_type: 'AdamW'
         optimizer_args:
@@ -77,11 +77,12 @@ optim:
             eps: 0.000000001
     scheduler:
         scheduler_type: 'LambdaLR'
+        step: "step"
         scheduler_args:
             {
-                'batch_size': 64,
-                'train_examples': 0,
-                'warmup_steps': 4000,
+                'batch_size': 10,
+                'num_examples': 4000,
+                'warmup_steps': 5000,
                 'epochs': 250
             }
 
@@ -107,7 +108,7 @@ dataset:
           otf: False
         - name: RTTransform
           args:
-              max_nodes: 84 # determine through observation
+              max_nodes: 296 # determine through observation
     # use for passing into global config
     # one of MDL, ASE, OCP
     use_sweep_params: False

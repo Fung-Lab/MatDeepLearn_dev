@@ -94,7 +94,7 @@ model:
     return_attention: False
 
 optim:
-  max_epochs: 250
+  max_epochs: 100
   lr: 0.002
   verbosity: 1
   loss:
@@ -108,7 +108,7 @@ optim:
     step: 'step' # "epoch" or "step"
     scheduler_type: 'LambdaLR'
     scheduler_args:
-        { 'batch_size': 8, 'num_examples': 4000, 'warmup_steps': 4000, 'epochs': 100 }
+        { 'batch_size': 8, 'num_examples': 4000, 'warmup_steps': 5000, 'epochs': 100 }
 
 dataset:
   processed: False # if False, need to preprocessor data and generate .pt file
