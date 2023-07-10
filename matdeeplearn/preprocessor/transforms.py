@@ -7,7 +7,6 @@ from ase import Atoms
 from torch.nn import functional as F
 from torch_geometric.data import Data
 from torch_sparse import coalesce
-import torch.nn.functional as F
 
 from matdeeplearn.common.graph_data import (
     CustomBatchingData,
