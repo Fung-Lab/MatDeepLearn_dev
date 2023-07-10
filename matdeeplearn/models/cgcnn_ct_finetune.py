@@ -48,13 +48,14 @@ class CGCNNCTFinetune(BaseModel):
         self.dim2 = dim2
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
-        self.num_features = data.num_features
-        self.num_edge_features = data.num_edge_features
+        self.num_features = 100  # data.num_features
+        self.num_edge_features = 50  # data.num_edge_features
+        self.otf_edge = False
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
         if pre_fc_count == 0:
-            self.gc_dim, self.post_fc_dim = data.num_features, data.num_features
+            self.gc_dim, self.post_fc_dim = 100, 50  # data.num_features, data.num_features
         else:
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
@@ -155,7 +156,14 @@ class CGCNNCTFinetune(BaseModel):
 
     def forward(self, data):
 
-        # Pre-GNN dense layers
+        if self.otf_edge:
+            # data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = \
+            # self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius,
+                                                                                self.n_neighbors)
+            data.edge_attr = self.distance_expansion(data.edge_weight)
+
+            # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
                 out = self.pre_lin_list[i](data.x.float())

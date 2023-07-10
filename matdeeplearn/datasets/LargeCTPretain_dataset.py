@@ -829,7 +829,8 @@ class LargeCTPretrainDataset(InMemoryDataset):
             pre_transform=None,
             pre_filter=None,
             device=None,
-            dataset_config=None
+            dataset_config=None,
+            finetune=False
     ):
         if mask_edge_ratios is None:
             mask_edge_ratios = [0.1, 0.1]
@@ -840,6 +841,7 @@ class LargeCTPretrainDataset(InMemoryDataset):
         self.processed_data_path = processed_data_path
         self.processed_file_name = processed_file_name
         self.augmentation_list = augmentation_list if augmentation_list else []
+        self.finetune = finetune
 
         self.mask_node_ratio1 = mask_node_ratios[0]
         self.mask_node_ratio2 = mask_node_ratios[1]
@@ -884,6 +886,9 @@ class LargeCTPretrainDataset(InMemoryDataset):
         return [self.processed_file_name]
 
     def __getitem__(self, idx):
+        if self.finetune:
+            return self.processer.process([self.dict_structures[idx]])
+
         if "perturbing" in self.augmentation_list:
             subdata1 = self.processer.process([self.dict_structures[idx]], perturb=True)
             subdata2 = self.processer.process([self.dict_structures[idx]], perturb=True)
@@ -942,15 +947,15 @@ if __name__ == '__main__':
 
     print(dataset[10][0])
     print(len(dataset))
-    loader = DataLoader(
-        dataset,
-        batch_size=2,
-        shuffle=False,
-        num_workers=1,
-        sampler=None,
-    )
-    print(len(loader))
-    for batch1, batch2 in loader:
-        print(batch1)
-        print(batch2, "\n")
-        break
+    # loader = DataLoader(
+    #     dataset,
+    #     batch_size=2,
+    #     shuffle=False,
+    #     num_workers=1,
+    #     sampler=None,
+    # )
+    # print(len(loader))
+    # for batch1, batch2 in loader:
+    #     print(batch1)
+    #     print(batch2, "\n")
+    #     break

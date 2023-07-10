@@ -17,6 +17,7 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 from matdeeplearn.common.data import get_otf_transforms, dataset_split
 from matdeeplearn.common.registry import registry
+from matdeeplearn.datasets.LargeCTPretain_dataset import LargeCTPretrainDataset
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.preprocessor import LargeStructureDataset, StructureDataset
 from matdeeplearn.trainers.property_trainer import PropertyTrainer
@@ -25,6 +26,7 @@ from matdeeplearn.trainers.property_trainer import PropertyTrainer
 def get_dataset(
         data_path,
         processed_file_name,
+        dataset_config,
         transform_list: List[dict] = [],
         large_dataset=False,
 ):
@@ -44,16 +46,16 @@ def get_dataset(
 
     # get on the fly transforms for use on dataset access
     otf_transforms = get_otf_transforms(transform_list)
-
+    composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
     # check if large dataset is needed
     if large_dataset:
-        Dataset = LargeStructureDataset
+        Dataset = LargeCTPretrainDataset
+        dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
+                          transform=composition, dataset_config=dataset_config, finetune=True)
     else:
         Dataset = StructureDataset
-
-    composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
-
-    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
+        dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
+                          transform=composition)
 
     return dataset
 
@@ -311,25 +313,34 @@ class FinetuneTrainer(PropertyTrainer):
                 dataset_path,
                 processed_file_name="data_train.pt",
                 transform_list=dataset_config.get("transforms", []),
+                dataset_config=dataset_config,
+                large_dataset=dataset_config.get("large_dataset", False)
             )
             dataset["val"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_val.pt",
                 transform_list=dataset_config.get("transforms", []),
+                dataset_config=dataset_config,
+                large_dataset=dataset_config.get("large_dataset", False)
             )
             dataset["test"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
+                dataset_config=dataset_config,
+                large_dataset=dataset_config.get("large_dataset", False)
             )
 
         else:
-            print("augmentation: ", dataset_config.get("augmentation"))
+            print("augmentation: ", dataset_config.get("augmentation", None))
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
                 transform_list=dataset_config.get("transforms", []),
+                dataset_config=dataset_config,
+                large_dataset=dataset_config.get("large_dataset", False)
             )
+            print(len(dataset["train"]))
 
         return dataset
 

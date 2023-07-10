@@ -65,13 +65,13 @@ optim:
   batch_tqdm: False
 
 dataset:
-  name: "CT_pretrain_data"
-  processed: False
+  name: "MOF"
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
-  src: data/MOF/processed/raw_cif/
+  src: data/MOF/data.json
   #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
-  target_path: data/MOF/targets.csv
+  target_path:
   #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
   # Path to save processed data.pt file
   pt_path: "data/MOF/processed/"
@@ -86,7 +86,7 @@ dataset:
         index: -1
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE)
-  data_format: "cif"
+  data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
   node_representation: "onehot"
   additional_attributes:
@@ -115,3 +115,4 @@ dataset:
   train_ratio: 0.6
   val_ratio: 0.2
   test_ratio: 0.2
+  large_dataset: True
