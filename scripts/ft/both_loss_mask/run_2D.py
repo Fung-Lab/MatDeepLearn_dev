@@ -22,10 +22,10 @@ if __name__ == '__main__':
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/both_loss_mask/config_MOF_ct_ft.yml"
         subprocess.run(command, shell=True)
 
-    for i in range(num_runs):
-
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/both_loss_mask/config_Surface_ct_ft.yml"
         subprocess.run(command, shell=True)
+
+
 
         # 记录本次运行的开始时间
         # current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
