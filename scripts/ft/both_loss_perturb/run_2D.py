@@ -8,14 +8,14 @@ num_runs = 5
 if __name__ == '__main__':
 
     # 循环执行
-    for i in range(num_runs):
-
-        # 执行命令行命令
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/both_aug/config_2D.yml"
-        # subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/both_loss_perturb/config_2D_ct_ft.yml"
-        subprocess.run(command, shell=True)
+    # for i in range(num_runs):
+    #
+    #     # 执行命令行命令
+    #     # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/both_aug/config_2D.yml"
+    #     # subprocess.run(command, shell=True)
+    #
+    #     command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/both_loss_perturb/config_2D_ct_ft.yml"
+    #     subprocess.run(command, shell=True)
 
     for i in range(num_runs):
 
