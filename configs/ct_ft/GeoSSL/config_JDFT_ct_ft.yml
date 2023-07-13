@@ -24,10 +24,10 @@ task:
 model:
   name: CGCNN_CTFINETUNE
   # model attributes
-  dim1: 64
+  dim1: 128
   dim2: 128
   pre_fc_count: 1
-  gc_count: 3
+  gc_count: 4
   post_fc_count: 0
   pool: "global_mean_pool"
   pool_order: "early"
