@@ -33,6 +33,7 @@ def get_dataset(
         processed_file_name,
         transform_list: List[dict] = [],
         augmentation_list=None,
+        random_augmentation=False,
         large_dataset=False,
         dataset_config=None
 ):
@@ -58,7 +59,8 @@ def get_dataset(
     if large_dataset:
         Dataset = LargeCTPretrainDataset
         dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
-                          augmentation_list=augmentation_list, transform=composition,
+                          augmentation_list=augmentation_list,
+                          random_augmentation=random_augmentation, transform=composition,
                           mask_node_ratios=[0.1, 0.1],
                           mask_edge_ratios=[0.1, 0.1],
                           distance=0.05,
@@ -334,14 +336,17 @@ class CTPretrainer(BaseTrainer):
                 processed_file_name="data_train.pt",
                 transform_list=dataset_config.get("transforms", []),
                 augmentation_list=dataset_config.get("augmentation", None),
+                random_augmentation=dataset_config.get("random_choice_augmentation", False),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
+            print(dataset["train"].random_augmentation)
             dataset["val"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_val.pt",
                 transform_list=dataset_config.get("transforms", []),
                 augmentation_list=dataset_config.get("augmentation", None),
+                random_augmentation=dataset_config.get("random_choice_augmentation", False),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
@@ -350,6 +355,7 @@ class CTPretrainer(BaseTrainer):
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
                 augmentation_list=dataset_config.get("augmentation", None),
+                random_augmentation=dataset_config.get("random_choice_augmentation", False),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
@@ -361,6 +367,7 @@ class CTPretrainer(BaseTrainer):
                 processed_file_name="data.pt",
                 transform_list=dataset_config.get("transforms", []),
                 augmentation_list=dataset_config.get("augmentation", None),
+                random_augmentation=dataset_config.get("random_choice_augmentation", False),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
@@ -420,7 +427,7 @@ class CTPretrainer(BaseTrainer):
                 f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
             )
         self.model = self.model.to(self.device)
-        print(len(self.dataset))
+        #print(len(self.dataset))
 
         for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()
@@ -443,13 +450,26 @@ class CTPretrainer(BaseTrainer):
                     continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
+                
+                #print(batch1.z, len(batch1.z))
+                #print(torch.allclose(batch1.x, batch2.x))
+                #diff_list = list()
+                #for i in range(batch1.z.shape[0]):
+                #    if (batch1.z[i] != batch2.z[i]):
+                #        diff_list.append(i)
+                #print(batch1.z[diff_list])
+                #print(batch2.z[diff_list])
+                #print(torch.allclose(batch1.edge_attr, batch2.edge_attr))
+                #print(torch.allclose(batch1.edge_index, batch2.edge_index))
 
                 # Compute forward, loss, backward
                 out1 = self._forward(batch1)
                 out2 = self._forward(batch2)
                 loss = self._compute_loss(out1, out2)
                 # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
-                logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i, loss.item()))
+                
+                if i % 200 == 0:
+                  logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i, loss.item()))
                 self._backward(loss)
 
                 # Compute metrics
@@ -567,8 +587,6 @@ class CTPretrainer(BaseTrainer):
         predict_loss = self._metrics_predict[type(self.loss_fn).__name__]["metric"]
         logging.debug("Saved {:s} error: {:.5f}".format(split, predict_loss))
         return predictions
-
-    # '''
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
