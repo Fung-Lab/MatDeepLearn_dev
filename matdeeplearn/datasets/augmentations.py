@@ -1,0 +1,157 @@
+import numpy as np
+import torch
+from torch_geometric.data import Data
+import random
+import copy
+from ase import Atoms
+from ase.build import make_supercell
+import torch.nn.functional as F
+from torch.distributions.uniform import Uniform
+
+
+def mask_node(subdata: Data, mask_node_ratio1, mask_node_ratio2):
+    subdata1 = copy.deepcopy(subdata)
+    subdata2 = copy.deepcopy(subdata)
+    
+    x = subdata.x
+    num_nodes = x.size(0)
+    mask1 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio1))
+    mask2 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio2))
+
+    subdata1.x[mask1] = 0
+    subdata2.x[mask2] = 0
+    
+    return subdata1, subdata2
+
+
+def mask_edge(subdata: Data, mask_edge_ratio1, mask_edge_ratio2):
+    subdata1 = copy.deepcopy(subdata)
+    subdata2 = copy.deepcopy(subdata)
+    
+    edge_index, edge_attr = subdata.edge_index, subdata.edge_attr
+    num_edges = edge_index.size(1)
+    mask1 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio1), 1)
+    mask2 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio2), 1)
+    subdata1.edge_index = subdata1.edge_index[:, ~mask1]
+    subdata1.edge_attr = subdata1.edge_attr[~mask1]
+    subdata2.edge_index = subdata2.edge_index[:, ~mask2]
+    subdata2.edge_attr = subdata2.edge_attr[~mask2]
+    
+    return subdata1, subdata2
+    
+
+#def perturb_positions(pos, distance, min_distance):
+#    n_sites = pos.size(0)
+    
+#    # Calculate pairwise distances
+#    pairwise_distances = torch.cdist(pos, pos)
+#    min_pairwise_distance = torch.min(pairwise_distances[pairwise_distances > 0])
+#    max_perturbation_distance = 0.5 * min_pairwise_distance
+#    uniform_distribution = Uniform(0, max_perturbation_distance)
+#    perturbation_distances = uniform_distribution.sample((n_sites,))
+    
+#    random_vectors = torch.randn(n_sites, 3)
+#    random_vectors /= torch.norm(random_vectors, dim=1, keepdim=True)
+    
+#    # Calculate the perturbed positions
+#    perturbed_pos = pos + perturbation_distances.view(-1, 1) * random_vectors
+    
+#    return perturbed_pos
+    
+#def perturb_positions(pos, distance, min_distance):
+#    for j in range(pos.size(0)):
+#        # Perturb data
+#        # Generate a random unit vector
+#        random_vector = torch.randn(3)
+#        random_vector /= torch.norm(random_vector)
+
+#        # Calculate the perturbation distance
+#        if min_distance is not None:
+#            perturbation_distance = random.uniform(min_distance, distance)
+#        else:
+#            perturbation_distance = distance
+
+#        # Perturb the node position
+#        pos[j] += perturbation_distance * random_vector
+
+#    return pos
+    
+def perturb_positions(pos, distance, min_distance):
+    random_vectors = torch.randn(pos.size(0), 3)
+    random_vectors /= torch.norm(random_vectors, dim=1, keepdim=True)
+
+    if min_distance is not None:
+        perturbation_distances = torch.empty(pos.size(0)).uniform_(min_distance, distance)
+    else:
+        perturbation_distances = torch.full((pos.size(0),), distance)
+
+    pos += perturbation_distances.view(-1, 1) * random_vectors
+
+    return pos
+    
+        
+def column_replacement(atomic_numbers):
+
+    elements = [[1, 3, 11, 19, 37, 55, 87], [4, 12, 20, 38, 56, 88], [21, 39, 71],
+             [22, 40, 72], [23, 41, 73], [24, 42, 74], [25, 43, 75], [26, 44, 76],
+             [27, 45, 77], [28, 46, 78], [29, 47, 79], [30, 48, 80], [5, 13, 31, 49, 81],
+             [6, 14, 32, 50, 82], [7, 15, 33, 51, 83], [8, 16, 34, 52, 84],
+             [9, 17, 35, 53, 85], [2, 10, 18, 36, 54, 86],
+             [57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70],
+             [89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]]
+    
+    def get_atom_of_same_group(atom_num):
+        for row in elements:
+            if atom_num in row:
+                r = random.choice(row)
+                while r == atom_num:
+                    r = random.choice(row)
+                return r
+    
+    atomic_numbers = atomic_numbers.clone()
+    # temp_tensor = atomic_numbers.clone()
+    random_index = torch.randint(0, atomic_numbers.numel(), (1,)).item()
+    # print(random_index)
+    atomic_numbers[random_index] = get_atom_of_same_group(atomic_numbers[random_index].item())
+    # diff_mask = torch.eq(temp_tensor, atomic_numbers)
+    # diff_indices = torch.nonzero(~diff_mask)
+    #print(f"Replaced {temp_tensor[diff_indices].item()} to {atomic_numbers[diff_indices].item()} at index {diff_indices.item()}")
+    return atomic_numbers
+    
+
+def strain_cell(atomic_numbers, pos, cell):
+    ase_crystal_object = Atoms(numbers = atomic_numbers, positions=pos, cell=cell.squeeze(), pbc=True)
+    cell_l_and_a = ase_crystal_object.get_cell_lengths_and_angles()
+    
+    while True:
+      count = 0
+      try:
+          rand_factor = 1 + torch.rand(1) * 0.05
+          new_cell_l_and_a = cell_l_and_a.copy()
+          if count > 100:
+              new_cell_l_and_a = cell_l_and_a[:3] * rand_factor.item()
+          else:
+              new_cell_l_and_a = cell_l_and_a * rand_factor.item()
+          ase_crystal_object.set_cell(new_cell_l_and_a, scale_atoms=True)
+          break
+      except Exception as e:
+          pass
+      count += 1
+      if count % 20 == 0:
+          print(f"Have retried straining for {count} times.")
+          
+    
+    pos = ase_crystal_object.get_positions()
+    cell = ase_crystal_object.get_cell().cellpar()[:3]
+    pos = torch.tensor(pos, dtype=torch.float32)
+    cell = torch.diag(torch.tensor(cell, dtype=torch.float32)) 
+    return pos, cell.unsqueeze(dim=0)
+    
+    
+def generate_supercell(atomic_numbers, scale_factor, pos, cell):
+    super_cell = make_supercell(Atoms(numbers=atomic_numbers, positions=pos, cell=cell.squeeze(), pbc=True), np.identity(3) * scale_factor)
+    atomic_numbers = torch.from_numpy(super_cell.get_atomic_numbers())
+    pos = torch.tensor(super_cell.get_positions(), dtype=torch.float32)
+    cell = torch.diag(torch.tensor(super_cell.get_cell().cellpar()[:3], dtype=torch.float32)).unsqueeze(dim=0)
+    del super_cell
+    return atomic_numbers, pos, cell
