@@ -358,11 +358,11 @@ class LargeDataProcessor:
         data_list_1 = [Data() for _ in range(n_structures)]
         # data_list_2 = [Data() for _ in range(n_structures)]
 
-        # logging.info("Getting torch_geometric.data_1.Data() objects.")
+        # logging.info("Getting torch_geometric.data.Data() objects.")
 
         for i, sdict in enumerate(dict_structures):
             # target_val = y[i]
-            data_1 = data_list_1[i]
+            data = data_list_1[i]
 
             pos = sdict["positions"]
             # print("Before perturbing: ", pos)
@@ -373,31 +373,31 @@ class LargeDataProcessor:
 
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
-            # data_1.structure_id = [[structure_id] * len(data_1.y)]
+            # data.structure_id = [[structure_id] * len(data.y)]
             structure_id = sdict["structure_id"]
 
-            data_1.n_atoms = len(atomic_numbers)
-            data_1.pos = pos
-            data_1.cell = cell
-            data_1.structure_id = [structure_id]
-            data_1.z = atomic_numbers
-            data_1.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-            super_edge_index = list(itertools.permutations(range(len(atomic_numbers)), 2))
-            data_1.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
+            data.n_atoms = len(atomic_numbers)
+            data.pos = pos
+            data.cell = cell
+            data.structure_id = [structure_id]
+            data.z = atomic_numbers
+            data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
+            super_edge_index = list(itertools.combinations(range(len(atomic_numbers)), 2))
+            data.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
 
             target_val = sdict["y"]
             # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
-            data_1.y = torch.Tensor(np.array(target_val))
+            data.y = torch.Tensor(np.array(target_val))
             if self.prediction_level == "graph":
-                if data_1.y.dim() > 1 and data_1.y.shape[0] != 0:
+                if data.y.dim() > 1 and data.y.shape[0] != 0:
                     raise ValueError('Target labels do not have the correct dimensions for graph-level prediction.')
-                elif data_1.y.dim() == 1:
-                    data_1.y = data_1.y.unsqueeze(0)
+                elif data.y.dim() == 1:
+                    data.y = data.y.unsqueeze(0)
             elif self.prediction_level == "node":
-                if data_1.y.shape[0] != data_1.n_atoms:
+                if data.y.shape[0] != data.n_atoms:
                     raise ValueError('Target labels do not have the correct dimensions for node-level prediction.')
-                elif data_1.y.dim() == 1:
-                    data_1.y = data_1.y.unsqueeze(1)
+                elif data.y.dim() == 1:
+                    data.y = data.y.unsqueeze(1)
 
             if self.preprocess_edges == True:
                 edge_gen_out = calculate_edges_master(
@@ -419,20 +419,20 @@ class LargeDataProcessor:
                 if (edge_vec.dim() > 2):
                     edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
 
-                data_1.edge_index, data_1.edge_weight = edge_indices, edge_weights
-                data_1.edge_vec = edge_vec
-                data_1.cell_offsets = cell_offsets
-                data_1.neighbors = neighbors
+                data.edge_index, data.edge_weight = edge_indices, edge_weights
+                data.edge_vec = edge_vec
+                data.cell_offsets = cell_offsets
+                data.neighbors = neighbors
 
-                data_1.edge_descriptor = {}
-                # data_1.edge_descriptor["mask"] = cd_matrix_masked
-                data_1.edge_descriptor["distance"] = edge_weights
-                data_1.distances = edge_weights
+                data.edge_descriptor = {}
+                # data.edge_descriptor["mask"] = cd_matrix_masked
+                data.edge_descriptor["distance"] = edge_weights
+                data.distances = edge_weights
 
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
-                    data_1.__setattr__(attr, sdict[attr])
+                    data.__setattr__(attr, sdict[attr])
 
         if self.preprocess_nodes == True:
             # logging.info("Generating node features...")
@@ -463,8 +463,8 @@ class LargeDataProcessor:
         composition = Compose(transforms_list)
 
         # apply transforms
-        for data_1 in data_list_1:
-            composition(data_1)
+        for data in data_list_1:
+            composition(data)
 
         clean_up(data_list_1, ["edge_descriptor"])
 

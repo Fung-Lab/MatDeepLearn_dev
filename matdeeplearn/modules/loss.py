@@ -234,6 +234,7 @@ class NCSN_version_03(torch.nn.Module):
         target = target.view(-1)  # (num_edge)
         scores = scores.view(-1)  # (num_edge)
         loss = 0.5 * ((scores - target) ** 2) * (used_sigmas.squeeze(-1) ** self.anneal_power)  # (num_edge)
+        # print("loss", loss[:10])
         loss = scatter_add(loss, edge2graph)  # (num_graph)
 
         loss = loss.mean()

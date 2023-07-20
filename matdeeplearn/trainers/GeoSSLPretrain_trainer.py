@@ -19,6 +19,7 @@ from torch_geometric.data import Dataset
 
 from matdeeplearn.common.data import get_otf_transforms, dataset_split
 from matdeeplearn.datasets.LargeGeoSSLPretain_dataset import LargeGeoSSlPretrainDataset
+from matdeeplearn.modules.loss import NCSN_version_03
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 from matdeeplearn.datasets.CTPretain_dataset import CTPretrainDataset
 
@@ -191,6 +192,12 @@ class GeoSSLPretrainer(BaseTrainer):
             logging.debug(self.dataset["train"][0][0].x[0])
             logging.debug(self.dataset["train"][0][0].x[-1])
             logging.debug(self.model)
+
+        self.NCSN_model_01 = NCSN_version_03(
+            128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=0.05).to(self.rank)
+        self.NCSN_model_02 = NCSN_version_03(
+            128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=0.05).to(self.rank)
+
 
     @classmethod
     def from_config(cls, config):
@@ -408,6 +415,8 @@ class GeoSSLPretrainer(BaseTrainer):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
+        self.NCSN_model_01.train()
+        self.NCSN_model_02.train()
         start_epoch = self.step // len(self.train_loader)
 
         end_epoch = (
@@ -450,6 +459,9 @@ class GeoSSLPretrainer(BaseTrainer):
                 #     continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
+                # print(batch1.batch.shape, batch1.x.shape)
+                # print(batch1.batch)
+                # print(batch1.super_edge_index.shape)
 
                 # Compute forward, loss, backward
                 out1 = self._forward(batch1)
@@ -584,8 +596,10 @@ class GeoSSLPretrainer(BaseTrainer):
         return output
 
     def _compute_loss(self, out1, out2, batch1, batch2):
-        out1 = torch.nn.functional.normalize(out1, dim=1)
-        out2 = torch.nn.functional.normalize(out2, dim=1)
+        # out1 = torch.nn.functional.normalize(out1, dim=1)
+        # out2 = torch.nn.functional.normalize(out2, dim=1)
+        assert torch.equal(batch1.super_edge_index, batch2.super_edge_index)
+        assert torch.equal(batch2.batch, batch1.batch)
         edge_index_1 = batch1.super_edge_index
         edge_index_2 = batch2.super_edge_index
         positions_01 = batch1.pos
@@ -599,8 +613,8 @@ class GeoSSLPretrainer(BaseTrainer):
         v_pos_02 = torch.index_select(positions_02, dim=0, index=edge_index_2[1])
         distance_02 = torch.sqrt(torch.sum((u_pos_02 - v_pos_02) ** 2, dim=1)).unsqueeze(1)  # (num_edge, 1)
 
-        loss_01 = self.loss_fn1(batch1, out1, distance_02)
-        loss_02 = self.loss_fn2(batch2, out2, distance_01)
+        loss_01 = self.NCSN_model_01(batch1, out1, distance_02)
+        loss_02 = self.NCSN_model_02(batch2, out2, distance_01)
 
         loss = (loss_01 + loss_02) / 2
 
