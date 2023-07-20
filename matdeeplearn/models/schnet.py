@@ -5,20 +5,20 @@ import torch_geometric
 from torch import Tensor
 from torch.nn import BatchNorm1d, Linear, Sequential
 from torch_geometric.nn import (
-    CGConv,
     Set2Set,
     global_add_pool,
     global_max_pool,
     global_mean_pool,
 )
+from torch_geometric.nn.models.schnet import InteractionBlock
 from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing
 
-@registry.register_model("CGCNN")
-class CGCNN(BaseModel):
+@registry.register_model("SchNet")
+class SchNet(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -26,6 +26,7 @@ class CGCNN(BaseModel):
         output_dim,
         dim1=64,
         dim2=64,
+        dim3=64,
         pre_fc_count=1,
         gc_count=3,
         post_fc_count=1,
@@ -37,7 +38,7 @@ class CGCNN(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN, self).__init__(**kwargs)
+        super(SchNet, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -48,6 +49,7 @@ class CGCNN(BaseModel):
         self.pre_fc_count = pre_fc_count
         self.dim1 = dim1
         self.dim2 = dim2
+        self.dim3 = dim3
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
         self.node_dim = node_dim
@@ -100,9 +102,7 @@ class CGCNN(BaseModel):
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
-            conv = CGConv(
-                self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
-            )
+            conv = InteractionBlock(self.gc_dim, self.edge_dim, self.dim3, self.cutoff_radius)
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
             if self.batch_norm:
@@ -141,7 +141,6 @@ class CGCNN(BaseModel):
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
-        
         if self.otf_edge == True:
             #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
             data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
@@ -160,23 +159,23 @@ class CGCNN(BaseModel):
         for i in range(0, len(self.conv_list)):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
-                    out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr
+                    out = data.x + self.conv_list[i](
+                        data.x, data.edge_index, data.edge_weight, data.edge_attr
                     )
                     out = self.bn_list[i](out)
                 else:
-                    out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr
+                    out = data.x + self.conv_list[i](
+                        data.x, data.edge_index, data.edge_weight, data.edge_attr
                     )
             else:
                 if self.batch_norm:  
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr
+                    out = out + self.conv_list[i](
+                        out, data.edge_index, data.edge_weight, data.edge_attr
                     )
                     out = self.bn_list[i](out)
                 else:
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr
+                    out = out + self.conv_list[i](
+                        out, data.edge_index, data.edge_weight, data.edge_attr
                     )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)

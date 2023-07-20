@@ -96,7 +96,9 @@ class BaseTrainer(ABC):
             logging.info(
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"
             )
-            logging.info(f"Dataset used: {self.dataset}")
+            logging.info("Dataset(s) used:")
+            for key in self.dataset:
+                logging.info(f"Dataset length: {key, len(self.dataset[key])}")
             if self.dataset.get("train"):
                 logging.debug(self.dataset["train"][0])
                 logging.debug(self.dataset["train"][0].x[0])
@@ -575,5 +577,6 @@ class BaseTrainer(ABC):
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
+        #torch.autograd.set_detect_anomaly(True)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False

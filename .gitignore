@@ -170,7 +170,6 @@ dmypy.json
 # results
 **/*/results/
 results/
-
 server/
 
 # tests

@@ -28,7 +28,7 @@ class ForceLoss(nn.Module):
         self.weight_force = weight_force
 
     def forward(self, predictions: torch.Tensor, target: Batch):  
-        combined_loss = F.l1_loss(predictions["output"], target.y) + self.weight*F.l1_loss(predictions["pos_grad"], target.forces)
+        combined_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y) + self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
         return combined_loss
 
 
