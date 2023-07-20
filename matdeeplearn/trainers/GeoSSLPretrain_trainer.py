@@ -437,6 +437,7 @@ class GeoSSLPretrainer(BaseTrainer):
         # print(len(self.dataset))
 
         for epoch in range(start_epoch, end_epoch):
+            accum_loss = 0
             epoch_start_time = time.time()
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
