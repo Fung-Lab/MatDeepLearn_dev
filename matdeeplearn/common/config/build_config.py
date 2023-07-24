@@ -116,6 +116,12 @@ def build_config(args, args_override):
         config["dataset"]["target_path"] = args.target_path
     if args.global_pool != None:
         config["model"]["pool"] = args.global_pool
+    if args.lr != None:
+        config["optim"]["lr"] = args.lr
+    if args.clip != None:
+        config["optim"]["clip_grad_norm"] = args.clip
+    if args.num_epochs != None:
+        config["optim"]["max_epochs"] = args.num_epochs
     #
     # Submit
     config["submit"] = args.submit

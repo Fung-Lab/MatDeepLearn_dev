@@ -34,6 +34,7 @@ class PropertyTrainer(BaseTrainer):
         save_dir,
         checkpoint_path,
         use_amp,
+        wandb,
     ):
         super().__init__(
             model,
@@ -53,6 +54,7 @@ class PropertyTrainer(BaseTrainer):
             save_dir,
             checkpoint_path,          
             use_amp,
+            wandb
         )
 
     def train(self):
@@ -359,6 +361,14 @@ class PropertyTrainer(BaseTrainer):
                     self.epoch_time,
                 )
             )
+            if self.wandb is not None:
+                wandb.log({
+                    "epoch": int(self.epoch - 1),
+                    "lr": self.scheduler.lr,
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                    "time_per_epoch": self.epoch_time,
+                })
         else:
             val_loss = val_metrics[type(self.loss_fn).__name__]["metric"]
             logging.info(
@@ -370,6 +380,14 @@ class PropertyTrainer(BaseTrainer):
                     self.epoch_time,
                 )
             )
+            if self.wandb is not None:
+                wandb.log({
+                    "epoch": int(self.epoch - 1),
+                    "lr": self.scheduler.lr,
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                    "time_per_epoch": self.epoch_time,
+                })
 
     def _load_task(self):
         """Initializes task-specific info. Implemented by derived classes."""

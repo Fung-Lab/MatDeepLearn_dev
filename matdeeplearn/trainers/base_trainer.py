@@ -46,6 +46,7 @@ class BaseTrainer(ABC):
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
+        wandb: None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -72,6 +73,7 @@ class BaseTrainer(ABC):
         self.save_dir = save_dir if save_dir else os.getcwd()
         self.checkpoint_path = checkpoint_path
         self.use_amp = use_amp
+        self.wandb = wandb
 
         if self.use_amp:
             logging.info("Using PyTorch automatic mixed-precision")
@@ -168,6 +170,11 @@ class BaseTrainer(ABC):
         if local_world_size > 1:
             dist.barrier()
 
+        wandb_project = config["task"].get("wandb_project", None)
+        if wandb_project is not None:
+            import wandb
+            wandb.init(project=wandb_project, config=config)
+
         return cls(
             model=model,
             dataset=dataset,
@@ -186,6 +193,7 @@ class BaseTrainer(ABC):
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
+            wandb=wandb,
         )
 
     @staticmethod

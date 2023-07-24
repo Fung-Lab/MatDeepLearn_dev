@@ -76,6 +76,21 @@ class Flags:
             type=str,
             help="Global pooling method",
         )
+        self.parser.add_argument(
+            "--lr",
+            type=float,
+            help="learning rate",
+        )
+        self.parser.add_argument(
+            "--clip",
+            type=float,
+            help="gradient clipping",
+        )
+        self.parser.add_argument(
+            "--num_epochs",
+            type=int,
+            help="number of epochs",
+        )
         # parser.add_argument(
         #     "--model_path",
         #     default=None,
