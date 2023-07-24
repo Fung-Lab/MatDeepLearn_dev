@@ -362,7 +362,7 @@ class PropertyTrainer(BaseTrainer):
                 )
             )
             if self.wandb is not None:
-                wandb.log({
+                self.wandb.log({
                     "epoch": int(self.epoch - 1),
                     "lr": self.scheduler.lr,
                     "train_loss": train_loss,
@@ -381,7 +381,7 @@ class PropertyTrainer(BaseTrainer):
                 )
             )
             if self.wandb is not None:
-                wandb.log({
+                self.wandb.log({
                     "epoch": int(self.epoch - 1),
                     "lr": self.scheduler.lr,
                     "train_loss": train_loss,

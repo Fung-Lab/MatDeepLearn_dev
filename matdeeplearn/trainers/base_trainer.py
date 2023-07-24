@@ -46,7 +46,7 @@ class BaseTrainer(ABC):
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
-        wandb: None,
+        wandb = None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
