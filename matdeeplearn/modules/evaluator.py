@@ -12,17 +12,18 @@ class Evaluator:
         metrics = prev_metrics
         res = loss_method(prediction, target)
 
-        metrics = self.update(type(loss_method).__name__, res.item(), metrics)
+        metrics = self.update(type(loss_method).__name__, res.item(), prediction["output"].shape[0], metrics)
 
         return metrics
 
-    def update(self, key, stat, metrics):
+    def update(self, key, stat, count, metrics):
         if key not in metrics:
             metrics[key] = {
                 "metric": None,
                 "total": 0,
                 "numel": 0,
             }
+        '''
         if isinstance(stat, dict):
             # If dictionary, we expect it to have `metric`, `total`, `numel`.
             metrics[key]["total"] += stat["total"]
@@ -35,5 +36,9 @@ class Evaluator:
             metrics[key]["metric"] = metrics[key]["total"] / metrics[key]["numel"]
         elif torch.is_tensor(stat):
             raise NotImplementedError
-
+        '''
+        metrics[key]["total"] += stat * count
+        metrics[key]["numel"] += count
+        metrics[key]["metric"] = metrics[key]["total"] / metrics[key]["numel"]
+            
         return metrics
