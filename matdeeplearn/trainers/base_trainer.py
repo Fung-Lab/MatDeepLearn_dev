@@ -193,7 +193,7 @@ class BaseTrainer(ABC):
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
-            wandb=wandb,
+            wandb=(wandb if wandb_project is not None else None),
         )
 
     @staticmethod
