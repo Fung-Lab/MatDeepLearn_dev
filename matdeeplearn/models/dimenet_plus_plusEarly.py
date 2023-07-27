@@ -17,6 +17,7 @@ from torch_geometric.nn.resolver import activation_resolver
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
 from matdeeplearn.preprocessor.helpers import triplets
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
@@ -171,7 +172,7 @@ class OutputPPBlock(torch.nn.Module):
         return self.lin(x)
 
 
-class DimeNetPlusPlus(torch.nn.Module):
+class DimeNetPlusPlus(BaseModel):
     r"""DimeNet++ implementation based on https://github.com/klicperajo/dimenet.
     Args:
         hidden_channels (int): Hidden embedding size.
@@ -440,25 +441,30 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         return energy
 
     def forward(self, data):
-        if self.regress_forces:
-            data.pos.requires_grad_(True)
-        energy = self._forward(data)
-        
-        if self.regress_forces:
-            forces = -1 * (
-                torch.autograd.grad(
-                    energy,
-                    data.pos,
-                    grad_outputs=torch.ones_like(energy),
-                    create_graph=True,
-                    allow_unused=True,
-                )[0]
-            )
-            return energy, forces
-        elif energy.shape[1] == 1:
-            return energy.view(-1)
+
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
+            grad = torch.autograd.grad(
+                    out,
+                    [data.pos, data.displacement],
+                    grad_outputs=torch.ones_like(out),
+                    create_graph=self.training) 
+            forces = -1 * grad[0]
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)             
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
         else:
-            return energy
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None    
+                  
+        return output
+
     @property
     def target_attr(self):
         return "y"

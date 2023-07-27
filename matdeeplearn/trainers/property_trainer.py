@@ -114,7 +114,7 @@ class PropertyTrainer(BaseTrainer):
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
                 #  keep option to log metrics per epoch  
                 _metrics = self._compute_metrics(out, batch, _metrics)               
-                self.metrics = self.evaluator.update("loss", loss.item(), _metrics)     
+                self.metrics = self.evaluator.update("loss", loss.item(), out["output"].shape[0], _metrics)     
 
             self.epoch = epoch + 1
 
@@ -187,7 +187,7 @@ class PropertyTrainer(BaseTrainer):
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
             metrics = self._compute_metrics(out, batch, metrics)
-            metrics = evaluator.update("loss", loss.item(), metrics)
+            metrics = evaluator.update("loss", loss.item(), out["output"].shape[0], metrics)
             del loss, batch, out
         
         torch.cuda.empty_cache()
@@ -224,7 +224,7 @@ class PropertyTrainer(BaseTrainer):
                 loss = self._compute_loss(out, batch)
                 metrics = self._compute_metrics(out, batch, metrics)
                 metrics = evaluator.update(
-                    "loss", loss.item(), metrics
+                    "loss", loss.item(), out["output"].shape[0], metrics
                 )                                 
                 if str(self.rank) not in ("cpu", "cuda"): 
                     batch_t = batch[self.model.module.target_attr].cpu().numpy()

@@ -483,7 +483,7 @@ class BaseTrainer(ABC):
         
         with open(filename, "w") as f:
             csvwriter = csv.writer(f)
-            for i in range(0, len(output)):
+            for i in range(0, len(output)+1):
                 if i == 0:
                     csvwriter.writerow(headers)
                 elif i > 0:

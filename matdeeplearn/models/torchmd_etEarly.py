@@ -182,7 +182,7 @@ class TorchMD_ET(BaseModel):
         #), "Distance module did not return directional information"
         if self.otf_edge == True:
             data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
-            data.edge_attr = self.distance_expansion(data.edge_weight) 
+        data.edge_attr = self.distance_expansion(data.edge_weight) 
             
         #mask = data.edge_index[0] != data.edge_index[1]        
         #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
