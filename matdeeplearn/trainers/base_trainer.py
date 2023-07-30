@@ -267,6 +267,7 @@ class BaseTrainer(ABC):
             output_dim = dataset[0]["y"].shape[1]     
 
         # Determine if this is a node or graph level model
+        '''
         if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
             model_config["prediction_level"] = "node"
         elif dataset[0]["y"].shape[0] == 1:
@@ -275,6 +276,8 @@ class BaseTrainer(ABC):
             raise ValueError(
                 "Target labels do not have the correct dimensions for node or graph-level prediction."
             )
+        '''
+        model_config["prediction_level"] = "node"                  
 
         model_cls = registry.get_model_class(model_config["name"])
         model = model_cls(

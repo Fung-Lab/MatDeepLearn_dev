@@ -198,7 +198,7 @@ class TorchMD_ET(BaseModel):
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
-        
+        '''
         if self.prediction_level == "graph":
             x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
             for i in range(0, len(self.post_lin_list) - 1):
@@ -212,6 +212,14 @@ class TorchMD_ET(BaseModel):
                 x = self.post_lin_list[i](x)
                 x = getattr(F, self.activation)(x)
             x = self.post_lin_list[-1](x) 
+        '''
+        virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
+        x = torch.index_select(x, 0, virtual_mask)
+        
+        for i in range(0, len(self.post_lin_list) - 1):
+            x = self.post_lin_list[i](x)
+            x = getattr(F, self.activation)(x)
+        x = self.post_lin_list[-1](x) 
                     
         return x
         

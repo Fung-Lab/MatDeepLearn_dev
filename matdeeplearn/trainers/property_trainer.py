@@ -236,9 +236,12 @@ class PropertyTrainer(BaseTrainer):
             if batch_p.shape[0] > loader.batch_size:                 
 
                 node_level = True
-                node_ids = batch.z.cpu().numpy()
+                virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
+                node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()                
+                #node_ids = batch.z.cpu().numpy()
+                #print(batch.n_atoms.cpu().numpy())
                 structure_ids = np.repeat(
-                    batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
+                    batch.structure_id, [200]*len(batch), axis=0
                 )
                 batch_ids = np.column_stack((structure_ids, node_ids))
             

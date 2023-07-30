@@ -180,7 +180,16 @@ class CGCNN(BaseModel):
                     )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
-
+            
+        virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
+        out = torch.index_select(out, 0, virtual_mask)
+        
+        for i in range(0, len(self.post_lin_list)):
+            out = self.post_lin_list[i](out)
+            out = getattr(F, self.act)(out)
+        out = self.lin_out(out)           
+        
+        '''
         # Post-GNN dense layers
         if self.prediction_level == "graph":
             if self.pool_order == "early":
@@ -209,7 +218,7 @@ class CGCNN(BaseModel):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
             out = self.lin_out(out)                
-                     
+        '''                     
         return out   
         
         

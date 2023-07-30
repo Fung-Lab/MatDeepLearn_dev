@@ -2,6 +2,7 @@ import json
 import logging
 import os
 
+import random
 import numpy as np
 import pandas as pd
 import torch
@@ -179,11 +180,54 @@ class DataProcessor:
         self.disable_tqdm = logging.root.level > logging.INFO
 
     def src_check(self):
+        '''
         if self.target_file_path:
             return self.ase_wrap()
         else:
             return self.json_wrap()
-
+        '''
+        return self.chg_wrap()
+        
+    def chg_wrap(self):
+        dict_structures = []
+        dirs = [d for d in os.listdir(self.root_path_dict) if os.path.isdir(os.path.join(self.root_path_dict, d))]
+        for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
+            if i<100:
+                d = {}
+                try:
+                    #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
+                    df = pd.read_csv(self.root_path_dict+dir_name+"/densities.csv", header=0).to_numpy()    
+                    vn_coords = df[:,0:3]
+                    vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
+                    
+                    indices = random.sample(range(0, df.shape[0]), 200)
+                    
+                    pos_vn = torch.tensor(vn_coords[indices, :], device=self.device, dtype=torch.float)
+                    atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
+                    #d["positions_vn"] = vn_coords[indices, :]
+                    #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
+                    d["y"] = vn_labels[indices, :]
+                    
+                    ase_structure = io.read(self.root_path_dict+dir_name+"/structure.xsf")            
+                    pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
+                    cell = torch.tensor(
+                        np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
+                    ).view(1, 3, 3)
+                    if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
+                        cell = torch.zeros((3,3)).unsqueeze(0)
+                    atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
+                    
+                    d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                    d["cell"] = cell
+                    d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                    d["structure_id"] = str(dir_name)
+                    dict_structures.append(d)
+                    #print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
+                except Exception as e:
+                    pass
+                                               
+        return dict_structures
+    
     def ase_wrap(self):
         """
         raw files are ase readable and self.target_file_path is not None
@@ -437,6 +481,7 @@ class DataProcessor:
             target_val = sdict["y"]
             # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
             data.y = torch.Tensor(np.array(target_val)) 
+            '''
             if self.prediction_level == "graph":
                 if data.y.dim() > 1 and data.y.shape[0] != 0:
                     raise ValueError('Target labels do not have the correct dimensions for graph-level prediction.')
@@ -447,7 +492,7 @@ class DataProcessor:
                     raise ValueError('Target labels do not have the correct dimensions for node-level prediction.')
                 elif data.y.dim() == 1:
                     data.y = data.y.unsqueeze(1)            
-            
+            '''
             if self.preprocess_edges == True:
                 edge_gen_out = calculate_edges_master(
                     self.edge_calc_method,
@@ -477,8 +522,7 @@ class DataProcessor:
                 # data.edge_descriptor["mask"] = cd_matrix_masked
                 data.edge_descriptor["distance"] = edge_weights
                 data.distances = edge_weights
-            
-
+                        
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
