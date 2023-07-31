@@ -14,6 +14,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose
 from torch.optim import Optimizer
+import torch.optim as optim
 from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
 
@@ -76,8 +77,9 @@ def get_dataset(
 
     return dataset
 
+
 def get_dataloader(
-    dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
+        dataset, batch_size: int, num_workers: int = 0, sampler=None, shuffle=True
 ):
     """
     Returns a single dataloader for a given dataset
@@ -132,6 +134,8 @@ class GeoSSLPretrainer(BaseTrainer):
             save_dir: str = None,
             checkpoint_path: str = None,
             use_amp: bool = False,
+            NCSN_model_01: NCSN_version_03 = None,
+            NCSN_model_02: NCSN_version_03 = None
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -193,11 +197,8 @@ class GeoSSLPretrainer(BaseTrainer):
             logging.debug(self.dataset["train"][0][0].x[-1])
             logging.debug(self.model)
 
-        self.NCSN_model_01 = NCSN_version_03(
-            128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=0.05).to(self.rank)
-        self.NCSN_model_02 = NCSN_version_03(
-            128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=0.05).to(self.rank)
-
+        self.NCSN_model_01 = NCSN_model_01
+        self.NCSN_model_02 = NCSN_model_02
 
     @classmethod
     def from_config(cls, config):
@@ -228,7 +229,11 @@ class GeoSSLPretrainer(BaseTrainer):
         dataset = cls._load_dataset(config["dataset"])
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size,
                                 rank)
-        optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
+        NCSN_model_01 = \
+            NCSN_version_03(128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=2).to(rank)
+        NCSN_model_02 = \
+            NCSN_version_03(128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=2).to(rank)
+        optimizer = cls._load_optimizer(config["optim"], model, NCSN_model_01, NCSN_model_02, local_world_size)
         sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
         train_loader, val_loader, test_loader = cls._load_dataloader(
             config["optim"],
@@ -276,6 +281,8 @@ class GeoSSLPretrainer(BaseTrainer):
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
+            NCSN_model_01=NCSN_model_01,
+            NCSN_model_02=NCSN_model_02
         )
 
     @staticmethod
@@ -331,7 +338,6 @@ class GeoSSLPretrainer(BaseTrainer):
                 model, device_ids=[rank], find_unused_parameters=False
             )
         return model
-
 
     @staticmethod
     def _load_dataset(dataset_config):
@@ -411,6 +417,27 @@ class GeoSSLPretrainer(BaseTrainer):
 
         return train_loader, val_loader, test_loader
 
+    @staticmethod
+    def _load_optimizer(optim_config, model, NCSN_model_01, NCSN_model_02, world_size):
+        # Some issues with DDP learning rate
+        # Unclear regarding the best practice
+        # Currently, effective batch size per epoch is batch_size * world_size
+        # Some discussions here:
+        # https://github.com/Lightning-AI/lightning/discussions/3706
+        # https://discuss.pytorch.org/t/should-we-split-batch-size-according-to-ngpu-per-node-when-distributeddataparallel/72769/15
+        if world_size > 1:
+            optim_config["lr"] = optim_config["lr"] * world_size
+
+        model_param_group = [{"params": model.parameters(), "lr": optim_config["lr"]}]
+        model_param_group += [{"params": NCSN_model_01.parameters()}]
+        model_param_group += [{"params": NCSN_model_02.parameters()}]
+        optimizer = getattr(optim, optim_config["optimizer"]["optimizer_type"])(
+            model_param_group,
+            lr=optim_config["lr"],
+            **optim_config["optimizer"].get("optimizer_args", {}),
+        )
+        return optimizer
+
     def train(self):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
@@ -470,7 +497,8 @@ class GeoSSLPretrainer(BaseTrainer):
                 loss = self._compute_loss(out1, out2, batch1, batch2)
                 # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
                 if (i % 100 == 0):
-                    logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i, loss.detach().item()))
+                    logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
+                                                                                    loss.detach().item()))
                 accum_loss += loss.detach().item()
                 self._backward(loss)
 

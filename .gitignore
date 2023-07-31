@@ -189,3 +189,4 @@ checkpoints/
 /data/ct_pretrain/
 /data/*/processed/data.pt
 /data/QM9/data.json
+/data/Molecule3D/data.json

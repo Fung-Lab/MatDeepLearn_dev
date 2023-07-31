@@ -49,7 +49,7 @@ optim:
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "NCSN"
-    loss_args: {"emb_dim": 128, "sigma_begin": 10, "sigma_end": 0.01, "num_noise_level": 30, "anneal_power": 0.05}
+    loss_args: {"emb_dim": 128, "sigma_begin": 10, "sigma_end": 0.01, "num_noise_level": 30, "anneal_power": 2}
     # "num_noise_level": (30 50)  "anneal_power": (0.05 2 5 10)
   clip_grad_norm: 10
 

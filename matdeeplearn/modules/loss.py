@@ -236,7 +236,7 @@ class NCSN_version_03(torch.nn.Module):
         loss = 0.5 * ((scores - target) ** 2) * (used_sigmas.squeeze(-1) ** self.anneal_power)  # (num_edge)
         # print("loss", loss[:10])
         loss = scatter_add(loss, edge2graph)  # (num_graph)
-
+        # print("loss", loss.shape, loss)
         loss = loss.mean()
 
         if debug:
@@ -245,4 +245,5 @@ class NCSN_version_03(torch.nn.Module):
             print("distance", distance[:10].squeeze())
             print("target", target[:10].squeeze())
             print("scores", scores[:10].squeeze())
+        # print(loss)
         return loss
