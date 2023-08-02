@@ -39,43 +39,6 @@ def mask_edge(subdata: Data, mask_edge_ratio1, mask_edge_ratio2):
     
     return subdata1, subdata2
     
-
-#def perturb_positions(pos, distance, min_distance):
-#    n_sites = pos.size(0)
-    
-#    # Calculate pairwise distances
-#    pairwise_distances = torch.cdist(pos, pos)
-#    min_pairwise_distance = torch.min(pairwise_distances[pairwise_distances > 0])
-#    max_perturbation_distance = 0.5 * min_pairwise_distance
-#    uniform_distribution = Uniform(0, max_perturbation_distance)
-#    perturbation_distances = uniform_distribution.sample((n_sites,))
-    
-#    random_vectors = torch.randn(n_sites, 3)
-#    random_vectors /= torch.norm(random_vectors, dim=1, keepdim=True)
-    
-#    # Calculate the perturbed positions
-#    perturbed_pos = pos + perturbation_distances.view(-1, 1) * random_vectors
-    
-#    return perturbed_pos
-    
-#def perturb_positions(pos, distance, min_distance):
-#    for j in range(pos.size(0)):
-#        # Perturb data
-#        # Generate a random unit vector
-#        random_vector = torch.randn(3)
-#        random_vector /= torch.norm(random_vector)
-
-#        # Calculate the perturbation distance
-#        if min_distance is not None:
-#            perturbation_distance = random.uniform(min_distance, distance)
-#        else:
-#            perturbation_distance = distance
-
-#        # Perturb the node position
-#        pos[j] += perturbation_distance * random_vector
-
-#    return pos
-    
 def perturb_positions(pos, distance, min_distance):
     random_vectors = torch.randn(pos.size(0), 3)
     random_vectors /= torch.norm(random_vectors, dim=1, keepdim=True)
@@ -90,8 +53,7 @@ def perturb_positions(pos, distance, min_distance):
     return pos
     
         
-def column_replacement(atomic_numbers):
-
+def column_replacement(atomic_numbers, column_replace_num):
     elements = [[1, 3, 11, 19, 37, 55, 87], [4, 12, 20, 38, 56, 88], [21, 39, 71],
              [22, 40, 72], [23, 41, 73], [24, 42, 74], [25, 43, 75], [26, 44, 76],
              [27, 45, 77], [28, 46, 78], [29, 47, 79], [30, 48, 80], [5, 13, 31, 49, 81],
@@ -109,24 +71,21 @@ def column_replacement(atomic_numbers):
                 return r
     
     atomic_numbers = atomic_numbers.clone()
-    # temp_tensor = atomic_numbers.clone()
-    random_index = torch.randint(0, atomic_numbers.numel(), (1,)).item()
-    # print(random_index)
-    atomic_numbers[random_index] = get_atom_of_same_group(atomic_numbers[random_index].item())
-    # diff_mask = torch.eq(temp_tensor, atomic_numbers)
-    # diff_indices = torch.nonzero(~diff_mask)
-    #print(f"Replaced {temp_tensor[diff_indices].item()} to {atomic_numbers[diff_indices].item()} at index {diff_indices.item()}")
+    num_replacements = min(column_replace_num, atomic_numbers.numel())
+    for _ in range(num_replacements):
+        random_index = torch.randint(0, atomic_numbers.numel(), (1,)).item()
+        atomic_numbers[random_index] = get_atom_of_same_group(atomic_numbers[random_index].item())
     return atomic_numbers
-    
 
-def strain_cell(atomic_numbers, pos, cell):
+
+def strain_cell(atomic_numbers, pos, cell, strain_strength=0.05):
     ase_crystal_object = Atoms(numbers = atomic_numbers, positions=pos, cell=cell.squeeze(), pbc=True)
     cell_l_and_a = ase_crystal_object.get_cell_lengths_and_angles()
     
     while True:
       count = 0
       try:
-          rand_factor = 1 + torch.rand(1) * 0.05
+          rand_factor = 1 + torch.rand(1) * strain_strength
           new_cell_l_and_a = cell_l_and_a.copy()
           if count > 100:
               new_cell_l_and_a = cell_l_and_a[:3] * rand_factor.item()
@@ -140,7 +99,6 @@ def strain_cell(atomic_numbers, pos, cell):
       if count % 20 == 0:
           print(f"Have retried straining for {count} times.")
           
-    
     pos = ase_crystal_object.get_positions()
     cell = ase_crystal_object.get_cell().cellpar()[:3]
     pos = torch.tensor(pos, dtype=torch.float32)

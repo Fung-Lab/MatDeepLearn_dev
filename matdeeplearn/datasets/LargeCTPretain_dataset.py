@@ -348,12 +348,27 @@ class LargeDataProcessor:
         y = np.array(y)
         return dict_structures
 
-    def process(self, dict_structures, column_replace=False, perturb=False, strain=False, supercell=False, distance: float = 0.05, min_distance: float = None):
-        data_list = self.get_data_list(dict_structures, column_replace, perturb, strain, supercell, distance, min_distance)
+    def process(self, dict_structures,
+                      column_replace=False, column_replace_num=0,
+                      perturb=False, perturbing_distance=0.05,
+                      strain=False, strain_strength=0.05,
+                      supercell=False, supercell_num=2,
+                      distance: float = 0.05, min_distance: float = None):
+        data_list = self.get_data_list(dict_structures,
+                                      column_replace, column_replace_num,
+                                      perturb, perturbing_distance,
+                                      strain, strain_strength,
+                                      supercell,supercell_num,
+                                      distance, min_distance)
         data, slices = InMemoryDataset.collate(data_list)
         return data
 
-    def get_data_list(self, dict_structures, column_replace, perturb, strain, supercell, distance, min_distance):
+    def get_data_list(self, dict_structures,
+                            column_replace, column_replace_num,
+                            perturb, perturbing_distance,
+                            strain, strain_strength,
+                            supercell, supercell_num,
+                            distance, min_distance):
     
         #logging.debug(perturb, column_replacement, strain)
         
@@ -371,13 +386,13 @@ class LargeDataProcessor:
             atomic_numbers = sdict["atomic_numbers"]
             
             if supercell:
-                atomic_numbers, pos, cell = generate_supercell(atomic_numbers, 2, pos, cell)
+                atomic_numbers, pos, cell = generate_supercell(atomic_numbers, supercell_num, pos, cell)
 
             if perturb:
-                pos = perturb_positions(pos, distance, min_distance)
+                pos = perturb_positions(pos, perturbing_distance, min_distance)
                         
             if column_replace:
-                atomic_numbers = column_replacement(atomic_numbers)
+                atomic_numbers = column_replacement(atomic_numbers, column_replace_num)
                 
             if strain:
                 pos, cell = strain_cell(atomic_numbers, pos, cell)
@@ -490,6 +505,10 @@ class LargeCTPretrainDataset(InMemoryDataset):
             min_distance: float = None,
             augmentation_list=None,
             random_augmentation=False,
+            column_replace_num=1,
+            perturbing_distance=0.05,
+            strain_strength=0.05,
+            supercell_num=2,
             transform=None,
             pre_transform=None,
             pre_filter=None,
@@ -506,7 +525,22 @@ class LargeCTPretrainDataset(InMemoryDataset):
         self.processed_file_name = processed_file_name
         self.augmentation_list = augmentation_list if augmentation_list else []
         self.random_augmentation = random_augmentation
+        self.column_replace_num = column_replace_num
+        self.perturbing_distance = perturbing_distance
+        self.strain_strength = strain_strength
+        self.supercell_num = supercell_num
+        
+        logging.info(f"augmentation: {augmentation_list}")
         logging.info(f"Random augmentation for each step: {random_augmentation}")
+        if "column_replacement" in self.augmentation_list:
+            logging.info(f"Column replacement atom number: {self.column_replace_num}")
+        if "perturbing" in self.augmentation_list:
+            logging.info(f"Perturbing distance: {self.perturbing_distance}")
+        if "strain" in self.augmentation_list:
+            logging.info(f"Strain strength: {self.strain_strength}")
+        if "supercell" in self.augmentation_list:
+            logging.info(f"Construct supercell: {self.supercell_num} times {self.supercell_num}")
+            
 
         self.mask_node_ratio1 = mask_node_ratios[0]
         self.mask_node_ratio2 = mask_node_ratios[1]
@@ -553,8 +587,8 @@ class LargeCTPretrainDataset(InMemoryDataset):
     def __getitem__(self, idx):
         
         actual_augmentation = self.augmentation_list
-        #if self.random_augmentation:
-        #    actual_augmentation = np.random.choice(self.augmentation_list, 1)
+        if self.random_augmentation:
+            actual_augmentation = np.random.choice(self.augmentation_list, 1)
             
         #actual_augmentation = [element for element in self.augmentation_list if random.random() < 0.5]
         #if not actual_augmentation:
@@ -569,11 +603,21 @@ class LargeCTPretrainDataset(InMemoryDataset):
         strain = "strain" in actual_augmentation
         supercell = "supercell" in actual_augmentation
         
+        #print(perturbing, column_replace, strain, supercell)
+        
         if perturbing or column_replace or strain or supercell:
-            subdata1 = self.processer.process([self.dict_structures[idx]], column_replace=column_replace,
-                                              perturb=perturbing, strain=strain, supercell=supercell)
-            subdata2 = self.processer.process([self.dict_structures[idx]], column_replace=column_replace,
-                                              perturb=perturbing, strain=strain, supercell=False)
+            #self.processer.process([self.dict_structures[idx]], column_replace=column_replace,
+            #                                  perturb=perturbing, strain=strain, supercell=supercell)
+            subdata1 = self.processer.process([self.dict_structures[idx]],
+                                              column_replace=column_replace, column_replace_num=self.column_replace_num,
+                                              perturb=perturbing, perturbing_distance=self.perturbing_distance,
+                                              strain=strain, strain_strength=self.strain_strength,
+                                              supercell=supercell, supercell_num=self.supercell_num)
+            subdata2 = self.processer.process([self.dict_structures[idx]],
+                                              column_replace=column_replace, column_replace_num=self.column_replace_num,
+                                              perturb=perturbing, perturbing_distance=self.perturbing_distance,
+                                              strain=strain, strain_strength=self.strain_strength,
+                                              supercell=supercell, supercell_num=self.supercell_num)
             return subdata1, subdata2
 
         subdata = self.processer.process([self.dict_structures[idx]])

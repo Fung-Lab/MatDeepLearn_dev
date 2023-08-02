@@ -445,7 +445,7 @@ class FinetuneTrainer(PropertyTrainer):
                     # backwards compatibility for serialized parameters
                     param = param.data
                 model_state[name].copy_(param)
-            logging.info("Loaded pre-trained model with success.")
+            logging.info(f"Loaded pre-trained model from {checkpoints_folder} with success.")
         except FileNotFoundError:
             logging.info("Pre-trained weights not found. Training from scratch.")
 
@@ -636,6 +636,14 @@ class FinetuneTrainer(PropertyTrainer):
             csv_writer = csv.writer(f)
             if not os.path.getsize(os.path.join(best_log_dir_name, "best_val_metric.csv")):
                 csv_head = ["timestamp_id", "best_val_metric", "best_epoch"]
+                csv_writer.writerow(csv_head)
+            csv_writer.writerow(new_metric)
+            
+        with open(os.path.join(best_log_dir_name, "best_test_metric.csv"), "a+", encoding="utf-8", newline='') as f:
+            new_metric = [self.timestamp_id, test_loss]
+            csv_writer = csv.writer(f)
+            if not os.path.getsize(os.path.join(best_log_dir_name, "best_test_metric.csv")):
+                csv_head = ["timestamp_id", "best_test_metric"]
                 csv_writer.writerow(csv_head)
             csv_writer.writerow(new_metric)
 

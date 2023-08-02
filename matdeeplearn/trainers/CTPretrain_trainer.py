@@ -32,8 +32,12 @@ def get_dataset(
         data_path,
         processed_file_name,
         transform_list: List[dict] = [],
-        augmentation_list=None,
-        random_augmentation=False,
+        augmentations=None,
+        random_choice_augmentation=False,
+        column_replace_num=1,
+        perturbing_distance=0.05,
+        strain_strength=0.05,
+        supercell_num=2,
         large_dataset=False,
         dataset_config=None
 ):
@@ -59,8 +63,13 @@ def get_dataset(
     if large_dataset:
         Dataset = LargeCTPretrainDataset
         dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
-                          augmentation_list=augmentation_list,
-                          random_augmentation=random_augmentation, transform=composition,
+                          augmentation_list=augmentations,
+                          random_augmentation=random_choice_augmentation,
+                          column_replace_num=1,
+                          perturbing_distance=0.05,
+                          strain_strength=0.05,
+                          supercell_num=2,
+                          transform=composition,
                           mask_node_ratios=[0.1, 0.1],
                           mask_edge_ratios=[0.1, 0.1],
                           distance=0.05,
@@ -335,8 +344,12 @@ class CTPretrainer(BaseTrainer):
                 dataset_path,
                 processed_file_name="data_train.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None),
-                random_augmentation=dataset_config.get("random_choice_augmentation", False),
+                augmentations = dataset_config["augmentation"].get("augmentations", []),
+                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
+                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
+                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
+                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
+                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
@@ -345,8 +358,12 @@ class CTPretrainer(BaseTrainer):
                 dataset_path,
                 processed_file_name="data_val.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None),
-                random_augmentation=dataset_config.get("random_choice_augmentation", False),
+                augmentations = dataset_config["augmentation"].get("augmentations", []),
+                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
+                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
+                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
+                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
+                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
@@ -354,20 +371,27 @@ class CTPretrainer(BaseTrainer):
                 dataset_path,
                 processed_file_name="data_test.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None),
-                random_augmentation=dataset_config.get("random_choice_augmentation", False),
-                large_dataset=dataset_config.get("large_dataset", False),
+                augmentations = dataset_config["augmentation"].get("augmentations", []),
+                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
+                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
+                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
+                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
+                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
                 dataset_config=dataset_config
             )
 
         else:
-            print("augmentation: ", dataset_config.get("augmentation"))
+            # print("augmentation: ", dataset_config["augmentation"].get("augmentations", []))
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
                 transform_list=dataset_config.get("transforms", []),
-                augmentation_list=dataset_config.get("augmentation", None),
-                random_augmentation=dataset_config.get("random_choice_augmentation", False),
+                augmentations = dataset_config["augmentation"].get("augmentations", []),
+                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
+                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
+                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
+                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
+                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
                 large_dataset=dataset_config.get("large_dataset", False),
                 dataset_config=dataset_config
             )
