@@ -19,7 +19,8 @@ from matdeeplearn.preprocessor.helpers import (
     generate_edge_features,
     generate_node_features,
     get_cutoff_distance_matrix,
-    calculate_edges_master
+    calculate_edges_master,
+    get_pbc_cells
 )
 
 from matdeeplearn.preprocessor import StructureDataset
@@ -384,6 +385,10 @@ class LargeDataProcessor:
             data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
             super_edge_index = list(itertools.combinations(range(len(atomic_numbers)), 2))
             data.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
+
+            offsets, cell_coors = get_pbc_cells(cell, self.num_offsets)
+            offsets = offsets.expand(len(pos), offsets.shape[1], offsets.shape[2])
+            data.offsets = offsets
 
             target_val = sdict["y"]
             # Data.y.dim()should equal 2, with dimensions of either (1, n) for graph-level labels or (n_atoms, n) for node level labels, where n is length of label vector (usually n=1)
@@ -903,7 +908,7 @@ if __name__ == '__main__':
                                      processed_file_name="data.pt", dataset_config=config["dataset"])
     print(dataset.num_features   , dataset.num_edge_features)
 
-    print(dataset[10][0])
+    print(dataset[10][0].cell, dataset[10][0].cell_offsets)
     print(dataset[10][1])
 
     # print(len(dataset))

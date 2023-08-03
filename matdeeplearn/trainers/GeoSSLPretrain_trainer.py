@@ -496,9 +496,9 @@ class GeoSSLPretrainer(BaseTrainer):
                 out2 = self._forward(batch2)
                 loss = self._compute_loss(out1, out2, batch1, batch2)
                 # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
-                # if (i % 100 == 0):
-                #     logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
-                #                                                                     loss.detach().item()))
+                if (i % 100 == 0):
+                    logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
+                                                                                    loss.detach().item()))
                 accum_loss += loss.detach().item()
                 self._backward(loss)
 
@@ -624,6 +624,22 @@ class GeoSSLPretrainer(BaseTrainer):
         output = self.model(batch_data)
         return output
 
+    def _compute_distamce(self, positions, offsets, edge_index):
+        n_atoms = len(positions)
+        n_cells = len(offsets[0])
+
+        pos1 = torch.index_select(positions, dim=0, index=edge_index[0])  # (num_edge, 3)
+        pos1 = pos1.view(-1, 1, 3).expand(-1, n_cells, 3)  # (num_edge, n_cells, 3)
+
+        pos2 = positions.view(-1, 1, 3).expand(-1, n_cells, 3)  # (n_atoms, n_cells, 3)
+        pos2 = pos2 + offsets
+        pos2 = torch.index_select(pos2, dim=0, index=edge_index[1])
+
+        atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
+        min_atomic_distances, _ = torch.min(atomic_distances, dim=-1)
+
+        return min_atomic_distances.unsqueeze(1)
+
     def _compute_loss(self, out1, out2, batch1, batch2):
         # out1 = torch.nn.functional.normalize(out1, dim=1)
         # out2 = torch.nn.functional.normalize(out2, dim=1)
@@ -633,14 +649,23 @@ class GeoSSLPretrainer(BaseTrainer):
         edge_index_2 = batch2.super_edge_index
         positions_01 = batch1.pos
         positions_02 = batch2.pos
+        offsets_01 = batch1.offsets
+        offsets_02 = batch2.offsets
 
+        '''
         u_pos_01 = torch.index_select(positions_01, dim=0, index=edge_index_1[0])
         v_pos_01 = torch.index_select(positions_01, dim=0, index=edge_index_1[1])
         distance_01 = torch.sqrt(torch.sum((u_pos_01 - v_pos_01) ** 2, dim=1)).unsqueeze(1)  # (num_edge, 1)
-
+        
         u_pos_02 = torch.index_select(positions_02, dim=0, index=edge_index_2[0])
         v_pos_02 = torch.index_select(positions_02, dim=0, index=edge_index_2[1])
         distance_02 = torch.sqrt(torch.sum((u_pos_02 - v_pos_02) ** 2, dim=1)).unsqueeze(1)  # (num_edge, 1)
+        '''
+
+        distance_01 = self._compute_distamce(positions_01, offsets_01, edge_index_1)
+        distance_02 = self._compute_distamce(positions_02, offsets_02, edge_index_2)
+        # print(old_distance_01.view(-1)[:20])
+        # print(distance_01.view(-1)[:20])
 
         loss_01 = self.NCSN_model_01(batch1, out1, distance_02)
         loss_02 = self.NCSN_model_02(batch2, out2, distance_01)
