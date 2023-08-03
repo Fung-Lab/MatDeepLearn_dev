@@ -6,7 +6,7 @@ task:
   reprocess: False
   parallel: False
   # seed=0 means random initalization
-  seed: 0
+  seed:
   # Defaults to run directory if not specified
   save_dir:
   # continue from a previous job

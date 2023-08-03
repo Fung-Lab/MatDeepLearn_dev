@@ -1,6 +1,7 @@
 import time
 import subprocess
 import os
+import random
 
 # 运行次数
 num_runs = 5
@@ -10,23 +11,25 @@ if __name__ == '__main__':
     # 循环执行
     for i in range(num_runs):
 
+        seed = str(random.randint(1, 20000))
+
         # 执行命令行命令
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/masking15/config_Phonons.yml"
-        # subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Phonons_ct_ft.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Phonons.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/masking15/config_GVRH.yml"
-        # subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_GVRH_ct_ft.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Phonons_ct_ft.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/masking15/config_KVRH.yml"
-        # subprocess.run(command, shell=True)
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_GVRH.yml --seed=" + seed
+        subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_KVRH_ct_ft.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_GVRH_ct_ft.yml --seed=" + seed
+        subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_KVRH.yml --seed=" + seed
+        subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_KVRH_ct_ft.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
         # 记录本次运行的开始时间

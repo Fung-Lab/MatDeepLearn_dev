@@ -1,3 +1,4 @@
+import random
 import time
 import subprocess
 import os
@@ -10,23 +11,25 @@ if __name__ == '__main__':
     # 循环执行
     for i in range(num_runs):
 
+        seed = str(random.randint(1, 20000))
+
         # 执行命令行命令
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/masking15/config_JDFT.yml"
-        # subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_JDFT_ct_ft.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_JDFT.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/masking15/config_Dielectric.yml"
-        # subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Dielectric_ct_ft.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_JDFT_ct_ft.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/masking15/config_Perovskites.yml"
-        # subprocess.run(command, shell=True)
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Dielectric.yml --seed=" + seed
+        subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Perovskites_ct_ft.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Dielectric_ct_ft.yml --seed=" + seed
+        subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Perovskites.yml --seed=" + seed
+        subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_Perovskites_ct_ft.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
         # 记录本次运行的开始时间
