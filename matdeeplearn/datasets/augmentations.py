@@ -9,47 +9,32 @@ import torch.nn.functional as F
 from torch.distributions.uniform import Uniform
 
 
-def mask_node(subdata: Data, mask_node_ratio1, mask_node_ratio2):
-    subdata1 = copy.deepcopy(subdata)
-    subdata2 = copy.deepcopy(subdata)
-    
+def node_masking(subdata: Data, mask_node_ratio):
+    subdata = copy.deepcopy(subdata)
     x = subdata.x
     num_nodes = x.size(0)
-    mask1 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio1))
-    mask2 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio2))
-
-    subdata1.x[mask1] = 0
-    subdata2.x[mask2] = 0
-    
-    return subdata1, subdata2
+    mask = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio))
+    subdata.x[mask] = 0
+    return subdata
 
 
-def mask_edge(subdata: Data, mask_edge_ratio1, mask_edge_ratio2):
-    subdata1 = copy.deepcopy(subdata)
-    subdata2 = copy.deepcopy(subdata)
-    
+def edge_masking(subdata: Data, mask_edge_ratio):
+    subdata = copy.deepcopy(subdata)
     edge_index, edge_attr = subdata.edge_index, subdata.edge_attr
     num_edges = edge_index.size(1)
-    mask1 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio1), 1)
-    mask2 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio2), 1)
-    subdata1.edge_index = subdata1.edge_index[:, ~mask1]
-    subdata1.edge_attr = subdata1.edge_attr[~mask1]
-    subdata2.edge_index = subdata2.edge_index[:, ~mask2]
-    subdata2.edge_attr = subdata2.edge_attr[~mask2]
-    
-    return subdata1, subdata2
+    mask = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio), 1)
+    subdata.edge_index = subdata.edge_index[:, ~mask]
+    subdata.edge_attr = subdata.edge_attr[~mask]
+    return subdata
     
 def perturb_positions(pos, distance, min_distance):
     random_vectors = torch.randn(pos.size(0), 3)
     random_vectors /= torch.norm(random_vectors, dim=1, keepdim=True)
-
     if min_distance is not None:
         perturbation_distances = torch.empty(pos.size(0)).uniform_(min_distance, distance)
     else:
         perturbation_distances = torch.full((pos.size(0),), distance)
-
     pos += perturbation_distances.view(-1, 1) * random_vectors
-
     return pos
     
         
@@ -78,7 +63,7 @@ def column_replacement(atomic_numbers, column_replace_num):
     return atomic_numbers
 
 
-def strain_cell(atomic_numbers, pos, cell, strain_strength=0.05):
+def strain_cell(atomic_numbers, pos, cell, strain_strength):
     ase_crystal_object = Atoms(numbers = atomic_numbers, positions=pos, cell=cell.squeeze(), pbc=True)
     cell_l_and_a = ase_crystal_object.get_cell_lengths_and_angles()
     
@@ -102,7 +87,7 @@ def strain_cell(atomic_numbers, pos, cell, strain_strength=0.05):
     pos = ase_crystal_object.get_positions()
     cell = ase_crystal_object.get_cell().cellpar()[:3]
     pos = torch.tensor(pos, dtype=torch.float32)
-    cell = torch.diag(torch.tensor(cell, dtype=torch.float32)) 
+    cell = torch.diag(torch.tensor(cell, dtype=torch.float32))
     return pos, cell.unsqueeze(dim=0)
     
     

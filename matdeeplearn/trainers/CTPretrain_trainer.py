@@ -31,11 +31,14 @@ from matdeeplearn.modules.scheduler import LRScheduler
 def get_dataset(
         data_path,
         processed_file_name,
+        mask_node_ratios=[0.1, 0.1],
+        mask_edge_ratios=[0.1, 0.1],
         transform_list: List[dict] = [],
         augmentations=None,
         random_choice_augmentation=False,
         column_replace_num=1,
         perturbing_distance=0.05,
+        min_perturb_distance=0.,
         strain_strength=0.05,
         supercell_num=2,
         large_dataset=False,
@@ -63,17 +66,17 @@ def get_dataset(
     if large_dataset:
         Dataset = LargeCTPretrainDataset
         dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
+                          mask_node_ratios=mask_node_ratios,
+                          mask_edge_ratios=mask_edge_ratios,
                           augmentation_list=augmentations,
                           random_augmentation=random_choice_augmentation,
-                          column_replace_num=1,
-                          perturbing_distance=0.05,
-                          strain_strength=0.05,
-                          supercell_num=2,
+                          column_replace_num=column_replace_num,
+                          perturbing_distance=perturbing_distance,
+                          min_perturb_distance=min_perturb_distance,
+                          strain_strength=strain_strength,
+                          supercell_num=supercell_num,
                           transform=composition,
-                          mask_node_ratios=[0.1, 0.1],
-                          mask_edge_ratios=[0.1, 0.1],
-                          distance=0.05,
-                          min_distance=0,
+                          device="cuda" if torch.cuda.is_available() else "cpu",
                           dataset_config=dataset_config)
     else:
         Dataset = CTPretrainDataset
@@ -339,44 +342,68 @@ class CTPretrainer(BaseTrainer):
 
         dataset_path = dataset_config["pt_path"]  # data/test_data/processed/
         dataset = {}
+        
+        transform_list=dataset_config.get("transforms", [])
+        augmentations = dataset_config["augmentation"].get("augmentations", [])
+        random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False)
+        column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1)
+        perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05)
+        min_perturb_distance = dataset_config["augmentation"].get("min_perturb_distance", 0.)
+        strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05)
+        supercell_num = dataset_config["augmentation"].get("supercell_num", 2)
+        mask_node_ratios = dataset_config["augmentation"].get("mask_node_ratios", [0.0, 0.0])
+        mask_edge_ratios = dataset_config["augmentation"].get("mask_edge_ratios", [0.0, 0.0])
+        large_dataset=dataset_config.get("large_dataset", False)
+        dataset_config=dataset_config
+        
         if isinstance(dataset_config["src"], dict):
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_train.pt",
-                transform_list=dataset_config.get("transforms", []),
-                augmentations = dataset_config["augmentation"].get("augmentations", []),
-                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
-                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
-                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
-                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
-                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
-                large_dataset=dataset_config.get("large_dataset", False),
+                mask_node_ratios=mask_node_ratios,
+                mask_edge_ratios=mask_edge_ratios,
+                transform_list=transform_list,
+                augmentations=augmentations,
+                random_choice_augmentation=random_choice_augmentation,
+                column_replace_num=column_replace_num,
+                perturbing_distance=perturbing_distance,
+                min_perturb_distance=min_perturb_distance,
+                strain_strength=strain_strength,
+                supercell_num=supercell_num,
+                large_dataset=large_dataset,
                 dataset_config=dataset_config
             )
             print(dataset["train"].random_augmentation)
             dataset["val"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_val.pt",
-                transform_list=dataset_config.get("transforms", []),
-                augmentations = dataset_config["augmentation"].get("augmentations", []),
-                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
-                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
-                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
-                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
-                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
-                large_dataset=dataset_config.get("large_dataset", False),
+                transform_list=transform_list,
+                mask_node_ratios=mask_node_ratios,
+                mask_edge_ratios=mask_edge_ratios,
+                augmentations=augmentations,
+                random_choice_augmentation=random_choice_augmentation,
+                column_replace_num=column_replace_num,
+                perturbing_distance=perturbing_distance,
+                min_perturb_distance=min_perturb_distance,
+                strain_strength=strain_strength,
+                supercell_num=supercell_num,
+                large_dataset=large_dataset,
                 dataset_config=dataset_config
             )
             dataset["test"] = get_dataset(
                 dataset_path,
                 processed_file_name="data_test.pt",
-                transform_list=dataset_config.get("transforms", []),
-                augmentations = dataset_config["augmentation"].get("augmentations", []),
-                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
-                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
-                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
-                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
-                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
+                transform_list=transform_list,
+                mask_node_ratios=mask_node_ratios,
+                mask_edge_ratios=mask_edge_ratios,
+                augmentations=augmentations,
+                random_choice_augmentation=random_choice_augmentation,
+                column_replace_num=column_replace_num,
+                perturbing_distance=perturbing_distance,
+                min_perturb_distance=min_perturb_distance,
+                strain_strength=strain_strength,
+                supercell_num=supercell_num,
+                large_dataset=large_dataset,
                 dataset_config=dataset_config
             )
 
@@ -385,14 +412,17 @@ class CTPretrainer(BaseTrainer):
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
-                transform_list=dataset_config.get("transforms", []),
-                augmentations = dataset_config["augmentation"].get("augmentations", []),
-                random_choice_augmentation = dataset_config["augmentation"].get("random_choice_augmentation", False),
-                column_replace_num = dataset_config["augmentation"].get("column_replace_num", 1),
-                perturbing_distance = dataset_config["augmentation"].get("perturbing_distance", 0.05),
-                strain_strength = dataset_config["augmentation"].get("strain_strength", 0.05),
-                supercell_num = dataset_config["augmentation"].get("supercell_num", 2),
-                large_dataset=dataset_config.get("large_dataset", False),
+                transform_list=transform_list,
+                mask_node_ratios=mask_node_ratios,
+                mask_edge_ratios=mask_edge_ratios,
+                augmentations=augmentations,
+                random_choice_augmentation=random_choice_augmentation,
+                column_replace_num=column_replace_num,
+                perturbing_distance=perturbing_distance,
+                min_perturb_distance=min_perturb_distance,
+                strain_strength=strain_strength,
+                supercell_num=supercell_num,
+                large_dataset=large_dataset,
                 dataset_config=dataset_config
             )
 
@@ -474,17 +504,6 @@ class CTPretrainer(BaseTrainer):
                     continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
-                
-                #print(batch1.z, len(batch1.z))
-                #print(torch.allclose(batch1.x, batch2.x))
-                #diff_list = list()
-                #for i in range(batch1.z.shape[0]):
-                #    if (batch1.z[i] != batch2.z[i]):
-                #        diff_list.append(i)
-                #print(batch1.z[diff_list])
-                #print(batch2.z[diff_list])
-                #print(torch.allclose(batch1.edge_attr, batch2.edge_attr))
-                #print(torch.allclose(batch1.edge_index, batch2.edge_index))
 
                 # Compute forward, loss, backward
                 out1 = self._forward(batch1)

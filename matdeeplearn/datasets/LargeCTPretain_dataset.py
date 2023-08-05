@@ -23,7 +23,7 @@ from matdeeplearn.preprocessor.helpers import (
 )
 
 from matdeeplearn.datasets.augmentations import (
-    mask_node, mask_edge, perturb_positions, column_replacement, strain_cell, generate_supercell
+    node_masking, edge_masking, perturb_positions, column_replacement, strain_cell, generate_supercell
 )
 
 
@@ -350,25 +350,28 @@ class LargeDataProcessor:
 
     def process(self, dict_structures,
                       column_replace=False, column_replace_num=0,
-                      perturb=False, perturbing_distance=0.05,
+                      perturb=False, perturbing_distance=0.05, min_perturb_distance=0.,
                       strain=False, strain_strength=0.05,
                       supercell=False, supercell_num=2,
-                      distance: float = 0.05, min_distance: float = None):
+                      mask_node=False, mask_node_ratio=0.1,
+                      mask_edge=False, mask_edge_ratio=0.1):
         data_list = self.get_data_list(dict_structures,
                                       column_replace, column_replace_num,
-                                      perturb, perturbing_distance,
+                                      perturb, perturbing_distance, min_perturb_distance,
                                       strain, strain_strength,
                                       supercell,supercell_num,
-                                      distance, min_distance)
+                                      mask_node, mask_node_ratio,
+                                      mask_edge, mask_edge_ratio)
         data, slices = InMemoryDataset.collate(data_list)
         return data
 
     def get_data_list(self, dict_structures,
                             column_replace, column_replace_num,
-                            perturb, perturbing_distance,
+                            perturb, perturbing_distance, min_perturb_distance,
                             strain, strain_strength,
                             supercell, supercell_num,
-                            distance, min_distance):
+                            mask_node, mask_node_ratio,
+                            mask_edge, mask_edge_ratio):
     
         #logging.debug(perturb, column_replacement, strain)
         
@@ -389,13 +392,13 @@ class LargeDataProcessor:
                 atomic_numbers, pos, cell = generate_supercell(atomic_numbers, supercell_num, pos, cell)
 
             if perturb:
-                pos = perturb_positions(pos, perturbing_distance, min_distance)
+                pos = perturb_positions(pos, perturbing_distance, min_perturb_distance)
                         
             if column_replace:
                 atomic_numbers = column_replacement(atomic_numbers, column_replace_num)
                 
             if strain:
-                pos, cell = strain_cell(atomic_numbers, pos, cell)
+                pos, cell = strain_cell(atomic_numbers, pos, cell, strain_strength)
               
             # data.structure_id = [[structure_id] * len(data.y)]
             structure_id = sdict["structure_id"]
@@ -445,6 +448,7 @@ class LargeDataProcessor:
                 data.edge_vec = edge_vec
                 data.cell_offsets = cell_offsets
                 data.neighbors = neighbors
+                
 
                 data.edge_descriptor = {}
                 # data.edge_descriptor["mask"] = cd_matrix_masked
@@ -464,7 +468,17 @@ class LargeDataProcessor:
         if self.preprocess_edge_features == True:
             # logging.info("Generating edge features...")
             generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
-
+            
+        if mask_node or mask_edge:
+            for i in range(len(data_list)):
+                data = data_list[i]
+                if mask_node:
+                    data = node_masking(data, mask_node_ratio)
+                if mask_edge:
+                    data = edge_masking(data, mask_edge_ratio)
+                data_list[i] = data
+        
+            
         # compile non-otf transforms
         # logging.debug("Applying transforms.")
 
@@ -501,12 +515,11 @@ class LargeCTPretrainDataset(InMemoryDataset):
             processed_file_name,
             mask_node_ratios=None,
             mask_edge_ratios=None,
-            distance=0.05,
-            min_distance: float = None,
             augmentation_list=None,
             random_augmentation=False,
             column_replace_num=1,
             perturbing_distance=0.05,
+            min_perturb_distance=0.,
             strain_strength=0.05,
             supercell_num=2,
             transform=None,
@@ -527,27 +540,34 @@ class LargeCTPretrainDataset(InMemoryDataset):
         self.random_augmentation = random_augmentation
         self.column_replace_num = column_replace_num
         self.perturbing_distance = perturbing_distance
+        self.min_perturb_distance = min_perturb_distance
         self.strain_strength = strain_strength
         self.supercell_num = supercell_num
-        
-        logging.info(f"augmentation: {augmentation_list}")
-        logging.info(f"Random augmentation for each step: {random_augmentation}")
-        if "column_replacement" in self.augmentation_list:
-            logging.info(f"Column replacement atom number: {self.column_replace_num}")
-        if "perturbing" in self.augmentation_list:
-            logging.info(f"Perturbing distance: {self.perturbing_distance}")
-        if "strain" in self.augmentation_list:
-            logging.info(f"Strain strength: {self.strain_strength}")
-        if "supercell" in self.augmentation_list:
-            logging.info(f"Construct supercell: {self.supercell_num} times {self.supercell_num}")
-            
-
         self.mask_node_ratio1 = mask_node_ratios[0]
         self.mask_node_ratio2 = mask_node_ratios[1]
         self.mask_edge_ratio1 = mask_edge_ratios[0]
         self.mask_edge_ratio2 = mask_edge_ratios[1]
-        self.distance = distance
-        self.min_distance = min_distance
+        self.device = device
+        
+        logging.info(f"augmentation: {augmentation_list}")
+        logging.info(f"Random augmentation for each step: {random_augmentation}")
+        
+        log_str = ""
+        if "column_replacement" in self.augmentation_list:
+            log_str += f"Column replacement atom number: {self.column_replace_num}\n"
+        if "perturbing" in self.augmentation_list:
+            log_str += f"Perturbing distance: {self.perturbing_distance}, Minumum distance: {self.min_perturb_distance}\n"
+        if "strain" in self.augmentation_list:
+            log_str += f"Strain strength: {self.strain_strength}\n"
+        if "supercell" in self.augmentation_list:
+            log_str += f"Construct supercell: {self.supercell_num} times {self.supercell_num}\n"
+        if "node_masking" in self.augmentation_list:
+            log_str += f"Node masking ratios: [{self.mask_node_ratio1}, {self.mask_node_ratio2}]\n"
+        if "edge_masking" in self.augmentation_list:
+            log_str += f"Edge masking ratios: [{self.mask_edge_ratio1}, {self.mask_edge_ratio2}]\n"
+        if log_str != "":
+            logging.info(log_str)
+            
         super(LargeCTPretrainDataset, self).__init__(
             root, transform, pre_transform, pre_filter
         )
@@ -585,7 +605,7 @@ class LargeCTPretrainDataset(InMemoryDataset):
         return [self.processed_file_name]
 
     def __getitem__(self, idx):
-        
+
         actual_augmentation = self.augmentation_list
         if self.random_augmentation:
             actual_augmentation = np.random.choice(self.augmentation_list, 1)
@@ -602,21 +622,27 @@ class LargeCTPretrainDataset(InMemoryDataset):
         column_replace = "column_replacement" in actual_augmentation
         strain = "strain" in actual_augmentation
         supercell = "supercell" in actual_augmentation
+        mask_node = "node_masking" in actual_augmentation
+        mask_edge = "edge_masking" in actual_augmentation
         
         #print(perturbing, column_replace, strain, supercell)
         
-        if perturbing or column_replace or strain or supercell:
-            #self.processer.process([self.dict_structures[idx]], column_replace=column_replace,
-            #                                  perturb=perturbing, strain=strain, supercell=supercell)
+        if perturbing or column_replace or strain or supercell or mask_node or mask_edge:
             subdata1 = self.processer.process([self.dict_structures[idx]],
                                               column_replace=column_replace, column_replace_num=self.column_replace_num,
-                                              perturb=perturbing, perturbing_distance=self.perturbing_distance,
+                                              perturb=perturbing,
+                                              perturbing_distance=self.perturbing_distance, min_perturb_distance=self.min_perturb_distance,
                                               strain=strain, strain_strength=self.strain_strength,
+                                              mask_node=mask_node, mask_node_ratio=self.mask_node_ratio1,
+                                              mask_edge=mask_edge, mask_edge_ratio=self.mask_edge_ratio1,
                                               supercell=supercell, supercell_num=self.supercell_num)
             subdata2 = self.processer.process([self.dict_structures[idx]],
                                               column_replace=column_replace, column_replace_num=self.column_replace_num,
-                                              perturb=perturbing, perturbing_distance=self.perturbing_distance,
+                                              perturb=perturbing,
+                                              perturbing_distance=self.perturbing_distance, min_perturb_distance=self.min_perturb_distance,
                                               strain=strain, strain_strength=self.strain_strength,
+                                              mask_node=mask_node, mask_node_ratio=self.mask_node_ratio2,
+                                              mask_edge=mask_edge, mask_edge_ratio=self.mask_edge_ratio2,
                                               supercell=supercell, supercell_num=self.supercell_num)
             return subdata1, subdata2
 
@@ -624,30 +650,6 @@ class LargeCTPretrainDataset(InMemoryDataset):
 
         subdata1 = copy.deepcopy(subdata)
         subdata2 = copy.deepcopy(subdata)
-
-        def mask_node(mask_node_ratio1, mask_node_ratio2):
-            x = subdata.x
-            num_nodes = x.size(0)
-            mask1 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio1))
-            mask2 = torch.randperm(num_nodes) < max(1, int(num_nodes * mask_node_ratio2))
-
-            subdata1.x[mask1] = 0
-            subdata2.x[mask2] = 0
-
-        def mask_edge(mask_edge_ratio1, mask_edge_ratio2):
-            edge_index, edge_attr = subdata.edge_index, subdata.edge_attr
-            num_edges = edge_index.size(1)
-            mask1 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio1), 1)
-            mask2 = torch.randperm(num_edges) < max(int(num_edges * mask_edge_ratio2), 1)
-            subdata1.edge_index = subdata1.edge_index[:, ~mask1]
-            subdata1.edge_attr = subdata1.edge_attr[~mask1]
-            subdata2.edge_index = subdata2.edge_index[:, ~mask2]
-            subdata2.edge_attr = subdata2.edge_attr[~mask2]
-
-        if "node_masking" in self.augmentation_list:
-            mask_node(self.mask_node_ratio1, self.mask_node_ratio2)
-        if "edge_masking" in self.augmentation_list:
-            mask_edge(self.mask_edge_ratio1, self.mask_edge_ratio2)
 
         # Apply transforms
         if self.transform is not None:
