@@ -1,0 +1,117 @@
+trainer: finetune
+
+task:
+  # run_mode: train
+  identifier: "JDFT_ct_ft"
+  reprocess: False
+  parallel: True
+  # seed=0 means random initalization
+  seed:
+  # Defaults to run directory if not specified
+  save_dir:
+  # continue from a previous job
+  continue_job: False
+  # spefcify if the training state is loaded: epochs, learning rate, etc
+  load_training_state: False
+  # Path to the checkpoint.pt file
+  checkpoint_path: "results/geossl_nopbc/"
+  # E.g. ["train", "val", "test"]
+  write_output: [ "train", "val", "test" ]
+  # Specify if labels are provided for the predict task
+  # labels: True
+  use_amp: True
+
+model:
+  name: CGCNN_CTFINETUNE
+  # model attributes
+  dim1: 128
+  dim2: 128
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 0
+  pool: "global_mean_pool"
+  pool_order: "early"
+  batch_norm: True
+  batch_track_stats: True
+  act: "relu"
+  dropout_rate: 0.0
+  # Compute edge features on the fly
+  otf_edge: False
+  # compute gradients w.r.t to positions and cell, requires otf_edge=True
+  gradient: False
+  # method of computing gradients: "conventional" or "nequip"
+  gradient_method: "nequip"
+
+optim:
+  max_epochs: 300
+  max_checkpoint_epochs: 0
+  lr: 0.001
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: "TorchLossWrapper"
+    loss_args: { "loss_fn": "l1_loss" }
+  clip_grad_norm: 10
+
+  batch_size: 100
+  optimizer:
+    optimizer_type: "AdamW"
+    optimizer_args: { }
+  scheduler:
+    scheduler_type: "ReduceLROnPlateau"
+    scheduler_args: { "mode": "min", "factor": 0.8, "patience": 10, "min_lr": 0.00001, "threshold": 0.0002 }
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 5
+  # tdqm progress bar per batch in the epoch
+  batch_tqdm: False
+
+dataset:
+  name: "JDFT"
+  processed: False
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
+  src: data/JDFT/data_exfoliation.json
+  #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  target_path:
+  #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
+  # Path to save processed data.pt file
+  pt_path: "data/JDFT/processed/"
+  prediction_level: "graph"
+
+  transforms:
+    - name: GetY
+      args:
+        # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
+        # For example, an index: 0 (default) will use the first entry in the target vector
+        # if all values are to be predicted simultaneously, then specify index: -1
+        index: -1
+      otf: True # Optional parameter, default is False
+  # Format of data files (limit to those supported by ASE)
+  data_format: "json"
+  # Method of obtaining atom idctionary: available:(onehot)
+  node_representation: "onehot"
+  additional_attributes:
+  # Print out processing info
+  verbose: True
+  # Index of target column in targets.csv
+  # graph specific settings
+  preprocess_params:
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: "ocp"
+    # determine if edges are computed, if false, then they need to be computed on the fly
+    preprocess_edges: True
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
+    preprocess_edge_features: True
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
+    preprocess_nodes: True
+    cutoff_radius: 8.0
+    n_neighbors: 250
+    num_offsets: 2
+    edge_steps: 50
+    self_loop: True
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: "onehot"
+    all_neighbors: True
+  # Ratios for train/val/test split out of a total of 1
+  train_ratio: 0.6
+  val_ratio: 0.2
+  test_ratio: 0.2

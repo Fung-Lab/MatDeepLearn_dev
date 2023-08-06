@@ -4,29 +4,30 @@ import os
 
 # 运行次数
 num_runs = 5
+seeds = [42, 123, 9876, 5678, 8888]
 
 if __name__ == '__main__':
 
     # 循环执行
     for i in range(num_runs):
+        seed = seeds[i]
 
-        # 执行命令行命令
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/geossl/config_JDFT.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_JDFT.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/geossl/config_Dielectric.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_Dielectric.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/geossl/config_Perovskites.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_Perovskites.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/geossl/config_GVRH.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_GVRH.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/geossl/config_KVRH.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_KVRH.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/geossl/config_Phonons.yml"
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_Phonons.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
 

@@ -2,9 +2,9 @@ trainer: finetune
 
 task:
   # run_mode: train
-  identifier: "Dielectric_ct_ft"
+  identifier: "Phonons_ct_ft"
   reprocess: False
-  parallel: False
+  parallel: True
   # seed=0 means random initalization
   seed:
   # Defaults to run directory if not specified
@@ -14,7 +14,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: "results/geossl/"
+  checkpoint_path: "results/geossl_nopbc/"
   # E.g. ["train", "val", "test"]
   write_output: [ "train", "val", "test" ]
   # Specify if labels are provided for the predict task
@@ -65,16 +65,16 @@ optim:
   batch_tqdm: False
 
 dataset:
-  name: "CT_pretrain_data"
+  name: "Phonons"
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
-  src: data/Dielectric/data_dielectric.json
+  src: data/Phonons/data_phonons.json
   #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   target_path:
   #target_path: {train: "data/test_data/targets.csv", val: "data/test_data/targets.csv", test: "data/test_data/targets.csv"}
   # Path to save processed data.pt file
-  pt_path: "data/Dielectric/processed/"
+  pt_path: "data/Phonons/processed/"
   prediction_level: "graph"
 
   transforms:
