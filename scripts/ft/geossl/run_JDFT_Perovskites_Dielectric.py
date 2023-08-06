@@ -4,14 +4,15 @@ import subprocess
 import os
 
 # 运行次数
-num_runs = 10
+num_runs = 5
+seeds = [42, 123, 9876, 5678, 8888]
 
 if __name__ == '__main__':
 
     # 循环执行
     for i in range(num_runs):
 
-        seed = str(random.randint(1, 20000))
+        seed = seeds[i]
 
         # 执行命令行命令
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL/config_JDFT.yml --seed=" + seed
