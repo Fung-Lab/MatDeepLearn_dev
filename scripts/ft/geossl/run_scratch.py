@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     # 循环执行
     for i in range(num_runs):
-        seed = seeds[i]
+        seed = str(seeds[i])
 
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_qm9/config_JDFT.yml --seed=" + seed
         subprocess.run(command, shell=True)
