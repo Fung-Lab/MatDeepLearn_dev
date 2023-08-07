@@ -188,6 +188,7 @@ class FinetuneTrainer(PropertyTrainer):
 
         cls.set_seed(config["task"].get("seed"))
         seed = config["task"].get("seed")
+        print("seed:",seed)
 
         if config["task"]["parallel"] == True and os.environ.get("LOCAL_WORLD_SIZE", None):
             # os.environ["MASTER_ADDR"] = "localhost"
@@ -647,7 +648,7 @@ class FinetuneTrainer(PropertyTrainer):
             os.makedirs(best_log_dir_name)
 
         with open(os.path.join(best_log_dir_name, "best_val_metric.csv"), "a+", encoding="utf-8", newline='') as f:
-            new_metric = [self.timestamp_id, self.best_metric, self.best_epoch, self.seed]
+            new_metric = [self.timestamp_id, test_loss, self.best_epoch, self.seed]
             csv_writer = csv.writer(f)
             if not os.path.getsize(os.path.join(best_log_dir_name, "best_val_metric.csv")):
                 csv_head = ["timestamp_id", "best_val_metric", "best_epoch", "seed"]
