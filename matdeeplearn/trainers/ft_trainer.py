@@ -113,6 +113,7 @@ class FinetuneTrainer(PropertyTrainer):
             save_dir,
             checkpoint_path,
             use_amp,
+            seed,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -130,6 +131,7 @@ class FinetuneTrainer(PropertyTrainer):
         self.train_verbosity = verbosity
         self.batch_tqdm = batch_tqdm
         self.write_output = write_output
+        self.seed = seed
 
         self.epoch = 0
         self.step = 0
@@ -185,6 +187,7 @@ class FinetuneTrainer(PropertyTrainer):
         """
 
         cls.set_seed(config["task"].get("seed"))
+        seed = config["task"].get("seed")
 
         if config["task"]["parallel"] == True and os.environ.get("LOCAL_WORLD_SIZE", None):
             # os.environ["MASTER_ADDR"] = "localhost"
@@ -246,6 +249,7 @@ class FinetuneTrainer(PropertyTrainer):
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
+            seed=seed
         )
 
     @staticmethod
@@ -643,10 +647,10 @@ class FinetuneTrainer(PropertyTrainer):
             os.makedirs(best_log_dir_name)
 
         with open(os.path.join(best_log_dir_name, "best_val_metric.csv"), "a+", encoding="utf-8", newline='') as f:
-            new_metric = [self.timestamp_id, self.best_metric, self.best_epoch]
+            new_metric = [self.timestamp_id, self.best_metric, self.best_epoch, self.seed]
             csv_writer = csv.writer(f)
             if not os.path.getsize(os.path.join(best_log_dir_name, "best_val_metric.csv")):
-                csv_head = ["timestamp_id", "best_val_metric", "best_epoch"]
+                csv_head = ["timestamp_id", "best_val_metric", "best_epoch", "seed"]
                 csv_writer.writerow(csv_head)
             csv_writer.writerow(new_metric)
 
