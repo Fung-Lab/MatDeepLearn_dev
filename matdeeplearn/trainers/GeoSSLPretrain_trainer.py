@@ -480,6 +480,8 @@ class GeoSSLPretrainer(BaseTrainer):
                 #     continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
+                print(batch1)
+                print(batch2)
                 # print(batch1.batch.shape, batch1.x.shape)
                 # print(batch1.batch)
                 # print(batch1.super_edge_index.shape)

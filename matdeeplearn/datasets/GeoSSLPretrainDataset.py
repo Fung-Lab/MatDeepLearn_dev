@@ -66,12 +66,38 @@ class GeoSSLPretrainDataset(InMemoryDataset):
 
     def __getitem__(self, idx):
         data1 = super().__getitem__(idx)
-        super_edge_index = list(itertools.combinations(data1.n_atoms, 2))
+        super_edge_index = list(itertools.combinations(range(len(data1.x)), 2))
         offsets, cell_coors = get_pbc_cells(data1.cell, self.num_offsets)
+        offsets = offsets.expand(len(data1.pos), offsets.shape[1], offsets.shape[2])
 
         data1.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
         data1.offsets = offsets
 
         data2 = copy.deepcopy(data1)
         data2.pos = data2.pos + torch.normal(self.mu, self.sigma, size=data2.pos.size())
+        print(data1, data2)
         return data1, data2
+
+
+if __name__ == '__main__':
+    dataset = GeoSSLPretrainDataset(root="data/ct_pretrain/processed/",
+                                    processed_data_path="",
+                                    processed_file_name="data.pt",)
+    # print(dataset.num_features   , dataset.num_edge_features)
+
+    # print(dataset[10][0].cell, dataset[10][0].cell_offsets)
+    print(dataset[10][1])
+
+    # print(len(dataset))
+    # loader = DataLoader(
+    #     dataset,
+    #     batch_size=2,
+    #     shuffle=False,
+    #     num_workers=2,
+    #     sampler=None,
+    # )
+    # print(len(loader))
+    # train_loader_iter = iter(loader)
+    # batch1, batch2 = next(loader)
+    # print(batch1)
+    # print(batch2, "\n")
