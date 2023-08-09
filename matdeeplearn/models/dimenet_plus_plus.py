@@ -213,11 +213,12 @@ class DimeNetPlusPlus(BaseModel):
         num_after_skip=2,
         num_output_layers=3,
         act="silu",
+        **kwargs
     ):
 
         act = activation_resolver(act)
 
-        super(DimeNetPlusPlus, self).__init__()
+        super(DimeNetPlusPlus, self).__init__(**kwargs)
 
         self.cutoff = cutoff
 
@@ -352,6 +353,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
             num_before_skip=num_before_skip,
             num_after_skip=num_after_skip,
             num_output_layers=num_output_layers,
+            **kwargs,
         )
 
     @conditional_grad(torch.enable_grad())
@@ -370,13 +372,19 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         #data.edge_index = edge_index
         #data.cell_offsets = cell_offsets
         #data.neighbors = neighbors
+
+        if self.otf_edge == True:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+        data.edge_attr = self.distance_expansion(data.edge_weight) 
+
         j, i = data.edge_index
-        dist = data.distances   
+        dist = data.edge_weight   
         try:
             idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
                 data.edge_index,
                 data.cell_offsets,
-                num_nodes=data.z.size(0),)
+                num_nodes=data.z.size(0)
+            )
         except:
             _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(data.edge_index, num_nodes=data.z.size(0))
         

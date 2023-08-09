@@ -122,6 +122,22 @@ def build_config(args, args_override):
         config["optim"]["clip_grad_norm"] = args.clip
     if args.num_epochs != None:
         config["optim"]["max_epochs"] = args.num_epochs
+    if args.processed != None:
+        processed = args.processed in ["True", "true", "1"]
+        config["dataset"]["processed"] = processed
+    if args.use_amp != None:
+        use_amp = args.use_amp in ["True", "true", "1"]
+        config["task"]["use_amp"] = use_amp
+    if args.batch_tqdm != None:
+        batch_tqdm = args.batch_tqdm in ["True", "true", "1"]
+        config["optim"]["batch_tqdm"] = batch_tqdm
+    if args.shut_otf != None:
+        shut_otf = args.shut_otf in ["True", "true", "1"]
+        if shut_otf:
+            config["model"]["otf_edge"] = False
+            config["model"]["gradient"] = False
+            config["dataset"]["preprocess_params"]["preprocess_edges"] = True
+            config["dataset"]["preprocess_params"]["preprocess_features"] = Trues
     #
     # Submit
     config["submit"] = args.submit

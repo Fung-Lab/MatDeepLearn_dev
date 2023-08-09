@@ -91,6 +91,26 @@ class Flags:
             type=int,
             help="number of epochs",
         )
+        self.parser.add_argument(
+            "--processed",
+            type=str,
+            help="Whether data is processed",
+        )
+        self.parser.add_argument(
+            "--batch_tqdm",
+            type=str,
+            help="Whether to use tqdm",
+        )
+        self.parser.add_argument(
+            "--use_amp",
+            type=str,
+            help="Whether to use amp",
+        )
+        self.parser.add_argument(
+            "--shut_otf",
+            type=str,
+            help="Whether to shut off the fly",
+        )
         # parser.add_argument(
         #     "--model_path",
         #     default=None,
