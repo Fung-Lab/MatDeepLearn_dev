@@ -36,7 +36,7 @@ model:
   act: "relu"
   dropout_rate: 0.0
   # Compute edge features on the fly
-  otf_edge: False
+  otf_edge: True
   # compute gradients w.r.t to positions and cell, requires otf_edge=True
   gradient: False
   # method of computing gradients: "conventional" or "nequip"
@@ -67,7 +67,7 @@ optim:
 
 dataset:
   name: "CT_pretrain_data"
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path}
   src: data/ct_pretrain/data.json
   #src: {train: "data/test_data/raw/", val: "data/test_data/raw/", test: "data/test_data/raw/"}
@@ -99,9 +99,9 @@ dataset:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: "ocp"
     # determine if edges are computed, if false, then they need to be computed on the fly
-    preprocess_edges: True
+    preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
-    preprocess_edge_features: True
+    preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_nodes: True
     cutoff_radius: 8.0
@@ -116,5 +116,3 @@ dataset:
   train_ratio: 0.95
   val_ratio: 0.05
   test_ratio: 0
-  augmentation: ["node_masking", "edge_masking"]
-  large_dataset: True

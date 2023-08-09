@@ -14,14 +14,16 @@ from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
+from matdeeplearn.preprocessor.helpers import GaussianSmearing
 
 
 @registry.register_model("CGCNN_GEOSSL")
 class CGCNNCTPretrain(BaseModel):
     def __init__(
             self,
-            edge_steps,
-            data,
+            node_dim,
+            edge_dim,
+            output_dim,
             dim1=64,
             dim2=64,
             pre_fc_count=1,
@@ -35,7 +37,7 @@ class CGCNNCTPretrain(BaseModel):
             dropout_rate=0.0,
             **kwargs
     ):
-        super(CGCNNCTPretrain, self).__init__(edge_steps)
+        super(CGCNNCTPretrain, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -48,21 +50,25 @@ class CGCNNCTPretrain(BaseModel):
         self.dim2 = dim2
         self.gc_count = gc_count
         self.post_fc_count = post_fc_count
-        self.num_features = data.num_features
-        self.num_edge_features = data.num_edge_features
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.output_dim = output_dim
+        self.dropout_rate = dropout_rate
+
+        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_steps)
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
         if pre_fc_count == 0:
-            self.gc_dim, self.post_fc_dim = data.num_features, data.num_features
+            self.gc_dim, self.post_fc_dim = self.node_dim, self.node_dim
         else:
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
         # Determine output dimension length
-        if data[0][0][self.target_attr].ndim == 0:
-            self.output_dim = 1
-        else:
-            self.output_dim = len(data[0][0][self.target_attr])
+        # if data[0][0][self.target_attr].ndim == 0:
+        #     self.output_dim = 1
+        # else:
+        #     self.output_dim = len(data[0][0][self.target_attr])
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
@@ -96,7 +102,7 @@ class CGCNNCTPretrain(BaseModel):
             pre_lin_list = torch.nn.ModuleList()
             for i in range(self.pre_fc_count):
                 if i == 0:
-                    lin = torch.nn.Linear(self.num_features, self.dim1)
+                    lin = torch.nn.Linear(self.node_dim, self.dim1)
                 else:
                     lin = torch.nn.Linear(self.dim1, self.dim1)
                 pre_lin_list.append(lin)
@@ -109,7 +115,7 @@ class CGCNNCTPretrain(BaseModel):
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
             conv = CGConv(
-                self.gc_dim, self.num_edge_features, aggr="mean", batch_norm=False
+                self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
             )
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
@@ -149,10 +155,15 @@ class CGCNNCTPretrain(BaseModel):
 
     def forward(self, data):
 
+        if self.otf_edge == True:
+            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            data.edge_attr = self.distance_expansion(data.edge_weight)
+
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
-                out = self.pre_lin_list[i](data.x.float())
+                out = self.pre_lin_list[i](data.x)
                 out = getattr(F, self.act)(out)
             else:
                 out = self.pre_lin_list[i](out)
@@ -163,57 +174,25 @@ class CGCNNCTPretrain(BaseModel):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
+                        data.x, data.edge_index, data.edge_attr
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr.float()
+                        data.x, data.edge_index, data.edge_attr
                     )
             else:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
+                        out, data.edge_index, data.edge_attr
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr.float()
+                        out, data.edge_index, data.edge_attr
                     )
                     # out = getattr(F, self.act)(out)
 
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
         # print("Before: ", data.x.shape, out.shape)
-        return out
-        # Post-GNN dense layers
-        '''CT paper implementation
-        crys_fea = self.pooling(atom_fea, crystal_atom_idx)
-        crys_fea = self.conv_to_fc(self.conv_to_fc_softplus(crys_fea))
-        crys_fea = self.conv_to_fc_softplus(crys_fea)
-        '''
-        # if self.pool_order == "early":
-        #     if self.pool == "set2set":
-        #         out = self.set2set(out, data.batch)
-        #     else:
-        #         out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-        #     print("After: ", out.shape)
-        #     out = self.conv_to_fc(self.conv_to_fc_softplus(out))
-        #     out = self.conv_to_fc_softplus(out)
-        #     out = self.fc_head(out)
-        #     # for i in range(0, len(self.post_lin_list)):
-        #     #     out = self.post_lin_list[i](out)
-        #     #     out = getattr(F, self.act)(out)
-        #     # out = self.lin_embeding(out)
-        #
-        # elif self.pool_order == "late":
-        #     for i in range(0, len(self.post_lin_list)):
-        #         out = self.post_lin_list[i](out)
-        #         out = getattr(F, self.act)(out)
-        #     out = self.lin_embeding(out)
-        #     if self.pool == "set2set":
-        #         out = self.set2set(out, data.batch)
-        #         out = self.lin_out_2(out)
-        #     else:
-        #         out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
-
         return out

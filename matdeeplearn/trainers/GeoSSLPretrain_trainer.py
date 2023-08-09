@@ -19,10 +19,10 @@ from torch.utils.data.distributed import DistributedSampler
 from torch_geometric.data import Dataset
 
 from matdeeplearn.common.data import get_otf_transforms, dataset_split
+from matdeeplearn.datasets.GeoSSLPretrainDataset import GeoSSLPretrainDataset
 from matdeeplearn.datasets.LargeGeoSSLPretain_dataset import LargeGeoSSlPretrainDataset
 from matdeeplearn.modules.loss import NCSN_version_03
 from matdeeplearn.trainers.base_trainer import BaseTrainer
-from matdeeplearn.datasets.CTPretain_dataset import CTPretrainDataset
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel
@@ -67,13 +67,8 @@ def get_dataset(
                           min_distance=0,
                           dataset_config=dataset_config)
     else:
-        Dataset = CTPretrainDataset
-        dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name,
-                          augmentation_list=augmentation_list, transform=composition,
-                          mask_node_ratios=[0.1, 0.1],
-                          mask_edge_ratios=[0.1, 0.1],
-                          distance=0.05,
-                          min_distance=0)
+        Dataset = GeoSSLPretrainDataset
+        dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
 
     return dataset
 
@@ -320,7 +315,6 @@ class GeoSSLPretrainer(BaseTrainer):
             node_dim=node_dim,
             edge_dim=edge_dim,
             output_dim=output_dim,
-            data=dataset,
             cutoff_radius=graph_config["cutoff_radius"],
             n_neighbors=graph_config["n_neighbors"],
             edge_steps=graph_config["edge_steps"],
@@ -372,7 +366,6 @@ class GeoSSLPretrainer(BaseTrainer):
             )
 
         else:
-            print("augmentation: ", dataset_config.get("augmentation"))
             dataset["train"] = get_dataset(
                 dataset_path,
                 processed_file_name="data.pt",
