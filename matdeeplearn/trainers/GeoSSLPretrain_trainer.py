@@ -480,8 +480,8 @@ class GeoSSLPretrainer(BaseTrainer):
                 #     continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
-                print(batch1)
-                print(batch2)
+                # print(batch1)
+                # print(batch2)
                 # print(batch1.batch.shape, batch1.x.shape)
                 # print(batch1.batch)
                 # print(batch1.super_edge_index.shape)
@@ -490,10 +490,10 @@ class GeoSSLPretrainer(BaseTrainer):
                 out1 = self._forward(batch1)
                 out2 = self._forward(batch2)
                 loss = self._compute_loss(out1, out2, batch1, batch2)
-                # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
-                # if (i % 100 == 0):
-                #     logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
-                #                                                                     loss.detach().item()))
+                print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
+                if (i % 100 == 0):
+                    logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
+                                                                                    loss.detach().item()))
                 accum_loss += loss.detach().item()
                 self._backward(loss)
 
