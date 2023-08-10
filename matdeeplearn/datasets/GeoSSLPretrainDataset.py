@@ -75,7 +75,6 @@ class GeoSSLPretrainDataset(InMemoryDataset):
 
         data2 = copy.deepcopy(data1)
         data2.pos = data2.pos + torch.normal(self.mu, self.sigma, size=data2.pos.size())
-        print(data1, data2)
         return data1, data2
 
 

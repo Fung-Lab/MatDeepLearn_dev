@@ -468,6 +468,7 @@ class GeoSSLPretrainer(BaseTrainer):
             _metrics = {}
 
             for i in range(skip_steps, len(self.train_loader)):
+                step_time = time.time()
                 self.epoch = epoch + (i + 1) / len(self.train_loader)
                 self.step = epoch * len(self.train_loader) + i + 1
                 self.model.train()
@@ -480,6 +481,9 @@ class GeoSSLPretrainer(BaseTrainer):
                 #     continue
                 batch1 = batch1.to(self.device)
                 batch2 = batch2.to(self.device)
+
+                data_time = time.time()
+                print("data time: ", data_time - step_time)
                 # print(batch1)
                 # print(batch2)
                 # print(batch1.batch.shape, batch1.x.shape)
@@ -489,13 +493,16 @@ class GeoSSLPretrainer(BaseTrainer):
                 # Compute forward, loss, backward
                 out1 = self._forward(batch1)
                 out2 = self._forward(batch2)
+                model_time = time.time()
+                print("model time: ", model_time - data_time)
                 loss = self._compute_loss(out1, out2, batch1, batch2)
-                print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
-                if (i % 100 == 0):
-                    logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
-                                                                                    loss.detach().item()))
+                # print("out1 shape: ", out1.size(), " out2 shape: ", out2.size(), " loss: ", loss.item())
+                # if (i % 100 == 0):
+                #     logging.info("Epoch: {:04d}, Step: {:04d}, Loss: {:.5f}".format(int(self.epoch - 1), i,
+                #                                                                     loss.detach().item()))
                 accum_loss += loss.detach().item()
                 self._backward(loss)
+                print("loss time: ", time.time() - model_time)
 
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
