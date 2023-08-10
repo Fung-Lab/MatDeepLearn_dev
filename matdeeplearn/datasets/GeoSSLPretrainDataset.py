@@ -1,6 +1,7 @@
 import copy
 import itertools
 import os
+import time
 
 import torch
 from torch_geometric.data import InMemoryDataset
@@ -73,7 +74,9 @@ class GeoSSLPretrainDataset(InMemoryDataset):
         data1.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
         data1.offsets = offsets
 
-        data2 = copy.deepcopy(data1)
+        data2 = super().__getitem__(idx)
+        data2.super_edge_index = torch.tensor(super_edge_index).t().contiguous()
+        data2.offsets = offsets
         data2.pos = data2.pos + torch.normal(self.mu, self.sigma, size=data2.pos.size())
         return data1, data2
 
