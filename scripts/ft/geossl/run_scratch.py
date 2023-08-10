@@ -3,7 +3,7 @@ import subprocess
 import os
 
 # 运行次数
-num_runs = 10
+num_runs = 5
 seeds = [123, 456, 789, 987, 543, 321, 876, 654, 234, 345]
 
 if __name__ == '__main__':
