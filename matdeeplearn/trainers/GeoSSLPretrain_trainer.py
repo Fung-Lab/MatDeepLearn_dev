@@ -619,7 +619,7 @@ class GeoSSLPretrainer(BaseTrainer):
         output = self.model(batch_data)
         return output
 
-    def _compute_distamce(self, positions, offsets, edge_index):
+    def _compute_distance(self, positions, offsets, edge_index):
         n_atoms = len(positions)
         n_cells = len(offsets[0])
 
@@ -657,8 +657,10 @@ class GeoSSLPretrainer(BaseTrainer):
         distance_02 = torch.sqrt(torch.sum((u_pos_02 - v_pos_02) ** 2, dim=1)).unsqueeze(1)  # (num_edge, 1)
         '''
 
-        distance_01 = self._compute_distamce(positions_01, offsets_01, edge_index_1)
-        distance_02 = self._compute_distamce(positions_02, offsets_02, edge_index_2)
+        distance_01 = self._compute_distance(positions_01, offsets_01, edge_index_1)
+        distance_01 = torch.randperm(distance_01.size(0))
+        distance_02 = self._compute_distance(positions_02, offsets_02, edge_index_2)
+        distance_02 = torch.randperm(distance_02.size(0))
         # print(old_distance_01.view(-1)[:20])
         # print(distance_01.view(-1)[:20])
 
