@@ -658,12 +658,7 @@ class GeoSSLPretrainer(BaseTrainer):
         '''
 
         distance_01 = self._compute_distance(positions_01, offsets_01, edge_index_1)
-        indices1 = torch.randperm(distance_01.size(0))
-        distance_01 = distance_01[indices1]
-
         distance_02 = self._compute_distance(positions_02, offsets_02, edge_index_2)
-        indices2 = torch.randperm(distance_02.size(0))
-        distance_02 = distance_02[indices2]
         # print(old_distance_01.view(-1)[:20])
         # print(distance_01.view(-1)[:20])
 
