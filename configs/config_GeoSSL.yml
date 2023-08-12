@@ -2,7 +2,7 @@ trainer: geossl_pretrain
 
 task:
   # run_mode: train
-  identifier: "geossl"
+  identifier: "geossl_sigma0.5"
   reprocess: False
   parallel: True
   # seed=0 means random initalization
