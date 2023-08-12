@@ -21,7 +21,7 @@ class GeoSSLPretrainDataset(InMemoryDataset):
         device=None,
         num_offsets=2,
         mu=0,
-        sigma=0.3
+        sigma=0.5
     ):
         self.root = root
         self.processed_data_path = processed_data_path
