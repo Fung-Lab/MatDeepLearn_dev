@@ -20,7 +20,7 @@ class GeoSSLPretrainDataset(InMemoryDataset):
         pre_filter=None,
         device=None,
         num_offsets=2,
-        mu=0.3,
+        mu=0.5,
         sigma=0.3
     ):
         self.root = root
