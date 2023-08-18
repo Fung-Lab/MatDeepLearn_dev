@@ -13,20 +13,20 @@ if __name__ == '__main__':
     for i in range(num_runs):
         seed = str(seeds[i])
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_JDFT_ct_ft.yml --seed=" + seed
-        subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_Dielectric_ct_ft.yml --seed=" + seed
-        subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_Perovskites_ct_ft.yml --seed=" + seed
-        subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_Phonons_ct_ft.yml --seed=" + seed
-        subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_GVRH_ct_ft.yml --seed=" + seed
-        subprocess.run(command, shell=True)
+        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_JDFT_ct_ft.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
+        #
+        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_Dielectric_ct_ft.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
+        #
+        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_Perovskites_ct_ft.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
+        #
+        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_Phonons_ct_ft.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
+        #
+        # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_GVRH_ct_ft.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
 
         command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma05/config_KVRH_ct_ft.yml --seed=" + seed
         subprocess.run(command, shell=True)
