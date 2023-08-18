@@ -28,7 +28,7 @@ if __name__ == '__main__':
         # command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma1/config_GVRH_ct_ft.yml --seed=" + seed
         # subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_mu05/config_KVRH_ct_ft.yml --seed=" + seed
+        command = "python scripts/main.py --run_mode=train --config_path=configs/ct_ft/GeoSSL_sigma1/config_KVRH_ct_ft.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
         # 记录本次运行的开始时间

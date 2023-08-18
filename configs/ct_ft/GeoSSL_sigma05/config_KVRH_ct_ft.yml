@@ -14,7 +14,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: "results/geossl_mu05/"
+  checkpoint_path: "results/geossl_sigma05/"
   # E.g. ["train", "val", "test"]
   write_output: [ "train", "val", "test" ]
   # Specify if labels are provided for the predict task
