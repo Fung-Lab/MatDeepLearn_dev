@@ -60,6 +60,7 @@ class CGCNNCTFinetune(BaseModel):
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
         # Determine output dimension length
+        print(data[0])
         if data[0][self.target_attr].ndim == 0:
             self.output_dim = 1
         else:

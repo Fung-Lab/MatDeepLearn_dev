@@ -1,4 +1,4 @@
-geossl_sigma05trainer: finetune
+trainer: finetune
 
 task:
   # run_mode: train
