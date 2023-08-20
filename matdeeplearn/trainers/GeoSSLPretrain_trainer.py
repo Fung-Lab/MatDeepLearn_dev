@@ -225,9 +225,9 @@ class GeoSSLPretrainer(BaseTrainer):
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size,
                                 rank)
         NCSN_model_01 = \
-            NCSN_version_03(128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=10).to(rank)
+            NCSN_version_03(128, sigma_begin=10, sigma_end=0.01, num_noise_level=50, anneal_power=2).to(rank)
         NCSN_model_02 = \
-            NCSN_version_03(128, sigma_begin=10, sigma_end=0.01, num_noise_level=30, anneal_power=10).to(rank)
+            NCSN_version_03(128, sigma_begin=10, sigma_end=0.01, num_noise_level=50, anneal_power=2).to(rank)
         optimizer = cls._load_optimizer(config["optim"], model, NCSN_model_01, NCSN_model_02, local_world_size)
         sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
         train_loader, val_loader, test_loader = cls._load_dataloader(
