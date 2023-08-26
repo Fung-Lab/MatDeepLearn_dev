@@ -81,7 +81,7 @@ class CrystalGraphMod(object):
             else:
                 while (len(temp) < self.neighbors):
                     temp.append(torch.zeros(50))
-                nbr_fea.append(temp)
+                nbr_fea.append(torch.tensor(temp))
                 temp = []
                 curr = data.edge_index[0][i]
                 if (len(temp) < self.neighbors):
