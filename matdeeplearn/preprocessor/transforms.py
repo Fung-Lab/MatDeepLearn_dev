@@ -68,7 +68,7 @@ class CrystalGraphMod(object):
 
     def __call__(self, data):
         data.crystal_atom_idx = []
-        unique_values, value_counts = torch.unique(return_counts=True)
+        unique_values, value_counts = data.batch.unique(return_counts=True)
         start_idx = 0
         
         for count in value_counts:
