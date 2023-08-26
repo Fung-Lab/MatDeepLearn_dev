@@ -244,6 +244,9 @@ class CrystalGraphConvNet(BaseModel):
         if self.classification:
             out = self.logsoftmax(out)
         return out, []
+    @property
+    def target_attr(self):
+        return "y"
 
     def pooling(self, atom_fea, crystal_atom_idx):
         """
