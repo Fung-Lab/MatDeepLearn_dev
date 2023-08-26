@@ -72,19 +72,25 @@ class CrystalGraphMod(object):
     def __call__(self, data):
         nbr_fea = []
         temp = []
+        nbr_fea_idx = []
+        temp_idx = []
         curr = 0
         for i in range(data.edge_index[0].size()[0]):
             if (data.edge_index[0][i] == curr):
                 if (len(temp) < self.neighbors):
                     temp.append(data.edge_attr[i])
+                    temp_idx.append(data.edge_index[1][i])
             else:
                 while (len(temp) < self.neighbors):
                     temp.append(torch.zeros(50))
+                    temp_idx.append(data.edge_index[1][i])
                 a = torch.Tensor(self.neighbors * 50)
                 torch.cat(temp, out=a)
                 a = torch.reshape(a, (self.neighbors, 50))
                 nbr_fea.append(a)
+                nbr_fea_idx.append(torch.Tensor(temp_idx))
                 temp = []
+                temp_idx = []
                 curr = data.edge_index[0][i]
                 if (len(temp) < self.neighbors):
                     temp.append(data.edge_attr[i])
@@ -97,17 +103,20 @@ class CrystalGraphMod(object):
         a = torch.Tensor(len(nbr_fea) * self.neighbors * 50)
         torch.cat(nbr_fea, out=a)
         a = torch.reshape(a, (len(nbr_fea), self.neighbors, 50))
+        nbr_fea_idx.append(torch.Tensor(temp_idx))
         try:
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         except:
             data.nbr_fea = torch.empty(0, self.neighbors, 50)
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
+        a = torch.Tensor(len(nbr_fea) * self.neighbors)
+        torch.cat(nbr_fea_idx, out=a)
+        a = torch.reshape(a, (len(nbr_fea), self.neighbors))
         try:
-            data.crystal_atom_idx.append(torch.arange(self.start, self.start+data.n_atoms))
-        except Exception as error:
-            data.crystal_atom_idx = []
-            data.crystal_atom_idx.append(torch.arange(self.start, self.start+data.n_atoms))
-            self.start += data.n_atoms
+            data.nbr_fea_idx = torch.cat((data.nbr_fea, a), 0)
+        except:
+            data.nbr_fea_idx = torch.empty(0, self.neighbors)
+            data.nbr_fea_idx = torch.cat((data.nbr_fea, a), 0)
         return data
 
 

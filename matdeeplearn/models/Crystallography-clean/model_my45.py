@@ -227,8 +227,9 @@ class CrystalGraphConvNet(BaseModel):
         atom_fea = data.x
         nbr_fea = data.nbr_fea
         nbr_fea_idx = data.edge_index
-        crystal_atom_idx = data.crystal_atom_idx
-        print(data.crystal_atom_idx)
+        print(data.x.size())
+        print(data.nbr_fea.size())
+        print(data.nbr_fea_idx.size())
         crystal_atom_idx = []
         unique_values, value_counts = data.batch.unique(return_counts=True)
         start_idx = 0
