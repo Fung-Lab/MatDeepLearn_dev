@@ -106,7 +106,7 @@ class CrystalGraphMod(object):
             data.crystal_atom_idx.append(torch.arange(self.start, self.start+data.n_atoms))
         except Exception as error:
             data.crystal_atom_idx = []
-            data.crystal_atom_idx.append(torch.arange(self.start, data.n_atoms))
+            data.crystal_atom_idx.append(torch.arange(self.start, self.start+data.n_atoms))
             self.start += data.n_atoms
         return data
 
