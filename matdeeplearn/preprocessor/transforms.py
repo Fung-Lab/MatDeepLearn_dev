@@ -81,16 +81,24 @@ class CrystalGraphMod(object):
             else:
                 while (len(temp) < self.neighbors):
                     temp.append(torch.zeros(50))
-                nbr_fea.append(torch.tensor(temp))
+                a = torch.Tensor(self.neighbors, 50)
+                torch.cat(temp, out=a)
+                nbr_fea.append(a)
                 temp = []
                 curr = data.edge_index[0][i]
                 if (len(temp) < self.neighbors):
                     temp.append(data.edge_attr[i])
         while (len(temp) < self.neighbors):
             temp.append(torch.zeros(50))
-        nbr_fea.append(temp)
-        print(nbr_fea)
-        data.nbr_fea = torch.tensor(nbr_fea)
+        a = torch.Tensor(self.neighbors, 50)
+        torch.cat(temp, out=a)
+        nbr_fea.append(a)
+        a = torch.Tensor(len(nbr_fea), self.neighbors, 50)
+        torch.cat(nbr_fea, out=a)
+        if (data.nbr_fea is None):
+            data.nbr_fea = torch.empty(0, self.neighbors, 50)
+        
+        data.nbr_fea.cat(a)
     
         return data
 
