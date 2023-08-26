@@ -94,10 +94,10 @@ class CrystalGraphMod(object):
         a = torch.Tensor(len(nbr_fea), self.neighbors, 50)
         torch.cat(nbr_fea, out=a)
         try:
-            data.nbr_fea.cat(a)
+            data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         except:
             data.nbr_fea = torch.empty(0, self.neighbors, 50)
-            data.nbr_fea = torch.cat(data.nbr_fea, a)
+            data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
     
         return data
 
