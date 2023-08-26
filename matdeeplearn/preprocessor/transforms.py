@@ -67,6 +67,7 @@ class GetY(object):
 class CrystalGraphMod(object):
     def __init__(self, neighbors):
         self.neighbors = neighbors
+        self.start = 0
 
     def __call__(self, data):
         nbr_fea = []
@@ -102,12 +103,11 @@ class CrystalGraphMod(object):
             data.nbr_fea = torch.empty(0, self.neighbors, 50)
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         try:
-            data.crystal_atom_idx.append(torch.arange(data.crystal_atom_idx[-1][-1].item()+1, data.crystal_atom_idx[-1][-1].item()+1+data.n_atoms))
+            data.crystal_atom_idx.append(torch.arange(self.start, self.start+data.n_atoms))
         except Exception as error:
-            print(error)
             data.crystal_atom_idx = []
-            data.crystal_atom_idx.append(torch.arange(0, data.n_atoms))
-        print(data.crystal_atom_idx)
+            data.crystal_atom_idx.append(torch.arange(self.start, data.n_atoms))
+            self.start += data.n_atoms
         return data
 
 
