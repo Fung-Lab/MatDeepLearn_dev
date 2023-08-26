@@ -107,7 +107,7 @@ class CrystalGraphMod(object):
             print(error)
             data.crystal_atom_idx = []
             data.crystal_atom_idx.append(torch.arange(0, data.n_atoms))
-    
+        print(data.crystal_atom_idx)
         return data
 
 
