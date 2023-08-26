@@ -94,6 +94,7 @@ class CrystalGraphMod(object):
                 curr = data.edge_index[0][i]
                 if (len(temp) < self.neighbors):
                     temp.append(data.edge_attr[i])
+                    temp_idx.append(data.edge_index[1][i])
         while (len(temp) < self.neighbors):
             temp.append(torch.zeros(50))
         a = torch.Tensor(self.neighbors * 50)
