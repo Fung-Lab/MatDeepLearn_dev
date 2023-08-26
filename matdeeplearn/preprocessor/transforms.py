@@ -69,6 +69,8 @@ class CrystalGraphMod(object):
         self.neighbors = neighbors
 
     def __call__(self, data):
+        print(data.edge_index.size())
+        print(data.edge_index[0].size()[0])
         nbr_fea = []
         temp = []
         curr = 0
