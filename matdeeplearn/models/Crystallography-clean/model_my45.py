@@ -228,6 +228,15 @@ class CrystalGraphConvNet(BaseModel):
         nbr_fea = data.edge_attr
         nbr_fea_idx = data.edge_index
         crystal_atom_idx = data.batch
+        crystal_atom_idx = []
+        unique_values, value_counts = data.batch.unique(return_counts=True)
+        start_idx = 0
+        
+        for count in value_counts:
+            end_idx = start_idx + count
+            data.crystal_atom_idx.append(torch.tensor.arange((start_idx, end_idx)))
+            start_idx = end_idx
+        print(crystal_atom_idx)
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
