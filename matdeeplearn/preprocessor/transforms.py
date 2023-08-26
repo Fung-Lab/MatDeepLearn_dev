@@ -83,7 +83,7 @@ class CrystalGraphMod(object):
             else:
                 while (len(temp) < self.neighbors):
                     temp.append(torch.zeros(50))
-                    temp_idx.append(data.edge_index[1][i])
+                    temp_idx.append(0)
                 a = torch.Tensor(self.neighbors * 50)
                 torch.cat(temp, out=a)
                 a = torch.reshape(a, (self.neighbors, 50))
@@ -97,6 +97,7 @@ class CrystalGraphMod(object):
                     temp_idx.append(data.edge_index[1][i])
         while (len(temp) < self.neighbors):
             temp.append(torch.zeros(50))
+            temp_idx.append(0)
         a = torch.Tensor(self.neighbors * 50)
         torch.cat(temp, out=a)
         a = torch.reshape(a, (self.neighbors, 50))
