@@ -118,7 +118,7 @@ class CrystalGraphConvNet(BaseModel):
     """
     def __init__(self, node_dim, edge_dim, output_dim,
                  dim1=64, n_conv=3, dim2=128, n_h=1,k=3,
-                 classification=False):
+                 classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.
 
