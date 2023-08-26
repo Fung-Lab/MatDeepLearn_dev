@@ -142,7 +142,7 @@ class CrystalGraphConvNet(BaseModel):
         self.classification = classification
         self.embedding = nn.Linear(node_dim, dim1)
         self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
-                                    edge_dim=edge_dim,k=k)
+                                    nbr_fea_len=edge_dim,k=k)
                                     for _ in range(n_conv)])
         self.conv_to_fc = nn.Linear(dim1, dim2)
         self.conv_to_fc_softplus = nn.ReLU()
