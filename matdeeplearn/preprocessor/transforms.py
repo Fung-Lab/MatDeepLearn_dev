@@ -79,8 +79,7 @@ class CrystalGraphMod(object):
             else:
                 while (len(temp) < self.neighbors):
                     temp.append(torch.zeros(50))
-                a = torch.Tensor(self.neighbors * 50)
-                a = torch.reshape(a, (self.neighbors, 50))
+                a = torch.Tensor(self.neighbors, 50)
                 torch.cat(temp, out=a)
                 nbr_fea.append(a)
                 temp = []
@@ -89,13 +88,13 @@ class CrystalGraphMod(object):
                     temp.append(data.edge_attr[i])
         while (len(temp) < self.neighbors):
             temp.append(torch.zeros(50))
-        a = torch.Tensor(self.neighbors * 50)
-        a = torch.reshape(a, (self.neighbors, 50))
+        a = torch.Tensor(self.neighbors, 50)
         torch.cat(temp, out=a)
+        a = torch.reshape(a, (self.neighbors, 50))
         nbr_fea.append(a)
-        a = torch.Tensor(len(nbr_fea) * self.neighbors * 50)
-        a = torch.reshape(a, (len(nbr_fea), self.neighbors, 50))
+        a = torch.Tensor(len(nbr_fea), self.neighbors, 50)
         torch.cat(nbr_fea, out=a)
+        a = torch.reshape(a, (len(nbr_fea), self.neighbors, 50))
         try:
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         except:
