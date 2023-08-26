@@ -68,6 +68,7 @@ class CrystalGraphMod(object):
 
     def __call__(self, data):
         data.crystal_atom_idx = []
+        print(data.batch)
         unique_values, value_counts = data.batch.unique(return_counts=True)
         start_idx = 0
         
