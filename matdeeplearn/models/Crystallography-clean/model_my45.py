@@ -72,7 +72,7 @@ class ConvLayer(nn.Module):
         #print('N,M', N, M)
         # convolution
         #print('atom_in_fea size', atom_in_fea.size())
-        atom_nbr_fea = atom_in_fea[nbr_fea_idx, :]
+        atom_nbr_fea = atom_in_fea[nbr_fea_idx.long(), :]
         #print('atom_nbr_fea size', atom_nbr_fea.size())
         total_nbr_fea = torch.cat(
             [atom_in_fea.unsqueeze(1).expand(N, M, self.atom_fea_len),
