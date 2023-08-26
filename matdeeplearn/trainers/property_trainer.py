@@ -105,7 +105,8 @@ class PropertyTrainer(BaseTrainer):
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                            
+                    out = self._forward(batch)
+                    pred, noise_pred, dy = out
                     loss = self._compute_loss(out, batch)  
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
                 grad_norm = self._backward(loss)  

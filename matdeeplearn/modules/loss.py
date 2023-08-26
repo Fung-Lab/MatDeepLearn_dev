@@ -18,6 +18,43 @@ class TorchLossWrapper(nn.Module):
     def forward(self, predictions: torch.Tensor, target: Batch):    
         return self.loss_fn(predictions["output"], target.y)
 
+@registry.register_loss("NoisyNodeLoss")
+class ForceLoss(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_noise=0.1):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_noise = weight_noise
+
+    def forward(self, predictions: torch.Tensor, target: Batch):
+        loss_energy = F.l1_loss(predictions["output"], target.y)
+        loss_noise = F.l1_loss(predictions["pos_grad"], target.noise)
+        combined_loss = self.weight_energy*loss_energy + self.weight_noise*loss_noise
+        return combined_loss
+
+@registry.register_loss("ForceNoiseLoss")
+class ForceLoss(nn.Module):
+    '''
+    This loss function is used for the noisy node + forces experiment
+    '''
+    def __init__(self, weight_energy=1.0, weight_forces=1.0, weight_noise=1.0):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_forces = weight_forces
+        self.weight_noise = weight_noise
+
+    def forward(self, predictions: torch.Tensor, target: Batch):
+        output = predictions["output"]
+        dy = predictions["pos_grad"]
+        noise_pred = predictions["noise_pred"]
+
+        loss_energy = F.l1_loss(output, target.y)
+        loss_forces = F.l1_loss(dy, target.forces)
+        loss_noise = F.l1_loss(noise_pred, target.noise)
+
+        combined_loss = self.weight_energy*loss_energy + self.weight_forces*loss_forces + self.weight_noise*loss_noise
+
+        combined_loss = self.weight_energy*loss_energy + self.weight_noise*loss_noise
+        return combined_loss
 
 @registry.register_loss("ForceLoss")
 class ForceLoss(nn.Module):
