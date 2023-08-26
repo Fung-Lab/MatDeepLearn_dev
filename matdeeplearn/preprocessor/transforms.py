@@ -80,8 +80,8 @@ class CrystalGraphMod(object):
                 while (len(temp) < self.neighbors):
                     temp.append(torch.zeros(50))
                 a = torch.Tensor(self.neighbors * 50)
-                torch.cat(temp, out=a)
                 a = torch.reshape(a, (self.neighbors, 50))
+                torch.cat(temp, out=a)
                 nbr_fea.append(a)
                 temp = []
                 curr = data.edge_index[0][i]
@@ -90,12 +90,12 @@ class CrystalGraphMod(object):
         while (len(temp) < self.neighbors):
             temp.append(torch.zeros(50))
         a = torch.Tensor(self.neighbors * 50)
-        torch.cat(temp, out=a)
         a = torch.reshape(a, (self.neighbors, 50))
+        torch.cat(temp, out=a)
         nbr_fea.append(a)
         a = torch.Tensor(len(nbr_fea) * self.neighbors * 50)
-        torch.cat(nbr_fea, out=a)
         a = torch.reshape(a, (len(nbr_fea), self.neighbors, 50))
+        torch.cat(nbr_fea, out=a)
         try:
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         except:
@@ -108,6 +108,8 @@ class CrystalGraphMod(object):
         except:
             data.crystal_atom_idx = []
             data.crystal_atom_idx.append(torch.arange(0, data.n_atoms))
+            print(torch.arange(0, data.n_atoms))
+            print(data.crystal_atom_idx[-1])
     
         return data
 
