@@ -234,7 +234,7 @@ class CrystalGraphConvNet(BaseModel):
         
         for count in value_counts:
             end_idx = start_idx + count
-            data.crystal_atom_idx.append(torch.tensor.arange((start_idx, end_idx)))
+            crystal_atom_idx.append(torch.tensor.arange((start_idx, end_idx)))
             start_idx = end_idx
         print(crystal_atom_idx)
         atom_fea = self.embedding(atom_fea)
