@@ -87,6 +87,7 @@ class CrystalGraphMod(object):
         while (len(temp) < self.neighbors):
             temp.append(torch.zeros(50))
         nbr_fea.append(temp)
+        print(nbr_fea)
         data.nbr_fea = torch.tensor(nbr_fea)
     
         return data
