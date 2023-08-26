@@ -118,7 +118,7 @@ class CrystalGraphMod(object):
             data.nbr_fea_idx = torch.cat((data.nbr_fea, a), 0)
         except:
             data.nbr_fea_idx = torch.empty(0, self.neighbors)
-            data.nbr_fea_idx = torch.cat((data.nbr_fea, a), 0)
+            data.nbr_fea_idx = torch.cat((data.nbr_fea_idx, a), 0)
         return data
 
 
