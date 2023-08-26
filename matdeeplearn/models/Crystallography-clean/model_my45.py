@@ -250,7 +250,7 @@ class CrystalGraphConvNet(BaseModel):
         out = self.fc_out(crys_fea)
         if self.classification:
             out = self.logsoftmax(out)
-        return out, []
+        return out
     @property
     def target_attr(self):
         return "y"
