@@ -69,8 +69,6 @@ class CrystalGraphMod(object):
         self.neighbors = neighbors
 
     def __call__(self, data):
-        print(data.edge_index)
-        print(data.edge_index[0].size()[0])
         nbr_fea = []
         temp = []
         curr = 0
@@ -99,7 +97,7 @@ class CrystalGraphMod(object):
             data.nbr_fea.cat(a)
         except:
             data.nbr_fea = torch.empty(0, self.neighbors, 50)
-            data.nbr_fea.cat(a)
+            data.nbr_fea = torch.cat(data.nbr_fea, a)
     
         return data
 
