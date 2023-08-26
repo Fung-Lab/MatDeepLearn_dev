@@ -63,6 +63,22 @@ class GetY(object):
             #data.y = data.y[0][self.index]            
         return data
 
+@registry.register_transform("CrystalGraphMod")
+class CrystalGraphMod(object):
+
+    def __call__(self, data):
+        data.crystal_atom_idx = []
+        unique_values, value_counts = torch.unique(return_counts=True)
+        start_idx = 0
+        
+        for count in value_counts:
+            end_idx = start_idx + count
+            data.crystal_atom_idx.append(torch.tensor.arange((start_idx, end_idx)))
+            start_idx = end_idx
+    
+        return data
+
+
 
 @registry.register_transform("NumNodeTransform")
 class NumNodeTransform(object):
