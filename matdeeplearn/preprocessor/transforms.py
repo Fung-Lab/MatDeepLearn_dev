@@ -65,9 +65,29 @@ class GetY(object):
 
 @registry.register_transform("CrystalGraphMod")
 class CrystalGraphMod(object):
+    def __init__(self, neighbors):
+        self.neighbors = neighbors
 
     def __call__(self, data):
-        
+        nbr_fea = []
+        temp = []
+        curr = 0
+        for i in range(data.edge_index[0].size()[0]):
+            if (data.edge_index[0][i] == curr):
+                if (len(temp) < self.neighbors):
+                    temp.append(data.edge_attr[i])
+            else:
+                while (len(temp) < self.neighbors):
+                    temp.append(torch.zeros(50))
+                nbr_fea.append(temp)
+                temp = []
+                curr = data.edge_index[0][i]
+                if (len(temp) < self.neighbors):
+                    temp.append(data.edge_attr[i])
+        while (len(temp) < self.neighbors):
+            temp.append(torch.zeros(50))
+        nbr_fea.append(temp)
+        data.nbr_fea = torch.tensor(nbr_fea)
     
         return data
 
