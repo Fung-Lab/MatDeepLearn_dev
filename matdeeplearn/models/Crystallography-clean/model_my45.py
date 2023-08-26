@@ -224,10 +224,10 @@ class CrystalGraphConvNet(BaseModel):
           Atom hidden features after convolution
 
         """
-        print(data)
-        print(data.x.size())
-        print(data.neighbors.size())
-        print(data.edge_index.size())
+        atom_fea = data.x
+        nbr_fea = data.edge_attr
+        nbr_fea_idx = data.edge_index
+        crystal_atom_idx = data.batch
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
