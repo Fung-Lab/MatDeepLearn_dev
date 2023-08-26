@@ -103,10 +103,10 @@ class CrystalGraphMod(object):
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         try:
             data.crystal_atom_idx.append(torch.arange(data.crystal_atom_idx[-1][-1].item()+1, data.crystal_atom_idx[-1][-1].item()+1+data.n_atoms))
-        except:
+        except Exception as error:
+            print(error)
             data.crystal_atom_idx = []
             data.crystal_atom_idx.append(torch.arange(0, data.n_atoms))
-            print(torch.arange(data.crystal_atom_idx[-1][-1].item()+1, data.crystal_atom_idx[-1][-1].item()+1+data.n_atoms))
     
         return data
 
