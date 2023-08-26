@@ -101,6 +101,10 @@ class CrystalGraphMod(object):
         except:
             data.nbr_fea = torch.empty(0, self.neighbors, 50)
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
+        try:
+            data.crystal_atom_idx.append(torch.arange(data.crystal_atom_idx[-1][-1]+1, data.crystal_atom_idx[-1][-1]+1+data.n_atoms))
+        except:
+            data.crystal_atom_idx = [torch.arange(0, data.n_atoms)]
     
         return data
 
