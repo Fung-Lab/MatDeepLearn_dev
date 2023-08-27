@@ -4,6 +4,9 @@ import torch
 import torch.nn as nn
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.common.registry import registry
+from torch_geometric.nn import (
+    global_mean_pool,
+)
 
 #in comparison to my2, here we use softmax rather than sigmoid
 #we also have the choice to use max pool rather than mean pool
@@ -228,19 +231,22 @@ class CrystalGraphConvNet(BaseModel):
         nbr_fea = data.nbr_fea
         nbr_fea_idx = data.nbr_fea_idx
         crystal_atom_idx = data.batch
-        #crystal_atom_idx = []
-        #unique_values, value_counts = data.batch.unique(return_counts=True)
-        #start_idx = 0
+        crystal_atom_idx = []
+        unique_values, value_counts = data.batch.unique(return_counts=True)
+        start_idx = 0
         
-        #for count in value_counts:
-        #    end_idx = start_idx + count
-        #    crystal_atom_idx.append(torch.arange(start_idx, end_idx))
-        #    start_idx = end_idx
+        for count in value_counts:
+            end_idx = start_idx + count
+            crystal_atom_idx.append(torch.arange(start_idx, end_idx))
+            start_idx = end_idx
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
             #print('IN FORWARD, atom_fea size', atom_fea.size())
         crys_fea = self.pooling(atom_fea, crystal_atom_idx)
+        print(crys_fea.size())
+        print()
+        print(global_mean_pool(atom_fea, data.batch).size())
         crys_fea = self.conv_to_fc(self.conv_to_fc_softplus(crys_fea))
         crys_fea = self.conv_to_fc_softplus(crys_fea)
         if self.classification:
