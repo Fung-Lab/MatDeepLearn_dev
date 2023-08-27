@@ -76,6 +76,7 @@ class CrystalGraphMod(object):
         temp_idx = []
         curr = 0
         data.edge_index = torch.sort(data.edge_index, dim=1)
+        print(data.edge_index)
         for i in range(data.edge_index[0].size()[0]):
             if (data.edge_index[0][i] == curr):
                 if (len(temp) < self.neighbors):
