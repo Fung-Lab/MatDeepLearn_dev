@@ -528,6 +528,8 @@ class DataProcessor:
                 edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] == 100)] = 1
                 edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] != 100)] = 2
                 edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3
+
+                data.edge_mask = edge_mask
                         
             # add additional attributes
             if self.additional_attributes:
