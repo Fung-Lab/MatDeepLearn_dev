@@ -2,11 +2,6 @@ from __future__ import print_function, division
 
 import torch
 import torch.nn as nn
-from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.common.registry import registry
-from torch_geometric.nn import (
-    global_mean_pool,
-)
 
 #in comparison to my2, here we use softmax rather than sigmoid
 #we also have the choice to use max pool rather than mean pool
@@ -45,7 +40,6 @@ class ConvLayer(nn.Module):
         self.atom_fc = nn.Linear(self.k , 2*self.k) 
         self.nbr_fc = nn.Linear(self.k , 2*self.k) 
         self.dropout = nn.Dropout()
-
     def forward(self, atom_in_fea, nbr_fea, nbr_fea_idx):
         """
         Forward pass
@@ -75,7 +69,7 @@ class ConvLayer(nn.Module):
         #print('N,M', N, M)
         # convolution
         #print('atom_in_fea size', atom_in_fea.size())
-        atom_nbr_fea = atom_in_fea[nbr_fea_idx.long(), :]
+        atom_nbr_fea = atom_in_fea[nbr_fea_idx, :]
         #print('atom_nbr_fea size', atom_nbr_fea.size())
         total_nbr_fea = torch.cat(
             [atom_in_fea.unsqueeze(1).expand(N, M, self.atom_fea_len),
@@ -113,94 +107,57 @@ class ConvLayer(nn.Module):
         new_nbr = torch.sum(new_nbr_core* new_nbr_filter, dim=3)
         return out, new_nbr
 
-@registry.register_model("CrystalGraph")
-class CrystalGraphConvNet(BaseModel):
+
+class CrystalGraphConvNet(nn.Module):
     """
     Create a crystal graph convolutional neural network for predicting total
     material properties.
     """
-    def __init__(self, node_dim, edge_dim, output_dim,
-                 dim1=64, n_conv=3, dim2=128, n_h=1,k=3,
-                 classification=False, **kwargs):
+    def __init__(self, orig_atom_fea_len, nbr_fea_len,
+                 atom_fea_len=64, n_conv=3, h_fea_len=128, n_h=1,k=3,
+                 classification=False):
         """
         Initialize CrystalGraphConvNet.
 
         Parameters
         ----------
 
-        node_dim: int
+        orig_atom_fea_len: int
           Number of atom features in the input.
-        edge_dim: int
+        nbr_fea_len: int
           Number of bond features.
-        dim1: int
+        atom_fea_len: int
           Number of hidden atom features in the convolutional layers
         n_conv: int
           Number of convolutional layers
-        dim2: int
+        h_fea_len: int
           Number of hidden features after pooling
         n_h: int
           Number of hidden layers after pooling
         """
         super(CrystalGraphConvNet, self).__init__()
         self.classification = classification
-        self.embedding = nn.Linear(node_dim, dim1)
-        self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
-                                    nbr_fea_len=edge_dim,k=k)
+        self.embedding = nn.Linear(orig_atom_fea_len, atom_fea_len)
+        self.convs = nn.ModuleList([ConvLayer(atom_fea_len=atom_fea_len,
+                                    nbr_fea_len=nbr_fea_len,k=k)
                                     for _ in range(n_conv)])
-        self.conv_to_fc = nn.Linear(dim1, dim2)
+        self.conv_to_fc = nn.Linear(atom_fea_len, h_fea_len)
         self.conv_to_fc_softplus = nn.ReLU()
         self.output_softplus= nn.ReLU()
         if n_h > 1:
-            self.fcs = nn.ModuleList([nn.Linear(dim2, dim2)
+            self.fcs = nn.ModuleList([nn.Linear(h_fea_len, h_fea_len)
                                       for _ in range(n_h-1)])
             self.softpluses = nn.ModuleList([nn.ReLU()
                                              for _ in range(n_h-1)])
         if self.classification:
-            self.fc_out = nn.Linear(dim2, 2)
+            self.fc_out = nn.Linear(h_fea_len, 2)
         else:
-            self.fc_out = nn.Linear(dim2, output_dim)
+            self.fc_out = nn.Linear(h_fea_len, 1)
         if self.classification:
             self.logsoftmax = nn.LogSoftmax(dim=1)
             self.dropout = nn.Dropout()
-    def forward(self, data):
-    
-        output = {}
-        out = self._forward(data)
-        output["output"] =  out
 
-        if self.gradient == True and out.requires_grad == True:         
-            if self.gradient_method == "conventional":
-                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-                grad = torch.autograd.grad(
-                        out,
-                        [data.pos, data.cell],
-                        grad_outputs=torch.ones_like(out),
-                        create_graph=self.training) 
-                forces = -1 * grad[0]
-                stress = grad[1] 
-                stress = stress / volume.view(-1, 1, 1)
-            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
-            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
-            elif self.gradient_method == "nequip":
-                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-                grad = torch.autograd.grad(
-                        out,
-                        [data.pos, data.displacement],
-                        grad_outputs=torch.ones_like(out),
-                        create_graph=self.training) 
-                forces = -1 * grad[0]
-                stress = grad[1]
-                stress = stress / volume.view(-1, 1, 1)         
-
-            output["pos_grad"] =  forces
-            output["cell_grad"] =  stress
-        else:
-            output["pos_grad"] =  None
-            output["cell_grad"] =  None  
-                  
-        return output
-    @conditional_grad(torch.enable_grad())
-    def _forward(self, data):#atom_fea, nbr_fea, nbr_fea_idx, crystal_atom_idx):
+    def forward(self, atom_fea, nbr_fea, nbr_fea_idx, crystal_atom_idx):
         """
         Forward pass
 
@@ -227,24 +184,11 @@ class CrystalGraphConvNet(BaseModel):
           Atom hidden features after convolution
 
         """
-        atom_fea = data.x
-        nbr_fea = data.nbr_fea
-        nbr_fea_idx = data.nbr_fea_idx
-        crystal_atom_idx = data.batch
-        #crystal_atom_idx = []
-        #unique_values, value_counts = data.batch.unique(return_counts=True)
-        #start_idx = 0
-        
-        #for count in value_counts:
-        #    end_idx = start_idx + count
-        #    crystal_atom_idx.append(torch.arange(start_idx, end_idx))
-        #    start_idx = end_idx
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
             #print('IN FORWARD, atom_fea size', atom_fea.size())
-        #crys_fea = self.pooling(atom_fea, crystal_atom_idx)
-        crys_fea = global_mean_pool(atom_fea, data.batch)
+        crys_fea = self.pooling(atom_fea, crystal_atom_idx)
         crys_fea = self.conv_to_fc(self.conv_to_fc_softplus(crys_fea))
         crys_fea = self.conv_to_fc_softplus(crys_fea)
         if self.classification:
@@ -255,10 +199,7 @@ class CrystalGraphConvNet(BaseModel):
         out = self.fc_out(crys_fea)
         if self.classification:
             out = self.logsoftmax(out)
-        return out
-    @property
-    def target_attr(self):
-        return "y"
+        return out, []
 
     def pooling(self, atom_fea, crystal_atom_idx):
         """

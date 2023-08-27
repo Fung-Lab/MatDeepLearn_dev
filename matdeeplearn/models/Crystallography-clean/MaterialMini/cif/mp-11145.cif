@@ -1,0 +1,52 @@
+data_image0
+_cell_length_a       8.45184
+_cell_length_b       8.45184
+_cell_length_c       8.45184
+_cell_angle_alpha    120.612
+_cell_angle_beta     120.612
+_cell_angle_gamma    88.9435
+
+_symmetry_space_group_name_H-M    "P 1"
+_symmetry_int_tables_number       1
+
+loop_
+  _symmetry_equiv_pos_as_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_label
+  _atom_site_occupancy
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_thermal_displace_type
+  _atom_site_B_iso_or_equiv
+  _atom_site_type_symbol
+  Ba1      1.0000 0.25000  0.25000  0.00000  Biso   1.000  Ba
+  Ba2      1.0000 0.75000  0.75000  0.00000  Biso   1.000  Ba
+  Cu1      1.0000 0.06095  0.56095  0.26645  Biso   1.000  Cu
+  Cu2      1.0000 0.70551  0.20551  0.26645  Biso   1.000  Cu
+  Cu3      1.0000 0.93905  0.43905  0.73355  Biso   1.000  Cu
+  Cu4      1.0000 0.43905  0.70551  0.50000  Biso   1.000  Cu
+  Cu5      1.0000 0.20550  0.93905  0.50000  Biso   1.000  Cu
+  Cu6      1.0000 0.56095  0.29450  0.50000  Biso   1.000  Cu
+  Cu7      1.0000 0.79449  0.06095  0.50000  Biso   1.000  Cu
+  Cu8      1.0000 0.29450  0.79450  0.73355  Biso   1.000  Cu
+  Cu9      1.0000 0.43838  0.29586  0.73424  Biso   1.000  Cu
+  Cu10     1.0000 0.79586  0.93838  0.73424  Biso   1.000  Cu
+  Cu11     1.0000 0.00000  0.50000  0.50000  Biso   1.000  Cu
+  Cu12     1.0000 0.50000  0.00000  0.50000  Biso   1.000  Cu
+  Cu13     1.0000 0.56162  0.70414  0.26576  Biso   1.000  Cu
+  Cu14     1.0000 0.70414  0.43838  0.14252  Biso   1.000  Cu
+  Cu15     1.0000 0.29586  0.56162  0.85748  Biso   1.000  Cu
+  Cu16     1.0000 0.93838  0.20414  0.14252  Biso   1.000  Cu
+  Cu17     1.0000 0.06162  0.79586  0.85748  Biso   1.000  Cu
+  Cu18     1.0000 0.20414  0.06162  0.26576  Biso   1.000  Cu
+  Ge1      1.0000 0.79928  0.29928  0.85704  Biso   1.000  Ge
+  Ge2      1.0000 0.55776  0.05776  0.85704  Biso   1.000  Ge
+  Ge3      1.0000 0.20072  0.70072  0.14296  Biso   1.000  Ge
+  Ge4      1.0000 0.70072  0.55776  0.50000  Biso   1.000  Ge
+  Ge5      1.0000 0.05776  0.20072  0.50000  Biso   1.000  Ge
+  Ge6      1.0000 0.29928  0.44224  0.50000  Biso   1.000  Ge
+  Ge7      1.0000 0.94224  0.79928  0.50000  Biso   1.000  Ge
+  Ge8      1.0000 0.44224  0.94224  0.14296  Biso   1.000  Ge
