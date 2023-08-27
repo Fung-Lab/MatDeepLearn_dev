@@ -522,6 +522,12 @@ class DataProcessor:
                 # data.edge_descriptor["mask"] = cd_matrix_masked
                 data.edge_descriptor["distance"] = edge_weights
                 data.distances = edge_weights
+
+                edge_mask = torch.zeros_like(edge_indices[0])
+                edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] == 100)] = 0
+                edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] == 100)] = 1
+                edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] != 100)] = 2
+                edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3
                         
             # add additional attributes
             if self.additional_attributes:

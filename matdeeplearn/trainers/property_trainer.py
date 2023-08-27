@@ -99,7 +99,8 @@ class PropertyTrainer(BaseTrainer):
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024)) 
                 self.model.train()
                 # Get a batch of train data
-                batch = next(train_loader_iter).to(self.rank) 
+                batch = next(train_loader_iter).to(self.rank)
+                print(batch)
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
