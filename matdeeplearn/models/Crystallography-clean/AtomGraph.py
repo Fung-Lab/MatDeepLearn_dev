@@ -182,8 +182,12 @@ def main(data_dir, output_path,name_database ,cutoff,max_num_nbr,compress_ratio,
     column_names = ["id"] 
     #df = pd.read_csv("./BW/targets_MP_test1.csv", names=column_names)
     df = pd.read_csv(options['id_prop'])
+    #df = pd.read_csv(options['structure_id'])
+    df.columns = ['id', 'formation_energy']
+    print(df)
+    print(df.columns)
     data_files= df.id.to_list()
-    data_files=[data_dir+"/"+file+".cif" for file in data_files]
+    data_files=[data_dir+"/"+str(file)+".cif" for file in data_files]
     print('data_files type', type(data_files))
     '''
     for i in range(100):

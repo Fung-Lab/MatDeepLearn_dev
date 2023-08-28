@@ -177,7 +177,7 @@ class AtomGraphDataset(Dataset):
             print('Using data with atom level information')
             graph_data_path = sorted(glob.glob(os.path.join(path, 'levelnpz/'+filename+'*.npz')))
         else:
-            graph_data_path = sorted(glob.glob(os.path.join(path, 'npz/'+filename+'*.npz')))
+            graph_data_path = sorted(glob.glob(os.path.join(path, 'networxnpz/'+filename+'*.npz')))
         print('The number of files = {}'.format(len(graph_data_path)))
         self.graph_data = load_graph_data(graph_data_path)
         graphs=self.graph_data.keys()
@@ -189,10 +189,16 @@ class AtomGraphDataset(Dataset):
             print(' ', g)
         print(df['id'])
         '''
-        self.graph_names=df.loc[df['id'].isin(graphs)].id.values.tolist()
+        try:
+            self.graph_names=df.loc[df['id'].isin(graphs)].id.values.tolist()
+        except:
+            df.columns = ['id', 'formation_energy']
+            self.graph_names=df.loc[df['id'].astype(str).isin(graphs)].id.values.tolist()
         #self.graph_names=list(graphs)
         #print('graph_names', self.graph_names, 'len', len(self.graph_names))
-        self.targets=np.array(df.loc[df['id'].isin(graphs)][target_name].values.tolist())
+        print(df)
+        self.targets=np.array(df.loc[df['id'].astype(str).isin(graphs)][target_name].values.tolist())
+        print(self.targets)
         scaler = StandardScaler()
         scaler.fit(np.array(self.targets).reshape(-1,1))
         print('scaler mean', scaler.mean_)
@@ -204,8 +210,9 @@ class AtomGraphDataset(Dataset):
         print('the number of valid targets = {}'.format(len(self.targets)))
         print('start to constructe AtomGraph')
         graph_data=[]
+        print(self.graph_data['1'])
         for i,name in enumerate(self.graph_names):
-            graph_data.append(AtomGraph(self.graph_data[name],cutoff,N_shbf,N_srbf,n_grid_K,n_Gaussian, with_levels))
+            graph_data.append(AtomGraph(self.graph_data[str(name)],cutoff,N_shbf,N_srbf,n_grid_K,n_Gaussian, with_levels))
             if i%2000==0 and i>0:
                 print('{} graphs constructed'.format(i))
         print('finish constructe the graph')

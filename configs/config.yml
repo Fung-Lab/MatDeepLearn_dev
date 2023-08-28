@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN    
+  name: CrystalGraph    
   # model attributes
   dim1: 100
   dim2: 150
@@ -88,6 +88,9 @@ dataset:
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
       otf: True # Optional parameter, default is False
+    - name: CrystalGraphMod
+      args:
+        neighbors: 12
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # E.g. additional_attributes: ["forces", "stress"]
@@ -99,7 +102,7 @@ dataset:
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: "mdl" 
+    edge_calc_method: "ocp" 
     # determine if edges are computed, if false, then they need to be computed on the fly   
     preprocess_edges: True
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   

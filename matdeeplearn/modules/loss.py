@@ -16,7 +16,7 @@ class TorchLossWrapper(nn.Module):
         self.loss_fn = getattr(F, loss_fn)
 
     def forward(self, predictions: torch.Tensor, target: Batch):    
-        return self.loss_fn(predictions["output"], target.y)
+        return self.loss_fn(predictions["output"].squeeze(), target.y.squeeze())
 
 
 @registry.register_loss("ForceLoss")

@@ -184,6 +184,7 @@ class CrystalGraphConvNet(nn.Module):
           Atom hidden features after convolution
 
         """
+        print("test")
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
