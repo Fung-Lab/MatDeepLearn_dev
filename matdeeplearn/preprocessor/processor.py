@@ -524,10 +524,10 @@ class DataProcessor:
                 data.distances = edge_weights
 
                 edge_mask = torch.zeros_like(edge_indices[0])
-                edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] == 100)] = 0
-                edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] == 100)] = 1
-                edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] != 100)] = 2
-                edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3
+                edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] == 100)] = 0  # virtual node to virtual node
+                edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] == 100)] = 1  # regular node to virtual node
+                edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] != 100)] = 2  # virtual node to regular node
+                edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3  # regular node to regular node
 
                 data.edge_mask = edge_mask
                         
