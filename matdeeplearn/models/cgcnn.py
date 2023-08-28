@@ -154,8 +154,8 @@ class CGCNN(BaseModel):
             data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
             data.edge_attr = self.distance_expansion(data.edge_weight)
 
-        indices_rn_to_rn = data.edge_index == 3
-        indices_rn_to_vn = data.edge_index == 1
+        indices_rn_to_rn = data.edge_mask == 3
+        indices_rn_to_vn = data.edge_mask == 1
             
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
