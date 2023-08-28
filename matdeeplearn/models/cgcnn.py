@@ -171,28 +171,28 @@ class CGCNN(BaseModel):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[:, indices_rn_to_rn]
+                        data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[:, indices_rn_to_rn]
+                        data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
             else:
                 if self.batch_norm:  
                     out = self.conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[:, indices_rn_to_rn]
+                        out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[:, indices_rn_to_rn]
+                        out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Last Layer
-        out = self.vn_conv(out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[:, indices_rn_to_vn])
+        out = self.vn_conv(out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :])
             
         virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
         out = torch.index_select(out, 0, virtual_mask)
