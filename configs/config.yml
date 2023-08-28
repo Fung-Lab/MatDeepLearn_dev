@@ -51,7 +51,7 @@ optim:
     loss_args: {"loss_fn": "l1_loss"}
   clip_grad_norm: 10
          
-  batch_size: 100
+  batch_size: 64
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -91,6 +91,7 @@ dataset:
     - name: CrystalGraphMod
       args:
         neighbors: 12
+        nbr_fea_len: 64
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # E.g. additional_attributes: ["forces", "stress"]

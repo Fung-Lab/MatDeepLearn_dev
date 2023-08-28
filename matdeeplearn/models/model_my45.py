@@ -120,7 +120,7 @@ class CrystalGraphConvNet(BaseModel):
     material properties.
     """
     def __init__(self, node_dim, edge_dim, output_dim,
-                 dim1=64, n_conv=3, dim2=128, n_h=1,k=3,
+                 dim1=128, n_conv=9, dim2=128, n_h=1,k=3,
                  classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.
@@ -231,8 +231,6 @@ class CrystalGraphConvNet(BaseModel):
         nbr_fea = data.nbr_fea
         nbr_fea_idx = data.nbr_fea_idx
         crystal_atom_idx = data.batch
-        print(data.nbr_fea)
-        print(data)
         #crystal_atom_idx = []
         #unique_values, value_counts = data.batch.unique(return_counts=True)
         #start_idx = 0

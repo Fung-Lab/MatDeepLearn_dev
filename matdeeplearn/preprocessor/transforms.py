@@ -65,9 +65,9 @@ class GetY(object):
 
 @registry.register_transform("CrystalGraphMod")
 class CrystalGraphMod(object):
-    def __init__(self, neighbors):
+    def __init__(self, neighbors, nbr_fea_len):
         self.neighbors = neighbors
-        self.start = 0
+        self.nbr_fea_len = nbr_fea_len
 
     def __call__(self, data):
         nbr_fea = []
@@ -79,38 +79,38 @@ class CrystalGraphMod(object):
         for i in range(data.edge_index[0].size()[0]):
             if (data.edge_index[0][i] == curr):
                 if (len(temp) < self.neighbors):
-                    temp.append(data.edge_attr[i])
+                    temp.append(data.distances[i].repeat(self.nbr_fea_len))
                     temp_idx.append(data.edge_index[1][i])
             else:
                 while (len(temp) < self.neighbors):
-                    temp.append(torch.zeros(50))
+                    temp.append(torch.zeros(self.nbr_fea_len))
                     temp_idx.append(0)
-                a = torch.Tensor(self.neighbors * 50)
+                a = torch.Tensor(self.neighbors * self.nbr_fea_len)
                 torch.cat(temp, out=a)
-                a = torch.reshape(a, (self.neighbors, 50))
+                a = torch.reshape(a, (self.neighbors, self.nbr_fea_len))
                 nbr_fea.append(a)
                 nbr_fea_idx.append(torch.Tensor(temp_idx))
                 temp = []
                 temp_idx = []
                 curr = data.edge_index[0][i]
                 if (len(temp) < self.neighbors):
-                    temp.append(data.edge_attr[i])
+                    temp.append(data.distances[i].repeat(self.nbr_fea_len))
                     temp_idx.append(data.edge_index[1][i])
         while (len(temp) < self.neighbors):
-            temp.append(torch.zeros(50))
+            temp.append(torch.zeros(self.nbr_fea_len))
             temp_idx.append(0)
-        a = torch.Tensor(self.neighbors * 50)
+        a = torch.Tensor(self.neighbors * self.nbr_fea_len)
         torch.cat(temp, out=a)
-        a = torch.reshape(a, (self.neighbors, 50))
+        a = torch.reshape(a, (self.neighbors, self.nbr_fea_len))
         nbr_fea.append(a)
-        a = torch.Tensor(len(nbr_fea) * self.neighbors * 50)
+        a = torch.Tensor(len(nbr_fea) * self.neighbors * self.nbr_fea_len)
         torch.cat(nbr_fea, out=a)
-        a = torch.reshape(a, (len(nbr_fea), self.neighbors, 50))
+        a = torch.reshape(a, (len(nbr_fea), self.neighbors, self.nbr_fea_len))
         nbr_fea_idx.append(torch.Tensor(temp_idx))
         try:
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         except:
-            data.nbr_fea = torch.empty(0, self.neighbors, 50)
+            data.nbr_fea = torch.empty(0, self.neighbors, self.nbr_fea_len)
             data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
         a = torch.Tensor(len(nbr_fea) * self.neighbors)
         torch.cat(nbr_fea_idx, out=a)
