@@ -262,8 +262,8 @@ class PropertyTrainer(BaseTrainer):
                 predict_cell_grad = batch_p_cell_grad if i == 0 else np.concatenate((predict_cell_grad, batch_p_cell_grad), axis=0)
                 if "stress" in batch:
                     batch_t_cell_grad = batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
-                    target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)                          
-                         
+                    target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)                  
+            
             ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
             predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
             if labels == True:
@@ -303,7 +303,7 @@ class PropertyTrainer(BaseTrainer):
                 else:            
                     self.save_results(
                         np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
-                    )    
+                    )
                             
         if labels == True:
             predict_loss = metrics[type(self.loss_fn).__name__]["metric"]
@@ -314,7 +314,31 @@ class PropertyTrainer(BaseTrainer):
             
         torch.cuda.empty_cache()
         
-        return predictions 
+        return predictions
+        
+    def predict_by_calculator(self, loader):        
+        self.model.eval()
+         
+        assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
+        assert len(loader) == 1, f"Predicting by calculator only allows one structure at a time, but got {len(loader)} structures."
+
+        if str(self.rank) not in ("cpu", "cuda"):
+            loader = get_dataloader(
+                loader.dataset, batch_size=loader.batch_size, sampler=None
+            )
+            
+        results = []
+        loader_iter = iter(loader)
+        for i in range(0, len(loader_iter)):
+            batch = next(loader_iter).to(self.rank)      
+            out = self._forward(batch.to(self.rank))
+            
+            energy = None if out.get('output') is None else out.get('output').data.cpu().numpy()
+            stress = None if out.get('cell_grad') is None else out.get('cell_grad').view(-1, 3).data.cpu().numpy()
+            forces = None if out.get('pos_grad') is None else out.get('pos_grad').data.cpu().numpy()
+            
+            results = {'energy': energy, 'stress': stress, 'forces': forces}
+        return results
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
