@@ -12,7 +12,7 @@ task:
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
-  # Path to the checkpoint.pt file
+  # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
   checkpoint_path: ./results/2023-08-25-12-00-00-my_train_job/checkpoint/best_checkpoint.pt
   # E.g. ["train", "val", "test"]
   write_output: [train, val, test]
