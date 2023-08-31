@@ -66,7 +66,7 @@ class CGCNN(BaseModel):
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
-        self.conv_list, self.bn_list = self._setup_gnn_layers()
+        self.rn_to_rn_conv_list, self.bn_list, self.rn_to_vn_conv_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
         self.vn_conv = self._setup_vn_gnn_layer()
         
@@ -98,13 +98,18 @@ class CGCNN(BaseModel):
 
     def _setup_gnn_layers(self):
         """Sets up GNN layers."""
-        conv_list = torch.nn.ModuleList()
+        rn_to_rn_conv_list = torch.nn.ModuleList()
+        rn_to_vn_conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
             conv = CGConv(
                 self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
             )
-            conv_list.append(conv)
+            rn_vn_conv = CGConv(
+                self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
+            )
+            rn_to_rn_conv_list.append(conv)
+            rn_to_vn_conv_list.append(rn_vn_conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
             if self.batch_norm:
                 bn = BatchNorm1d(
@@ -112,7 +117,7 @@ class CGCNN(BaseModel):
                 )
                 bn_list.append(bn)
 
-        return conv_list, bn_list
+        return rn_to_rn_conv_list, bn_list, rn_to_vn_conv_list
 
     def _setup_post_gnn_layers(self):
         """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. In the current version, the minimum is zero)."""
@@ -154,8 +159,17 @@ class CGCNN(BaseModel):
             data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
             data.edge_attr = self.distance_expansion(data.edge_weight)
 
+            edge_mask = torch.zeros_like(data.edge_index[0])
+            edge_mask[(data.z[data.edge_index[0]] == 100) & (data.z[data.edge_index[1]] == 100)] = 0  # virtual node to virtual node
+            edge_mask[(data.z[data.edge_index[0]] != 100) & (data.z[data.edge_index[1]] == 100)] = 1  # regular node to virtual node
+            edge_mask[(data.z[data.edge_index[0]] == 100) & (data.z[data.edge_index[1]] != 100)] = 2  # virtual node to regular node
+            edge_mask[(data.z[data.edge_index[0]] != 100) & (data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
+
+            data.edge_mask = edge_mask
+
         indices_rn_to_rn = data.edge_mask == 3
         indices_rn_to_vn = data.edge_mask == 1
+        indices_vn_to_vn = data.edge_mask == 0
             
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
@@ -167,27 +181,39 @@ class CGCNN(BaseModel):
                 out = getattr(F, self.act)(out)
 
         # GNN layers
-        for i in range(0, len(self.conv_list)):
+        for i in range(0, len(self.rn_to_rn_conv_list)):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
-                    out = self.conv_list[i](
+                    out = self.rn_to_rn_conv_list[i](
                         data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
+                    # out = self.rn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    # )
                     out = self.bn_list[i](out)
                 else:
-                    out = self.conv_list[i](
+                    out = self.rn_to_rn_conv_list[i](
                         data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
+                    # out = self.rn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    # )
             else:
                 if self.batch_norm:  
-                    out = self.conv_list[i](
+                    out = self.rn_to_rn_conv_list[i](
                         out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
+                    # out = self.rn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    # )
                     out = self.bn_list[i](out)
                 else:
-                    out = self.conv_list[i](
+                    out = self.rn_to_rn_conv_list[i](
                         out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
+                    # out = self.rn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    # )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 

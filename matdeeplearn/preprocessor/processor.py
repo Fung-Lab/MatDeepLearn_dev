@@ -203,7 +203,8 @@ class DataProcessor:
         dict_structures = []
         dirs = [d for d in os.listdir(self.root_path_dict) if os.path.isdir(os.path.join(self.root_path_dict, d))]
         for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
-            if i<100:
+            # if i<100:
+            if "singlet" in dir_name:
                 d = {}
                 try:
                     #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
