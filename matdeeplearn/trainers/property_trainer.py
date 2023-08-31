@@ -241,7 +241,7 @@ class PropertyTrainer(BaseTrainer):
                 #node_ids = batch.z.cpu().numpy()
                 #print(batch.n_atoms.cpu().numpy())
                 structure_ids = np.repeat(
-                    batch.structure_id, [200]*len(batch), axis=0
+                    batch.structure_id, [len(batch.y) // len(batch.structure_id)]*len(batch), axis=0
                 )
                 batch_ids = np.column_stack((structure_ids, node_ids))
             

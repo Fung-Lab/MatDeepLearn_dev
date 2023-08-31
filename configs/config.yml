@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: rn_rn
+  identifier: test_modified_hardcode
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
