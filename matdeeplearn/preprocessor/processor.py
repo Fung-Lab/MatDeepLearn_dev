@@ -82,8 +82,10 @@ def process_data(dataset_config):
 
 
 def get_sampling_indices(vn_labels, num_samples):
+    print(vn_labels)
     prob_distribution = vn_labels / np.sum(vn_labels)
     sampled_indices = np.random.choice(len(vn_labels), size=num_samples, p=prob_distribution.squeeze())
+    print(vn_labels[sampled_indices, :])
 
     return sampled_indices
 
