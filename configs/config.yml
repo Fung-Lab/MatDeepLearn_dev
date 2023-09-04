@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: torchmd_etEarly
+  name: CGCNN
   # model attributes
   dim1: 100
   dim2: 150
