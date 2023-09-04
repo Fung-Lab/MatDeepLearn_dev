@@ -72,7 +72,7 @@ class TorchMD_ET(BaseModel):
         neighbor_embedding=True,
         num_heads=8,
         distance_influence="both",
-        max_z=100,
+        max_z=600,
         max_num_neighbors=32,
         num_post_layers=1,
         post_hidden_channels=64,

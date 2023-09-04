@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: cuttoff_12_8_8
+  identifier: torchmd_test
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN    
+  name: torchmd_etEarly
   # model attributes
   dim1: 100
   dim2: 150
@@ -100,7 +100,7 @@ dataset:
     preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_nodes: True
-    cutoff_radius : 12.0
+    cutoff_radius : 8.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
