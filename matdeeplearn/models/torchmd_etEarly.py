@@ -146,7 +146,31 @@ class TorchMD_ET(BaseModel):
                 self.cutoff_radius,
                 aggr,
             ).jittable()
+            rn_vn_layer = EquivariantMultiHeadAttention(
+                hidden_channels,
+                num_rbf,
+                distance_influence,
+                num_heads,
+                act_class,
+                attn_activation,
+                cutoff_lower,
+                self.cutoff_radius,
+                aggr,
+            ).jittable()
+            vn_vn_layer = EquivariantMultiHeadAttention(
+                hidden_channels,
+                num_rbf,
+                distance_influence,
+                num_heads,
+                act_class,
+                attn_activation,
+                cutoff_lower,
+                self.cutoff_radius,
+                aggr,
+            ).jittable()
             self.attention_layers.append(layer)
+            self.attention_layers.append(rn_vn_layer)
+            self.attention_layers.append(vn_vn_layer)
 
         self.out_norm = nn.LayerNorm(hidden_channels)
 
@@ -181,7 +205,24 @@ class TorchMD_ET(BaseModel):
         #    edge_vec is not None
         #), "Distance module did not return directional information"
         if self.otf_edge == True:
-            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+
+            edge_mask = torch.zeros_like(data.edge_index[0])
+            edge_mask[(data.z[data.edge_index[0]] == 100) & (
+                       data.z[data.edge_index[1]] == 100)] = 0  # virtual node to virtual node
+            edge_mask[(data.z[data.edge_index[0]] != 100) & (
+                       data.z[data.edge_index[1]] == 100)] = 1  # regular node to virtual node
+            edge_mask[(data.z[data.edge_index[0]] == 100) & (
+                       data.z[data.edge_index[1]] != 100)] = 2  # virtual node to regular node
+            edge_mask[(data.z[data.edge_index[0]] != 100) & (
+                       data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
+
+            data.edge_mask = edge_mask
+
+        indices_rn_to_rn = data.edge_mask == 3
+        indices_rn_to_vn = data.edge_mask == 1
+        indices_vn_to_vn = data.edge_mask == 0
+
         data.edge_attr = self.distance_expansion(data.edge_weight) 
             
         #mask = data.edge_index[0] != data.edge_index[1]        
@@ -193,10 +234,19 @@ class TorchMD_ET(BaseModel):
 
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
-        for attn in self.attention_layers:
-            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
-            x = x + dx
-            vec = vec + dvec
+        for i, attn in enumerate(self.attention_layers):
+            if i % 3 == 0:  # rn-rn
+                dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+                x = x + dx
+                vec = vec + dvec
+            if i % 3 == 1:  # rn-vn
+                dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+                x = x + dx
+                vec = vec + dvec
+            if i % 3 == 2:  # vn-vn
+                dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+                x = x + dx
+                vec = vec + dvec
         x = self.out_norm(x)
         '''
         if self.prediction_level == "graph":
