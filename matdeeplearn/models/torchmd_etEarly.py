@@ -244,9 +244,10 @@ class TorchMD_ET(BaseModel):
                 x = x + dx
                 vec = vec + dvec
             if i % 3 == 2:  # vn-vn
-                dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
-                x = x + dx
-                vec = vec + dvec
+                # dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
+                # x = x + dx
+                # vec = vec + dvec
+                continue
         x = self.out_norm(x)
         '''
         if self.prediction_level == "graph":
