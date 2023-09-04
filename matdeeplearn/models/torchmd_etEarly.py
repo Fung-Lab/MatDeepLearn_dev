@@ -172,6 +172,17 @@ class TorchMD_ET(BaseModel):
             self.attention_layers.append(rn_vn_layer)
             self.attention_layers.append(vn_vn_layer)
 
+        self.last_attention_layers = EquivariantMultiHeadAttention(
+                hidden_channels,
+                num_rbf,
+                distance_influence,
+                num_heads,
+                act_class,
+                attn_activation,
+                cutoff_lower,
+                self.cutoff_radius,
+                aggr,
+            ).jittable()
         self.out_norm = nn.LayerNorm(hidden_channels)
 
         self.num_post_layers = num_post_layers
@@ -240,14 +251,20 @@ class TorchMD_ET(BaseModel):
                 x = x + dx
                 vec = vec + dvec
             if i % 3 == 1:  # rn-vn
-                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
-                x = x + dx
-                vec = vec + dvec
+                # dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
+                # x = x + dx
+                # vec = vec + dvec
+                continue
             if i % 3 == 2:  # vn-vn
                 # dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
                 # x = x + dx
                 # vec = vec + dvec
                 continue
+
+        dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn],
+                        data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
+        x = x + dx
+        # vec = vec + dvec
         x = self.out_norm(x)
         '''
         if self.prediction_level == "graph":
