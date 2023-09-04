@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: cgcnn_original_add_last_layer
+  identifier: torchmd_vn-vn
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN
+  name: torchmd_etEarly
   # model attributes
   dim1: 100
   dim2: 150
