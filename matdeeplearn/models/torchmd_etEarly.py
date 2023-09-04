@@ -236,15 +236,15 @@ class TorchMD_ET(BaseModel):
 
         for i, attn in enumerate(self.attention_layers):
             if i % 3 == 0:  # rn-rn
-                dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_rn], data.edge_weight[indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :], data.edge_vec[indices_rn_to_rn, :])
                 x = x + dx
                 vec = vec + dvec
             if i % 3 == 1:  # rn-vn
-                dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
                 x = x + dx
                 vec = vec + dvec
             if i % 3 == 2:  # vn-vn
-                dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+                dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
                 x = x + dx
                 vec = vec + dvec
         x = self.out_norm(x)
