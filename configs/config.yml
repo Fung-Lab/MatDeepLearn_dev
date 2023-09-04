@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: torchmd_rn-rn
+  identifier: torchmd_rn-vn
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
