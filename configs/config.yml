@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: cuttoff_12_12_8
+  identifier: cuttoff_12_8_8
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678

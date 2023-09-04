@@ -173,7 +173,7 @@ class CGCNN(BaseModel):
             data.edge_mask = edge_mask
 
         indices_rn_to_rn = data.edge_mask == 3
-        indices_rn_to_vn = data.edge_mask == 1
+        indices_rn_to_vn = data.edge_mask == 1 & (data.edge_weight <= 8)
         indices_vn_to_vn = (data.edge_mask == 0) & (data.edge_weight <= 8)
             
         # Pre-GNN dense layers
