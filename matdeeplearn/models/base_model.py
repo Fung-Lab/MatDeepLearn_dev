@@ -117,7 +117,8 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
 
         if torch.sum(data.cell) == 0:
             self.graph_method = "mdl"
-                            
+        
+        #Can differ from non-otf if amp=True for a very small percentage of edges ~0.01%                    
         if self.graph_method == "ocp":
             edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 cutoff_radius,
@@ -126,6 +127,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                 data.cell,
                 data.n_atoms,
                 [True, True, True],
+                self.num_offsets,
             )
                                   
             edge_gen_out = get_pbc_distances(
@@ -143,12 +145,14 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
             edge_vec = edge_gen_out["distance_vec"]
             if(edge_vec.dim() > 2):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]      
-                              
+
+                                         
         elif self.graph_method == "mdl":
             edge_index_list = []
             edge_weights_list = []
             edge_vec_list = []
             cell_offsets_list = []
+            count = 0
             for i in range(0, len(data)):
                 
                 cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
@@ -158,12 +162,15 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                     n_neighbors,
                     self.num_offsets,
                 )
-        
+                
                 edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
         
                 # get into correct shape for model stage
                 edge_vec = edge_vec[edge_index[0], edge_index[1]]
-                
+
+                edge_index = edge_index + count
+                count = count + data[i].pos.shape[0]
+                                
                 edge_index_list.append(edge_index)                
                 edge_weights_list.append(edge_weights)
                 edge_vec_list.append(edge_vec)
