@@ -213,8 +213,8 @@ class DataProcessor:
                     vn_coords = df[:,0:3]
                     vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
 
-                    # indices = random.sample(range(0, df.shape[0]), 200)
-                    indices = get_sampling_indices(vn_labels, self.num_samples)
+                    indices = random.sample(range(0, df.shape[0]), 200)
+                    # indices = get_sampling_indices(vn_labels, self.num_samples)
 
                     pos_vn = torch.tensor(vn_coords[indices, :], device=self.device, dtype=torch.float)
                     atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
