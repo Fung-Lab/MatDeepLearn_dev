@@ -2,7 +2,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from functools import wraps
 
-import numpy as np 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch_geometric.utils import dense_to_sparse
@@ -21,19 +21,19 @@ from matdeeplearn.preprocessor.helpers import (
 
 
 class BaseModel(nn.Module, metaclass=ABCMeta):
-    def __init__(self,        
-        prediction_level="graph",
-        otf_edge=False,
-        graph_method="ocp",
-        gradient=False,
-        cutoff_radius=8,
-        n_neighbors=None,
-        edge_steps=50,        
-        num_offsets=1,        
-        **kwargs
-        ) -> None:
+    def __init__(self,
+                 prediction_level="graph",
+                 otf_edge=False,
+                 graph_method="ocp",
+                 gradient=False,
+                 cutoff_radius=8,
+                 n_neighbors=None,
+                 edge_steps=50,
+                 num_offsets=1,
+                 **kwargs
+                 ) -> None:
         super(BaseModel, self).__init__()
-        
+
         self.prediction_level = prediction_level
         self.otf_edge = otf_edge
         self.gradient = gradient
@@ -42,7 +42,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         self.edge_steps = edge_steps
         self.graph_method = graph_method
         self.num_offsets = num_offsets
-        
+
     @property
     @abstractmethod
     def target_attr(self):
@@ -105,19 +105,20 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                 if True, this function will be called
         """
 
-        #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
-        #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                 
+        # For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
+        # Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165
         if self.gradient:
             data.pos.requires_grad_(True)
-            data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
+            data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)
             data.displacement.requires_grad_(True)
             symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
-            data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
-            data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
+            data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)
+            data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement)
 
         if torch.sum(data.cell) == 0:
             self.graph_method = "mdl"
-                            
+
+        # Can differ from non-otf if amp=True for a very small percentage of edges ~0.01%
         if self.graph_method == "ocp":
             edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 cutoff_radius,
@@ -126,8 +127,9 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                 data.cell,
                 data.n_atoms,
                 [True, True, True],
+                self.num_offsets,
             )
-                                  
+
             edge_gen_out = get_pbc_distances(
                 data.pos,
                 edge_index,
@@ -139,16 +141,18 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
             )
             edge_index = edge_gen_out["edge_index"]
             edge_weights = edge_gen_out["distances"]
-            offset_distance = edge_gen_out["offsets"]                
+            offset_distance = edge_gen_out["offsets"]
             edge_vec = edge_gen_out["distance_vec"]
-            if(edge_vec.dim() > 2):
-                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]      
-                              
+            if (edge_vec.dim() > 2):
+                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
+
+
         elif self.graph_method == "mdl":
             edge_index_list = []
             edge_weights_list = []
             edge_vec_list = []
             cell_offsets_list = []
+            count = 0
             for i in range(0, len(data)):
                 
                 cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
@@ -158,13 +162,16 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                     n_neighbors,
                     self.num_offsets,
                 )
-        
+
                 edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
-        
+
                 # get into correct shape for model stage
                 edge_vec = edge_vec[edge_index[0], edge_index[1]]
-                
-                edge_index_list.append(edge_index)                
+
+                edge_index = edge_index + count
+                count = count + data[i].pos.shape[0]
+
+                edge_index_list.append(edge_index)
                 edge_weights_list.append(edge_weights)
                 edge_vec_list.append(edge_vec)
                 cell_offsets_list.append(cell_offsets)
@@ -174,8 +181,8 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
             cell_offsets = torch.cat(cell_offsets_list)
             neighbors = None
             offset_distance = None
-        #print(edge_index.shape, edge_weights.shape, edge_vec.shape, cell_offsets.shape, neighbors.shape, offset_distance.shape)
-        
+        # print(edge_index.shape, edge_weights.shape, edge_vec.shape, cell_offsets.shape, neighbors.shape, offset_distance.shape)
+
         '''
         # get cutoff distance matrix
         cd_matrix, cell_offsets = get_cutoff_distance_matrix(
