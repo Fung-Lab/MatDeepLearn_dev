@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: oft_test
+  identifier: oft_cgcnn
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: torchmd_etEarly
+  name: CGCNN
   # model attributes
   dim1: 100
   dim2: 150
@@ -65,12 +65,12 @@ dataset:
   name: test_data
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../data_qm9_qmc_test/
+  src: ../data_qm9_qmc/
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: ../data_qm9_qmc_test/
+  pt_path: ../data_qm9_qmc/
   # Either "node" or "graph"
   prediction_level: node
   
