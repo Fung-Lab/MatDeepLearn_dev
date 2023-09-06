@@ -1,6 +1,8 @@
 import logging
 import pprint
 import os
+import sys
+import shutil
 from torch import distributed as dist
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
@@ -29,6 +31,8 @@ class Runner:  # submitit.helpers.Checkpointable):
             logging.debug(pprint.pformat(self.config))
 
             self.task.run()
+            
+            shutil.copy('log.txt', 'results/'+self.trainer.timestamp_id)
 
     def checkpoint(self, *args, **kwargs):
         # new_runner = Runner()
@@ -48,6 +52,15 @@ if __name__ == "__main__":
     if local_rank == None or int(local_rank) == 0:
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
+        
+        fh = logging.FileHandler('log.txt', 'w+')
+        fh.setLevel(logging.DEBUG)
+        
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setLevel(logging.DEBUG)        
+        
+        root_logger.addHandler(fh)        
+        root_logger.addHandler(sh)
         
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
