@@ -195,9 +195,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
                     )
-                    # out = self.vn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
-                    # )
+                    out = self.vn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                    )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
@@ -206,9 +206,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
                     )
-                    # out = self.vn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
-                    # )
+                    out = self.vn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                    )
             else:
                 if self.batch_norm:
                     out = self.conv_list[i](
@@ -217,9 +217,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
                     )
-                    # out = self.vn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
-                    # )
+                    out = self.vn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                    )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
@@ -228,9 +228,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
                     )
-                    # out = self.vn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
-                    # )
+                    out = self.vn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                    )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
             # if len(self.pre_lin_list) == 0 and i == 0:
