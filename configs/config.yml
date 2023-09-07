@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: oft_cgcnn
+  identifier: rn-rn_cgcnn
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
