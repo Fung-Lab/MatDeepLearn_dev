@@ -192,9 +192,9 @@ class CGCNN(BaseModel):
                     out = self.conv_list[i](
                         data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
-                    # out = self.rn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
-                    # )
+                    out = self.rn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    )
                     # out = self.vn_to_vn_conv_list[i](
                     #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
                     # )
@@ -203,9 +203,9 @@ class CGCNN(BaseModel):
                     out = self.conv_list[i](
                         data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
-                    # out = self.rn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
-                    # )
+                    out = self.rn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    )
                     # out = self.vn_to_vn_conv_list[i](
                     #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
                     # )
@@ -214,9 +214,9 @@ class CGCNN(BaseModel):
                     out = self.conv_list[i](
                         out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
-                    # out = self.rn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
-                    # )
+                    out = self.rn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    )
                     # out = self.vn_to_vn_conv_list[i](
                     #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
                     # )
@@ -225,9 +225,9 @@ class CGCNN(BaseModel):
                     out = self.conv_list[i](
                         out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
                     )
-                    # out = self.rn_to_vn_conv_list[i](
-                    #     out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
-                    # )
+                    out = self.rn_to_vn_conv_list[i](
+                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                    )
                     # out = self.vn_to_vn_conv_list[i](
                     #     out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
                     # )
