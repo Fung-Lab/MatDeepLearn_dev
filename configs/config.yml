@@ -100,7 +100,7 @@ dataset:
     preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_nodes: True
-    cutoff_radius : 8.0
+    cutoff_radius : 12.0
     n_neighbors : 250
     num_offsets: 1
     edge_steps : 50
