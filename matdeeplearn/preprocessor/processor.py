@@ -46,6 +46,7 @@ def from_config(dataset_config):
     edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
     num_samples = dataset_config.get("num_samples", 200)
+    print("num_samples:", num_samples)
 
     processor = DataProcessor(
         root_path=root_path_dict,
