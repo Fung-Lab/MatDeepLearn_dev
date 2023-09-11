@@ -18,6 +18,7 @@ task:
   write_output: [train, val, test]
   # Specify if labels are provided for the predict task
   # labels: True
+  # Use amp mixed precision
   use_amp: True  
 
 model:
@@ -47,8 +48,8 @@ optim:
   loss:
     loss_type: TorchLossWrapper
     loss_args: {loss_fn: l1_loss}
-  clip_grad_norm: 10
-         
+  # gradient clipping value
+  clip_grad_norm: 10       
   batch_size: 100
   optimizer:
     optimizer_type: AdamW
@@ -63,6 +64,7 @@ optim:
   
 dataset:
   name: test_data
+  # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: data/test_data/data_graph_scalar.json
@@ -71,7 +73,7 @@ dataset:
   target_path: 
   # Path to save processed data.pt file
   pt_path: data/
-  # Either "node" or "graph"
+  # Either "node" or "graph" level
   prediction_level: graph
   
   transforms:
@@ -84,9 +86,8 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  # E.g. additional_attributes: [forces, stress]
+  # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
   additional_attributes: 
-  #additional_attributes:
   # Print out processing info
   verbose: True
   # Index of target column in targets.csv
@@ -100,15 +101,20 @@ dataset:
     preprocess_edge_features: True
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_nodes: True
+    # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
+    # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
+    # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
+    # dimension of edge attributes
     edge_steps : 50
+    # whether or not to add self-loops
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
     all_neighbors: True
-  # Ratios for train/val/test split out of a total of less than 1
+  # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15
