@@ -440,9 +440,7 @@ def add_selfloop(
 
 
 def one_hot_node_rep(Z, device):
-    to_return = torch.zeros(Z.size(dim = 0), 100, dtype = torch.long, device = device)
-    to_return[torch.arange(Z.size(dim = 0)), Z - 1] = 1
-    return to_return.view(-1, 100)
+    return F.one_hot(Z - 1, num_classes = 100).to(device)
 
 def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = one_hot_node_rep):
     if isinstance(input_data, Data):
