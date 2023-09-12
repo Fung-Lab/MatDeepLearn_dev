@@ -445,17 +445,15 @@ def one_hot_node_rep(Z, device):
     return to_return.view(-1, 100)
 
 def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = one_hot_node_rep):
-    node_reps = node_rep_func(input_data.z, device = device)
-    
     if isinstance(input_data, Data):
-        input_data.x = node_reps
+        input_data.x = node_rep_func(input_data.z, device = device)
         if use_degree:
             return one_hot_degree(input_data, n_neighbors)
         return input_data
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = node_reps.float()
+        data.x = node_rep_func(input_data.z, device = device).float()
 
     #for i, data in enumerate(input_data):
         #input_data[i] = one_hot_degree(data, n_neighbors)
