@@ -161,7 +161,7 @@ class CGCNN(BaseModel):
         
         if self.otf_edge == True:
             #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
-            # data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
             data.edge_attr = self.distance_expansion(data.edge_weight)
 
             edge_mask = torch.zeros_like(data.edge_index[0])

@@ -40,7 +40,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 300
+  max_epochs: 500
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -63,7 +63,7 @@ optim:
   
 dataset:
   name: test_data
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: ../data_qm9_qmc/
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
