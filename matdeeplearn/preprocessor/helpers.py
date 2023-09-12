@@ -453,7 +453,7 @@ def generate_node_features(input_data, n_neighbors, device, use_degree=False, no
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = node_rep_func(input_data.z, device = device).float()
+        data.x = node_rep_func(data.z, device = device).float()
 
     #for i, data in enumerate(input_data):
         #input_data[i] = one_hot_degree(data, n_neighbors)
