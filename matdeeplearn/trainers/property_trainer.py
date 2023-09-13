@@ -31,6 +31,7 @@ class PropertyTrainer(BaseTrainer):
         verbosity,
         batch_tqdm,
         write_output,
+        output_frequency,
         save_dir,
         checkpoint_path,
         use_amp,
@@ -50,6 +51,7 @@ class PropertyTrainer(BaseTrainer):
             verbosity,
             batch_tqdm,
             write_output,
+            output_frequency,
             save_dir,
             checkpoint_path,          
             use_amp,
@@ -143,7 +145,10 @@ class PropertyTrainer(BaseTrainer):
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
-                    self.update_best_model(metric)
+                    if self.output_frequency == 0:
+                        self.update_best_model(metric, write_csv=False)
+                    elif self.output_frequency == 1:
+                        self.update_best_model(metric, write_csv=True)
 
                 # step scheduler, using validation error
                 self._scheduler_step()
@@ -151,18 +156,18 @@ class PropertyTrainer(BaseTrainer):
             torch.cuda.empty_cache()        
         
         if self.best_model_state:
-            if str(self.rank) in "0":
-                self.model.module.load_state_dict(self.best_model_state)
-            elif str(self.rank) in ("cpu", "cuda"):
-                self.model.load_state_dict(self.best_model_state)
-
-            if self.data_loader.get("test_loader"):
-                metric = self.validate("test")
-                test_loss = metric[type(self.loss_fn).__name__]["metric"]
-            else:
-                test_loss = "N/A"
-            logging.info("Test loss: " + str(test_loss))
-
+            #if str(self.rank) in "0":
+            #    self.model.module.load_state_dict(self.best_model_state)
+            #elif str(self.rank) in ("cpu", "cuda"):
+            #    self.model.load_state_dict(self.best_model_state)
+            #if self.data_loader.get("test_loader"):
+            #    metric = self.validate("test")
+            #    test_loss = metric[type(self.loss_fn).__name__]["metric"]
+            #else:
+            #    test_loss = "N/A"
+            #logging.info("Test loss: " + str(test_loss))
+            self.update_best_model(metric, write_csv=True)
+            
         return self.best_model_state
         
     @torch.no_grad()
