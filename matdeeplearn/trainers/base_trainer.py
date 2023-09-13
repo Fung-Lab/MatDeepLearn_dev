@@ -34,15 +34,16 @@ class BaseTrainer(ABC):
         optimizer: Optimizer,
         sampler: DistributedSampler,
         scheduler: LRScheduler,
-        data_loader: DataLoader,
+        data_loader: DataLoader,        
         loss: nn.Module,
         max_epochs: int,
-        clip_grad_norm: int = None,
+        clip_grad_norm: float = None,
         max_checkpoint_epochs: int = None,
         identifier: str = None,
         verbosity: int = None,
-        batch_tqdm: bool = False,
+        batch_tqdm: bool = False,        
         write_output: list = ["train", "val", "test"],
+        output_frequency: int = 1,
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
@@ -61,6 +62,7 @@ class BaseTrainer(ABC):
         self.train_verbosity = verbosity
         self.batch_tqdm = batch_tqdm
         self.write_output = write_output
+        self.output_frequency = output_frequency
 
         self.epoch = 0
         self.step = 0
@@ -85,12 +87,13 @@ class BaseTrainer(ABC):
         else:
             self.rank = self.train_sampler.rank
 
-        timestamp = torch.tensor(datetime.now().timestamp()).to(self.device)
-        self.timestamp_id = datetime.fromtimestamp(timestamp.int()).strftime(
-            "%Y-%m-%d-%H-%M-%S"
-        )
+        timestamp = datetime.now().timestamp()
+        self.timestamp_id = datetime.fromtimestamp(timestamp).strftime(
+            "%Y-%m-%d-%H-%M-%S-%f"
+        )[:-3]
         if identifier:
             self.timestamp_id = f"{self.timestamp_id}-{identifier}"
+
 
         if self.train_verbosity:
             logging.info(
@@ -158,6 +161,7 @@ class BaseTrainer(ABC):
         verbosity = config["optim"].get("verbosity", None)
         batch_tqdm = config["optim"].get("batch_tqdm", False)
         write_output = config["task"].get("write_output", [])
+        output_frequency = config["task"].get("output_frequency", 0)
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
 
@@ -167,7 +171,7 @@ class BaseTrainer(ABC):
 
         if local_world_size > 1:
             dist.barrier()
-
+            
         return cls(
             model=model,
             dataset=dataset,
@@ -183,6 +187,7 @@ class BaseTrainer(ABC):
             verbosity=verbosity,
             batch_tqdm=batch_tqdm,
             write_output=write_output,
+            output_frequency=output_frequency,
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
@@ -341,19 +346,19 @@ class BaseTrainer(ABC):
         batch_size = optim_config.get("batch_size")
         if dataset.get("train"):
             data_loader["train_loader"] = get_dataloader(
-                dataset["train"], batch_size=batch_size, sampler=sampler
+                dataset["train"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=sampler
             )
         if dataset.get("val"):
             data_loader["val_loader"] = get_dataloader(
-                dataset["val"], batch_size=batch_size, sampler=None
+                dataset["val"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
             )
         if dataset.get("test"):
             data_loader["test_loader"] = get_dataloader(
-                dataset["test"], batch_size=batch_size, sampler=None
+                dataset["test"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
             )
         if run_mode == "predict" and dataset.get("predict"):
             data_loader["predict_loader"] = get_dataloader(
-                dataset["predict"], batch_size=batch_size, sampler=None
+                dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
             )
 
         return data_loader
@@ -391,7 +396,7 @@ class BaseTrainer(ABC):
     def predict(self):
         """Implemented by derived classes."""
 
-    def update_best_model(self, metric):
+    def update_best_model(self, metric, write_csv=False):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
         if str(self.rank) not in ("cpu", "cuda"):
@@ -403,12 +408,13 @@ class BaseTrainer(ABC):
         logging.debug(
             f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
         )
-        if "train" in self.write_output:
-            self.predict(self.data_loader["train_loader"], "train")
-        if "val" in self.write_output and self.data_loader.get("val_loader"):
-            self.predict(self.data_loader["val_loader"], "val")
-        if "test" in self.write_output and self.data_loader.get("test_loader"):    
-            self.predict(self.data_loader["test_loader"], "test")
+        if write_csv == True:
+            if "train" in self.write_output:
+                self.predict(self.data_loader["train_loader"], "train")
+            if "val" in self.write_output and self.data_loader.get("val_loader"):
+                self.predict(self.data_loader["val_loader"], "val")
+            if "test" in self.write_output and self.data_loader.get("test_loader"):    
+                self.predict(self.data_loader["test_loader"], "test")
 
     def save_model(self, checkpoint_file, metric=None, training_state=True):
         """Saves the model state dict"""

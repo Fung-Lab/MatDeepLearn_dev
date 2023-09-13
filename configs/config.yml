@@ -14,8 +14,10 @@ task:
   load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: 
-  # E.g. ["train", "val", "test"]
+  # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
+  # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
+  output_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   # Use amp mixed precision
@@ -114,6 +116,8 @@ dataset:
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
     all_neighbors: True
+  # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
+  num_workers: 0
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.8
   val_ratio: 0.05
