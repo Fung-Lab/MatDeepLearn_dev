@@ -39,9 +39,13 @@ model:
   batch_track_stats: True
   act: relu
   dropout_rate: 0.0
-  # Compute edge features on the fly
-  otf_edge: False 
-  # compute gradients w.r.t to positions and cell, requires otf_edge=True  
+  # Compute edge indices on the fly in the model forward
+  otf_edge_index: False 
+  # Compute edge attributes on the fly in the model forward
+  otf_edge_attr: False  
+  # Compute node attributes on the fly in the model forward
+  otf_node_attr: False
+  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: False
 
 optim:
@@ -104,15 +108,17 @@ dataset:
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_edge_features: True
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_nodes: True
+    preprocess_node_features: True
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
+    # dimension of node attributes
+    node_dim : 100
     # dimension of edge attributes
-    edge_steps : 50
+    edge_dim : 50
     # whether or not to add self-loops
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
@@ -120,7 +126,7 @@ dataset:
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
-  dataset_device: cuda
+  dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.8
   val_ratio: 0.05

@@ -429,7 +429,7 @@ def add_selfloop(
     return edge_indices, edge_weights, distance_matrix_masked
 
 
-def node_rep_one_hot(Z, device):
+def node_rep_one_hot(Z):
     return F.one_hot(Z - 1, num_classes = 100)
 
 def node_rep_from_file(node_representation="onehot"):
@@ -456,14 +456,14 @@ def node_rep_from_file(node_representation="onehot"):
 
 def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = node_rep_one_hot):
     if isinstance(input_data, Data):
-        input_data.x = node_rep_func(input_data.z, device = device)
+        input_data.x = node_rep_func(input_data.z)
         if use_degree:
             return one_hot_degree(input_data, n_neighbors)
         return input_data
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = node_rep_func(data.z, device = device).float()
+        data.x = node_rep_func(data.z).float()
 
     #for i, data in enumerate(input_data):
         #input_data[i] = one_hot_degree(data, n_neighbors)

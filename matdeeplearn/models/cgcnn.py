@@ -15,7 +15,7 @@ from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.preprocessor.helpers import GaussianSmearing
+from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
 @registry.register_model("CGCNN")
 class CGCNN(BaseModel):
@@ -55,7 +55,7 @@ class CGCNN(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
         
-        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_steps)
+        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim)
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"
@@ -142,10 +142,20 @@ class CGCNN(BaseModel):
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
         
-        if self.otf_edge == True:
+        if self.otf_edge_index == True:
             #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
             data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
-            data.edge_attr = self.distance_expansion(data.edge_weight) 
+            if self.otf_edge_attr == True:
+                data.edge_attr = self.distance_expansion(data.edge_weight)
+            else:
+                logging.warning("Edge attributes should be re-computed for otf edge indices.")
+                
+        if self.otf_edge_index == False:
+            if self.otf_edge_attr == True:
+                data.edge_attr = self.distance_expansion(data.edge_weight) 
+                
+        if self.otf_node_attr == True:
+            data.x = node_rep_one_hot(data.z).float()        
             
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):

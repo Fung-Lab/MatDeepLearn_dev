@@ -106,7 +106,7 @@ class BaseTrainer(ABC):
                 logging.info(f"Dataset length: {key, len(self.dataset[key])}")
             if self.dataset.get("train"):
                 logging.debug(self.dataset["train"][0])
-                logging.debug(self.dataset["train"][0].x[0])
+                logging.debug(self.dataset["train"][0].z[0])
                 logging.debug(self.dataset["train"][0].y[0])
             else:
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
@@ -277,16 +277,20 @@ class BaseTrainer(ABC):
         if isinstance(dataset, torch.utils.data.Subset): 
             dataset = dataset.dataset 
         
-        # Obtain node, edge, and output dimensions for model initialization    
-        node_dim = dataset.num_features   
-        edge_dim = graph_config["edge_steps"] 
+        # Obtain node, edge, and output dimensions for model initialization   
+        
+        if graph_config["node_dim"]:
+            node_dim = graph_config["node_dim"]
+        else:
+            node_dim = dataset.num_features   
+        edge_dim = graph_config["edge_dim"] 
         if dataset[0]["y"].ndim == 0:
             output_dim = 1
         else:
             output_dim = dataset[0]["y"].shape[1]     
 
         # Determine if this is a node or graph level model
-        if dataset[0]["y"].shape[0] == dataset[0]["x"].shape[0]:
+        if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
             model_config["prediction_level"] = "node"
         elif dataset[0]["y"].shape[0] == 1:
             model_config["prediction_level"] = "graph"
@@ -302,7 +306,6 @@ class BaseTrainer(ABC):
                   output_dim=output_dim, 
                   cutoff_radius=graph_config["cutoff_radius"], 
                   n_neighbors=graph_config["n_neighbors"], 
-                  edge_steps=graph_config["edge_steps"], 
                   graph_method=graph_config["edge_calc_method"], 
                   num_offsets=graph_config["num_offsets"], 
                   **model_config

@@ -180,13 +180,17 @@ class TorchMD_ET(BaseModel):
         #assert (
         #    edge_vec is not None
         #), "Distance module did not return directional information"
-        if self.otf_edge == True:
-            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+        if self.otf_edge_index == True:
+            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
         data.edge_attr = self.distance_expansion(data.edge_weight) 
-            
+                            
         #mask = data.edge_index[0] != data.edge_index[1]        
         #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
         data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
+        
+        if self.otf_node_attr == True:
+            data.x = node_rep_one_hot(data.z).float()          
         
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
