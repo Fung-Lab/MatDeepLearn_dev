@@ -70,7 +70,7 @@ def get_otf_transforms(transform_list: List[dict]):
     transforms = []
     # set transform method
     for transform in transform_list:
-        if transform.get("otf", False):
+        if transform.get("otf_transform", False):
             transforms.append(
                 registry.get_transform_class(
                     transform["name"],

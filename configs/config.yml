@@ -87,7 +87,7 @@ dataset:
         # For example, an index: 0 (default) will use the first entry in the target vector 
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
-      otf: True # Optional parameter, default is False
+      otf_transform: True # Optional parameter, default is True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
   # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
@@ -117,12 +117,11 @@ dataset:
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
-    all_neighbors: True
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cuda
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
-  train_ratio: 0.2
+  train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15

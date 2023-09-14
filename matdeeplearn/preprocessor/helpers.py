@@ -43,12 +43,6 @@ def calculate_edges_master(
         pos (torch.Tensor): positions of atom in unit cell
     """
 
-    if method == "ase" or method == "ocp":
-        assert (method == "ase" and all_neighbors) or (
-            method == "ocp" and all_neighbors
-        ), "OCP and ASE methods only support all_neighbors=True"
-        #if method == "ase":
-        #    raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
     neighbors = torch.empty(0)
@@ -72,10 +66,10 @@ def calculate_edges_master(
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
     
-    elif method == "ase":
-        edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
-            all_neighbors, r, n_neighbors, structure_id, cell.squeeze(0), pos
-        )
+    #elif method == "ase":
+    #    edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
+    #        all_neighbors, r, n_neighbors, structure_id, cell.squeeze(0), pos
+    #    )
     
     elif method == "ocp":
         # OCP requires a different format for the cell

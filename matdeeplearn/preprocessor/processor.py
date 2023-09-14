@@ -502,14 +502,13 @@ class DataProcessor:
 
         transforms_list = []
         for transform in self.transforms:
-            if not transform.get("otf", False):
+            if not transform.get("otf_transform", False):
                 transforms_list.append(
                     registry.get_transform_class(
                         transform["name"],
                         **({} if transform["args"] is None else transform["args"])
                     )
                 )
-
         composition = Compose(transforms_list)
 
         # apply transforms
