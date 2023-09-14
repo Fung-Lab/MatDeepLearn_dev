@@ -44,6 +44,7 @@ class BaseTrainer(ABC):
         batch_tqdm: bool = False,        
         write_output: list = ["train", "val", "test"],
         output_frequency: int = 1,
+        write_model: bool = True,
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
@@ -63,6 +64,7 @@ class BaseTrainer(ABC):
         self.batch_tqdm = batch_tqdm
         self.write_output = write_output
         self.output_frequency = output_frequency
+        self.write_model = write_model
 
         self.epoch = 0
         self.step = 0
@@ -162,6 +164,7 @@ class BaseTrainer(ABC):
         batch_tqdm = config["optim"].get("batch_tqdm", False)
         write_output = config["task"].get("write_output", [])
         output_frequency = config["task"].get("output_frequency", 0)
+        write_model = config["task"].get("write_model", True)
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
 
@@ -188,6 +191,7 @@ class BaseTrainer(ABC):
             batch_tqdm=batch_tqdm,
             write_output=write_output,
             output_frequency=output_frequency,
+            write_model = write_model,
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
@@ -396,7 +400,7 @@ class BaseTrainer(ABC):
     def predict(self):
         """Implemented by derived classes."""
 
-    def update_best_model(self, metric, write_csv=False, write_model=False):
+    def update_best_model(self, metric, write_csv=False, write_model=True):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
         if str(self.rank) not in ("cpu", "cuda"):
