@@ -139,7 +139,7 @@ def get_dataloader(
     # load data
     try: 
         device = str(dataset.dataset[0].pos.device)
-    else:
+    except:
         device = str(dataset[0].pos.device)
         
     if device == "cuda:0" or device == "cuda":

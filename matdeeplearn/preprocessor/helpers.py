@@ -19,7 +19,6 @@ from torch_sparse import SparseTensor
 
 def calculate_edges_master(
     method: Literal["ase", "ocp", "mdl"],
-    all_neighbors: bool,
     r: float,
     n_neighbors: int,
     offset_number: int,
@@ -33,9 +32,6 @@ def calculate_edges_master(
 ) -> dict[str, torch.Tensor]:
     """Generates edges using one of three methods (ASE, OCP, or MDL implementations) due to limitations of each method.
     Args:
-        all_neighbors (bool): Whether or not to use all neighbors (ASE method)
-                or only the n_neighbors closest neighbors.
-                OCP based on all_neighbors and MDL based on original without considering all.
         r (float): cutoff radius
         n_neighbors (int): number of neighbors to consider
         structure_id (str): structure id

@@ -40,7 +40,6 @@ def from_config(dataset_config):
     node_representation = dataset_config["preprocess_params"].get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
-    all_neighbors = dataset_config["preprocess_params"]["all_neighbors"]
     edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
 
@@ -63,7 +62,6 @@ def from_config(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
-        all_neighbors=all_neighbors,
         edge_calc_method=edge_calc_method,
         device=device,
     )
@@ -99,7 +97,6 @@ class DataProcessor:
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
-        all_neighbors: bool = False,
         edge_calc_method: str = "mdl",
         device: str = "cpu",
     ) -> None:
@@ -172,7 +169,6 @@ class DataProcessor:
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
-        self.all_neighbors = all_neighbors
         self.edge_calc_method = edge_calc_method
         self.device = device
         self.transforms = transforms
@@ -451,7 +447,6 @@ class DataProcessor:
             if self.preprocess_edges == True:
                 edge_gen_out = calculate_edges_master(
                     self.edge_calc_method,
-                    self.all_neighbors,
                     self.r,
                     self.n_neighbors,
                     self.num_offsets,
