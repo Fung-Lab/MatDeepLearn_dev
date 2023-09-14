@@ -440,7 +440,7 @@ def add_selfloop(
 
 
 def one_hot_node_rep(Z, device):
-    return F.one_hot(Z - 1, num_classes = 100).to(device)
+    return F.one_hot(Z - 1, num_classes = 100)
 
 def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = one_hot_node_rep):
     if isinstance(input_data, Data):
