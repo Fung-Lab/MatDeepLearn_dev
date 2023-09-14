@@ -44,6 +44,7 @@ class BaseTrainer(ABC):
         batch_tqdm: bool = False,        
         write_output: list = ["train", "val", "test"],
         output_frequency: int = 1,
+        model_save_frequency: int = 1,
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
@@ -63,6 +64,7 @@ class BaseTrainer(ABC):
         self.batch_tqdm = batch_tqdm
         self.write_output = write_output
         self.output_frequency = output_frequency
+        self.model_save_frequency = model_save_frequency
 
         self.epoch = 0
         self.step = 0
@@ -162,6 +164,7 @@ class BaseTrainer(ABC):
         batch_tqdm = config["optim"].get("batch_tqdm", False)
         write_output = config["task"].get("write_output", [])
         output_frequency = config["task"].get("output_frequency", 0)
+        model_save_frequency = config["task"].get("model_save_frequency", 0)
         max_checkpoint_epochs = config["optim"].get("max_checkpoint_epochs", None)
         identifier = config["task"].get("identifier", None)
 
@@ -188,6 +191,7 @@ class BaseTrainer(ABC):
             batch_tqdm=batch_tqdm,
             write_output=write_output,
             output_frequency=output_frequency,
+            model_save_frequency=model_save_frequency,
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
@@ -396,19 +400,20 @@ class BaseTrainer(ABC):
     def predict(self):
         """Implemented by derived classes."""
 
-    def update_best_model(self, metric, write_csv=False):
+    def update_best_model(self, metric, write_model=False, write_csv=False):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
         if str(self.rank) not in ("cpu", "cuda"):
             self.best_model_state = copy.deepcopy(self.model.module.state_dict())
         else:
             self.best_model_state = copy.deepcopy(self.model.state_dict())
-        self.save_model("best_checkpoint.pt", metric, True)
-
-        logging.debug(
-            f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
-        )
+        if write_model == True:
+            self.save_model("best_checkpoint.pt", metric, True)
+            
         if write_csv == True:
+            logging.debug(
+                f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
+            )        
             if "train" in self.write_output:
                 self.predict(self.data_loader["train_loader"], "train")
             if "val" in self.write_output and self.data_loader.get("val_loader"):

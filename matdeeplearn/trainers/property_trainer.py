@@ -32,6 +32,7 @@ class PropertyTrainer(BaseTrainer):
         batch_tqdm,
         write_output,
         output_frequency,
+        model_save_frequency,
         save_dir,
         checkpoint_path,
         use_amp,
@@ -52,6 +53,7 @@ class PropertyTrainer(BaseTrainer):
             batch_tqdm,
             write_output,
             output_frequency,
+            model_save_frequency,
             save_dir,
             checkpoint_path,          
             use_amp,
@@ -126,7 +128,8 @@ class PropertyTrainer(BaseTrainer):
             # Save current model      
             torch.cuda.empty_cache()                 
             if str(self.rank) in ("0", "cpu", "cuda"):
-                self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+                if self.model_save_frequency == 1:
+                    self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation set if it exists
                 if self.data_loader.get("val_loader"):
@@ -146,10 +149,15 @@ class PropertyTrainer(BaseTrainer):
                 # Update best val metric and model, and save best model and predicted outputs
                 if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
                     if self.output_frequency == 0:
-                        self.update_best_model(metric, write_csv=False)
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=False)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=False)
                     elif self.output_frequency == 1:
-                        self.update_best_model(metric, write_csv=True)
-
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=True)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=True)
                 # step scheduler, using validation error
                 self._scheduler_step()
 
@@ -166,7 +174,10 @@ class PropertyTrainer(BaseTrainer):
             #else:
             #    test_loss = "N/A"
             #logging.info("Test loss: " + str(test_loss))
-            self.update_best_model(metric, write_csv=True)
+            if self.model_save_frequency == -1:
+                self.update_best_model(metric, write_model=False, write_csv=True)
+            else:
+                self.update_best_model(metric, write_model=True, write_csv=True)
             
         return self.best_model_state
         
