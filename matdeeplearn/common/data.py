@@ -85,6 +85,7 @@ def get_dataset(
     processed_file_name,
     transform_list: List[dict] = [],
     large_dataset=False,
+    dataset_device=None,
 ):
     """
     get dataset according to data_path
@@ -111,7 +112,7 @@ def get_dataset(
 
     composition = Compose(otf_transforms) if len(otf_transforms) >= 1 else None
         
-    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition)
+    dataset = Dataset(data_path, processed_data_path="", processed_file_name=processed_file_name, transform=composition, device=dataset_device)
 
     return dataset
 
@@ -136,13 +137,23 @@ def get_dataloader(
     """
 
     # load data
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=(sampler is None),
-        num_workers=num_workers,
-        pin_memory=True,
-        sampler=sampler,
-    )
-
+    device = str(dataset.dataset[0].pos.device)
+    if device == "cuda:0" or device == "cuda":
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=(sampler is None),
+            num_workers=0,
+            pin_memory=False,
+            sampler=sampler,
+        )
+    else:
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=(sampler is None),
+            num_workers=num_workers,
+            pin_memory=True,
+            sampler=sampler,
+        )
     return loader

@@ -200,7 +200,8 @@ class BaseTrainer(ABC):
     @staticmethod
     def _load_dataset(dataset_config, task):
         """Loads the dataset if from a config file."""
-
+        logging.info("Loading dataset to "+dataset_config.get("dataset_device", None))
+        
         dataset_path = dataset_config["pt_path"]
         dataset = {}
         if isinstance(dataset_config["src"], dict):
@@ -209,24 +210,28 @@ class BaseTrainer(ABC):
                     dataset_path,
                     processed_file_name="data_train.pt",
                     transform_list=dataset_config.get("transforms", []),
+                    dataset_device=dataset_config.get("dataset_device", None),
                 )
             if dataset_config["src"].get("val"):
                 dataset["val"] = get_dataset(
                     dataset_path,
                     processed_file_name="data_val.pt",
                     transform_list=dataset_config.get("transforms", []),
+                    dataset_device=dataset_config.get("dataset_device", None),
                 )
             if dataset_config["src"].get("test"):
                 dataset["test"] = get_dataset(
                     dataset_path,
                     processed_file_name="data_test.pt",
                     transform_list=dataset_config.get("transforms", []),
-                )
+                    dataset_device=dataset_config.get("dataset_device", None),
+                )                
             if dataset_config["src"].get("predict"):
                 dataset["predict"] = get_dataset(
                     dataset_path,
                     processed_file_name="data_predict.pt",
                     transform_list=dataset_config.get("transforms", []),
+                    dataset_device=dataset_config.get("dataset_device", None),
                 )
 
         else:
@@ -235,6 +240,7 @@ class BaseTrainer(ABC):
                     dataset_path,
                     processed_file_name="data.pt",
                     transform_list=dataset_config.get("transforms", []),
+                    dataset_device=dataset_config.get("dataset_device", None),
                 )
                 train_ratio = dataset_config["train_ratio"]
                 val_ratio = dataset_config["val_ratio"]
@@ -251,6 +257,7 @@ class BaseTrainer(ABC):
                     dataset_path,
                     processed_file_name="data.pt",
                     transform_list=dataset_config.get("transforms", []),
+                    dataset_device=dataset_config.get("dataset_device", None),
                 )
 
         return dataset

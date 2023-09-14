@@ -120,7 +120,9 @@ dataset:
     all_neighbors: True
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
+  # Where the dataset is loaded; either "cpu" or "cuda"
+  dataset_device: cuda
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
-  train_ratio: 0.8
+  train_ratio: 0.2
   val_ratio: 0.05
   test_ratio: 0.15
