@@ -439,10 +439,32 @@ def add_selfloop(
     return edge_indices, edge_weights, distance_matrix_masked
 
 
-def one_hot_node_rep(Z, device):
+def node_rep_one_hot(Z, device):
     return F.one_hot(Z - 1, num_classes = 100)
 
-def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = one_hot_node_rep):
+def node_rep_from_file(node_representation="onehot"):
+    node_rep_path = Path(__file__).parent
+    default_reps = {"onehot": str(node_rep_path / "./node_representations/onehot.csv")}
+
+    rep_file_path = node_representation
+    if node_representation in default_reps:
+        rep_file_path = default_reps[node_representation]
+
+    file_type = rep_file_path.split(".")[-1]
+    loaded_rep = None
+
+    if file_type == "csv":
+        loaded_rep = np.genfromtxt(rep_file_path, delimiter=",")
+        # TODO: need to check if typecasting to integer is needed
+        loaded_rep = loaded_rep.astype(int)
+
+    elif file_type == "json":
+        # TODO
+        pass
+
+    return loaded_rep
+
+def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = node_rep_one_hot):
     if isinstance(input_data, Data):
         input_data.x = node_rep_func(input_data.z, device = device)
         if use_degree:
