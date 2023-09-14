@@ -396,18 +396,19 @@ class BaseTrainer(ABC):
     def predict(self):
         """Implemented by derived classes."""
 
-    def update_best_model(self, metric, write_csv=False):
+    def update_best_model(self, metric, write_csv=False, write_model=False):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
         self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
         if str(self.rank) not in ("cpu", "cuda"):
             self.best_model_state = copy.deepcopy(self.model.module.state_dict())
         else:
             self.best_model_state = copy.deepcopy(self.model.state_dict())
-        self.save_model("best_checkpoint.pt", metric, True)
-
-        logging.debug(
-            f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
-        )
+        if write_model:
+            self.save_model("best_checkpoint.pt", metric, True)
+    
+            logging.debug(
+                f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
+            )
         if write_csv == True:
             if "train" in self.write_output:
                 self.predict(self.data_loader["train_loader"], "train")
