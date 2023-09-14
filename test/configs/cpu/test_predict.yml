@@ -16,8 +16,13 @@ task:
   checkpoint_path: test/saved_models/cgcnn.pt
   # E.g. ["train", "val", "test"]
   write_output: [train, val, test]
+  # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
+  output_frequency: 0
+  # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
+  # Use amp mixed precision  
   use_amp: True  
 
 model:
@@ -47,8 +52,8 @@ optim:
   loss:
     loss_type: TorchLossWrapper
     loss_args: {loss_fn: l1_loss}
-  clip_grad_norm: 10
-         
+  # gradient clipping value
+  clip_grad_norm: 10    
   batch_size: 100
   optimizer:
     optimizer_type: AdamW
@@ -81,7 +86,7 @@ dataset:
         # For example, an index: 0 (default) will use the first entry in the target vector 
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
-      otf: True # Optional parameter, default is False
+      otf_transform: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
   # E.g. additional_attributes: [forces, stress]
@@ -107,7 +112,10 @@ dataset:
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
-    all_neighbors: True
+  # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
+  num_workers: 0
+  # Where the dataset is loaded; either "cpu" or "cuda"
+  dataset_device: cuda    
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.8
   val_ratio: 0.05

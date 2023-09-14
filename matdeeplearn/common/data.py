@@ -137,7 +137,11 @@ def get_dataloader(
     """
 
     # load data
-    device = str(dataset.dataset[0].pos.device)
+    try: 
+        device = str(dataset.dataset[0].pos.device)
+    else:
+        device = str(dataset[0].pos.device)
+        
     if device == "cuda:0" or device == "cuda":
         loader = DataLoader(
             dataset,
