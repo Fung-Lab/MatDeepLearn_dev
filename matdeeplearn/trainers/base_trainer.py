@@ -119,7 +119,7 @@ class BaseTrainer(ABC):
                 logging.debug(self.model)
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config, datasets = None):
         """Class method used to initialize BaseTrainer from a config object
         config has the following sections:
             trainer
@@ -144,7 +144,10 @@ class BaseTrainer(ABC):
         else:
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        if datasets is None:
+          dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        else:
+          dataset = datasets
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
