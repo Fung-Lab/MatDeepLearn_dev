@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: cgcnn_sample1000_mdl
+  identifier: MP_pretraining_1
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
