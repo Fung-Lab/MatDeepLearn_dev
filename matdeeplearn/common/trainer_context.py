@@ -39,8 +39,8 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
         assert trainer_cls is not None, "Trainer not found"
 
         # TODO: set up trainer to include different attributes from matedeeplearn
-        if args.datasets:
-            trainer = trainer_cls.from_config(config, args.datasets)
+        if hasattr(args, "datasets"):
+            trainer = trainer_cls.from_config(config, datasets = args.datasets)
         else:
             trainer = trainer_cls.from_config(config)
 
