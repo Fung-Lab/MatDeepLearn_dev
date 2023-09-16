@@ -199,7 +199,7 @@ class DataProcessor:
         else:
             return self.json_wrap()
         '''
-        return self.chg_wrap()
+        return self.json_wrap()
 
     def chg_wrap(self):
         dict_structures = []
