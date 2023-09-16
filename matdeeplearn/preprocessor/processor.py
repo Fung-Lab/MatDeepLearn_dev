@@ -203,43 +203,87 @@ class DataProcessor:
 
     def chg_wrap(self):
         dict_structures = []
-        dirs = [d for d in os.listdir(self.root_path_dict) if os.path.isdir(os.path.join(self.root_path_dict, d))]
-        for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
-            # if i<100:
-            if "singlet" in dir_name:
+        if "data.json" in self.root_path_dict:
+            logging.info("Reading one JSON file for multiple structures.")
+
+            f = open(self.root_path)
+
+            logging.info(
+                "Loading json file as dict (this might take a while for large json file size)."
+            )
+            original_structures = json.load(f)
+            f.close()
+
+            y = []
+            y_dim = (
+                len(original_structures[0]["y"])
+                if isinstance(original_structures[0]["y"], list)
+                else 1
+            )
+
+            logging.info("Converting data to standardized form for downstream processing.")
+            for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
                 d = {}
-                try:
-                    #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
-                    df = pd.read_csv(self.root_path_dict+dir_name+"/densities.csv", header=0).to_numpy()
-                    vn_coords = df[:,0:3]
-                    vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
 
-                    # indices = random.sample(range(0, df.shape[0]), 200)
-                    indices = get_sampling_indices(vn_labels, self.num_samples)
+                charge_density = torch.tensor(s["charge_density"], device=self.device, dtype=torch.float)
+                pos_vn = charge_density[:, :3]
+                vn_labels = charge_density[:, -1]
+                atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
 
-                    pos_vn = torch.tensor(vn_coords[indices, :], device=self.device, dtype=torch.float)
-                    atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
-                    #d["positions_vn"] = vn_coords[indices, :]
-                    #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
-                    d["y"] = vn_labels[indices, :]
+                pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
+                if "cell" in s:
+                    cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+                    if cell.shape[0] != 1:
+                        cell = cell.view(1, 3, 3)
+                else:
+                    cell = torch.zeros((3, 3)).unsqueeze(0)
+                atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
-                    ase_structure = io.read(self.root_path_dict+dir_name+"/structure.xsf")
-                    pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
-                    cell = torch.tensor(
-                        np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
-                    ).view(1, 3, 3)
-                    if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
-                        cell = torch.zeros((3,3)).unsqueeze(0)
-                    atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
+                d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                d["cell"] = cell
+                d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                d["structure_id"] = s["structure_id"]
+                d["y"] = vn_labels
 
-                    d["positions"] = torch.cat((pos, pos_vn), dim=0)
-                    d["cell"] = cell
-                    d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
-                    d["structure_id"] = str(dir_name)
-                    dict_structures.append(d)
-                    #print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
-                except Exception as e:
-                    pass
+                dict_structures.append(d)
+        else:
+            dirs = [d for d in os.listdir(self.root_path_dict) if os.path.isdir(os.path.join(self.root_path_dict, d))]
+            for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
+                # if i<100:
+                if "singlet" in dir_name:
+                    d = {}
+                    try:
+                        #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
+                        df = pd.read_csv(self.root_path_dict+dir_name+"/densities.csv", header=0).to_numpy()
+                        vn_coords = df[:,0:3]
+                        vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
+
+                        # indices = random.sample(range(0, df.shape[0]), 200)
+                        indices = get_sampling_indices(vn_labels, self.num_samples)
+
+                        pos_vn = torch.tensor(vn_coords[indices, :], device=self.device, dtype=torch.float)
+                        atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
+                        #d["positions_vn"] = vn_coords[indices, :]
+                        #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
+                        d["y"] = vn_labels[indices, :]
+
+                        ase_structure = io.read(self.root_path_dict+dir_name+"/structure.xsf")
+                        pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
+                        cell = torch.tensor(
+                            np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
+                        ).view(1, 3, 3)
+                        if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
+                            cell = torch.zeros((3,3)).unsqueeze(0)
+                        atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
+
+                        d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                        d["cell"] = cell
+                        d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                        d["structure_id"] = str(dir_name)
+                        dict_structures.append(d)
+                        #print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
+                    except Exception as e:
+                        pass
 
         return dict_structures
 
@@ -318,13 +362,6 @@ class DataProcessor:
         f.close()
 
         dict_structures = []
-        y = []
-        y_dim = (
-            len(original_structures[0]["y"])
-            if isinstance(original_structures[0]["y"], list)
-            else 1
-        )
-
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
