@@ -244,6 +244,7 @@ class DataProcessor:
                 d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
                 d["structure_id"] = s["structure_id"]
                 d["y"] = vn_labels
+                print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
 
                 dict_structures.append(d)
         else:
@@ -281,7 +282,7 @@ class DataProcessor:
                         d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
                         d["structure_id"] = str(dir_name)
                         dict_structures.append(d)
-                        #print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
+                        print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
                     except Exception as e:
                         pass
 
