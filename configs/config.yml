@@ -40,7 +40,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 500
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper

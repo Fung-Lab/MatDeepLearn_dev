@@ -227,7 +227,7 @@ class DataProcessor:
 
                 charge_density = torch.tensor(s["charge_density"], device=self.device, dtype=torch.float)
                 pos_vn = charge_density[:, :3]
-                vn_labels = charge_density[:, -1]
+                vn_labels = charge_density[:, -1].view(-1, 1)
                 atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
 
                 pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
@@ -244,7 +244,7 @@ class DataProcessor:
                 d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
                 d["structure_id"] = s["structure_id"]
                 d["y"] = vn_labels
-                print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
+                # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
 
                 dict_structures.append(d)
         else:
@@ -282,7 +282,7 @@ class DataProcessor:
                         d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
                         d["structure_id"] = str(dir_name)
                         dict_structures.append(d)
-                        print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
+                        # print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
                     except Exception as e:
                         pass
 
