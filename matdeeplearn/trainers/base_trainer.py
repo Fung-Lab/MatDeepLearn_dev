@@ -410,8 +410,8 @@ class BaseTrainer(ABC):
         #     self.predict(self.data_loader["train_loader"], "train")
         # if "val" in self.write_output and self.data_loader.get("val_loader"):
         #     self.predict(self.data_loader["val_loader"], "val")
-        # if "test" in self.write_output and self.data_loader.get("test_loader"):
-        #     self.predict(self.data_loader["test_loader"], "test")
+        if "test" in self.write_output and self.data_loader.get("test_loader"):
+            self.predict(self.data_loader["test_loader"], "test")
 
     def save_model(self, checkpoint_file, metric=None, training_state=True):
         """Saves the model state dict"""
