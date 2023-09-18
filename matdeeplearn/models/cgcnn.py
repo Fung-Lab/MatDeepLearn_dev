@@ -55,7 +55,7 @@ class CGCNN(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
         
-        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim)
+        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
         # Determine gc dimension and post_fc dimension
         assert gc_count > 0, "Need at least 1 GC layer"

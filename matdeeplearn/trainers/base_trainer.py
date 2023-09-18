@@ -96,6 +96,8 @@ class BaseTrainer(ABC):
         if identifier:
             self.timestamp_id = f"{self.timestamp_id}-{identifier}"
 
+        fh = logging.FileHandler('log.txt', 'w+')        
+        fh.setLevel(logging.DEBUG)   
 
         if self.train_verbosity:
             logging.info(

@@ -465,7 +465,7 @@ class DataProcessor:
                                                       
                 data.edge_index, data.edge_weight = edge_indices, edge_weights
                 data.edge_vec = edge_vec
-                # data.cell_offsets = cell_offsets
+                data.cell_offsets = cell_offsets
                 data.neighbors = neighbors            
     
                 data.edge_descriptor = {}

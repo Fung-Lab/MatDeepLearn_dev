@@ -13,13 +13,17 @@ from torch_geometric.nn import (
 from torch_scatter import scatter_mean, scatter_add, scatter_max, scatter
 
 from matdeeplearn.common.registry import registry
+from matdeeplearn.models.base_model import BaseModel, conditional_grad
+from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
 @registry.register_model("MEGNet")
 # Megnet
-class MEGNet(torch.nn.Module):
+class MEGNet(BaseModel):
     def __init__(
         self,
-        data,
+        node_dim,
+        edge_dim,
+        output_dim,        
         dim1=64,
         dim2=64,
         dim3=64,
@@ -29,18 +33,15 @@ class MEGNet(torch.nn.Module):
         post_fc_count=1,
         pool="global_mean_pool",
         pool_order="early",
-        batch_norm="True",
-        batch_track_stats="True",
+        batch_norm=True,
+        batch_track_stats=True,
         act="relu",
         dropout_rate=0.0,
         **kwargs
     ):
         super(MEGNet, self).__init__()
         
-        if batch_track_stats == "False":
-            self.batch_track_stats = False 
-        else:
-            self.batch_track_stats = True 
+        self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
         self.pool = pool
         if pool == "global_mean_pool":
@@ -51,35 +52,33 @@ class MEGNet(torch.nn.Module):
             self.pool_reduce="sum"             
         self.act = act
         self.pool_order = pool_order
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.output_dim = output_dim           
         self.dropout_rate = dropout_rate
+        self.pre_fc_count = pre_fc_count
+        self.dim1 = dim1
+        self.dim2 = dim2
+        self.dim3 = dim3
+        self.gc_count = gc_count
+        self.post_fc_count = post_fc_count
+        
+        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
         
         ##Determine gc dimension dimension
         assert gc_count > 0, "Need at least 1 GC layer"
         if pre_fc_count == 0:
-            gc_dim = data.num_features
+            self.gc_dim = self.node_dim
         else:
-            gc_dim = dim1
+            self.gc_dim = dim1
         ##Determine post_fc dimension
-        post_fc_dim = dim3
-        ##Determine output dimension length
-        if data[0][self.target_attr].ndim == 0:
-            self.output_dim = 1
-        else:
-            self.output_dim = len(data[0][self.target_attr])
+        self.post_fc_dim = dim3
 
+        # setup layers
+        self.pre_lin_list = self._setup_pre_gnn_layers()
+        self.conv_list, self.bn_list = self._setup_gnn_layers()
+        self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
 
-        ##Set up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)
-        if pre_fc_count > 0:
-            self.pre_lin_list = torch.nn.ModuleList()
-            for i in range(pre_fc_count):
-                if i == 0:
-                    lin = torch.nn.Linear(data.num_features, dim1)
-                    self.pre_lin_list.append(lin)
-                else:
-                    lin = torch.nn.Linear(dim1, dim1)
-                    self.pre_lin_list.append(lin)
-        elif pre_fc_count == 0:
-            self.pre_lin_list = torch.nn.ModuleList()
 
         ##Set up GNN layers
         self.e_embed_list = torch.nn.ModuleList()
@@ -162,6 +161,47 @@ class MEGNet(torch.nn.Module):
     @property
     def target_attr(self):
         return "y"
+        
+    ## Set up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)
+    def _setup_pre_gnn_layers(self):
+        pre_lin_list = torch.nn.ModuleList()
+        if self.pre_fc_count > 0:
+            pre_lin_list = torch.nn.ModuleList()
+            for i in range(self.pre_fc_count):
+                if i == 0:
+                    lin = torch.nn.Linear(self.node_dim, self.dim1)
+
+                else:
+                    lin = torch.nn.Linear(self.dim1, self.dim1)
+                pre_lin_list.append(lin)
+
+        return pre_lin_list        
+
+    def _setup_post_gnn_layers(self):
+        """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. In the current version, the minimum is zero)."""
+        post_lin_list = torch.nn.ModuleList()
+        if self.post_fc_count > 0:
+            for i in range(self.post_fc_count):
+                if i == 0:
+                    # Set2set pooling has doubled dimension
+                    if self.pool_order == "early" and self.pool == "set2set":
+                        lin = torch.nn.Linear(self.post_fc_dim * 5, self.dim2)
+                    else:
+                        lin = torch.nn.Linear(self.post_fc_dim * 3, self.dim2)
+                else:
+                    lin = torch.nn.Linear(self.dim2, self.dim2)
+                post_lin_list.append(lin)
+            lin_out = torch.nn.Linear(self.dim2, self.output_dim)
+            # Set up set2set pooling (if used)
+
+        # else post_fc_count is 0
+        else:
+            if self.pool_order == "early" and self.pool == "set2set":
+                lin_out = torch.nn.Linear(self.post_fc_dim * 2, self.output_dim)
+            else:
+                lin_out = torch.nn.Linear(self.post_fc_dim, self.output_dim)
+
+        return post_lin_list, lin_out
     
     def forward(self, data):
 

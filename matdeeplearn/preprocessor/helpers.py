@@ -480,7 +480,7 @@ def generate_edge_features(input_data, edge_steps, r, device):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
         )
-def tripletsOld(
+def triplets(
     edge_index,
     num_nodes,
 ):
@@ -505,7 +505,7 @@ def tripletsOld(
 
     return col, row, idx_i, idx_j, idx_k, idx_kj, idx_ji        
 
-def triplets(edge_index, cell_offsets, num_nodes):
+def triplets_pbc(edge_index, cell_offsets, num_nodes):
     """
     Taken from the DimeNet implementation on OCP
     """
