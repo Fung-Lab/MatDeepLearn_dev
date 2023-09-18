@@ -21,25 +21,29 @@ from matdeeplearn.preprocessor.helpers import (
 
 
 class BaseModel(nn.Module, metaclass=ABCMeta):
-    def __init__(self,
-                 prediction_level="graph",
-                 otf_edge=False,
-                 graph_method="ocp",
-                 gradient=False,
-                 cutoff_radius=8,
-                 n_neighbors=None,
-                 edge_steps=50,
-                 num_offsets=1,
-                 **kwargs
-                 ) -> None:
+    def __init__(self,        
+        prediction_level="graph",
+        otf_edge_index=False,
+        otf_edge_attr=False,
+        otf_node_attr=False,
+        graph_method="ocp",
+        gradient=False,
+        cutoff_radius=8,
+        n_neighbors=None,
+        edge_dim=50,        
+        num_offsets=1,        
+        **kwargs
+        ) -> None:
         super(BaseModel, self).__init__()
 
         self.prediction_level = prediction_level
-        self.otf_edge = otf_edge
+        self.otf_edge_index = otf_edge_index
+        self.otf_edge_attr = otf_edge_attr
+        self.otf_node_attr = otf_node_attr
         self.gradient = gradient
         self.cutoff_radius = cutoff_radius
         self.n_neighbors = n_neighbors
-        self.edge_steps = edge_steps
+        self.edge_dim = edge_dim
         self.graph_method = graph_method
         self.num_offsets = num_offsets
 
@@ -99,10 +103,6 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
 
             n_neighbors: int
                 max number of neighbors
-
-            otf: bool
-                otf == on-the-fly
-                if True, this function will be called
         """
 
         # For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
@@ -118,7 +118,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         if torch.sum(data.cell) == 0:
             self.graph_method = "mdl"
 
-        # Can differ from non-otf if amp=True for a very small percentage of edges ~0.01%
+        #Can differ from non-otf if amp=True for a very small percentage of edges ~0.01%
         if self.graph_method == "ocp":
             edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 cutoff_radius,
@@ -143,8 +143,8 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
             edge_weights = edge_gen_out["distances"]
             offset_distance = edge_gen_out["offsets"]
             edge_vec = edge_gen_out["distance_vec"]
-            if (edge_vec.dim() > 2):
-                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
+            if(edge_vec.dim() > 2):
+                edge_vec = edge_vec[edge_indices[0], edge_indices[1]]      
 
 
         elif self.graph_method == "mdl":
@@ -170,7 +170,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
 
                 edge_index = edge_index + count
                 count = count + data[i].pos.shape[0]
-
+                                
                 edge_index_list.append(edge_index)
                 edge_weights_list.append(edge_weights)
                 edge_vec_list.append(edge_vec)
@@ -202,7 +202,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         generate_node_features(data, n_neighbors)
         # TODO
         # check if edge features that is normalized over the entire dataset can be skipped
-        generate_edge_features(data, self.edge_steps)
+        generate_edge_features(data, self.edge_dim)
         '''
         return (
             edge_index,

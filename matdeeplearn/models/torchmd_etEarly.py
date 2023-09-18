@@ -13,8 +13,11 @@ from matdeeplearn.models.utils import (
     act_class_mapping,
 )
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.models.output_modules import EquivariantScalar
+from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
+from matdeeplearn.preprocessor.helpers import node_rep_one_hot
+
+
 @registry.register_model("torchmd_etEarly")
 
 
@@ -215,9 +218,9 @@ class TorchMD_ET(BaseModel):
         #assert (
         #    edge_vec is not None
         #), "Distance module did not return directional information"
-        if self.otf_edge == True:
-            # data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
-
+        if self.otf_edge_index == True:
+            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
             edge_mask = torch.zeros_like(data.edge_index[0])
             edge_mask[(data.z[data.edge_index[0]] == 100) & (
                        data.z[data.edge_index[1]] == 100)] = 0  # virtual node to virtual node
@@ -229,17 +232,19 @@ class TorchMD_ET(BaseModel):
                        data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
 
             data.edge_mask = edge_mask
+        data.edge_attr = self.distance_expansion(data.edge_weight) 
+                            
+        #mask = data.edge_index[0] != data.edge_index[1]        
+        #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
+        data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
+        
+        if self.otf_node_attr == True:
+            data.x = node_rep_one_hot(data.z).float()
 
         indices_rn_to_rn = data.edge_mask == 3
         indices_rn_to_vn = data.edge_mask == 1
         indices_vn_to_vn = data.edge_mask == 0
 
-        data.edge_attr = self.distance_expansion(data.edge_weight) 
-            
-        #mask = data.edge_index[0] != data.edge_index[1]        
-        #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
-        data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
-        
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 

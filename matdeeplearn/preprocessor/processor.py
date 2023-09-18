@@ -31,18 +31,17 @@ def from_config(dataset_config):
     prediction_level = dataset_config.get("prediction_level", "graph")
     preprocess_edges = dataset_config["preprocess_params"]["preprocess_edges"]
     preprocess_edge_features = dataset_config["preprocess_params"]["preprocess_edge_features"]
-    preprocess_nodes = dataset_config["preprocess_params"]["preprocess_nodes"]
+    preprocess_node_features = dataset_config["preprocess_params"]["preprocess_node_features"]
     cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
     n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
     num_offsets = dataset_config["preprocess_params"]["num_offsets"]
-    edge_steps = dataset_config["preprocess_params"]["edge_steps"]
+    edge_dim = dataset_config["preprocess_params"]["edge_dim"]
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
     node_representation = dataset_config["preprocess_params"].get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
-    all_neighbors = dataset_config["preprocess_params"]["all_neighbors"]
     edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
     num_samples = dataset_config.get("num_samples", 200)
@@ -55,11 +54,11 @@ def from_config(dataset_config):
         prediction_level=prediction_level,
         preprocess_edges=preprocess_edges,
         preprocess_edge_features=preprocess_edge_features,
-        preprocess_nodes=preprocess_nodes,
+        preprocess_node_features=preprocess_node_features,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
-        edge_steps=edge_steps,
+        edge_dim=edge_dim,
         transforms=dataset_config.get("transforms", []),
         data_format=data_format,
         image_selfloop=image_selfloop,
@@ -67,7 +66,6 @@ def from_config(dataset_config):
         node_representation=node_representation,
         additional_attributes=additional_attributes,
         verbose=verbose,
-        all_neighbors=all_neighbors,
         edge_calc_method=edge_calc_method,
         device=device,
         num_samples=num_samples
@@ -99,12 +97,11 @@ class DataProcessor:
         prediction_level: str,
         preprocess_edges,
         preprocess_edge_features,
-        preprocess_nodes,
+        preprocess_node_features,     
         r: float,
         n_neighbors: int,
         num_offsets: int,
-        edge_steps: int,
-        num_samples: int,
+        edge_dim: int,
         transforms: list = [],
         data_format: str = "json",
         image_selfloop: bool = True,
@@ -112,9 +109,9 @@ class DataProcessor:
         node_representation: str = "onehot",
         additional_attributes: list = [],
         verbose: bool = True,
-        all_neighbors: bool = False,
         edge_calc_method: str = "mdl",
         device: str = "cpu",
+        num_samples: int = 200
     ) -> None:
         """
         create a DataProcessor that processes the raw data and save into data.pt file.
@@ -137,7 +134,7 @@ class DataProcessor:
                 max number of neighbors to be considered
                 => closest n neighbors will be kept
 
-            edge_steps: int
+            edge_dim: int
                 step size for creating Gaussian basis for edges
                 used in torch.linspace
 
@@ -175,17 +172,16 @@ class DataProcessor:
         self.prediction_level = prediction_level
         self.preprocess_edges = preprocess_edges
         self.preprocess_edge_features = preprocess_edge_features
-        self.preprocess_nodes = preprocess_nodes
+        self.preprocess_node_features = preprocess_node_features
         self.n_neighbors = n_neighbors
         self.num_offsets = num_offsets
-        self.edge_steps = edge_steps
+        self.edge_dim = edge_dim
         self.data_format = data_format
         self.image_selfloop = image_selfloop
         self.self_loop = self_loop
         self.node_representation = node_representation
         self.additional_attributes = additional_attributes
         self.verbose = verbose
-        self.all_neighbors = all_neighbors
         self.edge_calc_method = edge_calc_method
         self.device = device
         self.transforms = transforms
@@ -549,7 +545,6 @@ class DataProcessor:
             if self.preprocess_edges == True:
                 edge_gen_out = calculate_edges_master(
                     self.edge_calc_method,
-                    self.all_neighbors,
                     self.r,
                     self.n_neighbors,
                     self.num_offsets,
@@ -574,6 +569,7 @@ class DataProcessor:
                 data.edge_descriptor = {}
                 # data.edge_descriptor["mask"] = cd_matrix_masked
                 data.edge_descriptor["distance"] = edge_weights
+
                 data.distances = edge_weights
 
                 edge_mask = torch.zeros_like(edge_indices[0])
@@ -584,18 +580,20 @@ class DataProcessor:
 
                 data.edge_mask = edge_mask
 
+
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
                     data.__setattr__(attr, sdict[attr])
 
-        if self.preprocess_nodes == True:
+
+        if self.preprocess_node_features == True:
             logging.info("Generating node features...")
             generate_node_features(data_list, self.n_neighbors, device=self.device)
 
         if self.preprocess_edge_features == True:
             logging.info("Generating edge features...")
-            generate_edge_features(data_list, self.edge_steps, self.r, device=self.device)
+            generate_edge_features(data_list, self.edge_dim, self.r, device=self.device)
 
         # compile non-otf transforms
         logging.debug("Applying transforms.")
@@ -607,14 +605,13 @@ class DataProcessor:
 
         transforms_list = []
         for transform in self.transforms:
-            if not transform.get("otf", False):
+            if not transform.get("otf_transform", False):
                 transforms_list.append(
                     registry.get_transform_class(
                         transform["name"],
                         **({} if transform["args"] is None else transform["args"])
                     )
                 )
-
         composition = Compose(transforms_list)
 
         # apply transforms
