@@ -289,14 +289,14 @@ class BaseTrainer(ABC):
             output_dim = dataset[0]["y"].shape[1]     
 
         # Determine if this is a node or graph level model
-        if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
-            model_config["prediction_level"] = "node"
-        elif dataset[0]["y"].shape[0] == 1:
-            model_config["prediction_level"] = "graph"
-        else:
-            raise ValueError(
-                "Target labels do not have the correct dimensions for node or graph-level prediction."
-            )
+        # if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
+        #     model_config["prediction_level"] = "node"
+        # elif dataset[0]["y"].shape[0] == 1:
+        #     model_config["prediction_level"] = "graph"
+        # else:
+        #     raise ValueError(
+        #         "Target labels do not have the correct dimensions for node or graph-level prediction."
+        #     )
 
         model_config["prediction_level"] = "node"                  
 
