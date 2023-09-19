@@ -241,7 +241,7 @@ class CrystalGraphConvNet(BaseModel):
         edges = data.edge_index.cpu().numpy()
 
         for num in (np.unique(edges[1])):
-            indices = np.where(edges[1] == num)
+            indices = np.where(edges[1] == num)[0]
             tempNbrs = edges[0][indices]
             tempDsts = data.distances.cpu().tolist()[indices]
             temp = []
