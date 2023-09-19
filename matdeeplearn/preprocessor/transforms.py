@@ -84,7 +84,7 @@ class NumNodeTransform(object):
         self.cutoff = cutoff
 
     def __call__(self, data):
-        data.distances.apply_(lambda x: 1-6*(x/self.cutoff)**5+15*(x/self.cutoff)**4-10*(x/self.cutoff)**3)
+        data.distances.apply_(lambda x: x/self.cutoff)
         dist = data.distances.numpy()
         edges = data.edge_index.numpy()
         sorted_indices = np.argsort(dist)
