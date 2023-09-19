@@ -1,12 +1,16 @@
 from __future__ import print_function, division
 
 import torch
+import numpy as np
 import torch.nn as nn
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.common.registry import registry
 from torch_geometric.nn import (
     global_mean_pool,
 )
+import warnings
+
+warnings.filterwarnings("ignore")
 
 #in comparison to my2, here we use softmax rather than sigmoid
 #we also have the choice to use max pool rather than mean pool
@@ -145,7 +149,7 @@ class CrystalGraphConvNet(BaseModel):
         self.classification = classification
         self.embedding = nn.Linear(node_dim, dim1)
         self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
-                                    nbr_fea_len=edge_dim,k=k)
+                                    nbr_fea_len=64,k=k)
                                     for _ in range(n_conv)])
         self.conv_to_fc = nn.Linear(dim1, dim2)
         self.conv_to_fc_softplus = nn.ReLU()
@@ -213,6 +217,7 @@ class CrystalGraphConvNet(BaseModel):
 
         atom_fea: Variable(torch.Tensor) shape (N, orig_atom_fea_len)
           Atom features from atom type
+        
         nbr_fea: Variable(torch.Tensor) shape (N, M, nbr_fea_len)
           Bond features of each atom's M neighbors
         nbr_fea_idx: torch.LongTensor shape (N, M)
@@ -228,9 +233,76 @@ class CrystalGraphConvNet(BaseModel):
 
         """
         atom_fea = data.x
-        nbr_fea = data.nbr_fea
-        nbr_fea_idx = data.nbr_fea_idx
-        crystal_atom_idx = data.batch
+
+        nbr_fea = []
+        temp = []
+        nbr_fea_idx = []
+        self.neighbors = 12
+        self.nbr_fea_len = 64
+        edges = data.edge_index.cpu().numpy()
+        un, first, counts = np.unique(edges[1], return_index=True, return_counts=True)
+        for i, _ in np.ndenumerate(un):
+            tempE, firstE = np.unique(edges[0][first[i]:first[i]+counts[i]], return_index=True)
+            temp = []
+            idx = []
+            for j, _ in np.ndenumerate(tempE):
+                temp.append(data.distances[firstE[j]+first[i]].repeat(self.nbr_fea_len).cpu().tolist())
+                idx.append(tempE[j])
+            while (len(idx) < 12):
+                idx.extend(idx)
+                temp.extend(temp)
+            nbr_fea_idx.append(idx[0:12])
+            nbr_fea.append(temp[0:12])
+        nbr_fea = torch.FloatTensor(nbr_fea).to(atom_fea.get_device())
+        nbr_fea_idx = torch.Tensor(nbr_fea_idx).to(atom_fea.get_device())
+        nbr_fea = torch.nn.functional.normalize(nbr_fea)
+        '''
+        for i in range(data.edge_index[1].size(0)):
+            if (data.edge_index[1][i] == curr):
+                if (len(temp) < self.neighbors):
+                    temp.append(data.distances[i].repeat(self.nbr_fea_len))
+                    temp_idx.append(data.edge_index[0][i])
+                elif (data.edge_index[0][i] not in temp_idx):
+                    for j in range(1, len(temp_idx)):
+                        if (temp_idx[j-1] == temp_idx[j]):
+                            temp_idx[j] = data.edge_index[0][i]
+                            temp[j] = data.distances[i].repeat(self.nbr_fea_len)
+                            break
+            else:
+                while (len(temp) < self.neighbors):
+                    temp.append(torch.zeros(self.nbr_fea_len).to(atom_fea.get_device()))
+                    temp_idx.append(0)
+                a = torch.Tensor(self.neighbors * self.nbr_fea_len).to(atom_fea.get_device())
+                torch.cat(temp, out=a)
+                a = torch.reshape(a, (self.neighbors, self.nbr_fea_len))
+                nbr_fea.append(a)
+                nbr_fea_idx.append(torch.Tensor(temp_idx))
+                temp = []
+                temp_idx = []
+                curr = data.edge_index[1][i]
+                if (len(temp) < self.neighbors):
+                    temp.append(data.distances[i].repeat(self.nbr_fea_len))
+                    temp_idx.append(data.edge_index[0][i])
+        while (len(temp) < self.neighbors):
+            temp.append(torch.zeros(self.nbr_fea_len).to(atom_fea.get_device()))
+            temp_idx.append(0)
+        a = torch.Tensor(self.neighbors * self.nbr_fea_len).to(atom_fea.get_device())
+        torch.cat(temp, out=a)
+        a = torch.reshape(a, (self.neighbors, self.nbr_fea_len))
+        nbr_fea.append(a)
+        a = torch.Tensor(len(nbr_fea) * self.neighbors * self.nbr_fea_len).to(atom_fea.get_device())
+        torch.cat(nbr_fea, out=a)
+        a = torch.reshape(a, (len(nbr_fea), self.neighbors, self.nbr_fea_len))
+        nbr_fea_idx.append(torch.Tensor(temp_idx))
+        data.nbr_fea = torch.empty(0, self.neighbors, self.nbr_fea_len).to(atom_fea.get_device())
+        data.nbr_fea = torch.cat((data.nbr_fea, a), 0)
+        a = torch.Tensor(len(nbr_fea) * self.neighbors)
+        torch.cat(nbr_fea_idx, out=a)
+        a = a.to(atom_fea.get_device())
+        a = torch.reshape(a, (len(nbr_fea), self.neighbors))
+        data.nbr_fea_idx = torch.empty(0, self.neighbors).to(atom_fea.get_device())
+        data.nbr_fea_idx = torch.cat((data.nbr_fea_idx, a), 0)
+        '''
         #crystal_atom_idx = []
         #unique_values, value_counts = data.batch.unique(return_counts=True)
         #start_idx = 0
@@ -239,6 +311,7 @@ class CrystalGraphConvNet(BaseModel):
         #    end_idx = start_idx + count
         #    crystal_atom_idx.append(torch.arange(start_idx, end_idx))
         #    start_idx = end_idx
+
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)

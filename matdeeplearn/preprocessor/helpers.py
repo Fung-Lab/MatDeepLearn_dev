@@ -68,7 +68,9 @@ def calculate_edges_master(
         )
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
-
+        temp = torch.clone(edge_index[0])
+        edge_index[0] = edge_index[1]
+        edge_index[1] = temp
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
 

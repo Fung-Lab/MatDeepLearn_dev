@@ -220,7 +220,9 @@ class PropertyTrainer(BaseTrainer):
             out["output"] = out["output"].squeeze()
             batch_p = out["output"].data.cpu().numpy()
             batch_ids = batch.structure_id 
-            
+            if loader.batch_size == 1:
+                batch_p = np.atleast_1d(batch_p)
+
             if labels == True:
                 loss = self._compute_loss(out, batch)
                 metrics = self._compute_metrics(out, batch, metrics)

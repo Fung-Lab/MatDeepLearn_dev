@@ -91,13 +91,13 @@ class ConvLayer(nn.Module):
         new_nbr = new_nbr + nbr_fea
         return out, new_nbr
 
-@registry.register_model("CrystalGraph4")
-class CrystalGraphConvNet(BaseModel):
+@registry.register_model("CrystalGraph4Old")
+class CrystalGraphConvNet(nn.Module):
     """
     Create a crystal graph convolutional neural network for predicting total
     material properties.
     """
-    def __init__(self, node_dim, edge_dim, output_dim, nbr_fea_len=64,
+    def __init__(self, nbr_fea_len=64,
                  dim1=128, n_conv=9, dim2=128, n_h=1,
                  classification=False, **kwargs):
         """
@@ -121,7 +121,7 @@ class CrystalGraphConvNet(BaseModel):
         """
         super(CrystalGraphConvNet, self).__init__()
         self.classification = classification
-        self.embedding = nn.Linear(node_dim, dim1)
+        self.embedding = nn.Linear(100, dim1)
         self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
                                     nbr_fea_len=nbr_fea_len)
                                     for _ in range(n_conv)])
@@ -136,49 +136,11 @@ class CrystalGraphConvNet(BaseModel):
         if self.classification:
             self.fc_out = nn.Linear(dim2, 2)
         else:
-            self.fc_out = nn.Linear(dim2, output_dim)
+            self.fc_out = nn.Linear(dim2, 1)
         if self.classification:
             self.logsoftmax = nn.LogSoftmax(dim=1)
             self.dropout = nn.Dropout()
     def forward(self, data):
-    
-        output = {}
-        out = self._forward(data)
-        output["output"] =  out
-
-        if self.gradient == True and out.requires_grad == True:         
-            if self.gradient_method == "conventional":
-                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-                grad = torch.autograd.grad(
-                        out,
-                        [data.pos, data.cell],
-                        grad_outputs=torch.ones_like(out),
-                        create_graph=self.training) 
-                forces = -1 * grad[0]
-                stress = grad[1] 
-                stress = stress / volume.view(-1, 1, 1)
-            #For calculation of stress, see https://github.com/mir-group/nequip/blob/main/nequip/nn/_grad_output.py
-            #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                              
-            elif self.gradient_method == "nequip":
-                volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-                grad = torch.autograd.grad(
-                        out,
-                        [data.pos, data.displacement],
-                        grad_outputs=torch.ones_like(out),
-                        create_graph=self.training) 
-                forces = -1 * grad[0]
-                stress = grad[1]
-                stress = stress / volume.view(-1, 1, 1)         
-
-            output["pos_grad"] =  forces
-            output["cell_grad"] =  stress
-        else:
-            output["pos_grad"] =  None
-            output["cell_grad"] =  None  
-                  
-        return output
-    @conditional_grad(torch.enable_grad())
-    def _forward(self, data):#atom_fea, nbr_fea, nbr_fea_idx, crystal_atom_idx):
         """
         Forward pass
 
@@ -208,14 +170,8 @@ class CrystalGraphConvNet(BaseModel):
         atom_fea = data.x
         nbr_fea = data.nbr_fea
         nbr_fea_idx = data.nbr_fea_idx
-        crystal_atom_idx = data.batch
-        print(atom_fea)
-        print()
-        print(nbr_fea)
-        print()
         print(nbr_fea_idx)
-        print()
-        print()
+        crystal_atom_idx = data.batch
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
@@ -234,7 +190,7 @@ class CrystalGraphConvNet(BaseModel):
         #out = self.output_softplus(out)
         if self.classification:
             out = self.logsoftmax(out)
-        return out
+        return out.squeeze()
 
     @property
     def target_attr(self):

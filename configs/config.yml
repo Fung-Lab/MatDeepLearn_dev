@@ -23,8 +23,8 @@ task:
 model:
   name: CrystalGraph    
   # model attributes
-  dim1: 100
-  dim2: 150
+  dim1: 128
+  dim2: 128
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
@@ -42,16 +42,16 @@ model:
   gradient_method: "nequip"
 
 optim:
-  max_epochs: 400
+  max_epochs: 300
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
   clip_grad_norm: 10
          
-  batch_size: 64
+  batch_size: 1
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -88,10 +88,6 @@ dataset:
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
       otf: True # Optional parameter, default is False
-    - name: CrystalGraphMod
-      args:
-        neighbors: 12
-        nbr_fea_len: 64
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # E.g. additional_attributes: ["forces", "stress"]
@@ -119,8 +115,8 @@ dataset:
     node_representation: "onehot"    
     all_neighbors: True
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
   
 
