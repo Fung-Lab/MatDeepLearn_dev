@@ -96,7 +96,6 @@ class BaseTrainer(ABC):
         if identifier:
             self.timestamp_id = f"{self.timestamp_id}-{identifier}"
 
-
         if self.train_verbosity:
             logging.info(
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"

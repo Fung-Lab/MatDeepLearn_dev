@@ -13,7 +13,7 @@ from matdeeplearn.models.utils import (
     act_class_mapping,
 )
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.models.output_modules import EquivariantScalar
+from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
 @registry.register_model("torchmd_etEarly")
 
