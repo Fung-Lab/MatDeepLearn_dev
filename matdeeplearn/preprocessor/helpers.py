@@ -19,7 +19,6 @@ from torch_sparse import SparseTensor
 
 def calculate_edges_master(
     method: Literal["ase", "ocp", "mdl"],
-    all_neighbors: bool,
     r: float,
     n_neighbors: int,
     offset_number: int,
@@ -33,9 +32,6 @@ def calculate_edges_master(
 ) -> dict[str, torch.Tensor]:
     """Generates edges using one of three methods (ASE, OCP, or MDL implementations) due to limitations of each method.
     Args:
-        all_neighbors (bool): Whether or not to use all neighbors (ASE method)
-                or only the n_neighbors closest neighbors.
-                OCP based on all_neighbors and MDL based on original without considering all.
         r (float): cutoff radius
         n_neighbors (int): number of neighbors to consider
         structure_id (str): structure id
@@ -43,12 +39,6 @@ def calculate_edges_master(
         pos (torch.Tensor): positions of atom in unit cell
     """
 
-    if method == "ase" or method == "ocp":
-        assert (method == "ase" and all_neighbors) or (
-            method == "ocp" and all_neighbors
-        ), "OCP and ASE methods only support all_neighbors=True"
-        #if method == "ase":
-        #    raise Warning("ASE does not take into account n_neighbors")
 
     out = dict()
     neighbors = torch.empty(0)
@@ -72,10 +62,10 @@ def calculate_edges_master(
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
     
-    elif method == "ase":
-        edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
-            all_neighbors, r, n_neighbors, structure_id, cell.squeeze(0), pos
-        )
+    #elif method == "ase":
+    #    edge_index, cell_offsets, edge_weights, edge_vec = calculate_edges_ase(
+    #        all_neighbors, r, n_neighbors, structure_id, cell.squeeze(0), pos
+    #    )
     
     elif method == "ocp":
         # OCP requires a different format for the cell
@@ -439,7 +429,10 @@ def add_selfloop(
     return edge_indices, edge_weights, distance_matrix_masked
 
 
-def load_node_representation(node_representation="onehot"):
+def node_rep_one_hot(Z):
+    return F.one_hot(Z - 1, num_classes = 100)
+
+def node_rep_from_file(node_representation="onehot"):
     node_rep_path = Path(__file__).parent
     default_reps = {"onehot": str(node_rep_path / "./node_representations/onehot.csv")}
 
@@ -461,21 +454,16 @@ def load_node_representation(node_representation="onehot"):
 
     return loaded_rep
 
-
-def generate_node_features(input_data, n_neighbors, device, use_degree=False):
-    node_reps = load_node_representation()
-    node_reps = torch.from_numpy(node_reps).to(device)
-    n_elements, n_features = node_reps.shape
-    
+def generate_node_features(input_data, n_neighbors, device, use_degree=False, node_rep_func = node_rep_one_hot):
     if isinstance(input_data, Data):
-        input_data.x = node_reps[input_data.z - 1].view(-1, n_features)
+        input_data.x = node_rep_func(input_data.z)
         if use_degree:
             return one_hot_degree(input_data, n_neighbors)
         return input_data
 
     for i, data in enumerate(input_data):
         # minus 1 as the reps are 0-indexed but atomic number starts from 1
-        data.x = node_reps[data.z - 1].view(-1, n_features).float()
+        data.x = node_rep_func(data.z).float()
 
     #for i, data in enumerate(input_data):
         #input_data[i] = one_hot_degree(data, n_neighbors)
@@ -492,7 +480,7 @@ def generate_edge_features(input_data, edge_steps, r, device):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
         )
-def tripletsOld(
+def triplets(
     edge_index,
     num_nodes,
 ):
@@ -517,7 +505,7 @@ def tripletsOld(
 
     return col, row, idx_i, idx_j, idx_k, idx_kj, idx_ji        
 
-def triplets(edge_index, cell_offsets, num_nodes):
+def triplets_pbc(edge_index, cell_offsets, num_nodes):
     """
     Taken from the DimeNet implementation on OCP
     """
