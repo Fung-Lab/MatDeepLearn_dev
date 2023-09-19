@@ -75,6 +75,25 @@ class NumNodeTransform(object):
         data.num_nodes = data.x.shape[0]
         return data
 
+@registry.register_transform("CrystalGraph")
+class NumNodeTransform(object):
+    """
+    Adds the number of nodes to the data object
+    """
+    def __init__(self, cutoff):
+        self.cutoff = cutoff
+
+    def __call__(self, data):
+        data.distances.apply_(lambda x: 1-6*(x/self.cutoff)**5+15*(x/self.cutoff)**4-10*(x/self.cutoff)**3)
+        dist = data.distances.numpy()
+        edges = data.edge_index.numpy()
+        sorted_indices = np.argsort(dist)
+        dist = dist[sorted_indices]
+        edges = edges[sorted_indices]
+        data.distances = torch.from_numpy(dist)
+        data.edge_index = torch.from_numpy(edges)
+        return data
+
 
 @registry.register_transform("LineGraphMod")
 class LineGraphMod(object):

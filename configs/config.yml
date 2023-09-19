@@ -88,6 +88,9 @@ dataset:
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
       otf: True # Optional parameter, default is False
+    - name: CrystalGraph
+      args:
+        cutoff: 8.0
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # E.g. additional_attributes: ["forces", "stress"]

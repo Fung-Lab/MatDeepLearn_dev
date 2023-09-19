@@ -233,7 +233,6 @@ class CrystalGraphConvNet(BaseModel):
 
         """
         atom_fea = data.x
-
         nbr_fea = []
         temp = []
         nbr_fea_idx = []
