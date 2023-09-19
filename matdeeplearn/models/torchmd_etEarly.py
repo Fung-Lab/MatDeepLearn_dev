@@ -15,6 +15,7 @@ from matdeeplearn.models.utils import (
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
+from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 @registry.register_model("torchmd_etEarly")
 
 
