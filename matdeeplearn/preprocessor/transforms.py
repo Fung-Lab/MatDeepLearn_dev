@@ -89,7 +89,7 @@ class NumNodeTransform(object):
         edges = data.edge_index.numpy()
         sorted_indices = np.argsort(dist)
         dist = dist[sorted_indices]
-        edges = edges[sorted_indices]
+        edges = edges[:, sorted_indices]
         data.distances = torch.from_numpy(dist)
         data.edge_index = torch.from_numpy(edges)
         return data
