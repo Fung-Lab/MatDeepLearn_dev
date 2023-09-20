@@ -1,7 +1,7 @@
-trainer: property
+trainer: matdeeplearn.trainers.PropertyTrainer
 
 task:
-  #run_mode: train
+  run_mode: train
   identifier: my_train_job
   parallel: False
   # If seed is not set, then it will be random every time
@@ -12,20 +12,16 @@ task:
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
-  # Path to the checkpoint.pt file
-  checkpoint_path: 
-  # E.g. [train, val, test]
-  write_output: [val, test]
-  # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
-  # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
+  checkpoint_path: results/2023-09-20-16-22-38-738-my_train_job/checkpoint/best_checkpoint.pt
+  # E.g. ["train", "val", "test"]
+  write_output: [train, val, test]
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: False  
+  use_amp: True  
 
 model:
-  name: CGCNN     
+  name: CGCNN    
   # model attributes
   dim1: 100
   dim2: 150
@@ -41,27 +37,23 @@ model:
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True 
   # Compute edge attributes on the fly in the model forward
-  otf_edge_attr: True 
+  otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 
 optim:
-  max_epochs: 400
+  max_epochs: 40
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    #loss_type: "TorchLossWrapper"
-    #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
-  clip_grad_norm: 10
-         
-  batch_size: 120
+    loss_type: TorchLossWrapper
+    loss_args: {loss_fn: l1_loss}
+  # gradient clipping value
+  clip_grad_norm: 10       
+  batch_size: 100
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -69,21 +61,22 @@ optim:
     scheduler_type: ReduceLROnPlateau
     scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
-  verbosity: 1
+  verbosity: 5
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
   
 dataset:
   name: test_data
+  # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: data/force_data/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
-  # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
+  # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
   pt_path: data/force_data/
-  # Either "node" or "graph"
+  # Either "node" or "graph" level
   prediction_level: graph
   
   transforms:
@@ -93,12 +86,11 @@ dataset:
         # For example, an index: 0 (default) will use the first entry in the target vector 
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
-      otf: True # Optional parameter, default is False
+      otf_transform: True # Optional parameter, default is True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
-  #additional_attributes:
+  # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
+  additional_attributes: 
   # Print out processing info
   verbose: True
   # Index of target column in targets.csv
@@ -111,24 +103,28 @@ dataset:
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_node_features: True
+    preprocess_node_features: False
+    # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
+    # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
+    # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
     node_dim : 100
     # dimension of edge attributes
     edge_dim : 50
+    # whether or not to add self-loops
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
-    all_neighbors: True
+    all_neighbors: True 
     
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
-  # Ratios for train/val/test split out of a total of less than 1
+  # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.9
   val_ratio: 0.05
   test_ratio: 0.05
