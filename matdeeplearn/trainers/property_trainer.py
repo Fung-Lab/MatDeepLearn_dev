@@ -31,6 +31,8 @@ class PropertyTrainer(BaseTrainer):
         verbosity,
         batch_tqdm,
         write_output,
+        output_frequency,
+        model_save_frequency,
         save_dir,
         checkpoint_path,
         use_amp,
@@ -50,6 +52,8 @@ class PropertyTrainer(BaseTrainer):
             verbosity,
             batch_tqdm,
             write_output,
+            output_frequency,
+            model_save_frequency,
             save_dir,
             checkpoint_path,          
             use_amp,
@@ -124,7 +128,8 @@ class PropertyTrainer(BaseTrainer):
             # Save current model      
             torch.cuda.empty_cache()                 
             if str(self.rank) in ("0", "cpu", "cuda"):
-                self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+                if self.model_save_frequency == 1:
+                    self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation set if it exists
                 if self.data_loader.get("val_loader"):
@@ -143,26 +148,37 @@ class PropertyTrainer(BaseTrainer):
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
-                    self.update_best_model(metric)
-
+                    if self.output_frequency == 0:
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=False)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=False)
+                    elif self.output_frequency == 1:
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=True)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=True)
                 # step scheduler, using validation error
                 self._scheduler_step()
 
             torch.cuda.empty_cache()        
         
         if self.best_model_state:
-            if str(self.rank) in "0":
-                self.model.module.load_state_dict(self.best_model_state)
-            elif str(self.rank) in ("cpu", "cuda"):
-                self.model.load_state_dict(self.best_model_state)
-
-            if self.data_loader.get("test_loader"):
-                metric = self.validate("test")
-                test_loss = metric[type(self.loss_fn).__name__]["metric"]
+            #if str(self.rank) in "0":
+            #    self.model.module.load_state_dict(self.best_model_state)
+            #elif str(self.rank) in ("cpu", "cuda"):
+            #    self.model.load_state_dict(self.best_model_state)
+            #if self.data_loader.get("test_loader"):
+            #    metric = self.validate("test")
+            #    test_loss = metric[type(self.loss_fn).__name__]["metric"]
+            #else:
+            #    test_loss = "N/A"
+            #logging.info("Test loss: " + str(test_loss))
+            if self.model_save_frequency == -1:
+                self.update_best_model(metric, write_model=False, write_csv=True)
             else:
-                test_loss = "N/A"
-            logging.info("Test loss: " + str(test_loss))
-
+                self.update_best_model(metric, write_model=True, write_csv=True)
+            
         return self.best_model_state
         
     @torch.no_grad()

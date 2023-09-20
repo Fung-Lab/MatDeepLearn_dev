@@ -1,6 +1,6 @@
 import yaml
 import torch
-from matdeeplearn.common.MDLCalculator import MDLCalculator
+from matdeeplearn.common.ase_utils import MDLCalculator
 
 
 config_path = './configs/config_calculator.yml'

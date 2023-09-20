@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: ./results/2023-08-25-12-00-00-my_train_job/checkpoint/best_checkpoint.pt
+  checkpoint_path: ./results/2023-09-18-00-12-53-363-my_train_job/checkpoint/best_checkpoint.pt
   # E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Specify if labels are provided for the predict task
@@ -30,25 +30,29 @@ model:
   post_fc_count: 3
   pool: global_add_pool
   pool_order: early
-  batch_norm: True
+  batch_norm: False
   batch_track_stats: True
-  act: relu
+  act: silu
   dropout_rate: 0.0
-  # Compute edge features on the fly
-  otf_edge: True 
-  # compute gradients w.r.t to positions and cell, requires otf_edge=True  
+  # Compute edge indices on the fly in the model forward
+  otf_edge_index: True 
+  # Compute edge attributes on the fly in the model forward
+  otf_edge_attr: True  
+  # Compute node attributes on the fly in the model forward
+  otf_node_attr: False
+  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 
 optim:
   max_epochs: 40
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: TorchLossWrapper
     loss_args: {loss_fn: l1_loss}
-  clip_grad_norm: 10
-         
+  # gradient clipping value
+  clip_grad_norm: 10       
   batch_size: 100
   optimizer:
     optimizer_type: AdamW
@@ -63,15 +67,16 @@ optim:
   
 dataset:
   name: test_data
+  # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/test_data/data_graph_scalar.json
+  src: data/force_data/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/
-  # Either "node" or "graph"
+  pt_path: data/force_data/
+  # Either "node" or "graph" level
   prediction_level: graph
   
   transforms:
@@ -81,34 +86,45 @@ dataset:
         # For example, an index: 0 (default) will use the first entry in the target vector 
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
-      otf: True # Optional parameter, default is False
+      otf_transform: True # Optional parameter, default is True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  # E.g. additional_attributes: [forces, stress]
-  additional_attributes:
-  #additional_attributes:
+  # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
+  additional_attributes: 
   # Print out processing info
   verbose: True
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: mdl 
+    edge_calc_method: ocp 
     # determine if edges are computed, if false, then they need to be computed on the fly   
-    preprocess_edges: True
+    preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_edge_features: True
+    preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_nodes: True
+    preprocess_node_features: False
+    # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
+    # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
+    # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
-    edge_steps : 50
+    # dimension of node attributes
+    node_dim : 100
+    # dimension of edge attributes
+    edge_dim : 50
+    # whether or not to add self-loops
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
-    all_neighbors: True
-  # Ratios for train/val/test split out of a total of less than 1
+    all_neighbors: True 
+    
+  # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
+  num_workers: 0
+  # Where the dataset is loaded; either "cpu" or "cuda"
+  dataset_device: cpu
+  # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.15

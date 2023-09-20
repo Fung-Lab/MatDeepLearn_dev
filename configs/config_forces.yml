@@ -16,6 +16,10 @@ task:
   checkpoint_path: 
   # E.g. [train, val, test]
   write_output: [val, test]
+  # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
+  output_frequency: 1
+  # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
@@ -34,13 +38,17 @@ model:
   batch_track_stats: True
   act: silu
   dropout_rate: 0.0
-  # Compute edge features on the fly
-  otf_edge: True 
-  # compute gradients w.r.t to positions and cell, requires otf_edge=True  
+  # Compute edge indices on the fly in the model forward
+  otf_edge_index: True 
+  # Compute edge attributes on the fly in the model forward
+  otf_edge_attr: True  
+  # Compute node attributes on the fly in the model forward
+  otf_node_attr: True
+  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 
 optim:
-  max_epochs: 40
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -69,12 +77,12 @@ dataset:
   name: test_data
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data.json
+  src: data/force_data/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/
+  pt_path: data/force_data/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -103,18 +111,24 @@ dataset:
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_nodes: True
+    preprocess_node_features: False
     cutoff_radius : 8.0
     n_neighbors : 250
     num_offsets: 2
-    edge_steps : 50
+    # dimension of node attributes
+    node_dim : 100
+    # dimension of edge attributes
+    edge_dim : 50
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
     all_neighbors: True
+    
+  # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
+  num_workers: 0
+  # Where the dataset is loaded; either "cpu" or "cuda"
+  dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.8
   val_ratio: 0.05
   test_ratio: 0.015
-  
-
