@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import yaml
-from ase import Atoms, units
+from ase import Atoms
 from ase.geometry import Cell
 from ase.calculators.calculator import Calculator
 from matdeeplearn.preprocessor.helpers import generate_node_features
@@ -10,10 +10,6 @@ from torch_geometric.loader import DataLoader
 import logging
 from typing import List
 from matdeeplearn.common.registry import registry
-from ase.md import MDLogger
-from pathlib import Path
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from ase.io.trajectory import Trajectory
 
 
 logging.basicConfig(level=logging.INFO)
