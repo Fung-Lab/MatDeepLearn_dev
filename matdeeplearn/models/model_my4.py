@@ -206,16 +206,32 @@ class CrystalGraphConvNet(BaseModel):
 
         """
         atom_fea = data.x
-        nbr_fea = data.nbr_fea
-        nbr_fea_idx = data.nbr_fea_idx
-        crystal_atom_idx = data.batch
-        print(atom_fea)
-        print()
-        print(nbr_fea)
-        print()
-        print(nbr_fea_idx)
-        print()
-        print()
+        nbr_fea = []
+        temp = []
+        nbr_fea_idx = []
+        self.neighbors = 12
+        self.nbr_fea_len = 64
+        edges = data.edge_index.cpu().numpy()
+
+        for num in (np.unique(edges[1])):
+            indices = np.where(edges[1] == num)[0]
+            tempNbrs = edges[0][indices]
+            tempDsts = data.distances.cpu().numpy()[indices]
+            temp = []
+            idx = []
+            for i in range(self.neighbors):
+                if (i >= len(tempDsts)):
+                    temp.extend([tempDsts[0] for j in range(self.nbr_fea_len)])
+                    idx.append(tempNbrs[0])
+                else:
+                    temp.extend([tempDsts[i] for j in range(self.nbr_fea_len)])
+                    idx.append(tempNbrs[i])
+            nbr_fea.append(temp)
+            nbr_fea_idx.append(idx)
+        nbr_fea = torch.FloatTensor(nbr_fea).to(atom_fea.get_device())
+        nbr_fea = torch.reshape(nbr_fea, (data.x.size()[0], self.neighbors, self.nbr_fea_len))
+        nbr_fea_idx = torch.Tensor(nbr_fea_idx).to(atom_fea.get_device())
+        
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, nbr_fea = conv_func(atom_fea, nbr_fea, nbr_fea_idx)
