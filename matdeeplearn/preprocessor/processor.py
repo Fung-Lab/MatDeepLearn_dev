@@ -493,8 +493,11 @@ class DataProcessor:
             logging.info("Processing device: {}".format(self.device))
 
             dict_structures = self.src_check()
+            print("get_data_list begin")
             data_list["full"] = self.get_data_list(dict_structures)
+            print("InMemoryDataset.collate begin")
             data, slices = InMemoryDataset.collate(data_list["full"])
+            print("InMemoryDataset.collate end")
 
             if save:
                 if self.pt_path:
@@ -603,6 +606,7 @@ class DataProcessor:
             tf["name"] for tf in self.transforms
         ], "The target transform GetY is required in config."
 
+        print("apply transforms begin")
         transforms_list = []
         for transform in self.transforms:
             if not transform.get("otf_transform", False):
@@ -617,7 +621,7 @@ class DataProcessor:
         # apply transforms
         for data in data_list:
             composition(data)
-
+        print("apply transforms complete")
         clean_up(data_list, ["edge_descriptor"])
-
+        print("clean_up edge_descriptor finish")
         return data_list
