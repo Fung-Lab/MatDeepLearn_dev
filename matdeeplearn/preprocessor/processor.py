@@ -600,7 +600,7 @@ class DataProcessor:
 
         # compile non-otf transforms
         logging.debug("Applying transforms.")
-
+        print("Ensure GetY exists to prevent downstream model errors")
         # Ensure GetY exists to prevent downstream model errors
         assert "GetY" in [
             tf["name"] for tf in self.transforms
