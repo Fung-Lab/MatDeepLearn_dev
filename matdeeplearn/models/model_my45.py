@@ -243,7 +243,7 @@ class CrystalGraphConvNet(BaseModel):
         for num in (np.unique(edges[1])):
             indices = np.where(edges[1] == num)[0]
             tempNbrs = edges[0][indices]
-            tempDsts = data.distances.cpu().tolist()[indices]
+            tempDsts = data.distances.cpu().numpy()[indices]
             temp = []
             idx = []
             for i in range(self.neighbors):
@@ -256,11 +256,8 @@ class CrystalGraphConvNet(BaseModel):
             nbr_fea.append(temp)
             nbr_fea_idx.append(idx)
         nbr_fea = torch.FloatTensor(nbr_fea).to(atom_fea.get_device())
+        nbr_fea = torch.reshape(nbr_fea, (data.x.size()[0], self.neighbors, self.nbr_fea_len))
         nbr_fea_idx = torch.Tensor(nbr_fea_idx).to(atom_fea.get_device())
-        print(nbr_fea.size())
-        print(nbr_fea)
-        print(nbr_fea_idx.size())
-        print(nbr_fea_idx)
         '''
         un, first, counts = np.unique(edges[1], return_index=True, return_counts=True)
         for i, _ in np.ndenumerate(un):
