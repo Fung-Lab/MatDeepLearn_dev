@@ -181,9 +181,9 @@ class CGCNN(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
 
-        indices_rn_to_rn = data.edge_mask == 3
-        indices_rn_to_vn = data.edge_mask == 1 & (data.edge_weight <= 8)
-        indices_vn_to_vn = (data.edge_mask == 0) & (data.edge_weight <= 4)
+        # indices_rn_to_rn = data.edge_mask == 3
+        # indices_rn_to_vn = data.edge_mask == 1 & (data.edge_weight <= 8)
+        # indices_vn_to_vn = (data.edge_mask == 0) & (data.edge_weight <= 4)
 
             
         # Pre-GNN dense layers
@@ -200,46 +200,46 @@ class CGCNN(BaseModel):
             if len(self.pre_lin_list) == 0 and i == 0:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
+                        data.x, data.edge_index[:, data.indices_rn_to_rn], data.edge_attr[data.indices_rn_to_rn, :]
                     )
                     out = self.rn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                        out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
                     out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        data.x, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
+                        data.x, data.edge_index[:, data.indices_rn_to_rn], data.edge_attr[data.indices_rn_to_rn, :]
                     )
                     out = self.rn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                        out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
                     out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
                     )
             else:
                 if self.batch_norm:
                     out = self.conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
+                        out, data.edge_index[:, data.indices_rn_to_rn], data.edge_attr[data.indices_rn_to_rn, :]
                     )
                     out = self.rn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                        out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
                     out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
                     )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :]
+                        out, data.edge_index[:, data.indices_rn_to_rn], data.edge_attr[data.indices_rn_to_rn, :]
                     )
                     out = self.rn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :]
+                        out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
                     out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :]
+                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
                     )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
@@ -267,7 +267,7 @@ class CGCNN(BaseModel):
             # out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Last Layer
-        out = self.vn_conv(out, data.edge_index[:, indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :])
+        out = self.vn_conv(out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :])
             
         virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
         out = torch.index_select(out, 0, virtual_mask)

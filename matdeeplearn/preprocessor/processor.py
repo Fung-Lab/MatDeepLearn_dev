@@ -560,20 +560,9 @@ class DataProcessor:
                 edge_weights = edge_gen_out["edge_weights"]
                 cell_offsets = edge_gen_out["cell_offsets"]
                 edge_vec = edge_gen_out["edge_vec"]
-                neighbors = edge_gen_out["neighbors"]
+                # neighbors = edge_gen_out["neighbors"]
                 if(edge_vec.dim() > 2):
                     edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
-
-                data.edge_index, data.edge_weight = edge_indices, edge_weights
-                data.edge_vec = edge_vec
-                data.cell_offsets = cell_offsets
-                data.neighbors = neighbors
-
-                data.edge_descriptor = {}
-                # data.edge_descriptor["mask"] = cd_matrix_masked
-                data.edge_descriptor["distance"] = edge_weights
-
-                data.distances = edge_weights
 
                 edge_mask = torch.zeros_like(edge_indices[0])
                 edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] == 100)] = 0  # virtual node to virtual node
@@ -581,7 +570,34 @@ class DataProcessor:
                 edge_mask[(atomic_numbers[edge_indices[0]] == 100) & (atomic_numbers[edge_indices[1]] != 100)] = 2  # virtual node to regular node
                 edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3  # regular node to regular node
 
-                data.edge_mask = edge_mask
+                # data.edge_mask = edge_mask
+                indices_rn_to_rn = edge_mask == 3
+                indices_rn_to_vn = (edge_mask == 1) & (edge_weights <= 8)
+                indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
+                indices_to_keep = indices_rn_to_rn | indices_rn_to_vn | indices_vn_to_vn
+                indices_rn_to_rn = indices_rn_to_rn[indices_to_keep]
+                indices_rn_to_vn = indices_rn_to_vn[indices_to_keep]
+                indices_vn_to_vn = indices_vn_to_vn[indices_to_keep]
+
+                edge_indices = edge_indices[: indices_to_keep]
+                edge_weights = edge_weights[indices_to_keep]
+
+
+                data.edge_index, data.edge_weight = edge_indices, edge_weights
+                # data.edge_vec = edge_vec
+                data.cell_offsets = cell_offsets
+                # data.neighbors = neighbors
+                data.indices_rn_to_rn = indices_rn_to_rn
+                data.indices_rn_to_vn = indices_rn_to_vn
+                data.indices_vn_to_vn = indices_vn_to_vn
+
+                data.edge_descriptor = {}
+                # data.edge_descriptor["mask"] = cd_matrix_masked
+                data.edge_descriptor["distance"] = edge_weights
+
+                data.distances = edge_weights
+
+
 
 
             # add additional attributes
