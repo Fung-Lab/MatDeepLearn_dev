@@ -579,7 +579,7 @@ class DataProcessor:
                 indices_rn_to_vn = indices_rn_to_vn[indices_to_keep]
                 indices_vn_to_vn = indices_vn_to_vn[indices_to_keep]
 
-                edge_indices = edge_indices[: indices_to_keep]
+                edge_indices = edge_indices[:, indices_to_keep]
                 edge_weights = edge_weights[indices_to_keep]
 
 
