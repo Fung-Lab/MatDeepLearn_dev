@@ -67,7 +67,7 @@ class CGCNN(BaseModel):
 
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
-        self.conv_list, self.bn_list, self.rn_to_vn_conv_list, self.vn_to_vn_conv_list = self._setup_gnn_layers()
+        self.conv_list, self.bn_list, self.rn_to_vn_conv_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
         self.vn_conv = self._setup_vn_gnn_layer()
         
@@ -101,7 +101,7 @@ class CGCNN(BaseModel):
         """Sets up GNN layers."""
         conv_list = torch.nn.ModuleList()
         rn_to_vn_conv_list = torch.nn.ModuleList()
-        vn_to_vn_conv_list = torch.nn.ModuleList()
+        # vn_to_vn_conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
             conv = CGConv(
@@ -110,12 +110,12 @@ class CGCNN(BaseModel):
             rn_vn_conv = CGConv(
                 self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
             )
-            vn_vn_conv = CGConv(
-                self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
-            )
+            # vn_vn_conv = CGConv(
+            #     self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
+            # )
             conv_list.append(conv)
             rn_to_vn_conv_list.append(rn_vn_conv)
-            vn_to_vn_conv_list.append(vn_vn_conv)
+            # vn_to_vn_conv_list.append(vn_vn_conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
             if self.batch_norm:
                 bn = BatchNorm1d(
@@ -123,7 +123,7 @@ class CGCNN(BaseModel):
                 )
                 bn_list.append(bn)
 
-        return conv_list, bn_list, rn_to_vn_conv_list, vn_to_vn_conv_list
+        return conv_list, bn_list, rn_to_vn_conv_list
 
     def _setup_post_gnn_layers(self):
         """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. In the current version, the minimum is zero)."""
@@ -205,9 +205,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
-                    out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
-                    )
+                    # out = self.vn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
+                    # )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
@@ -216,9 +216,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
-                    out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
-                    )
+                    # out = self.vn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
+                    # )
             else:
                 if self.batch_norm:
                     out = self.conv_list[i](
@@ -227,9 +227,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
-                    out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
-                    )
+                    # out = self.vn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
+                    # )
                     out = self.bn_list[i](out)
                 else:
                     out = self.conv_list[i](
@@ -238,9 +238,9 @@ class CGCNN(BaseModel):
                     out = self.rn_to_vn_conv_list[i](
                         out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :]
                     )
-                    out = self.vn_to_vn_conv_list[i](
-                        out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
-                    )
+                    # out = self.vn_to_vn_conv_list[i](
+                    #     out, data.edge_index[:, data.indices_vn_to_vn], data.edge_attr[data.indices_vn_to_vn, :]
+                    # )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
             # if len(self.pre_lin_list) == 0 and i == 0:

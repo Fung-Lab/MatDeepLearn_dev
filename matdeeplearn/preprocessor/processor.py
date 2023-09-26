@@ -571,13 +571,13 @@ class DataProcessor:
                 edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3  # regular node to regular node
 
                 # data.edge_mask = edge_mask
-                indices_rn_to_rn = edge_mask == 3
+                indices_rn_to_rn = (edge_mask == 3) & (edge_weights <= 2)
                 indices_rn_to_vn = (edge_mask == 1) & (edge_weights <= 8)
-                indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
-                indices_to_keep = indices_rn_to_rn | indices_rn_to_vn | indices_vn_to_vn
+                # indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
+                indices_to_keep = indices_rn_to_rn | indices_rn_to_vn  # | indices_vn_to_vn
                 indices_rn_to_rn = indices_rn_to_rn[indices_to_keep]
                 indices_rn_to_vn = indices_rn_to_vn[indices_to_keep]
-                indices_vn_to_vn = indices_vn_to_vn[indices_to_keep]
+                # indices_vn_to_vn = indices_vn_to_vn[indices_to_keep]
 
                 edge_indices = edge_indices[:, indices_to_keep]
                 edge_weights = edge_weights[indices_to_keep]
@@ -589,7 +589,7 @@ class DataProcessor:
                 # data.neighbors = neighbors
                 data.indices_rn_to_rn = indices_rn_to_rn
                 data.indices_rn_to_vn = indices_rn_to_vn
-                data.indices_vn_to_vn = indices_vn_to_vn
+                # data.indices_vn_to_vn = indices_vn_to_vn
 
                 data.edge_descriptor = {}
                 # data.edge_descriptor["mask"] = cd_matrix_masked
