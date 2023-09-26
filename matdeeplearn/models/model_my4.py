@@ -2,6 +2,7 @@ from __future__ import print_function, division
 
 import torch
 import torch.nn as nn
+import numpy as np
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.common.registry import registry
 from torch_geometric.nn import (
@@ -98,7 +99,7 @@ class CrystalGraphConvNet(BaseModel):
     material properties.
     """
     def __init__(self, node_dim, edge_dim, output_dim, nbr_fea_len=64,
-                 dim1=128, n_conv=9, dim2=128, n_h=1,
+                 dim1=128, n_conv=4, dim2=128, n_h=1,
                  classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.

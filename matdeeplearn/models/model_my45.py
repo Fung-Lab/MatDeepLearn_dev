@@ -124,7 +124,7 @@ class CrystalGraphConvNet(BaseModel):
     material properties.
     """
     def __init__(self, node_dim, edge_dim, output_dim,
-                 dim1=128, n_conv=9, dim2=128, n_h=1,k=3,
+                 dim1=128, n_conv=4, dim2=128, n_h=1,k=3,
                  classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.

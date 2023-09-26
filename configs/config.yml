@@ -44,7 +44,7 @@ model:
 optim:
   max_epochs: 300
   max_checkpoint_epochs: 0
-  lr: 0.005
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
@@ -65,19 +65,19 @@ optim:
   
 dataset:
   name: "test_data"
-  processed: False
+  processed: True
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
   #src: "/project/Rithwik/QM9/data.json"
-  #src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
+  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
-  #target_path:
+  target_path:
 
   # Path to save processed data.pt file
-  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
+  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
   #pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
   prediction_level: "graph"
   transforms:
@@ -118,8 +118,8 @@ dataset:
     node_representation: "onehot"    
     all_neighbors: True
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.8
-  val_ratio: 0.1
-  test_ratio: 0.1
+  train_ratio: 0.87
+  val_ratio: 0.065
+  test_ratio: 0.065
   
 
