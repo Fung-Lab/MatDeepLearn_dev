@@ -571,7 +571,7 @@ class DataProcessor:
                 edge_mask[(atomic_numbers[edge_indices[0]] != 100) & (atomic_numbers[edge_indices[1]] != 100)] = 3  # regular node to regular node
 
                 # data.edge_mask = edge_mask
-                indices_rn_to_rn = (edge_mask == 3) & (edge_weights <= 2)
+                indices_rn_to_rn = (edge_mask == 3) & (edge_weights <= 8)
                 indices_rn_to_vn = (edge_mask == 1) & (edge_weights <= 8)
                 # indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
                 indices_to_keep = indices_rn_to_rn | indices_rn_to_vn  # | indices_vn_to_vn
