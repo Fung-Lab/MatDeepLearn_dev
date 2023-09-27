@@ -581,10 +581,11 @@ class DataProcessor:
 
                 edge_indices = edge_indices[:, indices_to_keep]
                 edge_weights = edge_weights[indices_to_keep]
+                edge_vec = edge_vec[indices_to_keep, :]
 
 
                 data.edge_index, data.edge_weight = edge_indices, edge_weights
-                # data.edge_vec = edge_vec
+                data.edge_vec = edge_vec
                 data.cell_offsets = cell_offsets
                 # data.neighbors = neighbors
                 data.indices_rn_to_rn = indices_rn_to_rn

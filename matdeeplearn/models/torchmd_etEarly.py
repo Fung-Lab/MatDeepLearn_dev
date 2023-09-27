@@ -19,8 +19,6 @@ from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 
 
 @registry.register_model("torchmd_etEarly")
-
-
 class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
@@ -61,27 +59,27 @@ class TorchMD_ET(BaseModel):
     """
 
     def __init__(
-        self,
-	    node_dim,
-        edge_dim,
-        output_dim,
-        hidden_channels=128,
-        num_layers=6,
-        num_rbf=50,
-        rbf_type="expnorm",
-        trainable_rbf=True,
-        activation="silu",
-        attn_activation="silu",
-        neighbor_embedding=True,
-        num_heads=8,
-        distance_influence="both",
-        max_z=600,
-        max_num_neighbors=32,
-        num_post_layers=1,
-        post_hidden_channels=64,
-        pool="global_mean_pool",
-        aggr="add",
-        **kwargs
+            self,
+            node_dim,
+            edge_dim,
+            output_dim,
+            hidden_channels=128,
+            num_layers=6,
+            num_rbf=50,
+            rbf_type="expnorm",
+            trainable_rbf=True,
+            activation="silu",
+            attn_activation="silu",
+            neighbor_embedding=True,
+            num_heads=8,
+            distance_influence="both",
+            max_z=100,
+            max_num_neighbors=32,
+            num_post_layers=1,
+            post_hidden_channels=64,
+            pool="global_mean_pool",
+            aggr="add",
+            **kwargs
     ):
         super(TorchMD_ET, self).__init__(**kwargs)
 
@@ -160,32 +158,32 @@ class TorchMD_ET(BaseModel):
                 self.cutoff_radius,
                 aggr,
             ).jittable()
-            vn_vn_layer = EquivariantMultiHeadAttention(
-                hidden_channels,
-                num_rbf,
-                distance_influence,
-                num_heads,
-                act_class,
-                attn_activation,
-                cutoff_lower,
-                self.cutoff_radius,
-                aggr,
-            ).jittable()
+            # vn_vn_layer = EquivariantMultiHeadAttention(
+            #     hidden_channels,
+            #     num_rbf,
+            #     distance_influence,
+            #     num_heads,
+            #     act_class,
+            #     attn_activation,
+            #     cutoff_lower,
+            #     self.cutoff_radius,
+            #     aggr,
+            # ).jittable()
             self.attention_layers.append(layer)
             self.attention_layers.append(rn_vn_layer)
-            self.attention_layers.append(vn_vn_layer)
+            # self.attention_layers.append(vn_vn_layer)
 
         self.last_attention_layers = EquivariantMultiHeadAttention(
-                hidden_channels,
-                num_rbf,
-                distance_influence,
-                num_heads,
-                act_class,
-                attn_activation,
-                cutoff_lower,
-                self.cutoff_radius,
-                aggr,
-            ).jittable()
+            hidden_channels,
+            num_rbf,
+            distance_influence,
+            num_heads,
+            act_class,
+            attn_activation,
+            cutoff_lower,
+            self.cutoff_radius,
+            aggr,
+        ).jittable()
         self.out_norm = nn.LayerNorm(hidden_channels)
 
         self.num_post_layers = num_post_layers
@@ -208,42 +206,39 @@ class TorchMD_ET(BaseModel):
         for attn in self.attention_layers:
             attn.reset_parameters()
         self.out_norm.reset_parameters()
-        
+
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
 
         x = self.embedding(data.z)
 
-        #edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
-        #assert (
+        # edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
+        # assert (
         #    edge_vec is not None
-        #), "Distance module did not return directional information"
+        # ), "Distance module did not return directional information"
         if self.otf_edge_index == True:
-            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
-            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            # data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius,
+                                                                                            self.n_neighbors)
             edge_mask = torch.zeros_like(data.edge_index[0])
             edge_mask[(data.z[data.edge_index[0]] == 100) & (
-                       data.z[data.edge_index[1]] == 100)] = 0  # virtual node to virtual node
+                    data.z[data.edge_index[1]] == 100)] = 0  # virtual node to virtual node
             edge_mask[(data.z[data.edge_index[0]] != 100) & (
-                       data.z[data.edge_index[1]] == 100)] = 1  # regular node to virtual node
+                    data.z[data.edge_index[1]] == 100)] = 1  # regular node to virtual node
             edge_mask[(data.z[data.edge_index[0]] == 100) & (
-                       data.z[data.edge_index[1]] != 100)] = 2  # virtual node to regular node
+                    data.z[data.edge_index[1]] != 100)] = 2  # virtual node to regular node
             edge_mask[(data.z[data.edge_index[0]] != 100) & (
-                       data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
+                    data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
 
             data.edge_mask = edge_mask
-        data.edge_attr = self.distance_expansion(data.edge_weight) 
-                            
-        #mask = data.edge_index[0] != data.edge_index[1]        
-        #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
+        data.edge_attr = self.distance_expansion(data.edge_weight)
+
+        # mask = data.edge_index[0] != data.edge_index[1]
+        # data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
         data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
-        
+
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
-
-        indices_rn_to_rn = data.edge_mask == 3
-        indices_rn_to_vn = data.edge_mask == 1
-        indices_vn_to_vn = data.edge_mask == 0
 
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
@@ -251,21 +246,27 @@ class TorchMD_ET(BaseModel):
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for i, attn in enumerate(self.attention_layers):
-            if i % 3 == 0:  # rn-rn
-                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_rn], data.edge_weight[indices_rn_to_rn], data.edge_attr[indices_rn_to_rn, :], data.edge_vec[indices_rn_to_rn, :])
+            if i % 2 == 0:  # rn-rn
+                dx, dvec = attn(x, vec, data.edge_index[:, data.indices_rn_to_rn],
+                                data.edge_weight[data.indices_rn_to_rn], data.edge_attr[data.indices_rn_to_rn, :],
+                                data.edge_vec[data.indices_rn_to_rn, :])
                 x = x + dx
                 vec = vec + dvec
-            if i % 3 == 1:  # rn-vn
-                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn], data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
+            if i % 2 == 1:  # rn-vn
+                dx, dvec = attn(x, vec, data.edge_index[:, data.indices_rn_to_vn],
+                                data.edge_weight[data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :],
+                                data.edge_vec[data.indices_rn_to_vn, :])
                 x = x + dx
                 vec = vec + dvec
-            if i % 3 == 2:  # vn-vn
-                dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
-                x = x + dx
-                vec = vec + dvec
+            # if i % 3 == 2:  # vn-vn
+            #     dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
+            #     x = x + dx
+            #     vec = vec + dvec
 
-        dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn],
-                        data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
+        dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, data.indices_rn_to_vn],
+                                              data.edge_weight[data.indices_rn_to_vn],
+                                              data.edge_attr[data.indices_rn_to_vn, :],
+                                              data.edge_vec[data.indices_rn_to_vn, :])
         x = x + dx
         # vec = vec + dvec
         x = self.out_norm(x)
@@ -286,38 +287,39 @@ class TorchMD_ET(BaseModel):
         '''
         virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
         x = torch.index_select(x, 0, virtual_mask)
-        
+
         for i in range(0, len(self.post_lin_list) - 1):
             x = self.post_lin_list[i](x)
             x = getattr(F, self.activation)(x)
-        x = self.post_lin_list[-1](x) 
-                    
+        x = self.post_lin_list[-1](x)
+
         return x
-        
+
     def forward(self, data):
-    
+
         output = {}
         out = self._forward(data)
-        output["output"] =  out
+        output["output"] = out
 
-        if self.gradient == True and out.requires_grad == True:         
-            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+        if self.gradient == True and out.requires_grad == True:
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :],
+                                  torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
             grad = torch.autograd.grad(
-                    out,
-                    [data.pos, data.displacement],
-                    grad_outputs=torch.ones_like(out),
-                    create_graph=self.training) 
+                out,
+                [data.pos, data.displacement],
+                grad_outputs=torch.ones_like(out),
+                create_graph=self.training)
             forces = -1 * grad[0]
             stress = grad[1]
-            stress = stress / volume.view(-1, 1, 1)         
+            stress = stress / volume.view(-1, 1, 1)
 
-            output["pos_grad"] =  forces
-            output["cell_grad"] =  stress
+            output["pos_grad"] = forces
+            output["cell_grad"] = stress
         else:
-            output["pos_grad"] =  None
-            output["cell_grad"] =  None  
-                  
-        return output        
+            output["pos_grad"] = None
+            output["cell_grad"] = None
+
+        return output
 
     def __repr__(self):
         return (
@@ -335,6 +337,7 @@ class TorchMD_ET(BaseModel):
             f"cutoff_lower={self.cutoff_lower}, "
             f"self.cutoff_radius={self.self.cutoff_radius})"
         )
+
     @property
     def target_attr(self):
         return "y"
@@ -342,16 +345,16 @@ class TorchMD_ET(BaseModel):
 
 class EquivariantMultiHeadAttention(MessagePassing):
     def __init__(
-        self,
-        hidden_channels,
-        num_rbf,
-        distance_influence,
-        num_heads,
-        activation,
-        attn_activation,
-        cutoff_lower,
-        cutoff_upper,
-        aggregation,
+            self,
+            hidden_channels,
+            num_rbf,
+            distance_influence,
+            num_heads,
+            activation,
+            attn_activation,
+            cutoff_lower,
+            cutoff_upper,
+            aggregation,
     ):
         super(EquivariantMultiHeadAttention, self).__init__(aggr=aggregation, node_dim=0)
         assert hidden_channels % num_heads == 0, (
@@ -366,6 +369,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
         self.head_dim = hidden_channels // num_heads
 
         self.layernorm = nn.LayerNorm(hidden_channels)
+        self.layernorm2 = nn.LayerNorm(hidden_channels)
         self.act = activation()
         self.attn_activation = act_class_mapping[attn_activation]()
         self.cutoff = CosineCutoff(cutoff_lower, cutoff_upper)
@@ -407,6 +411,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
 
     def forward(self, x, vec, edge_index, r_ij, f_ij, d_ij):
         x = self.layernorm(x)
+        vec = self.layernorm2(vec)
         q = self.q_proj(x).reshape(-1, self.num_heads, self.head_dim)
         k = self.k_proj(x).reshape(-1, self.num_heads, self.head_dim)
         v = self.v_proj(x).reshape(-1, self.num_heads, self.head_dim * 3)
@@ -425,7 +430,6 @@ class EquivariantMultiHeadAttention(MessagePassing):
             if self.dv_proj is not None
             else None
         )
-        
 
         # propagate_type: (q: Tensor, k: Tensor, v: Tensor, vec: Tensor, dk: Tensor, dv: Tensor, r_ij: Tensor, d_ij: Tensor)
         x, vec = self.propagate(
@@ -472,11 +476,11 @@ class EquivariantMultiHeadAttention(MessagePassing):
         return x, vec
 
     def aggregate(
-        self,
-        features: Tuple[torch.Tensor, torch.Tensor],
-        index: torch.Tensor,
-        ptr: Optional[torch.Tensor],
-        dim_size: Optional[int],
+            self,
+            features: Tuple[torch.Tensor, torch.Tensor],
+            index: torch.Tensor,
+            ptr: Optional[torch.Tensor],
+            dim_size: Optional[int],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         x, vec = features
         x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
@@ -484,6 +488,6 @@ class EquivariantMultiHeadAttention(MessagePassing):
         return x, vec
 
     def update(
-        self, inputs: Tuple[torch.Tensor, torch.Tensor]
+            self, inputs: Tuple[torch.Tensor, torch.Tensor]
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         return inputs
