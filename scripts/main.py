@@ -1,6 +1,9 @@
 import logging
 import pprint
 import os
+import sys
+import shutil
+from datetime import datetime
 from torch import distributed as dist
 from matdeeplearn.common.config.build_config import build_config
 from matdeeplearn.common.config.flags import flags
@@ -17,10 +20,11 @@ class Runner:  # submitit.helpers.Checkpointable):
         self.config = None
 
     def __call__(self, config):
+        
         with new_trainer_context(args=args, config=config) as ctx:
             self.config = ctx.config
             self.task = ctx.task
-            self.trainer = ctx.trainer
+            self.trainer = ctx.trainer           
 
             self.task.setup(self.trainer)
 
@@ -29,6 +33,8 @@ class Runner:  # submitit.helpers.Checkpointable):
             logging.debug(pprint.pformat(self.config))
 
             self.task.run()
+            
+            shutil.move('log_'+config["task"]["log_id"]+'.txt', os.path.join(self.trainer.save_dir, "results", self.trainer.timestamp_id, "log.txt"))
 
     def checkpoint(self, *args, **kwargs):
         # new_runner = Runner()
@@ -49,9 +55,22 @@ if __name__ == "__main__":
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.INFO)
         
+        timestamp = datetime.now().timestamp()
+        timestamp_id = datetime.fromtimestamp(timestamp).strftime(
+            "%Y-%m-%d-%H-%M-%S-%f"
+        )[:-3]    
+        fh = logging.FileHandler('log_'+timestamp_id+'.txt', 'w+')        
+        fh.setLevel(logging.DEBUG)  
+        root_logger.addHandler(fh)  
+                
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setLevel(logging.DEBUG)                               
+        root_logger.addHandler(sh)
+        
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
+    config["task"]["log_id"] = timestamp_id
     
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])
@@ -62,3 +81,4 @@ if __name__ == "__main__":
 
     else:  # Run locally
         Runner()(config)
+      

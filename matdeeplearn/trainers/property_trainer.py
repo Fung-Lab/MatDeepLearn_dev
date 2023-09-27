@@ -31,6 +31,8 @@ class PropertyTrainer(BaseTrainer):
         verbosity,
         batch_tqdm,
         write_output,
+        output_frequency,
+        model_save_frequency,
         save_dir,
         checkpoint_path,
         use_amp,
@@ -50,6 +52,8 @@ class PropertyTrainer(BaseTrainer):
             verbosity,
             batch_tqdm,
             write_output,
+            output_frequency,
+            model_save_frequency,
             save_dir,
             checkpoint_path,          
             use_amp,
@@ -112,7 +116,7 @@ class PropertyTrainer(BaseTrainer):
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
                 #  keep option to log metrics per epoch  
                 _metrics = self._compute_metrics(out, batch, _metrics)               
-                self.metrics = self.evaluator.update("loss", loss.item(), _metrics)     
+                self.metrics = self.evaluator.update("loss", loss.item(), out["output"].shape[0], _metrics)     
 
             self.epoch = epoch + 1
 
@@ -124,7 +128,8 @@ class PropertyTrainer(BaseTrainer):
             # Save current model      
             torch.cuda.empty_cache()                 
             if str(self.rank) in ("0", "cpu", "cuda"):
-                self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+                if self.model_save_frequency == 1:
+                    self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation set if it exists
                 if self.data_loader.get("val_loader"):
@@ -143,8 +148,16 @@ class PropertyTrainer(BaseTrainer):
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
-                    self.update_best_model(metric)
-
+                    if self.output_frequency == 0:
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=False)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=False)
+                    elif self.output_frequency == 1:
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=True)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=True)
                 # step scheduler, using validation error
                 self._scheduler_step()
 
@@ -155,14 +168,21 @@ class PropertyTrainer(BaseTrainer):
                 self.model.module.load_state_dict(self.best_model_state)
             elif str(self.rank) in ("cpu", "cuda"):
                 self.model.load_state_dict(self.best_model_state)
-
-            if self.data_loader.get("test_loader"):
-                metric = self.validate("test")
-                test_loss = metric[type(self.loss_fn).__name__]["metric"]
-            else:
-                test_loss = "N/A"
-            logging.info("Test loss: " + str(test_loss))
-
+            #if self.data_loader.get("test_loader"):
+            #    metric = self.validate("test")
+            #    test_loss = metric[type(self.loss_fn).__name__]["metric"]
+            #else:
+            #    test_loss = "N/A"             
+            if self.model_save_frequency != -1:
+                self.save_model("best_checkpoint.pt", metric, True)
+            logging.info("Final Losses: ")     
+            if "train" in self.write_output:
+                self.predict(self.data_loader["train_loader"], "train")
+            if "val" in self.write_output and self.data_loader.get("val_loader"):
+                self.predict(self.data_loader["val_loader"], "val")
+            if "test" in self.write_output and self.data_loader.get("test_loader"):    
+                self.predict(self.data_loader["test_loader"], "test")                       
+            
         return self.best_model_state
         
     @torch.no_grad()
@@ -185,7 +205,7 @@ class PropertyTrainer(BaseTrainer):
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
             metrics = self._compute_metrics(out, batch, metrics)
-            metrics = evaluator.update("loss", loss.item(), metrics)
+            metrics = evaluator.update("loss", loss.item(), out["output"].shape[0], metrics)
             del loss, batch, out
         
         torch.cuda.empty_cache()
@@ -222,7 +242,7 @@ class PropertyTrainer(BaseTrainer):
                 loss = self._compute_loss(out, batch)
                 metrics = self._compute_metrics(out, batch, metrics)
                 metrics = evaluator.update(
-                    "loss", loss.item(), metrics
+                    "loss", loss.item(), out["output"].shape[0], metrics
                 )                                 
                 if str(self.rank) not in ("cpu", "cuda"): 
                     batch_t = batch[self.model.module.target_attr].cpu().numpy()

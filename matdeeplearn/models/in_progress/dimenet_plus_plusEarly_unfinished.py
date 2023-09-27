@@ -1,6 +1,8 @@
 
 import torch
 from torch import nn
+import torch.nn.functional as F
+import torch_geometric.nn
 from torch_geometric.nn import radius_graph
 from torch_geometric.nn.inits import glorot_orthogonal
 
@@ -14,12 +16,12 @@ from torch_geometric.nn.models.dimenet import (
 from torch_geometric.nn.resolver import activation_resolver
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
-from matdeeplearn.preprocessor.helpers import triplets, tripletsOld
-
+from matdeeplearn.preprocessor.helpers import triplets, triplets_pbc
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.utils import (
     conditional_grad,
 )
+from matdeeplearn.models.base_model import BaseModel
 
 try:
     import sympy as sym
@@ -168,8 +170,7 @@ class OutputPPBlock(torch.nn.Module):
             x = self.act(lin(x))
         return self.lin(x)
 
-
-class DimeNetPlusPlus(torch.nn.Module):
+class DimeNetPlusPlus(BaseModel):
     r"""DimeNet++ implementation based on https://github.com/klicperajo/dimenet.
     Args:
         hidden_channels (int): Hidden embedding size.
@@ -273,45 +274,53 @@ class DimeNetPlusPlus(torch.nn.Module):
             interaction.reset_parameters()
 
     def triplets(self, edge_index, cell_offsets, num_nodes):
+        """
+        Taken from the DimeNet implementation on OCP
+        """
+    
         row, col = edge_index  # j->i
-
+    
         value = torch.arange(row.size(0), device=row.device)
         adj_t = SparseTensor(
             row=col, col=row, value=value, sparse_sizes=(num_nodes, num_nodes)
         )
         adj_t_row = adj_t[row]
         num_triplets = adj_t_row.set_value(None).sum(dim=1).to(torch.long)
-
+    
         # Node indices (k->j->i) for triplets.
         idx_i = col.repeat_interleave(num_triplets)
         idx_j = row.repeat_interleave(num_triplets)
         idx_k = adj_t_row.storage.col()
-
+    
         # Edge indices (k->j, j->i) for triplets.
         idx_kj = adj_t_row.storage.value()
         idx_ji = adj_t_row.storage.row()
-
+    
         # Remove self-loop triplets d->b->d
         # Check atom as well as cell offset
         cell_offset_kji = cell_offsets[idx_kj] + cell_offsets[idx_ji]
-        mask = (idx_i != idx_k) | torch.any(cell_offset_kji != 0, dim=-1)
-
+        mask = (idx_i != idx_k) | torch.any(cell_offset_kji != 0, dim=-1).to(
+            device=idx_i.device
+        )
+    
         idx_i, idx_j, idx_k = idx_i[mask], idx_j[mask], idx_k[mask]
         idx_kj, idx_ji = idx_kj[mask], idx_ji[mask]
-
-        return col, row, idx_i, idx_j, idx_k, idx_kj, idx_ji
+    
+        return idx_i, idx_j, idx_k, idx_kj, idx_ji
 
     def forward(self, z, pos, batch=None):
         """ """
         raise NotImplementedError
 
-
-@registry.register_model("dimenetplusplus")
+@registry.register_model("dimenetplusplusEarly")
 class DimeNetPlusPlusWrap(DimeNetPlusPlus):
     def __init__(
         self,
         #num_atoms,
         #bond_feat_dim,  # not used
+        node_dim,
+        edge_dim,
+        output_dim,
         num_targets=1,
         use_pbc=True,
         regress_forces=False,
@@ -328,6 +337,11 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         num_before_skip=1,
         num_after_skip=2,
         num_output_layers=3,
+        num_post_layers=1,
+        post_hidden_channels=64,
+        pool="global_mean_pool",
+        activation="relu",
+        pool_order="early",
         **kwargs,
     ):
         self.num_targets = num_targets
@@ -339,7 +353,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
 
         super(DimeNetPlusPlusWrap, self).__init__(
             hidden_channels=hidden_channels,
-            out_channels=num_targets,
+            out_channels=output_dim,
             num_blocks=num_blocks,
             int_emb_size=int_emb_size,
             basis_emb_size=basis_emb_size,
@@ -352,11 +366,28 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
             num_after_skip=num_after_skip,
             num_output_layers=num_output_layers,
         )
+        self.num_post_layers = num_post_layers
+        self.post_hidden_channels = post_hidden_channels
+        self.post_lin_list = nn.ModuleList()
+        self.pool = pool
+        self.activation = activation
+        self.pool_order = pool_order
+        if self.pool_order == "early":
+            for i in range(self.num_post_layers):
+                if i == 0:
+                    self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
+                else:
+                    self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+            self.post_lin_list.append(nn.Linear(post_hidden_channels, output_dim))
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
         pos = data.pos
         batch = data.batch
+
+        if self.otf_edge_index == True:
+            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
+            data.edge_index, data.edge_weight, _, data.cell_offsets, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
         #(
         #    edge_index,
         #    dist,
@@ -370,19 +401,16 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         #data.cell_offsets = cell_offsets
         #data.neighbors = neighbors
         j, i = data.edge_index
-        dist = data.distances   
-        try:
-            idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(
-                data.edge_index,
-                data.cell_offsets,
-                num_nodes=data.z.size(0),)
-        except:
-            _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = tripletsOld(data.edge_index, num_nodes=data.z.size(0))
-        
-        try:
-            offsets = data.cell_offsets
-        except:
-            offsets = None
+        dist = data.edge_weight
+
+        if torch.sum(data.cell) == 0:
+            _, _, idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets(data.edge_index, num_nodes=data.z.size(0))
+        else:
+            idx_i, idx_j, idx_k, idx_kj, idx_ji = triplets_pbc(
+            data.edge_index,
+            data.cell_offsets,
+            num_nodes=data.z.size(0),)
+        offsets = data.cell_offsets         
 
         # Calculate angles.
         pos_i = pos[idx_i].detach()
@@ -404,6 +432,7 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
 
         rbf = self.rbf(dist)
         sbf = self.sbf(dist, angle, idx_kj)
+        print(rbf.shape)
 
         # Embedding block.
         x = self.emb(data.z.long(), rbf, i, j)
@@ -415,31 +444,48 @@ class DimeNetPlusPlusWrap(DimeNetPlusPlus):
         ):
             x = interaction_block(x, rbf, sbf, idx_kj, idx_ji)
             P += output_block(x, rbf, i, num_nodes=pos.size(0))
+        if self.prediction_level == "graph" and self.pool_order == "early":
+            energy = getattr(torch_geometric.nn, self.pool)(P, data.batch)
+            x = energy
+        elif self.prediction_level == "graph":
+            energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
+            x = energy
+        else:
+            x = P
 
-        energy = P.sum(dim=0) if batch is None else scatter(P, batch, dim=0)
+        if self.pool_order == "early":
+            for i in range(0, len(self.post_lin_list) - 1):
+                x = self.post_lin_list[i](x)
+                x = getattr(F, self.activation)(x)
+            x = self.post_lin_list[-1](x)
 
-        return energy
+        return x
 
     def forward(self, data):
-        if self.regress_forces:
-            data.pos.requires_grad_(True)
-        energy = self._forward(data)
         
-        if self.regress_forces:
-            forces = -1 * (
-                torch.autograd.grad(
-                    energy,
-                    data.pos,
-                    grad_outputs=torch.ones_like(energy),
-                    create_graph=True,
-                    allow_unused=True,
-                )[0]
-            )
-            return energy, forces
-        elif energy.shape[1] == 1:
-            return energy.view(-1)
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
+            grad = torch.autograd.grad(
+                    out,
+                    [data.pos, data.displacement],
+                    grad_outputs=torch.ones_like(out),
+                    create_graph=self.training) 
+            forces = -1 * grad[0]
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)             
+
+            output["pos_grad"] =  forces
+            output["cell_grad"] =  stress
         else:
-            return energy
+            output["pos_grad"] =  None
+            output["cell_grad"] =  None    
+                  
+        return output
+        
     @property
     def target_attr(self):
         return "y"

@@ -21,13 +21,12 @@ class StructureDataset(InMemoryDataset):
         super(StructureDataset, self).__init__(
             root, transform, pre_transform, pre_filter
         )
-
         if not torch.cuda.is_available() or device == "cpu":
             self.data, self.slices = torch.load(
                 self.processed_paths[0], map_location=torch.device("cpu")
             )
         else:
-            self.data, self.slices = torch.load(self.processed_paths[0])
+            self.data, self.slices = torch.load(self.processed_paths[0], map_location=device)
 
     @property
     def raw_file_names(self):
