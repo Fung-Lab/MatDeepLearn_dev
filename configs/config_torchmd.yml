@@ -29,7 +29,7 @@ model:
   name: torchmd_etEarly
   # model attributes
   hidden_channels: 64
-  num_layers: 2
+  num_layers: 5
   num_rbf: 25
   activation: "silu"
   attn_activation: "silu"
