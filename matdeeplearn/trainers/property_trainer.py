@@ -1,4 +1,6 @@
+import csv
 import logging
+import os
 import time
 
 import numpy as np
@@ -181,8 +183,21 @@ class PropertyTrainer(BaseTrainer):
             if "val" in self.write_output and self.data_loader.get("val_loader"):
                 self.predict(self.data_loader["val_loader"], "val")
             if "test" in self.write_output and self.data_loader.get("test_loader"):    
-                self.predict(self.data_loader["test_loader"], "test")                       
-            
+                _, test_loss = self.predict(self.data_loader["test_loader"], "test")
+
+        best_log_dir_name = os.path.join(self.save_dir, "results/finetune/", self.identifier) \
+            if self.checkpoint_path else os.path.join(self.save_dir, "results/scratch/", self.identifier)
+        if not os.path.exists(best_log_dir_name):
+            os.makedirs(best_log_dir_name)
+
+        with open(os.path.join(best_log_dir_name, "best_val_metric.csv"), "a+", encoding="utf-8", newline='') as f:
+            new_metric = [self.timestamp_id, test_loss, self.best_epoch, self.seed]
+            csv_writer = csv.writer(f)
+            if not os.path.getsize(os.path.join(best_log_dir_name, "best_val_metric.csv")):
+                csv_head = ["timestamp_id", "best_val_metric", "best_epoch", "seed"]
+                csv_writer.writerow(csv_head)
+            csv_writer.writerow(new_metric)
+
         return self.best_model_state
         
     @torch.no_grad()
@@ -334,7 +349,7 @@ class PropertyTrainer(BaseTrainer):
             
         torch.cuda.empty_cache()
         
-        return predictions 
+        return predictions, predict_loss if labels else predictions, None
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
