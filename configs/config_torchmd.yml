@@ -41,7 +41,7 @@ model:
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True
   # Compute edge attributes on the fly in the model forward
-  otf_edge_attr: True
+  otf_edge_attr: False
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True
@@ -72,7 +72,7 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: ../data_qm9_qmc/
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
@@ -103,9 +103,9 @@ dataset:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: ocp
     # determine if edges are computed, if false, then they need to be computed on the fly
-    preprocess_edges: False
+    preprocess_edges: True
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
-    preprocess_edge_features: False
+    preprocess_edge_features: True
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: True
     # distance cutoff to determine if two atoms are connected by an edge

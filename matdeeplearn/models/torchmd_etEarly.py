@@ -73,7 +73,7 @@ class TorchMD_ET(BaseModel):
             neighbor_embedding=True,
             num_heads=8,
             distance_influence="both",
-            max_z=100,
+            max_z=600,
             max_num_neighbors=32,
             num_post_layers=1,
             post_hidden_channels=64,
@@ -240,6 +240,10 @@ class TorchMD_ET(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
 
+        indices_rn_to_rn = data.edge_mask == 3
+        indices_rn_to_vn = data.edge_mask == 1
+        # indices_vn_to_vn = data.edge_mask == 0
+
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
@@ -247,26 +251,24 @@ class TorchMD_ET(BaseModel):
 
         for i, attn in enumerate(self.attention_layers):
             if i % 2 == 0:  # rn-rn
-                dx, dvec = attn(x, vec, data.edge_index[:, data.indices_rn_to_rn],
-                                data.edge_weight[data.indices_rn_to_rn], data.edge_attr[data.indices_rn_to_rn, :],
-                                data.edge_vec[data.indices_rn_to_rn, :])
+                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_rn], data.edge_weight[indices_rn_to_rn],
+                                data.edge_attr[indices_rn_to_rn, :], data.edge_vec[indices_rn_to_rn, :])
                 x = x + dx
                 vec = vec + dvec
             if i % 2 == 1:  # rn-vn
-                dx, dvec = attn(x, vec, data.edge_index[:, data.indices_rn_to_vn],
-                                data.edge_weight[data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :],
-                                data.edge_vec[data.indices_rn_to_vn, :])
+                dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn],
+                                data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
                 x = x + dx
                 vec = vec + dvec
             # if i % 3 == 2:  # vn-vn
-            #     dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn], data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
+            #     dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn],
+            #                     data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
             #     x = x + dx
             #     vec = vec + dvec
 
-        dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, data.indices_rn_to_vn],
-                                              data.edge_weight[data.indices_rn_to_vn],
-                                              data.edge_attr[data.indices_rn_to_vn, :],
-                                              data.edge_vec[data.indices_rn_to_vn, :])
+        dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, indices_rn_to_vn],
+                                              data.edge_weight[indices_rn_to_vn],
+                                              data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
         x = x + dx
         # vec = vec + dvec
         x = self.out_norm(x)
