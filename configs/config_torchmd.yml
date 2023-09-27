@@ -39,7 +39,7 @@ model:
   pool: "global_add_pool"
   aggr: "add"
   # Compute edge indices on the fly in the model forward
-  otf_edge_index: True
+  otf_edge_index: False
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: False
   # Compute node attributes on the fly in the model forward
