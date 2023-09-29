@@ -94,6 +94,7 @@ class BaseTrainer(ABC):
             "%Y-%m-%d-%H-%M-%S-%f"
         )[:-3]
         if identifier:
+            self.identifier = identifier
             self.timestamp_id = f"{self.timestamp_id}-{identifier}"
 
         if self.train_verbosity:

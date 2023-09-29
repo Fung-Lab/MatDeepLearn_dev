@@ -179,11 +179,11 @@ class PropertyTrainer(BaseTrainer):
                 self.save_model("best_checkpoint.pt", metric, True)
             logging.info("Final Losses: ")     
             if "train" in self.write_output:
-                self.predict(self.data_loader["train_loader"], "train")
+                self.predict(self.data_loader["train_loader"], "train", write_output=False)
             if "val" in self.write_output and self.data_loader.get("val_loader"):
-                self.predict(self.data_loader["val_loader"], "val")
+                self.predict(self.data_loader["val_loader"], "val", write_output=False)
             if "test" in self.write_output and self.data_loader.get("test_loader"):    
-                _, test_loss = self.predict(self.data_loader["test_loader"], "test")
+                _, test_loss = self.predict(self.data_loader["test_loader"], "test", write_output=False)
 
         best_log_dir_name = os.path.join(self.save_dir, "results/finetune/", self.identifier) \
             if self.checkpoint_path else os.path.join(self.save_dir, "results/scratch/", self.identifier)
@@ -191,10 +191,10 @@ class PropertyTrainer(BaseTrainer):
             os.makedirs(best_log_dir_name)
 
         with open(os.path.join(best_log_dir_name, "best_val_metric.csv"), "a+", encoding="utf-8", newline='') as f:
-            new_metric = [self.timestamp_id, test_loss, self.best_epoch, self.seed]
+            new_metric = [self.timestamp_id, test_loss]
             csv_writer = csv.writer(f)
             if not os.path.getsize(os.path.join(best_log_dir_name, "best_val_metric.csv")):
-                csv_head = ["timestamp_id", "best_val_metric", "best_epoch", "seed"]
+                csv_head = ["timestamp_id", "best_val_metric"]
                 csv_writer.writerow(csv_head)
             csv_writer.writerow(new_metric)
 
@@ -349,7 +349,7 @@ class PropertyTrainer(BaseTrainer):
             
         torch.cuda.empty_cache()
         
-        return predictions, predict_loss if labels else predictions, None
+        return predictions, predict_loss if labels else None
 
     def _forward(self, batch_data):
         output = self.model(batch_data)

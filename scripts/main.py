@@ -34,7 +34,7 @@ class Runner:  # submitit.helpers.Checkpointable):
 
             self.task.run()
             
-            shutil.move('log_'+config["task"]["log_id"]+'.txt', os.path.join(self.trainer.save_dir, "results", self.trainer.timestamp_id, "log.txt"))
+            # shutil.move('log_'+config["task"]["log_id"]+'.txt', os.path.join(self.trainer.save_dir, "results", self.trainer.timestamp_id, "log.txt"))
 
     def checkpoint(self, *args, **kwargs):
         # new_runner = Runner()
@@ -59,13 +59,13 @@ if __name__ == "__main__":
         timestamp_id = datetime.fromtimestamp(timestamp).strftime(
             "%Y-%m-%d-%H-%M-%S-%f"
         )[:-3]    
-        fh = logging.FileHandler('log_'+timestamp_id+'.txt', 'w+')        
-        fh.setLevel(logging.DEBUG)  
-        root_logger.addHandler(fh)  
-                
-        sh = logging.StreamHandler(sys.stdout)
-        sh.setLevel(logging.DEBUG)                               
-        root_logger.addHandler(sh)
+        # fh = logging.FileHandler('log_'+timestamp_id+'.txt', 'w+')
+        # fh.setLevel(logging.DEBUG)
+        # root_logger.addHandler(fh)
+        #
+        # sh = logging.StreamHandler(sys.stdout)
+        # sh.setLevel(logging.DEBUG)
+        # root_logger.addHandler(sh)
         
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
