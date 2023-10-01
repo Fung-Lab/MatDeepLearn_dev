@@ -70,11 +70,11 @@ class ConvLayer(MessagePassing):
     
     def aggregate(
         self,
-        features: Tuple[torch.Tensor, torch.Tensor],
-        index: torch.Tensor,
-        ptr: Optional[torch.Tensor],
-        dim_size: Optional[int],
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        features,
+        index,
+        ptr,
+        dim_size,
+    ):
         x, vec = features
         x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
         vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
