@@ -227,8 +227,8 @@ class CGCNN(BaseModel):
                 vn_out = getattr(F, self.act)(vn_out)
 
         out = torch.zeros_like(data.x)  # Create a tensor of zeros with the same shape as data.x
-        out[rn_mask] = rn_out
-        out[vn_mask] = vn_out
+        out[rn_mask] = rn_out.float()
+        out[vn_mask] = vn_out.float()
 
         # GNN layers
         for i in range(0, len(self.conv_list)):
