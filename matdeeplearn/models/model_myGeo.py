@@ -76,8 +76,8 @@ class ConvLayer(MessagePassing):
         dim_size,
     ):
         x, vec = features
-        x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
-        vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
+        x = scatter(x, index, dim=self.atom_fea_len, dim_size=dim_size)
+        vec = scatter(vec, index, dim=self.nbr_fea_len, dim_size=dim_size)
         return x, vec
     
     def update(self, aggr_out):
