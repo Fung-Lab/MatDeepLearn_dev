@@ -32,7 +32,7 @@ class ConvLayer(MessagePassing):
         nbr_fea_len: int
           Number of bond features.
         """
-        super(ConvLayer, self).__init__()
+        super(ConvLayer, self).__init__(aggr="add", node_dim=0)
         self.atom_fea_len = atom_fea_len
         self.nbr_fea_len = nbr_fea_len
         self.k = k
@@ -76,8 +76,8 @@ class ConvLayer(MessagePassing):
         dim_size,
     ):
         x, vec = features
-        x = scatter(x, index, dim=0, dim_size=dim_size)
-        vec = scatter(vec, index, dim=0, dim_size=dim_size)
+        x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
+        vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
         return x, vec
     
     def update(self, aggr_out):
