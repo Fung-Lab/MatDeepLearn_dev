@@ -60,7 +60,7 @@ class ConvLayer(MessagePassing):
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
         out = torch.zeros_like(z)
-        for lin_f, lin_s, bn in zip(self.fc_f, self.fc_s):
+        for lin_f, lin_s in zip(self.fc_f, self.fc_s):
             out += self.softmax(lin_f(z)) * self.softplus1(lin_s(z))
         out /= self.k
         node_msgs = z[:, :2 * self.atom_fea_len]
@@ -194,7 +194,7 @@ class CrystalGraphConvNet(BaseModel):
         """
         atom_fea = data.x
         edge_index = data.edge_index
-        distances = data.distances
+        distances = data.edge_attr
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
             atom_fea, distances = conv_func(atom_fea, data.edge_index, distances)
