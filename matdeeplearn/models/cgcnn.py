@@ -66,7 +66,7 @@ class CGCNN(BaseModel):
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
         # setup layers
-        self.pre_lin_list = self._setup_pre_gnn_layers()
+        self.pre_lin_list, self.pre_lin_list_vn = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list, self.rn_to_vn_conv_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
         self.vn_conv = self._setup_vn_gnn_layer()
@@ -86,16 +86,21 @@ class CGCNN(BaseModel):
     def _setup_pre_gnn_layers(self):
         """Sets up pre-GNN dense layers (NOTE: in v0.1 this is always set to 1 layer)."""
         pre_lin_list = torch.nn.ModuleList()
+        pre_lin_list_vn = torch.nn.ModuleList()
         if self.pre_fc_count > 0:
             pre_lin_list = torch.nn.ModuleList()
+            pre_lin_list_vn = torch.nn.ModuleList()
             for i in range(self.pre_fc_count):
                 if i == 0:
                     lin = torch.nn.Linear(self.node_dim, self.dim1)
+                    lin_vn = torch.nn.Linear(self.node_dim, self.dim1)
                 else:
                     lin = torch.nn.Linear(self.dim1, self.dim1)
+                    lin_vn = torch.nn.Linear(self.dim1, self.dim1)
                 pre_lin_list.append(lin)
+                pre_lin_list_vn.append(lin_vn)
 
-        return pre_lin_list
+        return pre_lin_list, pre_lin_list_vn
 
     def _setup_gnn_layers(self):
         """Sets up GNN layers."""
@@ -168,6 +173,23 @@ class CGCNN(BaseModel):
             edge_mask[(data.z[data.edge_index[0]] == 100) & (data.z[data.edge_index[1]] != 100)] = 2  # virtual node to regular node
             edge_mask[(data.z[data.edge_index[0]] != 100) & (data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
 
+            indices_rn_to_rn = (edge_mask == 3) & (data.edge_weight <= 8)
+            indices_rn_to_vn = (edge_mask == 1) & (data.edge_weight <= 8)
+            # indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
+            indices_to_keep = indices_rn_to_rn | indices_rn_to_vn  # | indices_vn_to_vn
+            indices_rn_to_rn = indices_rn_to_rn[indices_to_keep]
+            indices_rn_to_vn = indices_rn_to_vn[indices_to_keep]
+            # indices_vn_to_vn = indices_vn_to_vn[indices_to_keep]
+
+            edge_indices = data.edge_index[:, indices_to_keep]
+            edge_weights = data.edge_weight[indices_to_keep]
+
+            data.edge_index, data.edge_weight = edge_indices, edge_weights
+            data.indices_rn_to_rn = indices_rn_to_rn
+            data.indices_rn_to_vn = indices_rn_to_vn
+            # data.indices_vn_to_vn = indices_vn_to_vn
+
+
             data.edge_mask = edge_mask
             if self.otf_edge_attr == True:
                 data.edge_attr = self.distance_expansion(data.edge_weight)
@@ -181,19 +203,30 @@ class CGCNN(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
 
-        # indices_rn_to_rn = data.edge_mask == 3
-        # indices_rn_to_vn = data.edge_mask == 1 & (data.edge_weight <= 8)
-        # indices_vn_to_vn = (data.edge_mask == 0) & (data.edge_weight <= 4)
-
-            
         # Pre-GNN dense layers
+        rn_mask = torch.argwhere(data.z != 100).squeeze(1)
+        vn_mask = torch.argwhere(data.z == 100).squeeze(1)
+        rn = data.x[rn_mask]
+        vn = data.x[vn_mask]
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
-                out = self.pre_lin_list[i](data.x)
-                out = getattr(F, self.act)(out)
+                rn_out = self.pre_lin_list[i](rn)
+                rn_out = getattr(F, self.act)(rn_out)
             else:
-                out = self.pre_lin_list[i](out)
-                out = getattr(F, self.act)(out)
+                rn_out = self.pre_lin_list[i](rn_out)
+                rn_out = getattr(F, self.act)(rn_out)
+
+        for i in range(0, len(self.pre_lin_list_vn)):
+            if i == 0:
+                vn_out = self.pre_lin_list_vn[i](vn)
+                vn_out = getattr(F, self.act)(vn_out)
+            else:
+                vn_out = self.pre_lin_list_vn[i](vn_out)
+                vn_out = getattr(F, self.act)(vn_out)
+
+        out = torch.zeros_like(data.x)  # Create a tensor of zeros with the same shape as data.x
+        out[rn_mask] = rn_out
+        out[vn_mask] = vn_out
 
         # GNN layers
         for i in range(0, len(self.conv_list)):
@@ -243,28 +276,6 @@ class CGCNN(BaseModel):
                     # )
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
-            # if len(self.pre_lin_list) == 0 and i == 0:
-            #     if self.batch_norm:
-            #         out = self.conv_list[i](
-            #             data.x, data.edge_index, data.edge_attr
-            #         )
-            #         out = self.bn_list[i](out)
-            #     else:
-            #         out = self.conv_list[i](
-            #             data.x, data.edge_index, data.edge_attr
-            #         )
-            # else:
-            #     if self.batch_norm:
-            #         out = self.conv_list[i](
-            #             out, data.edge_index, data.edge_attr
-            #         )
-            #         out = self.bn_list[i](out)
-            #     else:
-            #         out = self.conv_list[i](
-            #             out, data.edge_index, data.edge_attr
-            #         )
-            #         # out = getattr(F, self.act)(out)
-            # out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Last Layer
         out = self.vn_conv(out, data.edge_index[:, data.indices_rn_to_vn], data.edge_attr[data.indices_rn_to_vn, :])
