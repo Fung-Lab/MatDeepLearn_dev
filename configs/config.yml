@@ -40,7 +40,7 @@ model:
   act: relu
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
-  otf_edge_index: False
+  otf_edge_index: True
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True
   # Compute node attributes on the fly in the model forward
@@ -104,7 +104,7 @@ dataset:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: ocp
     # determine if edges are computed, if false, then they need to be computed on the fly   
-    preprocess_edges: True
+    preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
