@@ -208,6 +208,8 @@ class CGCNN(BaseModel):
         vn_mask = torch.argwhere(data.z == 100).squeeze(1)
         rn = data.x[rn_mask]
         vn = data.x[vn_mask]
+        rn_out = torch.zeros_like(rn, dtype=data.x.dtype)
+        vn_out = torch.zeros_like(vn, dtype=data.x.dtype)
         for i in range(0, len(self.pre_lin_list)):
             if i == 0:
                 rn_out = self.pre_lin_list[i](rn)
@@ -224,7 +226,7 @@ class CGCNN(BaseModel):
                 vn_out = self.pre_lin_list_vn[i](vn_out)
                 vn_out = getattr(F, self.act)(vn_out)
 
-        out = torch.zeros_like(data.x, dtype=torch.float16)  # Create a tensor of zeros with the same shape as data.x
+        out = torch.zeros_like(data.x)  # Create a tensor of zeros with the same shape as data.x
         out[rn_mask] = rn_out
         out[vn_mask] = vn_out
 
