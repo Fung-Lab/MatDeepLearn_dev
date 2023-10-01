@@ -224,7 +224,7 @@ class CGCNN(BaseModel):
                 vn_out = self.pre_lin_list_vn[i](vn_out)
                 vn_out = getattr(F, self.act)(vn_out)
 
-        out = torch.zeros_like(data.x)  # Create a tensor of zeros with the same shape as data.x
+        out = torch.zeros_like(data.x, dtype=torch.float16)  # Create a tensor of zeros with the same shape as data.x
         out[rn_mask] = rn_out
         out[vn_mask] = vn_out
 
