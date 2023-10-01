@@ -1,5 +1,7 @@
-__all__ = ["BaseModel", "CGCNN", "DOSPredict"]
+__all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET"]
 
 from .base_model import BaseModel
 from .cgcnn import CGCNN
-from .dos_predict import DOSPredict
+from .mpnn import MPNN
+from .schnet import SchNet
+from .torchmd_etEarly import TorchMD_ET

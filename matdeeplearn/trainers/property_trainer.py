@@ -31,6 +31,8 @@ class PropertyTrainer(BaseTrainer):
         verbosity,
         batch_tqdm,
         write_output,
+        output_frequency,
+        model_save_frequency,
         save_dir,
         checkpoint_path,
         use_amp,
@@ -50,6 +52,8 @@ class PropertyTrainer(BaseTrainer):
             verbosity,
             batch_tqdm,
             write_output,
+            output_frequency,
+            model_save_frequency,
             save_dir,
             checkpoint_path,          
             use_amp,
@@ -124,7 +128,8 @@ class PropertyTrainer(BaseTrainer):
             # Save current model      
             torch.cuda.empty_cache()                 
             if str(self.rank) in ("0", "cpu", "cuda"):
-                self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
+                if self.model_save_frequency == 1:
+                    self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation set if it exists
                 if self.data_loader.get("val_loader"):
@@ -143,8 +148,16 @@ class PropertyTrainer(BaseTrainer):
 
                 # Update best val metric and model, and save best model and predicted outputs
                 if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
-                    self.update_best_model(metric)
-
+                    if self.output_frequency == 0:
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=False)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=False)
+                    elif self.output_frequency == 1:
+                        if self.model_save_frequency == 1:
+                            self.update_best_model(metric, write_model=True, write_csv=True)
+                        else:
+                            self.update_best_model(metric, write_model=False, write_csv=True)
                 # step scheduler, using validation error
                 self._scheduler_step()
 
@@ -155,14 +168,21 @@ class PropertyTrainer(BaseTrainer):
                 self.model.module.load_state_dict(self.best_model_state)
             elif str(self.rank) in ("cpu", "cuda"):
                 self.model.load_state_dict(self.best_model_state)
-
-            if self.data_loader.get("test_loader"):
-                metric = self.validate("test")
-                test_loss = metric[type(self.loss_fn).__name__]["metric"]
-            else:
-                test_loss = "N/A"
-            logging.info("Test loss: " + str(test_loss))
-
+            #if self.data_loader.get("test_loader"):
+            #    metric = self.validate("test")
+            #    test_loss = metric[type(self.loss_fn).__name__]["metric"]
+            #else:
+            #    test_loss = "N/A"             
+            if self.model_save_frequency != -1:
+                self.save_model("best_checkpoint.pt", metric, True)
+            logging.info("Final Losses: ")     
+            if "train" in self.write_output:
+                self.predict(self.data_loader["train_loader"], "train")
+            if "val" in self.write_output and self.data_loader.get("val_loader"):
+                self.predict(self.data_loader["val_loader"], "val")
+            if "test" in self.write_output and self.data_loader.get("test_loader"):    
+                self.predict(self.data_loader["test_loader"], "test")                       
+            
         return self.best_model_state
         
     @torch.no_grad()
@@ -314,7 +334,31 @@ class PropertyTrainer(BaseTrainer):
             
         torch.cuda.empty_cache()
         
-        return predictions 
+        return predictions
+        
+    def predict_by_calculator(self, loader):        
+        self.model.eval()
+         
+        assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
+        assert len(loader) == 1, f"Predicting by calculator only allows one structure at a time, but got {len(loader)} structures."
+
+        if str(self.rank) not in ("cpu", "cuda"):
+            loader = get_dataloader(
+                loader.dataset, batch_size=loader.batch_size, sampler=None
+            )
+            
+        results = []
+        loader_iter = iter(loader)
+        for i in range(0, len(loader_iter)):
+            batch = next(loader_iter).to(self.rank)      
+            out = self._forward(batch.to(self.rank))
+            
+            energy = None if out.get('output') is None else out.get('output').data.cpu().numpy()
+            stress = None if out.get('cell_grad') is None else out.get('cell_grad').view(-1, 3).data.cpu().numpy()
+            forces = None if out.get('pos_grad') is None else out.get('pos_grad').data.cpu().numpy()
+            
+            results = {'energy': energy, 'stress': stress, 'forces': forces}
+        return results
 
     def _forward(self, batch_data):
         output = self.model(batch_data)

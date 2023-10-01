@@ -115,8 +115,10 @@ def setup_imports():
 
         import_keys = ["trainers", "models", "tasks"]
         for key in import_keys:
-            for f in (project_root / "matdeeplearn" / key).rglob("*.py"):
-                _import_local_file(f, project_root=project_root)
+            dir_list = (project_root / "matdeeplearn" / key).rglob("*.py")
+            for f in dir_list:
+                if "old" not in str(f) and "in_progress" not in str(f):
+                    _import_local_file(f, project_root=project_root)
 
     finally:
         registry.register("imports_setup", True)
