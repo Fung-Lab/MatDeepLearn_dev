@@ -1,0 +1,16 @@
+{'atom_fea_len': 128, 'nbr_fea_len': 64, 'orig_atom_fea_len': 95, 'h_fea_len': 128, 'n_h': 1, 'k': 3, 'n_conv': 9, 'max_nei': 12, 'cutoff': 8, 'N_block': 6, 'N_shbf': 6, 'N_srbf': 6, 'n_MLP_LR': 3, 'n_grid_K': 4, 'n_Gaussian': 64, 'node_activation': 'Softmax', 'MLP_activation': 'Elu', 'batch_size': 1, 'optim': 'adam', 'lr': 0.001, 'test_ratio': 0.1, 'weight_decay': 0.0, 'clip_value': 0, 'milestones': [250], 'gamma': 0.1, 'cosine_annealing': False, 'num_epochs': 300, 'dataset_path': '/Users/rithwikseth/Documents/MatDeepLearn_dev/matdeeplearn/models/Crystallography-clean/2D_data_npj', 'datafile_name': 'my_graph_data_2D_data_8_12_100_000', 'database': 'material', 'target_name': 'formation_energy', 'num_workers': 4, 'seed': 42, 'seed1': 34821, 'my': 4, 'l': 0, 'with_levels': -2, 'n': 5, 'm': 5, 'freeze_gnn': 0, 'load_model': False, 'pred': False, 'pre_trained_model_path': 'none'}
+Device: cpu
+Model_param: {'orig_atom_fea_len': 95, 'nbr_fea_len': 64, 'atom_fea_len': 128, 'n_conv': 9, 'h_fea_len': 128, 'n_h': 1, 'k': 3, 'N_block': 6, 'N_shbf': 6, 'N_srbf': 6, 'cutoff': 8, 'max_nei': 12, 'n_MLP_LR': 3, 'n_grid_K': 4, 'n_Gaussian': 64, 'l': 0, 'with_levels': -2}
+
+Optimizer: {'optim': 'adam', 'lr': 0.001, 'weight_decay': 0.0, 'clip_value': None}
+
+Scheduler: {'milestones': [250], 'gamma': 0.1, 'cosine_annealing': False}
+
+Dataset: {'dataset_path': '/Users/rithwikseth/Documents/MatDeepLearn_dev/matdeeplearn/models/Crystallography-clean/2D_data_npj', 'datafile_name': 'my_graph_data_2D_data_8_12_100_000', 'database': 'material', 'target_name': 'formation_energy', 'test_ratio': 0.1}
+
+Dataloader: {'num_workers': 4, 'batch_size': 1}
+
+Seed: 42 seed1 34821
+
+before AtomGraphDataset with_levels -2
+target_path /Users/rithwikseth/Documents/MatDeepLearn_dev/matdeeplearn/models/Crystallography-clean/2D_data_npj/targets_material.csv
