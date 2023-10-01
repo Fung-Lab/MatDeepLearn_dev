@@ -5,6 +5,7 @@ import numpy as np
 import torch.nn as nn
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.common.registry import registry
+from torch_scatter import scatter, segment_coo
 from torch_geometric.nn import (
     global_mean_pool,
     MessagePassing,
@@ -66,6 +67,18 @@ class ConvLayer(MessagePassing):
         node_msgs = z[:, :2 * self.atom_fea_len]
         edge_msgs = z[:, 2 * self.atom_fea_len:]
         return node_msgs, edge_msgs
+    
+    def aggregate(
+        self,
+        features: Tuple[torch.Tensor, torch.Tensor],
+        index: torch.Tensor,
+        ptr: Optional[torch.Tensor],
+        dim_size: Optional[int],
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        x, vec = features
+        x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
+        vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
+        return x, vec
     
     def update(self, aggr_out):
         node_msgs, edge_msgs = aggr_out
