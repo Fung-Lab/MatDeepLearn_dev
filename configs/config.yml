@@ -30,7 +30,7 @@ model:
   # model attributes
   dim1: 100
   dim2: 150
-  pre_fc_count: 1
+  pre_fc_count: 3
   gc_count: 4
   post_fc_count: 3
   pool: global_add_pool
@@ -58,7 +58,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10       
-  batch_size: 2
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -124,7 +124,7 @@ dataset:
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
-  num_workers: 0
+  num_workers: 4
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
