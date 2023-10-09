@@ -36,9 +36,7 @@ class ConvLayer(MessagePassing):
         self.atom_fea_len = atom_fea_len
         self.nbr_fea_len = nbr_fea_len
         self.k = k
-        self.fc_f=nn.ModuleList([nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
-                                 2*self.atom_fea_len+self.nbr_fea_len) for i in range(k)])
-        self.fc_s=nn.ModuleList([nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
+        self.fc_fulls=nn.ModuleList([nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
                                  2*self.atom_fea_len+self.nbr_fea_len) for i in range(k)])
         self.softmax= nn.Softmax(dim=1)
         self.softmax2= nn.Softmax(dim=2)
@@ -55,37 +53,63 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
-        return self.propagate(edge_index, x=x, distances=distances)
+        self.outs = []
+        self.new_nbrs = []
+        self.x = x
+        self.nbr_fea = distances
+        self.propagate(edge_index, x=x, distances=distances)
+        out=torch.stack(self.outs, dim=2)
+        new_nbr=torch.stack(self.new_nbrs, dim=3)
+        
+        out_gated=self.atom_fc(out)
+        new_nbr_gated=self.nbr_fc(new_nbr)
+       
+        out_core, out_filter = out_gated.split([self.k, self.k], dim=2) 
+        new_nbr_core, new_nbr_filter = new_nbr_gated.split([self.k, self.k], dim=3)
+        out_filter=self.softmax2(out_filter)
+        new_nbr_filter=self.softmax3(new_nbr_filter)
+        out = torch.sum(out_core * out_filter, dim=2)
+        new_nbr = torch.sum(new_nbr_core* new_nbr_filter, dim=3)
+        return out, new_nbr
+
 
         
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
-        out = torch.zeros_like(z)
-        for lin_f, lin_s in zip(self.fc_f, self.fc_s):
-            out += self.softmax(lin_f(z)) * self.softplus1(lin_s(z))
-        out /= self.k
-        node_msgs = z[:, :2 * self.atom_fea_len]
-        edge_msgs = z[:, 2 * self.atom_fea_len:]
-        return node_msgs, edge_msgs
+        total_gated_feas = [fc(z) for fc in self.fc_fulls]
+        for total_gated_fea, bn1, bn2, softplus2, softplus3 in zip(total_gated_feas, self.bn1s, self.bn2s, self.softplus2s, self.softplus3s) :
+            total_gated_fea = bn1(total_gated_fea.view(-1, self.atom_fea_len*2+self.nbr_fea_len))#.view(N, M, self.atom_fea_len*2+self.nbr_fea_len)
+            nbr_filter, nbr_core, new_nbr = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=2)
+            nbr_filter = self.softmax(nbr_filter)
+            nbr_core = self.softplus1(nbr_core) 
+            #print('nbr_filter size', nbr_filter.size())
+            #print('nbr_core size', nbr_core.size())
+            nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
+            nbr_sumed = bn2(nbr_sumed)
+            out = self.x + nbr_sumed
+            new_nbr = new_nbr + self.nbr_fea
+            self.outs.append(out)
+            self.new_nbrs.append(new_nbr)
+        return z
     
-    def aggregate(
-        self,
-        features,
-        index,
-        ptr,
-        dim_size,
-    ):
-        x, vec = features
-        x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
-        vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
-        return x, vec
+    # def aggregate(
+    #     self,
+    #     features,
+    #     index,
+    #     ptr,
+    #     dim_size,
+    # ):
+    #     x, vec = features
+    #     x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
+    #     vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
+    #     return x, vec
     
-    def update(self, aggr_out):
-        node_msgs, edge_msgs = aggr_out
-        new_node_features = node_msgs.sum(dim=1)
-        new_edge_features = edge_msgs.sum(dim=1)
+    # def update(self, aggr_out):
+    #     node_msgs, edge_msgs = aggr_out
+    #     new_node_features = node_msgs.sum(dim=1)
+    #     new_edge_features = edge_msgs.sum(dim=1)
 
-        return new_node_features, new_edge_features
+    #     return new_node_features, new_edge_features
 
             
 
