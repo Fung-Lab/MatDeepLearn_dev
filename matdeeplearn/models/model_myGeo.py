@@ -53,44 +53,26 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
-        self.outs = []
         self.new_nbrs = []
-        self.x = x
         self.nbr_fea = distances
-        self.propagate(edge_index, x=x, distances=distances)
-        out=torch.stack(self.outs, dim=2)
-        new_nbr=torch.stack(self.new_nbrs, dim=3)
-        
-        out_gated=self.atom_fc(out)
-        new_nbr_gated=self.nbr_fc(new_nbr)
-       
-        out_core, out_filter = out_gated.split([self.k, self.k], dim=2) 
-        new_nbr_core, new_nbr_filter = new_nbr_gated.split([self.k, self.k], dim=3)
-        out_filter=self.softmax2(out_filter)
-        new_nbr_filter=self.softmax3(new_nbr_filter)
-        out = torch.sum(out_core * out_filter, dim=2)
-        new_nbr = torch.sum(new_nbr_core* new_nbr_filter, dim=3)
-        return out, new_nbr
+        return self.propagate(edge_index, x=x, distances=distances), self.nbr_fea
 
 
         
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
-        total_gated_feas = [fc(z) for fc in self.fc_fulls]
-        for total_gated_fea, bn1, bn2, softplus2, softplus3 in zip(total_gated_feas, self.bn1s, self.bn2s, self.softplus2s, self.softplus3s) :
-            total_gated_fea = bn1(total_gated_fea.view(-1, self.atom_fea_len*2+self.nbr_fea_len))#.view(N, M, self.atom_fea_len*2+self.nbr_fea_len)
-            nbr_filter, nbr_core, new_nbr = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=2)
+        temp = torch.zeros(distances.size()[0], self.atom_fea_len).to(x_i.get_device())
+        for fc, bn1, bn2, softplus2, softplus3 in zip(self.fc_fulls, self.bn1s, self.bn2s, self.softplus2s, self.softplus3s) :
+            total_gated_fea = fc(z)
+            total_gated_fea = bn1(total_gated_fea)#.view(-1, self.atom_fea_len*2+self.nbr_fea_len)).view(self.N, self.M, self.atom_fea_len*2+self.nbr_fea_len)
+            nbr_filter, nbr_core, new_nbr = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
             nbr_filter = self.softmax(nbr_filter)
             nbr_core = self.softplus1(nbr_core) 
-            #print('nbr_filter size', nbr_filter.size())
-            #print('nbr_core size', nbr_core.size())
-            nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
-            nbr_sumed = bn2(nbr_sumed)
-            out = self.x + nbr_sumed
-            new_nbr = new_nbr + self.nbr_fea
-            self.outs.append(out)
-            self.new_nbrs.append(new_nbr)
-        return z
+            #nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
+            nbr_sumed = nbr_filter * nbr_core
+            temp = temp + nbr_sumed
+            self.nbr_fea += new_nbr
+        return temp
     
     # def aggregate(
     #     self,
