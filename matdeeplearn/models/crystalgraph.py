@@ -69,29 +69,11 @@ class ConvLayer(MessagePassing):
             nbr_filter = self.softmax(nbr_filter)
             nbr_core = self.softplus1(nbr_core) 
             #nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
-            nbr_sumed = nbr_filter * nbr_core
+            nbr_sumed = bn2(nbr_filter * nbr_core)
             temp = temp + nbr_sumed
             self.nbr_fea += new_nbr
         return temp
     
-    # def aggregate(
-    #     self,
-    #     features,
-    #     index,
-    #     ptr,
-    #     dim_size,
-    # ):
-    #     x, vec = features
-    #     x = scatter(x, index, dim=self.node_dim, dim_size=dim_size)
-    #     vec = scatter(vec, index, dim=self.node_dim, dim_size=dim_size)
-    #     return x, vec
-    
-    # def update(self, aggr_out):
-    #     node_msgs, edge_msgs = aggr_out
-    #     new_node_features = node_msgs.sum(dim=1)
-    #     new_edge_features = edge_msgs.sum(dim=1)
-
-    #     return new_node_features, new_edge_features
 
             
 
@@ -216,7 +198,7 @@ class CrystalGraphConvNet(BaseModel):
         distances = data.edge_attr
         atom_fea = self.embedding(atom_fea)
         for conv_func in self.convs:
-            atom_fea, distances = conv_func(atom_fea, data.edge_index, distances)
+            atom_fea, distances = conv_func(atom_fea, edge_index, distances)
             #print('IN FORWARD, atom_fea size', atom_fea.size())
         #crys_fea = self.pooling(atom_fea, crystal_atom_idx)
         crys_fea = global_mean_pool(atom_fea, data.batch)
