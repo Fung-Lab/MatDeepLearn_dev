@@ -54,23 +54,23 @@ class ConvLayer(MessagePassing):
 
     def forward(self, x, edge_index, distances):
         self.new_nbrs = []
-        self.outs = []
+        #self.outs = []
         for i in range(self.k):
-            self.outs.append(torch.zeros(x.size()).to(x.get_device()))
+            #self.outs.append(torch.zeros(x.size()).to(x.get_device()))
             self.new_nbrs.append(distances)
         self.nbr_fea = distances
-        self.propagate(edge_index, x=x, distances=distances)
-        out=torch.stack(self.outs, dim=2)
+        out = self.propagate(edge_index, x=x, distances=distances)
+        #out=torch.stack(self.outs, dim=2)
         new_nbr=torch.stack(self.new_nbrs, dim=3)
         
-        out_gated=self.atom_fc(out)
+        #out_gated=self.atom_fc(out)
         new_nbr_gated=self.nbr_fc(new_nbr)
        
-        out_core, out_filter = out_gated.split([self.k, self.k], dim=2) 
+        #out_core, out_filter = out_gated.split([self.k, self.k], dim=2) 
         new_nbr_core, new_nbr_filter = new_nbr_gated.split([self.k, self.k], dim=2)
-        out_filter=self.softmax2(out_filter)
+        #out_filter=self.softmax2(out_filter)
         new_nbr_filter=self.softmax3(new_nbr_filter)
-        out = torch.sum(out_core * out_filter, dim=2)
+        #out = torch.sum(out_core * out_filter, dim=2)
         new_nbr = torch.sum(new_nbr_core* new_nbr_filter, dim=3)
         return out, new_nbr
 
