@@ -78,8 +78,9 @@ class ConvLayer(MessagePassing):
         
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
-        #temp = torch.zeros(distances.size()[0], self.atom_fea_len).to(x_i.get_device())
-        for fc, bn1, bn2, softplus2, softplus3, i in zip(self.fc_fulls, self.bn1s, self.bn2s, self.softplus2s, self.softplus3s, self.k) :
+        i = 0
+        temp = torch.zeros(distances.size()[0], self.atom_fea_len).to(x_i.get_device())
+        for fc, bn1, bn2, softplus2, softplus3 in zip(self.fc_fulls, self.bn1s, self.bn2s, self.softplus2s, self.softplus3s) :
             total_gated_fea = fc(z)
             total_gated_fea = bn1(total_gated_fea)#.view(-1, self.atom_fea_len*2+self.nbr_fea_len)).view(self.N, self.M, self.atom_fea_len*2+self.nbr_fea_len)
             nbr_filter, nbr_core, new_nbr = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
@@ -87,11 +88,12 @@ class ConvLayer(MessagePassing):
             nbr_core = self.softplus1(nbr_core) 
             #nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
             nbr_sumed = nbr_filter * nbr_core
-            #temp = temp + nbr_sumed
-            self.outs[i] += nbr_sumed
+            temp = temp + nbr_sumed
+            #self.outs[i] += nbr_sumed
             self.new_nbrs[i] += new_nbr
             #self.nbr_fea += new_nbr
-        return x_i
+            i += 1
+        return temp
     
 
             
