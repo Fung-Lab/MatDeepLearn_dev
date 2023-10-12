@@ -30,7 +30,7 @@ model:
   # model attributes
   dim1: 100
   dim2: 150
-  pre_fc_count: 1
+  pre_fc_count: 3
   gc_count: 4
   post_fc_count: 3
   pool: global_mean_pool
