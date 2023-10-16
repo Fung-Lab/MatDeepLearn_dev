@@ -20,7 +20,7 @@ class ConvLayer(MessagePassing):
     """
     Convolutional operation on graphs
     """
-    def __init__(self, atom_fea_len, nbr_fea_len, k=3):
+    def __init__(self, atom_fea_len, edge_fea_len):
         """
         Initialize ConvLayer.
 
@@ -34,37 +34,41 @@ class ConvLayer(MessagePassing):
         """
         super(ConvLayer, self).__init__(aggr="add", node_dim=0)
         self.atom_fea_len = atom_fea_len
-        self.nbr_fea_len = nbr_fea_len
+        self.edge_fea_len = edge_fea_len
         self.k = k
-        self.fc_full=nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
-                                 2*self.atom_fea_len+self.nbr_fea_len)
+        self.fc_full=nn.Linear(2*self.atom_fea_len+self.edge_fea_len,
+                                 2*self.atom_fea_len+self.edge_fea_len)
         self.softmax= nn.Softmax(dim=1)
         self.softmax2= nn.Softmax(dim=2)
         self.softmax3= nn.Softmax(dim=3)
         self.softplus1 = nn.ReLU()
         self.softplus2 = nn.ReLU()
         self.softplus3 = nn.ReLU()
-        self.bn1 = nn.BatchNorm1d(2*self.atom_fea_len+self.nbr_fea_len)
+        self.bn1 = nn.BatchNorm1d(2*self.atom_fea_len+self.edge_fea_len)
         self.bn2 =  nn.BatchNorm1d(self.atom_fea_len)
         self.softplus2s = nn.ReLU()
         self.softplus3s = nn.ReLU()
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
-        self.new_nbrs = distances
-        return self.propagate(edge_index, x=x, distances=distances), self.new_nbrs
+        self.edge_attrs = distances
+        return self.propagate(edge_index, x=x, distances=distances), self.edge_attrs
 
 
         
     def message(self, x_i, x_j, distances):
+        #concatenate atom features, bond features, and bond distances
         z = torch.cat([x_i, x_j, distances], dim=-1)
+        #fully connected layer
         total_gated_fea = self.fc_full(z)
         total_gated_fea = self.bn1(total_gated_fea)
-        nbr_filter, nbr_core, new_nbr = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
+        #split into atom features, bond features, and bond distances and apply functions
+        nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.edge_fea_len], dim=1)
         nbr_filter = self.softmax(nbr_filter)
-        nbr_core = self.softplus1(nbr_core) 
+        nbr_core = self.softplus1(nbr_core)
+        #aggregate and return
         nbr_sumed = nbr_filter * nbr_core
-        self.new_nbrs += new_nbr
+        self.new_nbrs += new_edge_attrs
         return nbr_sumed
     
 
@@ -78,7 +82,7 @@ class CrystalGraphConvNet(BaseModel):
     material properties.
     """
     def __init__(self, node_dim, edge_dim, output_dim,
-                 dim1=128, n_conv=9, dim2=128, n_h=1,k=3,
+                 dim1=128, n_conv=9, dim2=128, n_h=1,
                  classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.
@@ -103,7 +107,7 @@ class CrystalGraphConvNet(BaseModel):
         self.classification = classification
         self.embedding = nn.Linear(node_dim, dim1)
         self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
-                                    nbr_fea_len=edge_dim,k=k)
+                                    nbr_fea_len=edge_dim)
                                     for _ in range(n_conv)])
         self.conv_to_fc = nn.Linear(dim1, dim2)
         self.conv_to_fc_softplus = nn.ReLU()
@@ -158,43 +162,44 @@ class CrystalGraphConvNet(BaseModel):
                   
         return output
     @conditional_grad(torch.enable_grad())
-    def _forward(self, data):#atom_fea, nbr_fea, nbr_fea_idx, crystal_atom_idx):
+    def _forward(self, data):
         """
         Forward pass
 
-        N: Total number of atoms in the batch
-        M: Max number of neighbors
-        N0: Total number of crystals in the batch
+        data: graph features
 
         Parameters
         ----------
 
-        atom_fea: Variable(torch.Tensor) shape (N, orig_atom_fea_len)
-          Atom features from atom type
-        
-        nbr_fea: Variable(torch.Tensor) shape (N, M, nbr_fea_len)
-          Bond features of each atom's M neighbors
-        nbr_fea_idx: torch.LongTensor shape (N, M)
-          Indices of M neighbors of each atom
-        crystal_atom_idx: list of torch.LongTensor of length N0
-          Mapping from the crystal idx to atom idx
+        data:
+          data.x: node features
+            shape = (N, node_dim)
+          data.edge_index: list of edges
+            shape = (2, E)
+          data.edge_attr: edge attributes (distances)
+            shape = (E, edge_dim)
+          data.batch: crystal id for each node
+            shape = (N, )
 
         Returns
         -------
 
-        prediction: nn.Variable shape (N, )
-          Atom hidden features after convolution
-
+        prediction: graph predictions
+          shape = (batch_size, )
         """
+        #initialize variables
         atom_fea = data.x
         edge_index = data.edge_index
         distances = data.edge_attr
+        #embed atom features
         atom_fea = self.embedding(atom_fea)
+        #convolutional layers
         for conv_func in self.convs:
             atom_fea, distances = conv_func(atom_fea, edge_index, distances)
-            #print('IN FORWARD, atom_fea size', atom_fea.size())
-        #crys_fea = self.pooling(atom_fea, crystal_atom_idx)
+        
+        #pooling
         crys_fea = global_mean_pool(atom_fea, data.batch)
+        #fully connected layers
         crys_fea = self.conv_to_fc(self.conv_to_fc_softplus(crys_fea))
         crys_fea = self.conv_to_fc_softplus(crys_fea)
         if self.classification:
@@ -202,6 +207,7 @@ class CrystalGraphConvNet(BaseModel):
         if hasattr(self, 'fcs') and hasattr(self, 'softpluses'):
             for fc, softplus in zip(self.fcs, self.softpluses):
                 crys_fea = softplus(fc(crys_fea))
+        #output
         out = self.fc_out(crys_fea)
         if self.classification:
             out = self.logsoftmax(out)
@@ -209,30 +215,3 @@ class CrystalGraphConvNet(BaseModel):
     @property
     def target_attr(self):
         return "y"
-
-    def pooling(self, atom_fea, crystal_atom_idx):
-        """
-        Pooling the atom features to crystal features
-
-        N: Total number of atoms in the batch
-        N0: Total number of crystals in the batch
-
-        Parameters
-        ----------
-
-        atom_fea: Variable(torch.Tensor) shape (N, atom_fea_len)
-          Atom feature vectors of the batch
-        crystal_atom_idx: list of torch.LongTensor of length N0
-          Mapping from the crystal idx to atom idx
-        """
-        assert sum([len(idx_map) for idx_map in crystal_atom_idx]) ==\
-            atom_fea.data.shape[0]
-        #print('In POOLING', atom_fea.data.shape[0])
-        summed_fea = [torch.mean(atom_fea[idx_map], dim=0, keepdim=True) for idx_map in crystal_atom_idx]
-        #summed_fea = [torch.max(atom_fea[idx_map],dim=0, keepdim=True)[0] for idx_map in crystal_atom_idx]
-        #print('In POOLING, summed_fea ', len(summed_fea))
-        #print('In POOLING, crystal_atom_idx', len(crystal_atom_idx))
-        #a = torch.Tensor(summed_fea)
-        a = torch.cat(summed_fea, dim=0)
-        #print('return tensor size', a.size())
-        return a
