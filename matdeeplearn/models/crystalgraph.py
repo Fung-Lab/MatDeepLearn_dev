@@ -52,7 +52,10 @@ class ConvLayer(MessagePassing):
 
     def forward(self, x, edge_index, distances):
         self.edge_attrs = distances
-        return self.propagate(edge_index, x=x, distances=distances), self.edge_attrs
+        aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
+        aggregatedMessages = self.bn2(aggregatedMessages)
+        out = aggregatedMessages + x
+        return out, self.edge_attrs
 
 
         
@@ -68,7 +71,7 @@ class ConvLayer(MessagePassing):
         nbr_core = self.softplus1(nbr_core)
         #aggregate and return
         nbr_sumed = nbr_filter * nbr_core
-        self.new_nbrs += new_edge_attrs
+        self.edge_attrs += new_edge_attrs
         return nbr_sumed
     
 
