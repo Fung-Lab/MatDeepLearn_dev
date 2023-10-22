@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_cutoff_2
+  identifier: try3_torchmd
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -41,9 +41,9 @@ model:
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True
   # Compute edge attributes on the fly in the model forward
-  otf_edge_attr: False
+  otf_edge_attr: True
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True
   gradient: True
 
@@ -57,7 +57,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10
-  batch_size: 1
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -72,14 +72,14 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../data_qm9_qmc/
+  src: ../dataset/try3/data_try3.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../data_qm9_qmc/
+  pt_path: ../dataset/try3/
   # Either "node" or "graph"
   prediction_level: node
 
@@ -103,11 +103,11 @@ dataset:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: ocp
     # determine if edges are computed, if false, then they need to be computed on the fly
-    preprocess_edges: True
+    preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
-    preprocess_edge_features: True
+    preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
-    preprocess_node_features: True
+    preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 6.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
@@ -127,7 +127,7 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
-  train_ratio: 0.8
+  train_ratio: 0.9
   num_samples: 1000
   val_ratio: 0.05
-  test_ratio: 0.15
+  test_ratio: 0.05
