@@ -137,7 +137,7 @@ def build_config(args, args_override):
             config["model"]["otf_edge"] = False
             config["model"]["gradient"] = False
             config["dataset"]["preprocess_params"]["preprocess_edges"] = True
-            config["dataset"]["preprocess_params"]["preprocess_features"] = Trues
+            config["dataset"]["preprocess_params"]["preprocess_features"] = True
     #
     # Submit
     config["submit"] = args.submit
