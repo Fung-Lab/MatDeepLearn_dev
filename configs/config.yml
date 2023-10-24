@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: CrystalGraphGeo    
+  name: CrystalGraphGeo
   # model attributes
   dim1: 128
   dim2: 128
@@ -51,7 +51,7 @@ optim:
     loss_args: {"loss_fn": "l1_loss"}
   clip_grad_norm: 10
          
-  batch_size: 128
+  batch_size: 2
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -65,7 +65,7 @@ optim:
   
 dataset:
   name: "test_data"
-  processed: True
+  processed: False
   # Path to data files
   src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
@@ -88,9 +88,9 @@ dataset:
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
       otf: True # Optional parameter, default is False
-    - name: CrystalGraph
-      args:
-        cutoff: 8.0
+        #- name: CrystalGraph
+        #args:
+        #cutoff: 8.0
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   # E.g. additional_attributes: ["forces", "stress"]
@@ -110,16 +110,16 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_nodes: True
     cutoff_radius : 8.0
-    n_neighbors : 250
+    n_neighbors : 12
     num_offsets: 2
-    edge_steps : 50
+    edge_steps : 64
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: "onehot"    
     all_neighbors: True
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.87
-  val_ratio: 0.065
-  test_ratio: 0.065
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
   
 

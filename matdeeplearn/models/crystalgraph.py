@@ -35,9 +35,11 @@ class ConvLayer(MessagePassing):
         super(ConvLayer, self).__init__(aggr="add", node_dim=0)
         self.atom_fea_len = atom_fea_len
         self.edge_fea_len = edge_fea_len
-        self.k = k
         self.fc_full=nn.Linear(2*self.atom_fea_len+self.edge_fea_len,
                                  2*self.atom_fea_len+self.edge_fea_len)
+        self.fc_f = nn.Linear(2*self.atom_fea_len+self.edge_fea_len, self.atom_fea_len)
+        self.fc_s = nn.Linear(2*self.atom_fea_len+self.edge_fea_len, self.atom_fea_len)
+        #self.fc_e = nn.Linear(2*self.atom_fea_len+self.edge_fea_len, self.edge_fea_len)
         self.softmax= nn.Softmax(dim=1)
         self.softmax2= nn.Softmax(dim=2)
         self.softmax3= nn.Softmax(dim=3)
@@ -51,6 +53,12 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
+        print(x.size())
+        print(x)
+        print(distances.size())
+        print(distances)
+        print()
+        print()
         self.edge_attrs = distances
         aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
         aggregatedMessages = self.bn2(aggregatedMessages)
@@ -61,18 +69,26 @@ class ConvLayer(MessagePassing):
         
     def message(self, x_i, x_j, distances):
         #concatenate atom features, bond features, and bond distances
+        print(x_i.size())
+        print(x_i)
+        print(x_j.size())
+        print(x_j)
+        print(distances.size())
+        print(distances)
         z = torch.cat([x_i, x_j, distances], dim=-1)
         #fully connected layer
         total_gated_fea = self.fc_full(z)
         total_gated_fea = self.bn1(total_gated_fea)
         #split into atom features, bond features, and bond distances and apply functions
         nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.edge_fea_len], dim=1)
-        nbr_filter = self.softmax(nbr_filter)
-        nbr_core = self.softplus1(nbr_core)
+        #nbr_filter = self.softmax(nbr_filter)
+        #nbr_core = self.softplus1(nbr_core)
         #aggregate and return
-        nbr_sumed = nbr_filter * nbr_core
+        #nbr_sumed = nbr_filter * nbr_core
         self.edge_attrs += new_edge_attrs
-        return nbr_sumed
+        #self.edge_attrs += self.fc_e(z)
+        #return nbr_sumed
+        return self.softmax(self.fc_f(z)) * self.softplus1(self.fc_s(z))
     
 
             
@@ -85,7 +101,7 @@ class CrystalGraphConvNet(BaseModel):
     material properties.
     """
     def __init__(self, node_dim, edge_dim, output_dim,
-                 dim1=128, n_conv=9, dim2=128, n_h=1,
+                 dim1=128, n_conv=4, dim2=128, n_h=1,
                  classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.
@@ -110,7 +126,7 @@ class CrystalGraphConvNet(BaseModel):
         self.classification = classification
         self.embedding = nn.Linear(node_dim, dim1)
         self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
-                                    nbr_fea_len=edge_dim)
+                                    edge_fea_len=edge_dim)
                                     for _ in range(n_conv)])
         self.conv_to_fc = nn.Linear(dim1, dim2)
         self.conv_to_fc_softplus = nn.ReLU()
@@ -194,6 +210,7 @@ class CrystalGraphConvNet(BaseModel):
         atom_fea = data.x
         edge_index = data.edge_index
         distances = data.edge_attr
+        #distances = data.distances.unsqueeze(1).expand(len(data.distances), 64) / 8.0
         #embed atom features
         atom_fea = self.embedding(atom_fea)
         #convolutional layers
