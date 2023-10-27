@@ -50,8 +50,8 @@ optim:
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {"loss_fn": "l1_loss"}
-    loss_type: "ForceStressLoss"
-    loss_args: {"weight_energy": 0.0, "weight_force": 1.0, "weight_stress": 0.0}
+    loss_type: "NoisyNodeLoss"
+    loss_args: {"weight_energy": 0.0, "weight_noise": 1.0}
     #loss_type: "ForceLoss"
     #loss_args: {"weight_energy": 1.0, "weight_force": 1.0}
   clip_grad_norm: 10
@@ -72,7 +72,7 @@ dataset:
   name: "test_data"
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: "/nethome/sjia65/Datasets/MP_data_forces/raw/data.json"
+  src: 
   # src: /nethome/sjia65/Datasets/Matbench/data_exfoliation.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
@@ -90,10 +90,14 @@ dataset:
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
       otf: True # Optional parameter, default is False
+    - name: NoisyNode
+      args:
+        std: 0.1
+      otf: True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: "json"
   #additional_attributes: ["forces"]
-  additional_attributes: ["forces", "stress"]
+  # additional_attributes: ["forces", "stress"]
   #additional_attributes:
   # Print out processing info
   verbose: True
@@ -119,6 +123,5 @@ dataset:
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.8
   val_ratio: 0.05
-  test_ratio: 0.015
+  test_ratio: 0.15
   
- 

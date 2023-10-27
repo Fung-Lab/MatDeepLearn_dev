@@ -1,3 +1,4 @@
+import math
 import torch
 from torch_sparse import coalesce
 
@@ -35,6 +36,24 @@ class GetY(object):
                 data.y = data.y.unsqueeze(0)   
             #print("2", data.y.shape)
             #data.y = data.y[0][self.index]            
+        return data
+    
+@registry.register_transform("NoisyNode")
+class NoisyNode(object):
+    """
+    Add randomly sampled gaussian noise to
+    every position/coordinate of the data object
+    """
+    def __init__(self, std=0.1):
+        self.std = std
+
+    def __call__(self, data):
+        # generate noise
+        noise = torch.normal(0, self.std, data.pos.shape)
+        pos = data.pos + noise
+
+        data.pos = pos
+        data.noise = noise
         return data
 
 
@@ -99,6 +118,7 @@ class ToFloat(object):
         data.edge_attr_lg = data.edge_attr_lg.float()
 
         return data
+    
 class RandomRotate(object):
     r"""Rotates node positions around a specific axis by a randomly sampled
     factor within a given interval.
