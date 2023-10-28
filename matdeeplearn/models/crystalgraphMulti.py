@@ -40,7 +40,7 @@ class ConvLayer(MessagePassing):
                                  2*self.atom_fea_len+self.nbr_fea_len) for i in range(k)])
         self.softmax= nn.Softmax(dim=1)
         self.softmax2= nn.Softmax(dim=2)
-        self.softmax3= nn.Softmax(dim=3)
+        self.softmax3= nn.Softmax(dim=2)
         self.softplus1 = nn.ReLU()
         self.softplus2 = nn.ReLU()
         self.softplus3 = nn.ReLU()
@@ -53,47 +53,41 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
-        self.new_nbrs = []
-        #self.outs = []
+        self.new_attr = []
+        self.outs = []
+        self.currInd = 0
         for i in range(self.k):
-            #self.outs.append(torch.zeros(x.size()).to(x.get_device()))
-            self.new_nbrs.append(distances)
-        self.nbr_fea = distances
-        out = self.propagate(edge_index, x=x, distances=distances)
-        #out=torch.stack(self.outs, dim=2)
-        new_nbr=torch.stack(self.new_nbrs, dim=3)
+            self.outs.append(x)
+            self.new_attr.append(distances)
+        self.edge_attr = distances
+        for i in range(self.k):
+            self.outs[i] += self.propagate(edge_index, x=x, distances=distances)
+            self.outs[i] = self.bn2s[i](self.outs[i])
         
-        #out_gated=self.atom_fc(out)
+        out=torch.stack(self.outs, dim=2)
+        new_nbr=torch.stack(self.new_nbrs, dim=2)
+        
+        out_gated=self.atom_fc(out)
         new_nbr_gated=self.nbr_fc(new_nbr)
        
-        #out_core, out_filter = out_gated.split([self.k, self.k], dim=2) 
+        out_core, out_filter = out_gated.split([self.k, self.k], dim=2) 
         new_nbr_core, new_nbr_filter = new_nbr_gated.split([self.k, self.k], dim=2)
-        #out_filter=self.softmax2(out_filter)
+        out_filter=self.softmax2(out_filter)
         new_nbr_filter=self.softmax3(new_nbr_filter)
-        #out = torch.sum(out_core * out_filter, dim=2)
-        new_nbr = torch.sum(new_nbr_core* new_nbr_filter, dim=3)
+        out = torch.sum(out_core * out_filter, dim=2)
+        new_nbr = torch.sum(new_nbr_core* new_nbr_filter, dim=2)
         return out, new_nbr
 
 
         
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
-        i = 0
-        temp = torch.zeros(distances.size()[0], self.atom_fea_len).to(x_i.get_device())
-        for fc, bn1, bn2, softplus2, softplus3 in zip(self.fc_fulls, self.bn1s, self.bn2s, self.softplus2s, self.softplus3s) :
-            total_gated_fea = fc(z)
-            total_gated_fea = bn1(total_gated_fea)#.view(-1, self.atom_fea_len*2+self.nbr_fea_len)).view(self.N, self.M, self.atom_fea_len*2+self.nbr_fea_len)
-            nbr_filter, nbr_core, new_nbr = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
-            nbr_filter = self.softmax(nbr_filter)
-            nbr_core = self.softplus1(nbr_core) 
-            #nbr_sumed = torch.sum(nbr_filter * nbr_core, dim=1)
-            nbr_sumed = nbr_filter * nbr_core
-            temp = temp + nbr_sumed
-            #self.outs[i] += nbr_sumed
-            self.new_nbrs[i] += new_nbr
-            #self.nbr_fea += new_nbr
-            i += 1
-        return temp
+        total_gated_fea = self.fc_full[self.currInd](z)
+        total_gated_fea = self.bn1s[self.currInd](total_gated_fea)
+        nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.edge_fea_len], dim=1)
+        self.new_attr[self.currInd] += new_edge_attrs
+        self.currInd += 1
+        return self.softmax(nbr_filter) * self.softplus1(nbr_core)
     
 
             
@@ -186,7 +180,7 @@ class CrystalGraphConvNet(BaseModel):
                   
         return output
     @conditional_grad(torch.enable_grad())
-    def _forward(self, data):#atom_fea, nbr_fea, nbr_fea_idx, crystal_atom_idx):
+    def _forward(self, data):
         """
         Forward pass
 

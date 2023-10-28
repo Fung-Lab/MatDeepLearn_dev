@@ -53,12 +53,6 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
-        print(x.size())
-        print(x)
-        print(distances.size())
-        print(distances)
-        print()
-        print()
         self.edge_attrs = distances
         aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
         aggregatedMessages = self.bn2(aggregatedMessages)
@@ -69,12 +63,6 @@ class ConvLayer(MessagePassing):
         
     def message(self, x_i, x_j, distances):
         #concatenate atom features, bond features, and bond distances
-        print(x_i.size())
-        print(x_i)
-        print(x_j.size())
-        print(x_j)
-        print(distances.size())
-        print(distances)
         z = torch.cat([x_i, x_j, distances], dim=-1)
         #fully connected layer
         total_gated_fea = self.fc_full(z)
