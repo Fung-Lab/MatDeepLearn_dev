@@ -38,6 +38,10 @@ class ConvLayer(MessagePassing):
         self.k = k
         self.fc_fulls=nn.ModuleList([nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
                                  2*self.atom_fea_len+self.nbr_fea_len) for i in range(k)])
+        self.fc_fs=nn.ModuleList([nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
+                                 self.atom_fea_len) for i in range(k)])
+        self.fc_ss=nn.ModuleList([nn.Linear(2*self.atom_fea_len+self.nbr_fea_len,
+                                 self.atom_fea_len) for i in range(k)])
         self.softmax= nn.Softmax(dim=1)
         self.softmax2= nn.Softmax(dim=2)
         self.softmax3= nn.Softmax(dim=2)
@@ -53,6 +57,7 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
+        torch.autograd.set_detect_anomaly(True)
         self.new_attr = []
         self.outs = []
         self.currInd = 0
@@ -61,11 +66,11 @@ class ConvLayer(MessagePassing):
             self.new_attr.append(distances)
         self.edge_attr = distances
         for i in range(self.k):
-            self.outs[i] += self.propagate(edge_index, x=x, distances=distances)
-            self.outs[i] = self.bn2s[i](self.outs[i])
-        
+            aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
+            aggregatedMessages = self.bn2s[i](aggregatedMessages)
+            self.outs[i] = aggregatedMessages + x
         out=torch.stack(self.outs, dim=2)
-        new_nbr=torch.stack(self.new_nbrs, dim=2)
+        new_nbr=torch.stack(self.new_attr, dim=2)
         
         out_gated=self.atom_fc(out)
         new_nbr_gated=self.nbr_fc(new_nbr)
@@ -82,12 +87,13 @@ class ConvLayer(MessagePassing):
         
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
-        total_gated_fea = self.fc_full[self.currInd](z)
+        total_gated_fea = self.fc_fulls[self.currInd](z)
         total_gated_fea = self.bn1s[self.currInd](total_gated_fea)
-        nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.edge_fea_len], dim=1)
+        nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
         self.new_attr[self.currInd] += new_edge_attrs
         self.currInd += 1
-        return self.softmax(nbr_filter) * self.softplus1(nbr_core)
+        return self.softmax(self.fc_fs[self.currInd-1](z)) * self.softplus1(self.fc_ss[self.currInd-1](z))
+        #return self.softmax(nbr_filter) * self.softplus1(nbr_core)
     
 
             
@@ -100,7 +106,7 @@ class CrystalGraphConvNet(BaseModel):
     material properties.
     """
     def __init__(self, node_dim, edge_dim, output_dim,
-                 dim1=128, n_conv=9, dim2=128, n_h=1,k=3,
+                 dim1=128, n_conv=4, dim2=128, n_h=1,k=3,
                  classification=False, **kwargs):
         """
         Initialize CrystalGraphConvNet.
