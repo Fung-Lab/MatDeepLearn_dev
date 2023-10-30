@@ -1,8 +1,11 @@
 import logging
+import math
 import time
 
 import numpy as np
 import torch
+from torch_geometric.data import batch as Batch
+from torch_geometric.data import Data
 from torch import distributed as dist
 from torch.cuda.amp import autocast
 
@@ -213,7 +216,7 @@ class PropertyTrainer(BaseTrainer):
         return metrics
 
     @torch.no_grad()
-    def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True):        
+    def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True, whole_predict=False):
         self.model.eval()
          
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
@@ -233,69 +236,160 @@ class PropertyTrainer(BaseTrainer):
         node_level = False
         loader_iter = iter(loader)
         for i in range(0, len(loader_iter)):
-            batch = next(loader_iter).to(self.rank)      
-            out = self._forward(batch.to(self.rank))
-            batch_p = out["output"].data.cpu().numpy()
-            batch_ids = batch.structure_id 
-            
-            if labels == True:
-                loss = self._compute_loss(out, batch)
-                metrics = self._compute_metrics(out, batch, metrics)
-                metrics = evaluator.update(
-                    "loss", loss.item(), out["output"].shape[0], metrics
-                )                                 
-                if str(self.rank) not in ("cpu", "cuda"): 
-                    batch_t = batch[self.model.module.target_attr].cpu().numpy()
+
+            if whole_predict:
+                whole_batch = next(loader_iter)
+                assert len(whole_batch.batch_size == 1)
+                rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
+                vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+                vn_indices_split = \
+                    [vn_indices[i:max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+
+                for vn_batch_indices in vn_indices_split:
+                    combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
+                    data = Data(
+                        pos=whole_batch.pos[combined_indices],
+                        cell=whole_batch.cell,
+                        structure_id=whole_batch.structure_id,
+                        z=whole_batch.z[combined_indices],
+                        y=whole_batch.y[combined_indices],
+                    )
+                    batch = Batch.Batch.from_data_list(
+                        [data]
+                    ).to(self.rank)
+                    out = self._forward(batch.to(self.rank))
+                    batch_p = out["output"].data.cpu().numpy()
+                    batch_ids = batch.structure_id
+
+                    if labels == True:
+                        loss = self._compute_loss(out, batch)
+                        metrics = self._compute_metrics(out, batch, metrics)
+                        metrics = evaluator.update(
+                            "loss", loss.item(), out["output"].shape[0], metrics
+                        )
+                        if str(self.rank) not in ("cpu", "cuda"):
+                            batch_t = batch[self.model.module.target_attr].cpu().numpy()
+                        else:
+                            batch_t = batch[self.model.target_attr].cpu().numpy()
+                            # batch_ids = np.array(
+                        #    [item for sublist in batch.structure_id for item in sublist]
+                        # )
+
+                    # Node level prediction
+                    if batch_p.shape[0] > loader.batch_size:
+                        node_level = True
+                        virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
+                        node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()
+                        # node_ids = batch.z.cpu().numpy()
+                        # print(batch.n_atoms.cpu().numpy())
+                        structure_ids = np.repeat(
+                            batch.structure_id, [len(batch.y) // len(batch.structure_id)] * len(batch), axis=0
+                        )
+                        batch_ids = np.column_stack((structure_ids, node_ids))
+
+                    if out.get("pos_grad") != None:
+                        batch_p_pos_grad = out["pos_grad"].data.cpu().numpy()
+                        node_ids_pos_grad = batch.z.cpu().numpy()
+                        structure_ids_pos_grad = np.repeat(
+                            batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
+                        )
+                        batch_ids_pos_grad = np.column_stack((structure_ids_pos_grad, node_ids_pos_grad))
+                        ids_pos_grad = batch_ids_pos_grad if i == 0 else np.row_stack(
+                            (ids_pos_grad, batch_ids_pos_grad))
+                        predict_pos_grad = batch_p_pos_grad if i == 0 else np.concatenate(
+                            (predict_pos_grad, batch_p_pos_grad), axis=0)
+                        if "forces" in batch:
+                            batch_t_pos_grad = batch["forces"].cpu().numpy()
+                            target_pos_grad = batch_t_pos_grad if i == 0 else np.concatenate(
+                                (target_pos_grad, batch_t_pos_grad), axis=0)
+
+                    if out.get("cell_grad") != None:
+                        batch_p_cell_grad = out["cell_grad"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+                        batch_ids_cell_grad = batch.structure_id
+                        ids_cell_grad = batch_ids_cell_grad if i == 0 else np.row_stack(
+                            (ids_cell_grad, batch_ids_cell_grad))
+                        predict_cell_grad = batch_p_cell_grad if i == 0 else np.concatenate(
+                            (predict_cell_grad, batch_p_cell_grad), axis=0)
+                        if "stress" in batch:
+                            batch_t_cell_grad = batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+                            target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate(
+                                (target_cell_grad, batch_t_cell_grad), axis=0)
+
+                    ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
+                    predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
+                    if labels == True:
+                        target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
+
+                    if labels == True:
+                        del loss, batch, out
+                    else:
+                        del batch, out
+        else:
+
+
+                batch = next(loader_iter).to(self.rank)
+                out = self._forward(batch.to(self.rank))
+                batch_p = out["output"].data.cpu().numpy()
+                batch_ids = batch.structure_id
+
+                if labels == True:
+                    loss = self._compute_loss(out, batch)
+                    metrics = self._compute_metrics(out, batch, metrics)
+                    metrics = evaluator.update(
+                        "loss", loss.item(), out["output"].shape[0], metrics
+                    )
+                    if str(self.rank) not in ("cpu", "cuda"):
+                        batch_t = batch[self.model.module.target_attr].cpu().numpy()
+                    else:
+                        batch_t = batch[self.model.target_attr].cpu().numpy()
+                    #batch_ids = np.array(
+                    #    [item for sublist in batch.structure_id for item in sublist]
+                    #)
+
+                # Node level prediction
+                if batch_p.shape[0] > loader.batch_size:
+
+                    node_level = True
+                    virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
+                    node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()
+                    #node_ids = batch.z.cpu().numpy()
+                    #print(batch.n_atoms.cpu().numpy())
+                    structure_ids = np.repeat(
+                        batch.structure_id, [len(batch.y) // len(batch.structure_id)]*len(batch), axis=0
+                    )
+                    batch_ids = np.column_stack((structure_ids, node_ids))
+
+                if out.get("pos_grad") != None:
+                    batch_p_pos_grad = out["pos_grad"].data.cpu().numpy()
+                    node_ids_pos_grad = batch.z.cpu().numpy()
+                    structure_ids_pos_grad = np.repeat(
+                        batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
+                    )
+                    batch_ids_pos_grad = np.column_stack((structure_ids_pos_grad, node_ids_pos_grad))
+                    ids_pos_grad = batch_ids_pos_grad if i == 0 else np.row_stack((ids_pos_grad, batch_ids_pos_grad))
+                    predict_pos_grad = batch_p_pos_grad if i == 0 else np.concatenate((predict_pos_grad, batch_p_pos_grad), axis=0)
+                    if "forces" in batch:
+                        batch_t_pos_grad = batch["forces"].cpu().numpy()
+                        target_pos_grad = batch_t_pos_grad if i == 0 else np.concatenate((target_pos_grad, batch_t_pos_grad), axis=0)
+
+                if out.get("cell_grad") != None:
+                    batch_p_cell_grad = out["cell_grad"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+                    batch_ids_cell_grad = batch.structure_id
+                    ids_cell_grad = batch_ids_cell_grad if i == 0 else np.row_stack((ids_cell_grad, batch_ids_cell_grad))
+                    predict_cell_grad = batch_p_cell_grad if i == 0 else np.concatenate((predict_cell_grad, batch_p_cell_grad), axis=0)
+                    if "stress" in batch:
+                        batch_t_cell_grad = batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+                        target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)
+
+                ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
+                predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
+                if labels == True:
+                    target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
+
+                if labels == True:
+                    del loss, batch, out
                 else:
-                    batch_t = batch[self.model.target_attr].cpu().numpy()             
-                #batch_ids = np.array(
-                #    [item for sublist in batch.structure_id for item in sublist]
-                #)
-                        
-            # Node level prediction 
-            if batch_p.shape[0] > loader.batch_size:                 
-
-                node_level = True
-                virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
-                node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()                
-                #node_ids = batch.z.cpu().numpy()
-                #print(batch.n_atoms.cpu().numpy())
-                structure_ids = np.repeat(
-                    batch.structure_id, [len(batch.y) // len(batch.structure_id)]*len(batch), axis=0
-                )
-                batch_ids = np.column_stack((structure_ids, node_ids))
-            
-            if out.get("pos_grad") != None:
-                batch_p_pos_grad = out["pos_grad"].data.cpu().numpy()
-                node_ids_pos_grad = batch.z.cpu().numpy()
-                structure_ids_pos_grad = np.repeat(
-                    batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
-                )
-                batch_ids_pos_grad = np.column_stack((structure_ids_pos_grad, node_ids_pos_grad)) 
-                ids_pos_grad = batch_ids_pos_grad if i == 0 else np.row_stack((ids_pos_grad, batch_ids_pos_grad))            
-                predict_pos_grad = batch_p_pos_grad if i == 0 else np.concatenate((predict_pos_grad, batch_p_pos_grad), axis=0)
-                if "forces" in batch:
-                    batch_t_pos_grad = batch["forces"].cpu().numpy()      
-                    target_pos_grad = batch_t_pos_grad if i == 0 else np.concatenate((target_pos_grad, batch_t_pos_grad), axis=0)
-
-            if out.get("cell_grad") != None:  
-                batch_p_cell_grad = out["cell_grad"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
-                batch_ids_cell_grad = batch.structure_id               
-                ids_cell_grad = batch_ids_cell_grad if i == 0 else np.row_stack((ids_cell_grad, batch_ids_cell_grad))            
-                predict_cell_grad = batch_p_cell_grad if i == 0 else np.concatenate((predict_cell_grad, batch_p_cell_grad), axis=0)
-                if "stress" in batch:
-                    batch_t_cell_grad = batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
-                    target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)                          
-                         
-            ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))
-            predict = batch_p if i == 0 else np.concatenate((predict, batch_p), axis=0)
-            if labels == True:
-                target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
-            
-            if labels == True:
-                del loss, batch, out 
-            else:  
-                del batch, out 
+                    del batch, out
             
         if write_output == True:
             if labels == True:
