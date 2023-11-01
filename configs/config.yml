@@ -15,15 +15,15 @@ task:
   verbosity: 5
 
 model:
-  name: CGCNN
+  name: CrystalGraphGeo
   load_model: False
   save_model: True
   model_path: "my_model.pth"
   edge_steps: 50
   self_loop: True
   # model attributes
-  dim1: 100
-  dim2: 150
+  dim1: 128
+  dim2: 64
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
@@ -35,15 +35,15 @@ model:
   dropout_rate: 0.0
 
 optim:
-  max_epochs: 400
+  max_epochs: 300
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: "TorchLossWrapper"
     loss_args: {"loss_fn": "l1_loss"}
 
-  batch_size: 100
+  batch_size: 256
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -52,19 +52,20 @@ optim:
     scheduler_args: {"mode":"min", "factor":0.8, "patience":10, "min_lr":0.00001, "threshold":0.0002}
 
 dataset:
-  processed: False
+  processed: True
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
-  #src: "/project/Rithwik/2D_data_npj/raw/"
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
+  src: "/project/Rithwik/MP_data_69K/data.json"
   #src: "/project/Rithwik/QM9/data.json"
-  src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
+  #src: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/data.json"
   #Path to target file within data_path
   #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
   target_path:
   # Path to save processed data.pt file
   #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/MP_data_69K/"
-  pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
+  #pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
+  pt_path: "/project/Rithwik/MP_data_69K/"
 
   transforms:
     - name: GetY
@@ -73,7 +74,7 @@ dataset:
       otf: True # Optional parameter, default is False
   all_neighbors : True
   # one of mdl, ase, ocp
-  edge_calc_method: "mdl"
+  edge_calc_method: "ocp"
   # Format of data files (limit to those supported by ASE)
   data_format: "json"
   # Method of obtaining atom idctionary: available:(onehot)
@@ -89,8 +90,8 @@ dataset:
     num_offsets: 1
     edge_steps : 50
   # Ratios for train/val/test split out of a total of 1
-  train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.87
+  val_ratio: 0.065
+  test_ratio: 0.065
   
 
