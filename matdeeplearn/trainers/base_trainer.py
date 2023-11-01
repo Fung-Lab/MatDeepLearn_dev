@@ -300,15 +300,15 @@ class BaseTrainer(ABC):
 
         model_cls = registry.get_model_class(model_config["name"])
         model = model_cls(
-                  node_dim=node_dim, 
-                  edge_dim=edge_dim, 
-                  output_dim=output_dim, 
-                  cutoff_radius=graph_config["cutoff_radius"], 
-                  n_neighbors=graph_config["n_neighbors"], 
-                  graph_method=graph_config["edge_calc_method"], 
-                  num_offsets=graph_config["num_offsets"], 
-                  **model_config
-                  )
+                node_dim=node_dim, 
+                edge_dim=edge_dim, 
+                output_dim=output_dim, 
+                cutoff_radius=graph_config["cutoff_radius"], 
+                n_neighbors=graph_config["n_neighbors"], 
+                graph_method=graph_config["edge_calc_method"], 
+                num_offsets=graph_config["num_offsets"], 
+                **model_config
+                )
         model = model.to(rank)
         # model = torch_geometric.compile(model)
         # if model_config["load_model"] == True:

@@ -191,6 +191,13 @@ class CGCNN(BaseModel):
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
+        # Post-GNN pooling for graph-level embedding
+        mean_x = getattr(torch_geometric.nn, "global_mean_pool")(out, data.batch)
+        max_x = getattr(torch_geometric.nn, "global_max_pool")(out, data.batch)
+        add_x = getattr(torch_geometric.nn, "global_add_pool")(out, data.batch)
+
+        emb = torch.cat([mean_x, max_x, add_x], dim=1)
+
         # Post-GNN dense layers
         if self.prediction_level == "graph":
             if self.pool_order == "early":
@@ -218,16 +225,17 @@ class CGCNN(BaseModel):
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
-            out = self.lin_out(out)                
+            out = self.lin_out(out)
                      
-        return out   
+        return out, emb
         
         
     def forward(self, data):
         
         output = {}
-        out = self._forward(data)
+        out, emb = self._forward(data)
         output["output"] =  out
+        output["representation"] = emb
 
         if self.gradient == True and out.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
@@ -244,6 +252,6 @@ class CGCNN(BaseModel):
             output["cell_grad"] =  stress
         else:
             output["pos_grad"] =  None
-            output["cell_grad"] =  None    
+            output["cell_grad"] =  None
                   
         return output
