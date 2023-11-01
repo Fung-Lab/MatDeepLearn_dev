@@ -24,7 +24,7 @@ model:
   name: CrystalGraphGeo
   # model attributes
   dim1: 128
-  dim2: 128
+  dim2: 64
   pre_fc_count: 1
   gc_count: 4
   post_fc_count: 3
@@ -51,7 +51,7 @@ optim:
     loss_args: {"loss_fn": "l1_loss"}
   clip_grad_norm: 10
          
-  batch_size: 2
+  batch_size: 256
   optimizer:
     optimizer_type: "AdamW"
     optimizer_args: {}
@@ -65,20 +65,20 @@ optim:
   
 dataset:
   name: "test_data"
-  processed: False
+  processed: True
   # Path to data files
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
   #src: "/project/Rithwik/2D_data_npj/raw/"
-  #src: "/project/Rithwik/QM9/data.json"
+  src: "/project/Rithwik/MP_data_69K/data.json"
   #src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_69K/data.json"
   #Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  #target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
   #target_path: "/project/Rithwik/MP_data_69K/targets.csv"
-  #target_path:
+  target_path:
 
   # Path to save processed data.pt file
-  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
-  #pt_path: "/storage/coda1/p-vfung3/0/rseth34/MP_data_69K/"
+  #pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
+  pt_path: "/project/Rithwik/MP_data_69K/"
   prediction_level: "graph"
   transforms:
     - name: GetY
@@ -110,7 +110,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_nodes: True
     cutoff_radius : 8.0
-    n_neighbors : 12
+    n_neighbors : 250
     num_offsets: 2
     edge_steps : 64
     self_loop: True
@@ -118,8 +118,8 @@ dataset:
     node_representation: "onehot"    
     all_neighbors: True
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.8
-  val_ratio: 0.1
-  test_ratio: 0.1
+  train_ratio: 0.87
+  val_ratio: 0.065
+  test_ratio: 0.065
   
 
