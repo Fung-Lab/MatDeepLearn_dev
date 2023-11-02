@@ -58,11 +58,11 @@ class PropertyTrainer(BaseTrainer):
             output_frequency,
             model_save_frequency,
             save_dir,
-            checkpoint_path,          
+            checkpoint_path,
             use_amp,
         )
 
-    def train(self):
+    def train(self, whole_predict=False):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
@@ -88,8 +88,8 @@ class PropertyTrainer(BaseTrainer):
                 logging.info(
                     f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
                 )
-     
-        for epoch in range(start_epoch, end_epoch):            
+
+        for epoch in range(start_epoch, end_epoch):
             epoch_start_time = time.time()
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
@@ -97,29 +97,76 @@ class PropertyTrainer(BaseTrainer):
             train_loader_iter = iter(self.data_loader["train_loader"])
             # metrics for every epoch
             _metrics = {}
-            
+
             #for i in range(skip_steps, len(self.train_loader)):
             pbar = tqdm(range(0, len(self.data_loader["train_loader"])), disable=not self.batch_tqdm)
-            for i in pbar:                                
+            for i in pbar:
                 #self.epoch = epoch + (i + 1) / len(self.train_loader)
                 #self.step = epoch * len(self.train_loader) + i + 1
-                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024)) 
+                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
                 self.model.train()
                 # Get a batch of train data
-                batch = next(train_loader_iter).to(self.rank)
-                #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))
-                # Compute forward, loss, backward    
-                with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                            
-                    loss = self._compute_loss(out, batch)  
-                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
-                grad_norm = self._backward(loss)  
-                pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
-                # Compute metrics
-                # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
-                #  keep option to log metrics per epoch  
-                _metrics = self._compute_metrics(out, batch, _metrics)               
-                self.metrics = self.evaluator.update("loss", loss.item(), out["output"].shape[0], _metrics)     
+                if whole_predict:
+                    whole_batch = next(train_loader_iter)
+                    rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
+                    vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+                    vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
+                    vn_indices_split = \
+                        [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+
+                    for vn_batch_indices in vn_indices_split:
+                        data_list = []
+                        combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
+                        # combined_indices, _ = torch.sort(combined_indices)
+                        # vn_batch_indices, _ = torch.sort(vn_batch_indices)
+
+                        sub_batch = whole_batch.batch[combined_indices]
+                        vn_sub_batch = whole_batch.batch[vn_batch_indices]
+
+                        for b in sub_batch.unique():
+                            mask = sub_batch == b
+                            vn_mask = vn_sub_batch == b
+                            data_list.append(
+                                Data(
+                                    n_atoms=whole_batch.n_atoms[b],
+                                    pos=whole_batch.pos[mask & combined_indices],
+                                    cell=whole_batch.cell[b],
+                                    structure_id=whole_batch.structure_id[b],
+                                    z=whole_batch.z[mask & combined_indices],
+                                    u=whole_batch.u[b],
+                                    y=whole_batch.y[vn_mask & vn_batch_indices]
+                                )
+                            )
+                        batch = Batch.Batch.from_data_list(data_list).to(self.rank)
+                        # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))
+                        # Compute forward, loss, backward
+                        with autocast(enabled=self.use_amp):
+                            out = self._forward(batch)
+                            loss = self._compute_loss(out, batch) + torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y))
+                            # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
+                        grad_norm = self._backward(loss)
+                        pbar.set_description(
+                            "Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))
+                        # Compute metrics
+                        # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
+                        #  keep option to log metrics per epoch
+                        _metrics = self._compute_metrics(out, batch, _metrics)
+                        self.metrics = self.evaluator.update("loss", loss.item(), out["output"].shape[0], _metrics)
+                else:
+                    batch = next(train_loader_iter).to(self.rank)
+                    #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))
+                    # Compute forward, loss, backward
+                    with autocast(enabled=self.use_amp):
+                        out = self._forward(batch)
+                        loss = self._compute_loss(out, batch) + torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y))
+                    #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
+                    grad_norm = self._backward(loss)
+                    pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))
+                    # Compute metrics
+                    # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
+                    #  keep option to log metrics per epoch
+                    _metrics = self._compute_metrics(out, batch, _metrics)
+                    self.metrics = self.evaluator.update("loss", loss.item(), out["output"].shape[0], _metrics)
 
             self.epoch = epoch + 1
 
@@ -127,16 +174,16 @@ class PropertyTrainer(BaseTrainer):
                 dist.barrier()
 
             # TODO: could add param to eval and save on increments instead of every time  
-            
+
             # Save current model      
-            torch.cuda.empty_cache()                 
+            torch.cuda.empty_cache()
             if str(self.rank) in ("0", "cpu", "cuda"):
                 if self.model_save_frequency == 1:
                     self.save_model(checkpoint_file="checkpoint.pt", training_state=True)
 
                 # Evaluate on validation set if it exists
                 if self.data_loader.get("val_loader"):
-                    metric = self.validate("val") 
+                    metric = self.validate("val")
                 else:
                     metric = self.metrics
 
@@ -164,8 +211,8 @@ class PropertyTrainer(BaseTrainer):
                 # step scheduler, using validation error
                 self._scheduler_step()
 
-            torch.cuda.empty_cache()        
-        
+            torch.cuda.empty_cache()
+
         if self.best_model_state:
             if str(self.rank) in "0":
                 self.model.module.load_state_dict(self.best_model_state)
@@ -178,18 +225,18 @@ class PropertyTrainer(BaseTrainer):
             #    test_loss = "N/A"             
             if self.model_save_frequency != -1:
                 self.save_model("best_checkpoint.pt", metric, True)
-            logging.info("Final Losses: ")     
+            logging.info("Final Losses: ")
             if "train" in self.write_output:
                 self.predict(self.data_loader["train_loader"], "train")
             if "val" in self.write_output and self.data_loader.get("val_loader"):
                 self.predict(self.data_loader["val_loader"], "val")
-            if "test" in self.write_output and self.data_loader.get("test_loader"):    
-                self.predict(self.data_loader["test_loader"], "test")                       
-            
+            if "test" in self.write_output and self.data_loader.get("test_loader"):
+                self.predict(self.data_loader["test_loader"], "test")
+
         return self.best_model_state
-        
+
     @torch.no_grad()
-    def validate(self, split="val"):
+    def validate(self, split="val", whole_predict=False):
         self.model.eval()
         evaluator, metrics = Evaluator(), {}
 
@@ -201,31 +248,71 @@ class PropertyTrainer(BaseTrainer):
             loader_iter = iter(self.data_loader["train_loader"])
 
         for i in range(0, len(loader_iter)):
-            #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
-            batch = next(loader_iter).to(self.rank)
-            out = self._forward(batch.to(self.rank))
-            loss = self._compute_loss(out, batch)
-            # Compute metrics
-            #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
-            metrics = self._compute_metrics(out, batch, metrics)
-            metrics = evaluator.update("loss", loss.item(), out["output"].shape[0], metrics)
-            del loss, batch, out
-        
+            #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
+            if whole_predict:
+                whole_batch = next(loader_iter)
+                rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
+                vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+                vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
+                vn_indices_split = \
+                    [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+
+                for vn_batch_indices in vn_indices_split:
+                    data_list = []
+                    combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
+                    # combined_indices, _ = torch.sort(combined_indices)
+                    # vn_batch_indices, _ = torch.sort(vn_batch_indices)
+
+                    sub_batch = whole_batch.batch[combined_indices]
+                    vn_sub_batch = whole_batch.batch[vn_batch_indices]
+
+                    for b in sub_batch.unique():
+                        mask = sub_batch == b
+                        vn_mask = vn_sub_batch == b
+                        data_list.append(
+                            Data(
+                                n_atoms=whole_batch.n_atoms[b],
+                                pos=whole_batch.pos[mask & combined_indices],
+                                cell=whole_batch.cell[b],
+                                structure_id=whole_batch.structure_id[b],
+                                z=whole_batch.z[mask & combined_indices],
+                                u=whole_batch.u[b],
+                                y=whole_batch.y[vn_mask & vn_batch_indices]
+                            )
+                        )
+                    batch = Batch.Batch.from_data_list(data_list).to(self.rank)
+                    out = self._forward(batch.to(self.rank))
+                    loss = self._compute_loss(out, batch)
+                    # Compute metrics
+                    # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
+                    metrics = self._compute_metrics(out, batch, metrics)
+                    metrics = evaluator.update("loss", loss.item(), out["output"].shape[0], metrics)
+                    del loss, batch, out
+            else:
+                batch = next(loader_iter).to(self.rank)
+                out = self._forward(batch.to(self.rank))
+                loss = self._compute_loss(out, batch)
+                # Compute metrics
+                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
+                metrics = self._compute_metrics(out, batch, metrics)
+                metrics = evaluator.update("loss", loss.item(), out["output"].shape[0], metrics)
+                del loss, batch, out
+
         torch.cuda.empty_cache()
-        
+
         return metrics
 
     @torch.no_grad()
     def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True, whole_predict=False):
         self.model.eval()
-         
+
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
         if str(self.rank) not in ("cpu", "cuda"):
             loader = get_dataloader(
                 loader.dataset, batch_size=loader.batch_size, sampler=None
             )
-            
+
         evaluator, metrics = Evaluator(), {}
         predict, target = None, None
         ids = []
@@ -239,24 +326,36 @@ class PropertyTrainer(BaseTrainer):
 
             if whole_predict:
                 whole_batch = next(loader_iter)
-                assert len(whole_batch.batch_size == 1)
                 rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
                 vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+                vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
                 vn_indices_split = \
-                    [vn_indices[i:max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+                    [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
 
                 for vn_batch_indices in vn_indices_split:
+                    data_list = []
                     combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
-                    data = Data(
-                        pos=whole_batch.pos[combined_indices],
-                        cell=whole_batch.cell,
-                        structure_id=whole_batch.structure_id,
-                        z=whole_batch.z[combined_indices],
-                        y=whole_batch.y[combined_indices],
-                    )
-                    batch = Batch.Batch.from_data_list(
-                        [data]
-                    ).to(self.rank)
+                    # combined_indices, _ = torch.sort(combined_indices)
+                    # vn_batch_indices, _ = torch.sort(vn_batch_indices)
+
+                    sub_batch = whole_batch.batch[combined_indices]
+                    vn_sub_batch = whole_batch.batch[vn_batch_indices]
+
+                    for b in sub_batch.unique():
+                        mask = sub_batch == b
+                        vn_mask = vn_sub_batch == b
+                        data_list.append(
+                            Data(
+                                n_atoms=whole_batch.n_atoms[b],
+                                pos=whole_batch.pos[mask & combined_indices],
+                                cell=whole_batch.cell[b],
+                                structure_id=whole_batch.structure_id[b],
+                                z=whole_batch.z[mask & combined_indices],
+                                u=whole_batch.u[b],
+                                y=whole_batch.y[vn_mask & vn_batch_indices]
+                            )
+                        )
+                    batch = Batch.Batch.from_data_list(data_list).to(self.rank)
                     out = self._forward(batch.to(self.rank))
                     batch_p = out["output"].data.cpu().numpy()
                     batch_ids = batch.structure_id
@@ -324,9 +423,7 @@ class PropertyTrainer(BaseTrainer):
                         del loss, batch, out
                     else:
                         del batch, out
-        else:
-
-
+            else:
                 batch = next(loader_iter).to(self.rank)
                 out = self._forward(batch.to(self.rank))
                 batch_p = out["output"].data.cpu().numpy()
@@ -390,7 +487,7 @@ class PropertyTrainer(BaseTrainer):
                     del loss, batch, out
                 else:
                     del batch, out
-            
+
         if write_output == True:
             if labels == True:
                 self.save_results(
@@ -400,38 +497,38 @@ class PropertyTrainer(BaseTrainer):
                 self.save_results(
                     np.column_stack((ids, predict)), results_dir, f"{split}_predictions.csv", node_level
                 )
-                            
+
             #if out.get("pos_grad") != None:
             if len(ids_pos_grad) > 0:
-                if isinstance(target_pos_grad, np.ndarray):  
+                if isinstance(target_pos_grad, np.ndarray):
                     self.save_results(
                         np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
                     )
-                else: 
+                else:
                     self.save_results(
                         np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
-                    )                           
+                    )
             #if out.get("cell_grad") != None:
             if len(ids_cell_grad) > 0:
-                if isinstance(target_cell_grad, np.ndarray):  
+                if isinstance(target_cell_grad, np.ndarray):
                     self.save_results(
                         np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
                     )
-                else:            
+                else:
                     self.save_results(
                         np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
-                    )    
-                            
+                    )
+
         if labels == True:
             predict_loss = metrics[type(self.loss_fn).__name__]["metric"]
-            logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))        
+            logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))
             predictions = {"ids":ids, "predict":predict, "target":target}
         else:
             predictions = {"ids":ids, "predict":predict}
-            
+
         torch.cuda.empty_cache()
-        
-        return predictions 
+
+        return predictions
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
@@ -442,15 +539,15 @@ class PropertyTrainer(BaseTrainer):
         return loss
 
     def _backward(self, loss):
-        self.optimizer.zero_grad(set_to_none=True) 
+        self.optimizer.zero_grad(set_to_none=True)
         self.scaler.scale(loss).backward()
         if self.clip_grad_norm:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),
                 max_norm=self.clip_grad_norm,
-            )           
+            )
         self.scaler.step(self.optimizer)
-        self.scaler.update()            
+        self.scaler.update()
         return grad_norm
 
     def _compute_metrics(self, out, batch_data, metrics):
