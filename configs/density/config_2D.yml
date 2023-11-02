@@ -26,25 +26,24 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN    
+  name: torchmd_etEarly
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 3
-  gc_count: 4
-  post_fc_count: 3
-  pool: global_mean_pool
-  pool_order: early
-  batch_norm: True
-  batch_track_stats: True
-  act: relu
-  dropout_rate: 0.0
+  hidden_channels: 64
+  num_layers: 5
+  num_rbf: 25
+  activation: "silu"
+  attn_activation: "silu"
+  num_heads: 8
+  num_post_layers: 1
+  post_hidden_channels: 64
+  pool: "global_add_pool"
+  aggr: "add"
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: False
 
@@ -102,7 +101,7 @@ dataset:
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: mdl 
+    edge_calc_method: ocp
     # determine if edges are computed, if false, then they need to be computed on the fly   
     preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
