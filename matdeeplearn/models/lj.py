@@ -56,8 +56,8 @@ class LJ(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
 
-        self.sigmas = Parameter(torch.ones(100, 100), requires_grad=True)
-        self.epsilons = Parameter(torch.ones(100, 100), requires_grad=True)
+        self.sigmas = Parameter(5 * torch.ones(100, 100), requires_grad=True)
+        self.epsilons = Parameter(5 * torch.ones(100, 100), requires_grad=True)
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -89,13 +89,16 @@ class LJ(BaseModel):
         num_edges = len(data.edge_index[0])
         atoms = torch.zeros(2, num_edges, dtype=torch.int64)
 
-        atoms[0] = data.z[data.edge_index[0]]
-        atoms[1] = data.z[data.edge_index[1]]
+        atoms[0] = data.z[data.edge_index[0]] - 1
+        atoms[1] = data.z[data.edge_index[1]] - 1
 
         flat_index = atoms[0] * 100 + atoms[1]
         sigma = self.sigmas.view(-1)[flat_index].view(num_edges, 1).squeeze()
         epsilon = self.epsilons.view(-1)[flat_index].view(num_edges, 1).squeeze()
-
+        
+        mask = torch.zeros(100, 100).to('cuda:0')
+        mask.view(-1, 1)[flat_index] = 1
+        
         rc = self.cutoff_radius
         ro = 0.66 * rc
         r2 = data.edge_weight ** 2
@@ -111,12 +114,7 @@ class LJ(BaseModel):
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
         
-        try:
-            result = out + lennard_jones_out.reshape(-1, 1)
-        except:
-            print(f'out: {out.size()}, lj: {lennard_jones_out.reshape(-1, 1).size()}, edge_index_to_graph: {edge_idx_to_graph}')
-        
-        return out + lennard_jones_out.reshape(-1, 1)
+        return out + lennard_jones_out.reshape(-1, 1), mask
     
     def cutoff_function(self, r, rc, ro):
         """
@@ -145,7 +143,7 @@ class LJ(BaseModel):
     def forward(self, data):
         
         output = {}
-        out = self._forward(data)
+        out, mask = self._forward(data)
         output["output"] = out
 
         if self.gradient == True and out.requires_grad == True:         
@@ -165,4 +163,4 @@ class LJ(BaseModel):
             output["pos_grad"] =  None
             output["cell_grad"] =  None 
 
-        return output
+        return output, mask

@@ -560,8 +560,8 @@ class BaseTrainer(ABC):
 
         print(model_state.keys())
         for name, param in load_state.items():
-            #if name not in model_state or name.split('.')[0] in "post_lin_list":
-            if name not in model_state:
+            if name not in model_state or name.split('.')[0] in ["post_lin_list", "lin_out"]:
+            #if name not in model_state:
                 logging.debug('NOT loaded: %s', name)
                 continue
             else:

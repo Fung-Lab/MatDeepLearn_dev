@@ -13,8 +13,8 @@ from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
 
-@registry.register_trainer("property")
-class PropertyTrainer(BaseTrainer):
+@registry.register_trainer("hybrid")
+class HybridTrainer(BaseTrainer):
     def __init__(
         self,
         model,
@@ -109,10 +109,10 @@ class PropertyTrainer(BaseTrainer):
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                           
+                    out, mask = self._forward(batch)                                       
                     loss = self._compute_loss(out, batch)  
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
-                grad_norm = self._backward(loss)  
+                grad_norm = self._backward(loss, mask)  
                 pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
@@ -202,7 +202,7 @@ class PropertyTrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
             batch = next(loader_iter).to(self.rank)
-            out = self._forward(batch.to(self.rank))
+            out, _ = self._forward(batch.to(self.rank))
             loss = self._compute_loss(out, batch)
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
@@ -236,7 +236,7 @@ class PropertyTrainer(BaseTrainer):
         loader_iter = iter(loader)
         for i in range(0, len(loader_iter)):
             batch = next(loader_iter).to(self.rank)    
-            out = self._forward(batch.to(self.rank))
+            out, _ = self._forward(batch.to(self.rank))
             batch_p = out["output"].data.cpu().numpy()
             batch_ids = batch.structure_id 
             
@@ -363,14 +363,14 @@ class PropertyTrainer(BaseTrainer):
         return results
 
     def _forward(self, batch_data):
-        output = self.model(batch_data)
-        return output
+        output, mask = self.model(batch_data)
+        return output, mask
 
     def _compute_loss(self, out, batch_data):
         loss = self.loss_fn(out, batch_data)
         return loss
 
-    def _backward(self, loss):
+    def _backward(self, loss, mask):
         self.optimizer.zero_grad(set_to_none=True) 
         self.scaler.scale(loss).backward()
         if self.clip_grad_norm:
@@ -378,7 +378,24 @@ class PropertyTrainer(BaseTrainer):
                 self.model.parameters(),
                 max_norm=self.clip_grad_norm,
             )    
+        
+        original_sigmas = next(param for name, param in self.model.named_parameters() if name == 'sigmas').clone().to('cuda:0')
+        original_epsilons = next(param for name, param in self.model.named_parameters() if name == 'epsilons').clone().to('cuda:0')
+        
         self.scaler.step(self.optimizer)
+        
+        optimized_sigmas = next(param for name, param in self.model.named_parameters() if name == 'sigmas')
+        optimized_epsilons = next(param for name, param in self.model.named_parameters() if name == 'epsilons')
+        
+        sigmas_change = (original_sigmas - optimized_sigmas) * mask
+        epsilons_change = (original_epsilons - optimized_epsilons) * mask
+        
+        optimized_sigmas = original_sigmas - sigmas_change
+        optimized_epsilons = original_epsilons - epsilons_change
+        
+        self.model.sigmas.data = optimized_sigmas
+        self.model.epsilons.data = optimized_epsilons
+        
         self.scaler.update()            
         return grad_norm
 
