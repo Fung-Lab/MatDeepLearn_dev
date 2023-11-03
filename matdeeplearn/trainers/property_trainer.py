@@ -62,7 +62,7 @@ class PropertyTrainer(BaseTrainer):
             use_amp,
         )
 
-    def train(self, whole_predict=False):
+    def train(self, whole_predict=True):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
         # to prevent inconsistencies due to different batch size in checkpoint.
@@ -236,7 +236,7 @@ class PropertyTrainer(BaseTrainer):
         return self.best_model_state
 
     @torch.no_grad()
-    def validate(self, split="val", whole_predict=False):
+    def validate(self, split="val", whole_predict=True):
         self.model.eval()
         evaluator, metrics = Evaluator(), {}
 
@@ -303,7 +303,7 @@ class PropertyTrainer(BaseTrainer):
         return metrics
 
     @torch.no_grad()
-    def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True, whole_predict=False):
+    def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True, whole_predict=True):
         self.model.eval()
 
         assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
