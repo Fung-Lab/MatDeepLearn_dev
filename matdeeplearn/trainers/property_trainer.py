@@ -109,33 +109,36 @@ class PropertyTrainer(BaseTrainer):
                 if whole_predict:
                     whole_batch = next(train_loader_iter)
                     rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
-                    vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+
+                    vn_pos = whole_batch.pos[~rn_indices]
+                    rn_pos = whole_batch.pos[rn_indices]
+                    rn_z = whole_batch.z[~rn_indices]
+                    vn_z = whole_batch.z[rn_indices]
+                    rn_batch = whole_batch.batch[rn_indices]
+                    vn_batch = whole_batch.batch[~rn_indices]
+                    vn_indices = torch.arange(len(vn_pos))
                     vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
                     vn_indices_split = \
-                        [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
-                    print(whole_batch.pos.device)
+                        [vn_indices[i: min(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
 
-                    for vn_batch_indices in vn_indices_split:
+                    for vn_sub_indices in vn_indices_split:
                         data_list = []
-                        combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
                         # combined_indices, _ = torch.sort(combined_indices)
-                        # vn_batch_indices, _ = torch.sort(vn_batch_indices)
+                        # vn_sub_indices, _ = torch.sort(vn_sub_indices)
+                        vn_sub_batch = vn_batch[vn_sub_indices]
 
-                        sub_batch = whole_batch.batch[combined_indices]
-                        vn_sub_batch = whole_batch.batch[vn_batch_indices]
-
-                        for b in sub_batch.unique():
-                            mask = sub_batch == b
+                        for b in rn_batch.unique():
+                            # mask = sub_batch == b
                             vn_mask = vn_sub_batch == b
                             data_list.append(
                                 Data(
                                     n_atoms=whole_batch.n_atoms[b],
-                                    pos=whole_batch.pos[mask & combined_indices],
+                                    pos=torch.cat((rn_pos, vn_pos[vn_sub_indices[vn_mask]]), dim=0),
                                     cell=whole_batch.cell[b].unsqueeze(0),
                                     structure_id=whole_batch.structure_id[b],
-                                    z=whole_batch.z[mask & combined_indices],
+                                    z=torch.cat((rn_z, vn_z[vn_sub_indices[vn_mask]]), dim=0),
                                     u=whole_batch.u[b],
-                                    y=whole_batch.y[vn_mask & vn_batch_indices]
+                                    y=whole_batch.y[vn_sub_indices[vn_mask]]
                                 )
                             )
                         batch = Batch.Batch.from_data_list(data_list).to(self.rank)
@@ -254,32 +257,36 @@ class PropertyTrainer(BaseTrainer):
             if whole_predict:
                 whole_batch = next(loader_iter)
                 rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
-                vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+
+                vn_pos = whole_batch.pos[~rn_indices]
+                rn_pos = whole_batch.pos[rn_indices]
+                rn_z = whole_batch.z[~rn_indices]
+                vn_z = whole_batch.z[rn_indices]
+                rn_batch = whole_batch.batch[rn_indices]
+                vn_batch = whole_batch.batch[~rn_indices]
+                vn_indices = torch.arange(len(vn_pos))
                 vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
                 vn_indices_split = \
-                    [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+                    [vn_indices[i: min(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
 
-                for vn_batch_indices in vn_indices_split:
+                for vn_sub_indices in vn_indices_split:
                     data_list = []
-                    combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
                     # combined_indices, _ = torch.sort(combined_indices)
-                    # vn_batch_indices, _ = torch.sort(vn_batch_indices)
+                    # vn_sub_indices, _ = torch.sort(vn_sub_indices)
+                    vn_sub_batch = vn_batch[vn_sub_indices]
 
-                    sub_batch = whole_batch.batch[combined_indices]
-                    vn_sub_batch = whole_batch.batch[vn_batch_indices]
-
-                    for b in sub_batch.unique():
-                        mask = sub_batch == b
+                    for b in rn_batch.unique():
+                        # mask = sub_batch == b
                         vn_mask = vn_sub_batch == b
                         data_list.append(
                             Data(
                                 n_atoms=whole_batch.n_atoms[b],
-                                pos=whole_batch.pos[mask & combined_indices],
+                                pos=torch.cat((rn_pos, vn_pos[vn_sub_indices[vn_mask]]), dim=0),
                                 cell=whole_batch.cell[b].unsqueeze(0),
                                 structure_id=whole_batch.structure_id[b],
-                                z=whole_batch.z[mask & combined_indices],
+                                z=torch.cat((rn_z, vn_z[vn_sub_indices[vn_mask]]), dim=0),
                                 u=whole_batch.u[b],
-                                y=whole_batch.y[vn_mask & vn_batch_indices]
+                                y=whole_batch.y[vn_sub_indices[vn_mask]]
                             )
                         )
                     batch = Batch.Batch.from_data_list(data_list).to(self.rank)
@@ -329,32 +336,36 @@ class PropertyTrainer(BaseTrainer):
             if whole_predict:
                 whole_batch = next(loader_iter)
                 rn_indices = torch.nonzero(whole_batch.z != 100).squeeze(1)
-                vn_indices = torch.nonzero(whole_batch.z == 100).squeeze(1)
+
+                vn_pos = whole_batch.pos[~rn_indices]
+                rn_pos = whole_batch.pos[rn_indices]
+                rn_z = whole_batch.z[~rn_indices]
+                vn_z = whole_batch.z[rn_indices]
+                rn_batch = whole_batch.batch[rn_indices]
+                vn_batch = whole_batch.batch[~rn_indices]
+                vn_indices = torch.arange(len(vn_pos))
                 vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
                 vn_indices_split = \
-                    [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+                    [vn_indices[i: min(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
 
-                for vn_batch_indices in vn_indices_split:
+                for vn_sub_indices in vn_indices_split:
                     data_list = []
-                    combined_indices = torch.cat([rn_indices, vn_batch_indices], dim=0)
                     # combined_indices, _ = torch.sort(combined_indices)
-                    # vn_batch_indices, _ = torch.sort(vn_batch_indices)
+                    # vn_sub_indices, _ = torch.sort(vn_sub_indices)
+                    vn_sub_batch = vn_batch[vn_sub_indices]
 
-                    sub_batch = whole_batch.batch[combined_indices]
-                    vn_sub_batch = whole_batch.batch[vn_batch_indices]
-
-                    for b in sub_batch.unique():
-                        mask = sub_batch == b
+                    for b in rn_batch.unique():
+                        # mask = sub_batch == b
                         vn_mask = vn_sub_batch == b
                         data_list.append(
                             Data(
                                 n_atoms=whole_batch.n_atoms[b],
-                                pos=whole_batch.pos[mask & combined_indices],
+                                pos=torch.cat((rn_pos, vn_pos[vn_sub_indices[vn_mask]]), dim=0),
                                 cell=whole_batch.cell[b].unsqueeze(0),
                                 structure_id=whole_batch.structure_id[b],
-                                z=whole_batch.z[mask & combined_indices],
+                                z=torch.cat((rn_z, vn_z[vn_sub_indices[vn_mask]]), dim=0),
                                 u=whole_batch.u[b],
-                                y=whole_batch.y[vn_mask & vn_batch_indices]
+                                y=whole_batch.y[vn_sub_indices[vn_mask]]
                             )
                         )
                     batch = Batch.Batch.from_data_list(data_list).to(self.rank)
