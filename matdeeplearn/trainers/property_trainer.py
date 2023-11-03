@@ -113,7 +113,7 @@ class PropertyTrainer(BaseTrainer):
                     vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
                     vn_indices_split = \
                         [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
-                    print(whole_batch.device)
+                    print(whole_batch.pos.device)
 
                     for vn_batch_indices in vn_indices_split:
                         data_list = []
