@@ -130,7 +130,7 @@ class PropertyTrainer(BaseTrainer):
                                 Data(
                                     n_atoms=whole_batch.n_atoms[b],
                                     pos=whole_batch.pos[mask & combined_indices],
-                                    cell=whole_batch.cell[b],
+                                    cell=whole_batch.cell[b].unsqueeze(0),
                                     structure_id=whole_batch.structure_id[b],
                                     z=whole_batch.z[mask & combined_indices],
                                     u=whole_batch.u[b],
@@ -273,7 +273,7 @@ class PropertyTrainer(BaseTrainer):
                             Data(
                                 n_atoms=whole_batch.n_atoms[b],
                                 pos=whole_batch.pos[mask & combined_indices],
-                                cell=whole_batch.cell[b],
+                                cell=whole_batch.cell[b].unsqueeze(0),
                                 structure_id=whole_batch.structure_id[b],
                                 z=whole_batch.z[mask & combined_indices],
                                 u=whole_batch.u[b],
@@ -348,7 +348,7 @@ class PropertyTrainer(BaseTrainer):
                             Data(
                                 n_atoms=whole_batch.n_atoms[b],
                                 pos=whole_batch.pos[mask & combined_indices],
-                                cell=whole_batch.cell[b],
+                                cell=whole_batch.cell[b].unsqueeze(0),
                                 structure_id=whole_batch.structure_id[b],
                                 z=whole_batch.z[mask & combined_indices],
                                 u=whole_batch.u[b],
