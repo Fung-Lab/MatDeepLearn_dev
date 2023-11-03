@@ -48,6 +48,7 @@ class BaseTrainer(ABC):
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
+        descriptor_configs: dict = None,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -173,6 +174,8 @@ class BaseTrainer(ABC):
 
         if local_world_size > 1:
             dist.barrier()
+
+        descriptor_configs = config["model"].get("descriptor_configs", None)
             
         return cls(
             model=model,
@@ -194,6 +197,7 @@ class BaseTrainer(ABC):
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
+            descriptor_configs=descriptor_configs
         )
 
     @staticmethod

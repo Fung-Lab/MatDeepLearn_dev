@@ -184,3 +184,7 @@ checkpoints/
 .pylintrc
 **/wandb/
 *.out
+
+*.txt
+
+*.pt

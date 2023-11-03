@@ -13,6 +13,7 @@ from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
 from matdeeplearn.modules.emb_optimize import *
+from matdeeplearn.modules.ead import EmbeddedAtom
 
 from torchviz import make_dot
 
@@ -40,6 +41,7 @@ class PropertyTrainer(BaseTrainer):
         save_dir,
         checkpoint_path,
         use_amp,
+        descriptor_configs
     ):
         super().__init__(
             model,
@@ -61,6 +63,7 @@ class PropertyTrainer(BaseTrainer):
             save_dir,
             checkpoint_path,          
             use_amp,
+            descriptor_configs
         )
 
         self.position_optimizer = PositionOptimizer(
@@ -69,6 +72,13 @@ class PropertyTrainer(BaseTrainer):
             optimizer_config=None,
             scheduler_config=None,
         )
+
+        if descriptor_configs is not None:
+            self.descriptor = EmbeddedAtom(**descriptor_configs)
+
+        self.loss_fn.model = self.model
+        self.loss_fn.position_optimizer = self.position_optimizer
+        self.loss_fn.descriptor = self.descriptor
 
     def train(self):
         # Start training over epochs loop
@@ -120,15 +130,24 @@ class PropertyTrainer(BaseTrainer):
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                       
-                    y_loss = self._compute_loss(out, batch)
-                    pos_loss = self.get_end2end_loss(batch, out["representation"])
+                    out = self._forward(batch)
+                    loss = self._compute_loss(out, batch)
+                    # pos_loss = self.get_end2end_loss(batch, out["representation"])
 
                     # dot = make_dot(pos_loss, params=dict(self.model.named_parameters()))
                     # dot.render("pos_loss_method", format="svg")
 
-                loss = y_loss + pos_loss
+                # loss = pos_loss
                 grad_norm = self._backward(loss)
+
+                assert self.model.training == True, "Model not in training mode"
+
+                # check parameters
+                # for name, param in self.model.named_parameters():
+                #     if param.grad is not None:
+                #         print(name, param.grad.norm().item())
+                #     else:
+                #         print(name, "None")
 
                 pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
                 # Compute metrics
@@ -221,15 +240,26 @@ class PropertyTrainer(BaseTrainer):
 
         # optimized positions
         opt_pos = batch.pos
-        pos_loss = ((original_pos - opt_pos)**2).mean()
+        pos_loss = self.descriptor_loss(batch, original_pos, opt_pos)
 
         # make sure model in train
         self.model.train()
         self.model.requires_grad_(True)
 
         return pos_loss
+
+    def descriptor_loss(self, batch, original_pos, opt_pos):
+        loss_fn = nn.L1Loss()
+
+        batch.pos = original_pos
+        original_pos_ead = self.descriptor.get_batch_features(batch, original_pos)
+
+        batch.pos = opt_pos
+        opt_pos_ead = self.descriptor.get_batch_features(batch, opt_pos)
+
+        return loss_fn(opt_pos_ead, original_pos_ead)
         
-    @torch.no_grad()
+    # @torch.no_grad()
     def validate(self, split="val"):
         self.model.eval()
         evaluator, metrics = Evaluator(), {}

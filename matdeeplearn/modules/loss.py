@@ -18,6 +18,42 @@ class TorchLossWrapper(nn.Module):
     def forward(self, predictions: torch.Tensor, target: Batch):    
         return self.loss_fn(predictions["output"], target.y)
 
+@registry.register_loss("End2EndLoss")
+class TorchLossWrapper(nn.Module):
+    def __init__(self, loss_fn="l1_loss", weight_energy=1.0, weight_descriptor=1.0):
+        super().__init__()
+        self.loss_fn = getattr(F, loss_fn)
+        self.weight_energy = weight_energy
+        self.weight_descriptor = weight_descriptor
+
+    def forward(self, predictions: torch.Tensor, batch: Batch):
+        original_pos = batch.pos.detach().clone()
+        init_pos = torch.rand(batch.pos.shape).to(batch.pos.device)
+        batch.pos = init_pos
+
+        # set gradient to be false to avoid pass through the model twice
+        self.model.gradient = False
+        batch.pos, _ = self.position_optimizer.optimize(batch, predictions['representation'])
+        self.model.gradient = True
+
+        # optimized positions
+        opt_pos = batch.pos
+        batch.pos = original_pos
+        original_pos_ead = self.descriptor.get_batch_features(batch, original_pos)
+
+        batch.pos = opt_pos
+        opt_pos_ead = self.descriptor.get_batch_features(batch, opt_pos)
+
+        # make sure model in train
+        self.model.train()
+        self.model.requires_grad_(True)
+
+        # calculate loss
+        energy_loss = self.loss_fn(predictions["output"], batch.y)
+        descriptor_loss = self.loss_fn(opt_pos_ead, original_pos_ead)
+
+        return self.weight_energy*energy_loss + self.weight_descriptor*descriptor_loss
+
 
 @registry.register_loss("ForceLoss")
 class ForceLoss(nn.Module):

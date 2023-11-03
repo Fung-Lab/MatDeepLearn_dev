@@ -77,6 +77,8 @@ class CGCNN(BaseModel):
             # workaround for doubled dimension by set2set; if late pooling not recommended to use set2set
             self.lin_out_2 = torch.nn.Linear(self.output_dim * 2, self.output_dim)
 
+        self.__dict__.update(kwargs)
+
     @property
     def target_attr(self):
         return "y"
@@ -197,6 +199,10 @@ class CGCNN(BaseModel):
         add_x = getattr(torch_geometric.nn, "global_add_pool")(out, data.batch)
 
         emb = torch.cat([mean_x, max_x, add_x], dim=1)
+
+        if hasattr(self, "emb_only"):
+            if self.emb_only:
+                return emb, None
 
         # Post-GNN dense layers
         if self.prediction_level == "graph":

@@ -34,7 +34,7 @@ class Runner:  # submitit.helpers.Checkpointable):
 
             self.task.run()
             
-            # shutil.move('log_'+config["task"]["log_id"]+'.txt', os.path.join(self.trainer.save_dir, "results", self.trainer.timestamp_id, "log.txt"))
+            shutil.move('log_'+config["task"]["log_id"]+'.txt', os.path.join(self.trainer.save_dir, "results", self.trainer.timestamp_id, "log.txt"))
 
     def checkpoint(self, *args, **kwargs):
         # new_runner = Runner()

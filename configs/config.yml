@@ -17,9 +17,9 @@ task:
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: -1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: -1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   # Use amp mixed precision
@@ -47,15 +47,26 @@ model:
   otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  descriptor_configs:
+    cutoff: 20.0
+    all_neighbors: True
+    offset_count: 3
+    L: 0
+    eta: [1, 20, 90]
+    Rs: 
+    derivative: False
+    stress: False
 
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 1
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    loss_type: TorchLossWrapper
-    loss_args: {loss_fn: l1_loss}
+    # loss_type: TorchLossWrapper
+    # loss_args: {loss_fn: l1_loss}
+    loss_type: "End2EndLoss"
+    loss_args: {"weight_energy": 0., "weight_descriptor": 1.}
   # gradient clipping value
   clip_grad_norm: 10       
   batch_size: 32
@@ -68,7 +79,7 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
   name: test_data
@@ -76,11 +87,15 @@ dataset:
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   # src: /nethome/sjia65/Datasets/MP_data_forces/raw/data_100.json
-  src: /nethome/sjia65/Datasets/Matbench/data_dielectric.json
+  src:
+    train: /nethome/sjia65/Datasets/CDVAE/perov_5/raw_train
+    val: /nethome/sjia65/Datasets/CDVAE/perov_5/raw_val
   # src: /storage/ice-shared/vip-vxp/Shared/Materials_datasets/MP_data_forces/raw/data_relaxed.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
-  target_path: 
+  target_path:
+    train: /nethome/sjia65/Datasets/CDVAE/perov_5/raw_train/targets.csv
+    val: /nethome/sjia65/Datasets/CDVAE/perov_5/raw_val/targets.csv
   # Path to save processed data.pt file
   pt_path: data/
   # Either "node" or "graph" level
@@ -95,7 +110,7 @@ dataset:
         index: -1
       otf_transform: True # Optional parameter, default is True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
-  data_format: json
+  data_format: cif
   # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
   additional_attributes: 
   # Print out processing info
@@ -130,6 +145,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
-  train_ratio: 0.6
-  val_ratio: 0.2
-  test_ratio: 0.2
+  train_ratio: 1.0
+  val_ratio: 0.
+  test_ratio: 0.

@@ -58,12 +58,12 @@ class PositionOptimizer(ABC):
                 batch_pos = batch_pos.add(pos_grad, alpha=-1)
                 batch.pos = batch_pos
 
-                print("iter {} | grad: {}".format(i, pos_grad))
+                # print("iter {} | grad: {}".format(i, pos_grad))
 
                 iter_end_loss = loss.item()
             else:
                 optimizer.zero_grad()
-                
+
                 # get representation for current iteration
                 curr_rep = self.get_representation(batch)
 
@@ -72,7 +72,7 @@ class PositionOptimizer(ABC):
                 pos_grad = torch.autograd.grad(loss, batch.pos)[0]
                 batch.pos.grad = pos_grad
 
-                print("iter {} | grad: {}".format(i, pos_grad))
+                # print("iter {} | grad: {}".format(i, pos_grad))
 
                 # update
                 # loss.backward(retain_graph=True)
@@ -83,7 +83,7 @@ class PositionOptimizer(ABC):
                 if i == 0:
                     iter_start_loss = loss.item()
 
-        print("iter start loss: {} | iter end loss: {}".format(iter_start_loss, iter_end_loss))
+        # print("iter start loss: {} | iter end loss: {}".format(iter_start_loss, iter_end_loss))
         
         return batch.pos, loss.item()
 
