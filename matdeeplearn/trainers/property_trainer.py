@@ -142,9 +142,9 @@ class PropertyTrainer(BaseTrainer):
                         # Compute forward, loss, backward
                         with autocast(enabled=self.use_amp):
                             out = self._forward(batch)
-                            loss = self._compute_loss(out, batch) + torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y))
+                            loss = self._compute_loss(out, batch)
                             # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
-                        grad_norm = self._backward(loss)
+                        grad_norm = self._backward(loss + torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y)))
                         pbar.set_description(
                             "Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))
                         # Compute metrics
@@ -158,9 +158,9 @@ class PropertyTrainer(BaseTrainer):
                     # Compute forward, loss, backward
                     with autocast(enabled=self.use_amp):
                         out = self._forward(batch)
-                        loss = self._compute_loss(out, batch) + torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y))
+                        loss = self._compute_loss(out, batch)
                     #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
-                    grad_norm = self._backward(loss)
+                    grad_norm = self._backward(loss + torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y)))
                     pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))
                     # Compute metrics
                     # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
