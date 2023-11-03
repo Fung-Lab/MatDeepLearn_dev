@@ -113,6 +113,7 @@ class PropertyTrainer(BaseTrainer):
                     vn_indices = vn_indices[torch.randperm(vn_indices.size()[0])]
                     vn_indices_split = \
                         [vn_indices[i: max(i + 1000, len(vn_indices))] for i in range(0, len(vn_indices), 1000)]
+                    print(whole_batch.device)
 
                     for vn_batch_indices in vn_indices_split:
                         data_list = []
@@ -138,6 +139,7 @@ class PropertyTrainer(BaseTrainer):
                                 )
                             )
                         batch = Batch.Batch.from_data_list(data_list).to(self.rank)
+                        print(batch, batch.device)
                         # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))
                         # Compute forward, loss, backward
                         with autocast(enabled=self.use_amp):
