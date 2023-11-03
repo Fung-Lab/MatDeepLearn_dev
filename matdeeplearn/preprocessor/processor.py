@@ -258,27 +258,30 @@ class DataProcessor:
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
                             if self.num_samples != -1 else np.arange(len(vn_labels))
+                        np.random.shuffle(indices)
+                        indices = [indices[i: max(i + 500, len(indices))] for i in range(0, len(indices), 500)]
 
-                        pos_vn = torch.tensor(vn_coords[indices, :], device=self.device, dtype=torch.float)
-                        atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
-                        #d["positions_vn"] = vn_coords[indices, :]
-                        #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
-                        d["y"] = vn_labels[indices, :]
+                        for sub_indices in indices:
+                            pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
+                            atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
+                            #d["positions_vn"] = vn_coords[indices, :]
+                            #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
+                            d["y"] = vn_labels[sub_indices, :]
 
-                        ase_structure = io.read(self.root_path_dict+dir_name+"/structure.xsf")
-                        pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
-                        cell = torch.tensor(
-                            np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
-                        ).view(1, 3, 3)
-                        if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
-                            cell = torch.zeros((3,3)).unsqueeze(0)
-                        atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
+                            ase_structure = io.read(self.root_path_dict+dir_name+"/structure.xsf")
+                            pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
+                            cell = torch.tensor(
+                                np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
+                            ).view(1, 3, 3)
+                            if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
+                                cell = torch.zeros((3,3)).unsqueeze(0)
+                            atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
 
-                        d["positions"] = torch.cat((pos, pos_vn), dim=0)
-                        d["cell"] = cell
-                        d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
-                        d["structure_id"] = str(dir_name)
-                        dict_structures.append(d)
+                            d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                            d["cell"] = cell
+                            d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                            d["structure_id"] = str(dir_name)
+                            dict_structures.append(d)
                         # print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
                     except Exception as e:
                         pass
