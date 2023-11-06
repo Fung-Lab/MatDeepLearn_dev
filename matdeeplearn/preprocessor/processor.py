@@ -259,7 +259,7 @@ class DataProcessor:
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
                             if self.num_samples != -1 else np.arange(len(vn_labels))
                         np.random.shuffle(indices)
-                        indices = [indices[i: min(i + 1000, len(indices))] for i in range(0, len(indices), 500)]
+                        indices = [indices[i: min(i + 1000, len(indices))] for i in range(0, len(indices), 1000)]
 
                         for sub_indices in indices:
                             pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
