@@ -253,13 +253,13 @@ class DataProcessor:
                         #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                         df = pd.read_csv(self.root_path_dict+dir_name+"/densities.csv", header=0).to_numpy()
                         vn_coords = df[:,0:3]
-                        vn_labels = np.expand_dims((df[:,3] + df[:,4]), 1)
+                        vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
                             if self.num_samples != -1 else np.arange(len(vn_labels))
                         np.random.shuffle(indices)
-                        indices = [indices[i: min(i + 1000, len(indices))] for i in range(0, len(indices), 1000)]
+                        indices = [indices[i: min(i + 500, len(indices))] for i in range(0, len(indices), 500)]
 
                         for sub_indices in indices:
                             pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
