@@ -57,19 +57,13 @@ class ConvLayer(MessagePassing):
         self.dropout = nn.Dropout()
 
     def forward(self, x, edge_index, distances):
-        self.new_attr = []
-        self.outs = []
-        self.currInd = 0
+        expanded_x = x.unsqueeze(2).expand(len(x), self.atom_fea_len, self.k)
+        self.expanded_edge_attr = distances.unsqueeze(2).expand(len(distances), self.nbr_fea_len, self.k)
+        aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
         for i in range(self.k):
-            self.outs.append(x)
-            self.new_attr.append(distances)
-        self.edge_attr = distances
-        for i in range(self.k):
-            aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
-            aggregatedMessages = self.bn2s[i](aggregatedMessages)
-            self.outs[i] = aggregatedMessages + x
-        out=torch.stack(self.outs, dim=2)
-        new_nbr=torch.stack(self.new_attr, dim=2)
+           aggregatedMessages[:, :, i] = self.bn2s[i](aggregatedMessages[:, :, i].clone())
+        out = aggregatedMessages + expanded_x
+        new_nbr_gated=self.nbr_fc(self.expanded_edge_attr)
         
         out_gated=self.atom_fc(out)
         new_nbr_gated=self.nbr_fc(new_nbr)
@@ -86,19 +80,24 @@ class ConvLayer(MessagePassing):
         
     def message(self, x_i, x_j, distances):
         z = torch.cat([x_i, x_j, distances], dim=-1)
-        total_gated_fea = self.fc_fulls[self.currInd](z)
-        total_gated_fea = self.bn1s[self.currInd](total_gated_fea)
-        nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
-        self.new_attr[self.currInd] += new_edge_attrs
-        self.currInd += 1
-        return self.softmax(self.fc_fs[self.currInd-1](z)) * self.softplus1(self.fc_ss[self.currInd-1](z))
-        #return self.softmax(nbr_filter) * self.softplus1(nbr_core)
+        res = torch.zeros((len(z), self.atom_fea_len, self.k)).to(x_i.get_device())
+        for i in range(self.k):
+           total_gated_fea = self.fc_fulls[i](z)
+           total_gated_fea = self.bn1s[i](total_gated_fea)
+           nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
+           self.expanded_edge_attr[:, :, i] += new_edge_attrs
+           nbr_filter = self.fc_fs[i](z)
+           nbr_core = self.fc_ss[i](z)
+           nbr_sumed = self.softmax(nbr_filter) * self.softplus1(nbr_core)
+           res[:, :, i] += nbr_sumed
+        return res
+
     
 
             
 
 
-@registry.register_model("CrystalGraphGeoMulti")
+@registry.register_model("CrystalGraphGeoMultiV2")
 class CrystalGraphConvNet(BaseModel):
     """
     Create a crystal graph convolutional neural network for predicting total
