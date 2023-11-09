@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch_geometric
 from torch import Tensor
 from torch.nn import BatchNorm1d, Linear, Sequential
-from torch.nn import Parameter
+from torch.nn import Parameter, ParameterList
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
@@ -13,6 +13,7 @@ from torch_geometric.nn import (
     global_mean_pool,
 )
 from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
+import logging
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
@@ -56,9 +57,10 @@ class LJ(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
 
-        self.sigmas = Parameter(5 * torch.ones(100, 100), requires_grad=True)
-        self.epsilons = Parameter(5 * torch.ones(100, 100), requires_grad=True)
-        
+        self.sigmas = ParameterList([Parameter(5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.epsilons = ParameterList([Parameter(5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.base_atomic_energy = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+  
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
     @property
@@ -92,12 +94,13 @@ class LJ(BaseModel):
         atoms[0] = data.z[data.edge_index[0]] - 1
         atoms[1] = data.z[data.edge_index[1]] - 1
 
-        flat_index = atoms[0] * 100 + atoms[1]
-        sigma = self.sigmas.view(-1)[flat_index].view(num_edges, 1).squeeze()
-        epsilon = self.epsilons.view(-1)[flat_index].view(num_edges, 1).squeeze()
+        sigma_i = torch.stack([self.sigmas[atoms[0, i]] for i in range(len(atoms[0]))]).squeeze()
+        sigma_j = torch.stack([self.sigmas[atoms[1, i]] for i in range(len(atoms[0]))]).squeeze()
+        epsilon_i = torch.stack([self.epsilons[atoms[0, i]] for i in range(len(atoms[0]))]).squeeze()
+        epsilon_j = torch.stack([self.epsilons[atoms[1, i]] for i in range(len(atoms[0]))]).squeeze()
         
-        mask = torch.zeros(100, 100).to('cuda:0')
-        mask.view(-1, 1)[flat_index] = 1
+        sigma = (sigma_i + sigma_j) / 2
+        epsilon = torch.sqrt(epsilon_i * epsilon_j)
         
         rc = self.cutoff_radius
         ro = 0.66 * rc
@@ -109,12 +112,13 @@ class LJ(BaseModel):
         cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
         pairwise_energies = 4 * epsilon * (c12 - c6)
         pairwise_energies *= cutoff_fn
-        #lennard_jones_out = 0.5 * pairwise_energies.sum()
 
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
+        base_atomic_energy = scatter_add(torch.stack([self.base_atomic_energy[i - 1] for i in data.z]).squeeze(), index=data.batch)
         
-        return out + lennard_jones_out.reshape(-1, 1), mask
+        return out + lennard_jones_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
+    
     
     def cutoff_function(self, r, rc, ro):
         """
@@ -143,7 +147,7 @@ class LJ(BaseModel):
     def forward(self, data):
         
         output = {}
-        out, mask = self._forward(data)
+        out = self._forward(data)
         output["output"] = out
 
         if self.gradient == True and out.requires_grad == True:         
@@ -163,4 +167,4 @@ class LJ(BaseModel):
             output["pos_grad"] =  None
             output["cell_grad"] =  None 
 
-        return output, mask
+        return output
