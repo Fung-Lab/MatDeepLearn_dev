@@ -235,12 +235,12 @@ class TorchMD_ET(BaseModel):
             forces = -1 * grad[0]
 
 	    if not self.no_stress:
-		volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
-	        stress = grad[1]
-	        stress = stress / volume.view(-1, 1, 1)         
-                output["cell_grad"] = stress
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)
+            output["cell_grad"] = stress
 	    else:
-		output["cell_grad"] = None
+            output["cell_grad"] = None
             output["pos_grad"] =  forces
             
         else:
