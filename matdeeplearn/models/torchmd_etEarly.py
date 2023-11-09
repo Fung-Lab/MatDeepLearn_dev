@@ -226,19 +226,23 @@ class TorchMD_ET(BaseModel):
         out = self._forward(data)
         output["output"] =  out
 
-        if self.gradient == True and out.requires_grad == True:         
-            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+        if self.gradient == True and out.requires_grad == True:                                 
             grad = torch.autograd.grad(
                     out,
-                    [data.pos, data.displacement],
+                    [data.pos, data.displacement] if not self.no_stress else [data.pos],
                     grad_outputs=torch.ones_like(out),
                     create_graph=self.training) 
             forces = -1 * grad[0]
-            stress = grad[1]
-            stress = stress / volume.view(-1, 1, 1)         
 
+	    if not self.no_stress:
+		volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
+	        stress = grad[1]
+	        stress = stress / volume.view(-1, 1, 1)         
+                output["cell_grad"] = stress
+	    else:
+		output["cell_grad"] = None
             output["pos_grad"] =  forces
-            output["cell_grad"] =  stress
+            
         else:
             output["pos_grad"] =  None
             output["cell_grad"] =  None  
