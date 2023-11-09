@@ -28,6 +28,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         otf_node_attr=False,
         graph_method="ocp",
         gradient=False,
+        no_stress=False,
         cutoff_radius=8,
         n_neighbors=None,
         edge_dim=50,        
@@ -46,6 +47,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         self.edge_dim = edge_dim
         self.graph_method = graph_method
         self.num_offsets = num_offsets
+        self.no_stress = no_stress
         
     @property
     @abstractmethod
@@ -109,11 +111,12 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                 
         if self.gradient:
             data.pos.requires_grad_(True)
-            data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
-            data.displacement.requires_grad_(True)
-            symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
-            data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
-            data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
+            data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)
+            if not self.no_stress:
+                data.displacement.requires_grad_(True)
+                symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
+                data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
+                data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
 
         if torch.sum(data.cell) == 0:
             self.graph_method = "mdl"
