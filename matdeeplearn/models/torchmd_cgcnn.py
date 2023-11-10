@@ -115,7 +115,7 @@ class TorchMD_ET(BaseModel):
         self.output_dim = output_dim
         cutoff_lower = 0
 
-        print("node_dim of model:", self.node_dim, "edge_dim:", self.edge_dim)
+        print("node_dim of model:", hidden_channels, "edge_dim:", self.edge_dim)
 
         act_class = act_class_mapping[activation]
 
@@ -164,7 +164,7 @@ class TorchMD_ET(BaseModel):
             #     aggr,
             # ).jittable()
             rn_vn_layer = CGConv(
-                self.node_dim, self.edge_dim, aggr="mean", batch_norm=True
+                hidden_channels, self.edge_dim, aggr="mean", batch_norm=True
             )
             self.attention_layers.append(layer)
             self.attention_layers.append(rn_vn_layer)
