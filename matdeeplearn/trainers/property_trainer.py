@@ -114,10 +114,7 @@ class PropertyTrainer(BaseTrainer):
                     loss = self._compute_loss(out, batch)
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
                 grad_norm = self._backward(loss)
-                # for name, param in self.model.named_parameters():
-                #     if torch.isnan(param).any():
-                #         print(f"NaN found in parameter: {name}")
-                print(f"Batch {i}, loss: {loss:.4f}, grad norm: {grad_norm.item():.4f}")
+                print(f"Batch {i}: loss {loss.item():.4f}, grad norm: {grad_norm.item():.4f}")
                 pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch

@@ -90,6 +90,7 @@ class LJ(BaseModel):
 
         atoms[0] = data.z[data.edge_index[0]] - 1
         atoms[1] = data.z[data.edge_index[1]] - 1
+        flat_index = atoms[0] * 100 + atoms[1]
         
         sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
         epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
@@ -100,10 +101,31 @@ class LJ(BaseModel):
             epsilons[z - 1] = self.epsilons[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
         
-        sigmas_matrix = (sigmas.unsqueeze(1) + sigmas.unsqueeze(0)).squeeze() / 2
-        epsilons_matrix = torch.sqrt((epsilons.unsqueeze(1) * epsilons.unsqueeze(0)).squeeze())
-        sigma = sigmas_matrix[atoms[0], atoms[1]]
-        epsilon = epsilons_matrix[atoms[0], atoms[1]]
+        # sigmas_matrix = (sigmas.unsqueeze(1) + sigmas.unsqueeze(0)).squeeze() / 2
+        # epsilons_matrix = torch.sqrt((epsilons.unsqueeze(1) * epsilons.unsqueeze(0)).squeeze())
+        # sigma = sigmas_matrix[atoms[0], atoms[1]]
+        # epsilon = epsilons_matrix[atoms[0], atoms[1]]
+        
+        # sigmas_matrix = torch.zeros((100, 100)).to('cuda:0')
+        # epsilons_matrix = torch.zeros((100, 100)).to('cuda:0')
+        
+        # for i in range(100):
+        #     for j in range(100):
+        #         sigmas_matrix[i, j] = (sigmas[i] + sigmas[j]) / 2
+        #         epsilons_matrix[i, j] = (epsilons[i] * epsilons[j]) ** (1 / 2)
+        
+        # sigmas_matrix = torch.outer(sigmas, sigmas) / 2
+        # epsilons_matrix = torch.sqrt(torch.mul(epsilons, epsilons.T))
+        # sigma = sigmas_matrix.view(-1, 1)[flat_index].squeeze()
+        # epsilon = epsilons_matrix.view(-1, 1)[flat_index].squeeze()
+        
+        sigma_i = sigmas[atoms[0]].squeeze() 
+        sigma_j = sigmas[atoms[1]].squeeze() 
+        epsilon_i = epsilons[atoms[0]].squeeze()
+        epsilon_j = epsilons[atoms[1]].squeeze()
+        
+        sigma = (sigma_i + sigma_j) / 2
+        epsilon = torch.sqrt(epsilon_i * epsilon_j)
         
         rc = self.cutoff_radius
         ro = 0.66 * rc

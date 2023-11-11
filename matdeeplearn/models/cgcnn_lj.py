@@ -292,12 +292,7 @@ class CGCNN_LJ(BaseModel):
         sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
         epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        
-        # sigmas = torch.cat([torch.cat([(self.sigmas[i] + self.epsilons[j]) / 2 for j in range(100)]) for i in range(100)]).to('cuda:0')
-        # epsilons = torch.tensor([[(self.epsilons[i] * self.epsilons[j]) ** (1 / 2) for j in range(100)] for i in range(100)]).to('cuda:0')
-        # sigma = sigmas.view(-1, 1)[flat_index].squeeze()
-        # epsilon = epsilons.view(-1, 1)[flat_index].squeeze()
-
+    
         # start = time()
         for z in np.unique(data.z.cpu()):
             sigmas[z - 1] = self.sigmas[z - 1]
@@ -306,19 +301,11 @@ class CGCNN_LJ(BaseModel):
         # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
         
         # start = time()
-        sigmas_matrix = (sigmas.unsqueeze(1) + sigmas.unsqueeze(0)).squeeze() / 2
-        epsilons_matrix = torch.sqrt((epsilons.unsqueeze(1) * epsilons.unsqueeze(0)).squeeze())
+        sigma = (sigmas[atoms[0]] + sigmas[atoms[1]]).squeeze() / 2
+        epsilon = torch.sqrt(epsilons[atoms[0]] * epsilons[atoms[1]]).squeeze() 
         # print(f"Build sigmas and epsilons matrices: {time() - start:.4f}")
         
-        # sigma_i = sigmas[atoms[0]] 
-        # sigma_j = sigmas[atoms[1]] 
-        # epsilon_i = epsilons[atoms[0]]
-        # epsilon_j = epsilons[atoms[1]]
-        
         # start = time()
-        sigma = sigmas_matrix[atoms[0], atoms[1]]
-        epsilon = epsilons_matrix[atoms[0], atoms[1]]
-        
         rc = self.cutoff_radius
         ro = 0.66 * rc
         r2 = data.edge_weight ** 2
