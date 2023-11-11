@@ -1,10 +1,13 @@
 import numpy as np
+import logging
+from time import time
+
 import torch
 import torch.nn.functional as F
 import torch_geometric
 from torch import Tensor
 from torch.nn import BatchNorm1d, Linear, Sequential
-from torch.nn import Parameter
+from torch.nn import Parameter, ParameterList
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
@@ -56,9 +59,10 @@ class CGCNN_LJ(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
 
-        self.sigmas = Parameter(torch.ones(100, 100), requires_grad=True)
-        self.epsilons = Parameter(torch.ones(100, 100), requires_grad=True)
-        self.gnn_ratio = 0.8
+        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.base_atomic_energy = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        # self.gnn_ratio = Parameter(torch.tensor(0.5, requires_grad=True)).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -225,31 +229,11 @@ class CGCNN_LJ(BaseModel):
                 out = getattr(F, self.act)(out)
             out = self.lin_out(out)
 
-        num_edges = len(data.edge_index[0])
-        atoms = torch.zeros(2, num_edges, dtype=torch.int64)
-
-        atoms[0] = data.z[data.edge_index[0]]
-        atoms[1] = data.z[data.edge_index[1]]
-
-        flat_index = atoms[0] * 100 + atoms[1]
-        sigma = self.sigmas.view(-1)[flat_index].view(num_edges, 1).squeeze()
-        epsilon = self.epsilons.view(-1)[flat_index].view(num_edges, 1).squeeze()
-
-        rc = self.cutoff_radius
-        ro = 0.66 * rc
-        r2 = data.edge_weight ** 2
-
-        c6 = (sigma ** 2 / r2) ** 3
-        c6[r2 > rc ** 2] = 0.0
-        c12 = c6 ** 2
-        cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
-        pairwise_energies = 4 * epsilon * (c12 - c6)
-        pairwise_energies *= cutoff_fn
+        # start = time()
+        lj = self.lj_potential(data)
+        # print(f"Total time of lj calculation: {time() - start:.4f}")
         
-        edge_idx_to_graph = data.batch[data.edge_index[0]]
-        lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph)
-        
-        return self.gnn_ratio * out + (1 - self.gnn_ratio) * lennard_jones_out.reshape(-1, 1)
+        return 0.8 * out + 0.2 * lj
     
     def cutoff_function(self, r, rc, ro):
         """Smooth cutoff function.
@@ -297,3 +281,62 @@ class CGCNN_LJ(BaseModel):
             output["cell_grad"] =  None 
 
         return output
+    
+    def lj_potential(self, data):
+        num_edges = len(data.edge_index[0])
+        atoms = torch.zeros(2, num_edges, dtype=torch.int64)
+
+        atoms[0] = data.z[data.edge_index[0]] - 1
+        atoms[1] = data.z[data.edge_index[1]] - 1
+        
+        sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
+        epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
+        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+        
+        # sigmas = torch.cat([torch.cat([(self.sigmas[i] + self.epsilons[j]) / 2 for j in range(100)]) for i in range(100)]).to('cuda:0')
+        # epsilons = torch.tensor([[(self.epsilons[i] * self.epsilons[j]) ** (1 / 2) for j in range(100)] for i in range(100)]).to('cuda:0')
+        # sigma = sigmas.view(-1, 1)[flat_index].squeeze()
+        # epsilon = epsilons.view(-1, 1)[flat_index].squeeze()
+
+        # start = time()
+        for z in np.unique(data.z.cpu()):
+            sigmas[z - 1] = self.sigmas[z - 1]
+            epsilons[z - 1] = self.epsilons[z - 1]
+            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
+        # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
+        
+        # start = time()
+        sigmas_matrix = (sigmas.unsqueeze(1) + sigmas.unsqueeze(0)).squeeze() / 2
+        epsilons_matrix = torch.sqrt((epsilons.unsqueeze(1) * epsilons.unsqueeze(0)).squeeze())
+        # print(f"Build sigmas and epsilons matrices: {time() - start:.4f}")
+        
+        # sigma_i = sigmas[atoms[0]] 
+        # sigma_j = sigmas[atoms[1]] 
+        # epsilon_i = epsilons[atoms[0]]
+        # epsilon_j = epsilons[atoms[1]]
+        
+        # start = time()
+        sigma = sigmas_matrix[atoms[0], atoms[1]]
+        epsilon = epsilons_matrix[atoms[0], atoms[1]]
+        
+        rc = self.cutoff_radius
+        ro = 0.66 * rc
+        r2 = data.edge_weight ** 2
+
+        c6 = (sigma ** 2 / r2) ** 3
+        c6[r2 > rc ** 2] = 0.0
+        c12 = c6 ** 2
+        cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
+        pairwise_energies = 4 * epsilon * (c12 - c6)
+        pairwise_energies *= cutoff_fn
+        # print(f"Calculate lj: {time() - start:.4f}")
+
+        # start = time()
+        edge_idx_to_graph = data.batch[data.edge_index[0]]
+        lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
+    
+        base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
+        base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
+        # print(f"Scatter adds: {time() - start:.4f}")
+        
+        return lennard_jones_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)

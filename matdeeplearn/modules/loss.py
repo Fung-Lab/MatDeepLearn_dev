@@ -40,8 +40,11 @@ class ForceStressLoss(nn.Module):
         self.weight_stress = weight_stress
 
     def forward(self, predictions: torch.Tensor, target: Batch):  
-        combined_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y) + self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces) + self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
-        return combined_loss
+        energy_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y)
+        force_loss = self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
+        stress_loss = self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
+        # print(f"Error e: {energy_loss:.4f}, f: {force_loss:.4f}, s: {stress_loss:.4f}")
+        return energy_loss + force_loss + stress_loss
         
 
 @registry.register_loss("DOSLoss")

@@ -1,5 +1,6 @@
 import logging
 import time
+import math
 
 import numpy as np
 import torch
@@ -110,9 +111,13 @@ class PropertyTrainer(BaseTrainer):
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
                     out = self._forward(batch)                                           
-                    loss = self._compute_loss(out, batch)  
+                    loss = self._compute_loss(out, batch)
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
-                grad_norm = self._backward(loss)  
+                grad_norm = self._backward(loss)
+                # for name, param in self.model.named_parameters():
+                #     if torch.isnan(param).any():
+                #         print(f"NaN found in parameter: {name}")
+                print(f"Batch {i}, loss: {loss:.4f}, grad norm: {grad_norm.item():.4f}")
                 pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
@@ -372,7 +377,7 @@ class PropertyTrainer(BaseTrainer):
 
     def _backward(self, loss):
         self.optimizer.zero_grad(set_to_none=True) 
-        self.scaler.scale(loss).backward()
+        self.scaler.scale(loss).backward()    
         if self.clip_grad_norm:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),

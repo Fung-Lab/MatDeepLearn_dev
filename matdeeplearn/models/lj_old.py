@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch_geometric
 from torch import Tensor
 from torch.nn import BatchNorm1d, Linear, Sequential
-from torch.nn import Parameter, ParameterList
+from torch.nn import Parameter
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
@@ -13,7 +13,6 @@ from torch_geometric.nn import (
     global_mean_pool,
 )
 from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
-import logging
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
@@ -57,10 +56,9 @@ class LJ(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
 
-        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-  
+        self.sigmas = Parameter(5 * torch.ones(100, 100), requires_grad=True)
+        self.epsilons = Parameter(5 * torch.ones(100, 100), requires_grad=True)
+        
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
     @property
@@ -84,26 +82,22 @@ class LJ(BaseModel):
                 
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()        
+            
+            
+        out = torch.zeros((len(data), 1)).to('cuda:0')
 
         num_edges = len(data.edge_index[0])
         atoms = torch.zeros(2, num_edges, dtype=torch.int64)
 
         atoms[0] = data.z[data.edge_index[0]] - 1
         atoms[1] = data.z[data.edge_index[1]] - 1
+
+        flat_index = atoms[0] * 100 + atoms[1]
+        sigma = self.sigmas.view(-1)[flat_index].view(num_edges, 1).squeeze()
+        epsilon = self.epsilons.view(-1)[flat_index].view(num_edges, 1).squeeze()
         
-        sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
-        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        
-        for z in np.unique(data.z.cpu()):
-            sigmas[z - 1] = self.sigmas[z - 1]
-            epsilons[z - 1] = self.epsilons[z - 1]
-            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-        
-        sigmas_matrix = (sigmas.unsqueeze(1) + sigmas.unsqueeze(0)).squeeze() / 2
-        epsilons_matrix = torch.sqrt((epsilons.unsqueeze(1) * epsilons.unsqueeze(0)).squeeze())
-        sigma = sigmas_matrix[atoms[0], atoms[1]]
-        epsilon = epsilons_matrix[atoms[0], atoms[1]]
+        mask = torch.zeros(100, 100).to('cuda:0')
+        mask.view(-1, 1)[flat_index] = 1
         
         rc = self.cutoff_radius
         ro = 0.66 * rc
@@ -115,15 +109,12 @@ class LJ(BaseModel):
         cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
         pairwise_energies = 4 * epsilon * (c12 - c6)
         pairwise_energies *= cutoff_fn
-        
+        #lennard_jones_out = 0.5 * pairwise_energies.sum()
+
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
-    
-        base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
-        base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch, dim_size=len(data))
         
-        return lennard_jones_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
-    
+        return out + lennard_jones_out.reshape(-1, 1), mask
     
     def cutoff_function(self, r, rc, ro):
         """
@@ -152,7 +143,7 @@ class LJ(BaseModel):
     def forward(self, data):
         
         output = {}
-        out = self._forward(data)
+        out, mask = self._forward(data)
         output["output"] = out
 
         if self.gradient == True and out.requires_grad == True:         
@@ -172,4 +163,4 @@ class LJ(BaseModel):
             output["pos_grad"] =  None
             output["cell_grad"] =  None 
 
-        return output
+        return output, mask
