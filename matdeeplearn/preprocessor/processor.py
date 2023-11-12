@@ -195,7 +195,8 @@ class DataProcessor:
         else:
             return self.json_wrap()
         '''
-        return self.chg_wrap()
+        # return self.chg_wrap()
+        return self.json_wrap()
 
     def chg_wrap(self):
         dict_structures = []
@@ -363,6 +364,12 @@ class DataProcessor:
         f.close()
 
         dict_structures = []
+        y = []
+        y_dim = (
+            len(original_structures[0]["y"])
+            if isinstance(original_structures[0]["y"], list)
+            else 1
+        )
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
@@ -392,7 +399,7 @@ class DataProcessor:
             dict_structures.append(d)
 
             # check y types
-            _y = s["y"]
+            _y = s["y"][1]
             if isinstance(_y, list) == False:
                 _y = np.array([_y], dtype=np.float32)
             else:

@@ -18,7 +18,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 
 
-@registry.register_model("torchmd_etEarly")
+@registry.register_model("torchmd_etEarly_pretrain")
 class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
@@ -158,17 +158,6 @@ class TorchMD_ET(BaseModel):
                 self.cutoff_radius,
                 aggr,
             ).jittable()
-            # vn_vn_layer = EquivariantMultiHeadAttention(
-            #     hidden_channels,
-            #     num_rbf,
-            #     distance_influence,
-            #     num_heads,
-            #     act_class,
-            #     attn_activation,
-            #     cutoff_lower,
-            #     self.cutoff_radius,
-            #     aggr,
-            # ).jittable()
             self.attention_layers.append(layer)
             self.attention_layers.append(rn_vn_layer)
             # self.attention_layers.append(vn_vn_layer)
@@ -188,13 +177,13 @@ class TorchMD_ET(BaseModel):
 
         self.num_post_layers = num_post_layers
         self.post_hidden_channels = post_hidden_channels
-        self.post_lin_list = nn.ModuleList()
+        self.post_lin_list_pretrain = nn.ModuleList()
         for i in range(self.num_post_layers):
             if i == 0:
-                self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
+                self.post_lin_list_pretrain.append(nn.Linear(hidden_channels, post_hidden_channels))
             else:
-                self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
-        self.post_lin_list.append(nn.Linear(post_hidden_channels, self.output_dim))
+                self.post_lin_list_pretrain.append(nn.Linear(post_hidden_channels, post_hidden_channels))
+        self.post_lin_list_pretrain.append(nn.Linear(post_hidden_channels, self.output_dim))
 
         self.reset_parameters()
 
@@ -261,34 +250,21 @@ class TorchMD_ET(BaseModel):
                 x = x + dx
                 vec = vec + dvec
 
-        dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, indices_rn_to_vn],
-                                              data.edge_weight[indices_rn_to_vn],
-                                              data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
-        x = x + dx
-        # vec = vec + dvec
         x = self.out_norm(x)
-        '''
+
         if self.prediction_level == "graph":
             x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-            for i in range(0, len(self.post_lin_list) - 1):
-                x = self.post_lin_list[i](x)
+            for i in range(0, len(self.post_lin_list_pretrain) - 1):
+                x = self.post_lin_list_pretrain[i](x)
                 x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x)
-            #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
-            #x = self.pool.reduce(x, data.batch)
+            x = self.post_lin_list_pretrain[-1](x)
+            # x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
+            # x = self.pool.reduce(x, data.batch)
         elif self.prediction_level == "node":
-            for i in range(0, len(self.post_lin_list) - 1):
-                x = self.post_lin_list[i](x)
+            for i in range(0, len(self.post_lin_list_pretrain) - 1):
+                x = self.post_lin_list_pretrain[i](x)
                 x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x) 
-        '''
-        virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
-        x = torch.index_select(x, 0, virtual_mask)
-
-        for i in range(0, len(self.post_lin_list) - 1):
-            x = self.post_lin_list[i](x)
-            x = getattr(F, self.activation)(x)
-        x = self.post_lin_list[-1](x)
+            x = self.post_lin_list_pretrain[-1](x)
 
         return x
 
