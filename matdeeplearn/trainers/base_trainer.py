@@ -286,7 +286,7 @@ class BaseTrainer(ABC):
         if dataset[0]["y"].ndim == 0:
             output_dim = 1
         else:
-            output_dim = dataset[0]["y"].shape[1]     
+            output_dim = dataset[0]["y"].shape[-1]
 
         # Determine if this is a node or graph level model
         # if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
