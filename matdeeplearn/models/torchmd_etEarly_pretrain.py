@@ -110,6 +110,7 @@ class TorchMD_ET(BaseModel):
         self.max_z = max_z
         self.pool = pool
         self.output_dim = output_dim
+        self.prediction_level = "graph"
         cutoff_lower = 0
 
         act_class = act_class_mapping[activation]

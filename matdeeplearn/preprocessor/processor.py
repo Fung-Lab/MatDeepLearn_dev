@@ -328,7 +328,7 @@ class DataProcessor:
                 for k, v in attributes.items():
                     d[k] = v
 
-            d["y"] = y[i]
+            d["y"] = [y[i]]
 
             dict_structures.append(d)
 
