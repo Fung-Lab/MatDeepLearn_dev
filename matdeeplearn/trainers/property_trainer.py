@@ -12,6 +12,10 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
+#idea:
+#everry time the logger is called we also add that value to a ?numpy array?
+# then at the end of the traiing run we call self.save_value() with our values
+
 
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
@@ -65,6 +69,11 @@ class PropertyTrainer(BaseTrainer):
         # to prevent inconsistencies due to different batch size in checkpoint.
         # start_epoch = self.step // len(self.train_loader)
         start_epoch = int(self.epoch)
+        
+        #ED -Changed to save epoch train/ val loss
+        epoch_number= []
+        train_error = []
+        val_error = []
 
         if str(self.rank) not in ("cpu", "cuda"):
             dist.barrier()
@@ -141,6 +150,13 @@ class PropertyTrainer(BaseTrainer):
                 self.epoch_time = time.time() - epoch_start_time
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
+                    #ED -changed to save tain/val loss
+                    train_error.append(self.metrics[type(self.loss_fn).__name__]["metric"])
+                    val_error.append(val_loss = val_metrics[type(self.loss_fn).__name__]["metric"])
+                    epoch_number.append(epoch)
+                    self.save_results(
+                        np.column_stack((np.asarray(epoch_number), np.asarray(val_error), np.asarray(train_error))), "train_results", "epoch_training_error_validation_error.csv", True
+                    )
                     if self.data_loader.get("val_loader"):
                         self._log_metrics(metric)
                     else:
