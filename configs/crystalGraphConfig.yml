@@ -70,7 +70,7 @@ optim:
   verbosity: 5
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
-  
+
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
@@ -113,7 +113,7 @@ dataset:
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 12
+    n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
