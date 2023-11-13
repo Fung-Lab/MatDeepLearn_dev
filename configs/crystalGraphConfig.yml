@@ -26,12 +26,12 @@ task:
   use_amp: True  
 
 model:
-  name: CrystalGraphMulti    
+  name: CrystalGraph   
   # model attributes
   dim1: 128
   dim2: 128
   n_conv: 4
-  n_h: 3
+  n_h: 1
   k: 3
   pool: "global_mean_pool"
   pool_order: "early"
@@ -50,7 +50,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 40
+  max_epochs: 300
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -59,7 +59,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10       
-  batch_size: 100
+  batch_size: 128
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -84,17 +84,17 @@ dataset:
   pt_path: data/
   # Either "node" or "graph" level
   prediction_level: graph
-  
+
   transforms:
     - name: GetY
       args:
         # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
         # For example, an index: 0 (default) will use the first entry in the target vector 
         # if all values are to be predicted simultaneously, then specify index: -1
-        index: -1
+        index: 0
       otf_transform: True # Optional parameter, default is True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
-  data_format: json
+  data_format: json 
   # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
   additional_attributes: 
   # Print out processing info
@@ -103,7 +103,7 @@ dataset:
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: mdl 
+    edge_calc_method: ocp 
     # determine if edges are computed, if false, then they need to be computed on the fly   
     preprocess_edges: True
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
@@ -113,13 +113,13 @@ dataset:
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 250
+    n_neighbors : 12
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
     node_dim : 100
     # dimension of edge attributes
-    edge_dim : 50
+    edge_dim : 64
     # whether or not to add self-loops
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
@@ -130,5 +130,5 @@ dataset:
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.8
-  val_ratio: 0.05
-  test_ratio: 0.15
+  val_ratio: 0.1
+  test_ratio: 0.1

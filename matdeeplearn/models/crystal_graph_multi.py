@@ -62,7 +62,6 @@ class ConvLayer(MessagePassing):
         for i in range(self.k):
             self.outs.append(x)
             self.new_attr.append(distances)
-        self.edge_attr = distances
         for i in range(self.k):
             aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
             aggregatedMessages = self.bn2s[i](aggregatedMessages)
@@ -90,10 +89,7 @@ class ConvLayer(MessagePassing):
         nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.nbr_fea_len], dim=1)
         self.new_attr[self.currInd] += new_edge_attrs
         self.currInd += 1
-        nbr_filter = self.fc_fs[self.currInd-1](z)
-        nbr_core = self.fc_ss[self.currInd-1](z)
-        return self.softmax(nbr_filter) * self.softplus1(nbr_core)
-    
+        return self.softmax(self.fc_fs[self.currInd-1](z)) * self.softplus1(self.fc_ss[self.currInd-1](z)) 
 
             
 
@@ -216,7 +212,6 @@ class CrystalGraphConvNet(BaseModel):
           shape = (batch_size, )
         """
         if self.otf_edge_index == True:
-            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
             data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
             if self.otf_edge_attr == True:
                 data.edge_attr = self.distance_expansion(data.edge_weight)
@@ -230,6 +225,7 @@ class CrystalGraphConvNet(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
 
+        
         atom_fea = data.x
         edge_index = data.edge_index
         distances = data.edge_attr
@@ -263,8 +259,8 @@ class CrystalGraphConvNet(BaseModel):
                 for fc in self.fcs:
                     crys_fea = getattr(F, self.act)(fc(crys_fea))
             out = self.fc_out(crys_fea)
-                     
-        return out   
+        return out
+        
     @property
     def target_attr(self):
         return "y"

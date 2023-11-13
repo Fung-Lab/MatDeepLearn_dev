@@ -66,10 +66,7 @@ class ConvLayer(MessagePassing):
         nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.edge_fea_len], dim=1)
         #aggregate and return
         self.edge_attrs += new_edge_attrs
-        nbr_filter = self.fc_f(z)
-        nbr_core = self.fc_s(z)
-        return self.softmax(nbr_filter) * self.softplus1(nbr_core)
-    
+        return self.softmax(self.fc_f(z)) * self.softplus1(self.fc_s(z)) 
 
             
 
