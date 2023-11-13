@@ -328,7 +328,7 @@ class DataProcessor:
                 for k, v in attributes.items():
                     d[k] = v
 
-            d["y"] = [y[i]]
+            d["y"] = y
 
             dict_structures.append(d)
 
@@ -399,7 +399,7 @@ class DataProcessor:
             dict_structures.append(d)
 
             # check y types
-            _y = s["y"][1]
+            _y = s["y"]
             if isinstance(_y, list) == False:
                 _y = np.array([_y], dtype=np.float32)
             else:

@@ -152,19 +152,8 @@ class TorchMD_ET(BaseModel):
                 self.cutoff_radius,
                 aggr,
             ).jittable()
-            # rn_vn_layer = EquivariantMultiHeadAttention(
-            #     hidden_channels,
-            #     num_rbf,
-            #     distance_influence,
-            #     num_heads,
-            #     act_class,
-            #     attn_activation,
-            #     cutoff_lower,
-            #     self.cutoff_radius,
-            #     aggr,
-            # ).jittable()
             rn_vn_layer = CGConv(
-                hidden_channels, self.edge_dim, aggr="mean", batch_norm=True
+                hidden_channels, num_rbf, aggr="mean", batch_norm=True
             )
             self.attention_layers.append(layer)
             self.attention_layers.append(rn_vn_layer)
