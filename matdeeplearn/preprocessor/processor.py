@@ -411,7 +411,7 @@ class DataProcessor:
 
             y.append(_y)
 
-            d["y"] = np.array(_y)
+            d["y"] = np.array(_y).reshape((1, -1))
 
         y = np.array(y)
         return dict_structures
