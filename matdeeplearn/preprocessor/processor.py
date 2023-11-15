@@ -496,6 +496,57 @@ class DataProcessor:
                         save_path = os.path.join(self.pt_path, "data_predict.pt")
                     torch.save((data, slices), save_path)
                     logging.info("Processed predict data saved successfully.")
+            if len(self.root_path_dict) == 1:
+                self.root_path = self.root_path_dict["train"]
+                if self.target_file_path_dict:
+                    self.target_file_path = self.target_file_path_dict["train"]
+                else:
+                    self.target_file_path = self.target_file_path_dict
+                logging.info("Train dataset found at {}".format(self.root_path))
+                logging.info("Processing device: {}".format(self.device))
+
+                dict_structures = self.src_check()
+
+                dataset_size = len(dict_structures)
+                total_structures = int(dataset_size // (self.num_samples / 500))
+                structures = list(range(total_structures))
+                random.shuffle(structures)
+
+                num_train = int(total_structures * 0.9)
+                num_val = int(total_structures * 0.05)
+                num_test = total_structures - num_train - num_val
+
+                dict_structures_train = []
+                dict_structures_val = []
+                dict_structures_test = []
+
+                for i in range(total_structures):
+                    structure_idx = structures[i]
+                    start_idx = structure_idx * (self.num_samples / 500)
+                    end_idx = start_idx + (self.num_samples / 500)
+                    if i < num_train:
+                        dict_structures_train.extend(dict_structures[start_idx:end_idx])
+                    elif i < num_train + num_val:
+                        dict_structures_val.extend(dict_structures[start_idx:end_idx])
+                    else:
+                        dict_structures_test.extend(dict_structures[start_idx:end_idx])
+
+                data_list["train"] = self.get_data_list(dict_structures_train)
+                data_train, slices_train = InMemoryDataset.collate(data_list["train"])
+                data_list["val"] = self.get_data_list(dict_structures_val)
+                data_val, slices_val = InMemoryDataset.collate(data_list["val"])
+                data_list["test"] = self.get_data_list(dict_structures_test)
+                data_test, slices_test = InMemoryDataset.collate(data_list["test"])
+                if save:
+                    if self.pt_path:
+                        save_path_train = os.path.join(self.pt_path, "data_train.pt")
+                        save_path_val = os.path.join(self.pt_path, "data_val.pt")
+                        save_path_test = os.path.join(self.pt_path, "data_test.pt")
+                    torch.save((data_train, slices_train), save_path_train)
+                    torch.save((data_val, slices_val), save_path_val)
+                    torch.save((data_test, slices_test), save_path_test)
+                    logging.info("Processed train, val, test data saved successfully.")
+
 
         else:
             self.root_path = self.root_path_dict

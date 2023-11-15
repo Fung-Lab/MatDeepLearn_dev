@@ -1,4 +1,4 @@
-trainer: finetune
+trainer: property
 
 task:
   #run_mode: train
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: ./results/2023-11-12-19-42-19-869-qm9_pretrain_y/best_checkpoint.pt
+  checkpoint_path: ./results/2023-11-12-19-42-19-869-qm9_pretrain_y/checkpoint/best_checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -74,7 +74,7 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../data_qm9_qmc/
+  src: {train: ../data_qm9_qmc/ }
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
