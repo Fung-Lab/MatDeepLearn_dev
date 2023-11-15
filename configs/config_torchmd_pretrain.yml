@@ -1,8 +1,8 @@
-trainer: property
+trainer: finetune
 
 task:
   #run_mode: train
-  identifier: qm9_pretrain_y
+  identifier: qm9_finetune_y
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: ./results/2023-11-12-19-42-19-869-qm9_pretrain_y/best_checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -26,7 +26,7 @@ task:
   use_amp: True
 
 model:
-  name: torchmd_etEarly_pretrain
+  name: torchmd_etEarly
   # model attributes
   hidden_channels: 64
   num_layers: 5
@@ -48,7 +48,7 @@ model:
   gradient: True
 
 optim:
-  max_epochs: 200
+  max_epochs: 500
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -57,7 +57,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10
-  batch_size: 100
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -74,14 +74,14 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../dataset/qm9_pretrain/data.json
+  src: ../data_qm9_qmc/
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/qm9_pretrain/
+  pt_path: ../data_qm9_qmc/
   # Either "node" or "graph"
-  prediction_level: graph
+  prediction_level: node
 
   transforms:
     - name: GetY
