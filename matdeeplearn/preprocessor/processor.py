@@ -248,14 +248,10 @@ class DataProcessor:
             if isinstance(self.root_path_dict, dict):
                 self.root_path_dict = self.root_path_dict["train"]
             dirs = [d for d in os.listdir(self.root_path_dict) if os.path.isdir(os.path.join(self.root_path_dict, d))]
-            cnt = 1
             for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
                 # if i<100:
                 if "singlet" in dir_name:
                     d = {}
-                    cnt += 1
-                    if cnt == 21:
-                        break
                     try:
                         #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                         df = pd.read_csv(self.root_path_dict+dir_name+"/densities.csv", header=0).to_numpy()
@@ -289,7 +285,7 @@ class DataProcessor:
                             d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
                             d["structure_id"] = str(dir_name)
                             dict_structures.append(d)
-                        print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
+                        # print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
                     except Exception as e:
                         pass
 
