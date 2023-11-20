@@ -335,30 +335,6 @@ class PropertyTrainer(BaseTrainer):
         torch.cuda.empty_cache()
         
         return predictions
-        
-    def predict_by_calculator(self, loader):        
-        self.model.eval()
-         
-        assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
-        assert len(loader) == 1, f"Predicting by calculator only allows one structure at a time, but got {len(loader)} structures."
-
-        if str(self.rank) not in ("cpu", "cuda"):
-            loader = get_dataloader(
-                loader.dataset, batch_size=loader.batch_size, sampler=None
-            )
-            
-        results = []
-        loader_iter = iter(loader)
-        for i in range(0, len(loader_iter)):
-            batch = next(loader_iter).to(self.rank)      
-            out = self._forward(batch.to(self.rank))
-            
-            energy = None if out.get('output') is None else out.get('output').data.cpu().numpy()
-            stress = None if out.get('cell_grad') is None else out.get('cell_grad').view(-1, 3).data.cpu().numpy()
-            forces = None if out.get('pos_grad') is None else out.get('pos_grad').data.cpu().numpy()
-            
-            results = {'energy': energy, 'stress': stress, 'forces': forces}
-        return results
 
     def _forward(self, batch_data):
         output = self.model(batch_data)
