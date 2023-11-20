@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 
 import random
@@ -245,18 +246,18 @@ class DataProcessor:
 
                 dict_structures.append(d)
         else:
-            if isinstance(self.root_path_dict, dict):
-                self.root_path_dict = self.root_path_dict["train"]
-            dirs = [d for d in os.listdir(self.root_path_dict) if os.path.isdir(os.path.join(self.root_path_dict, d))]
+            # if isinstance(self.root_path_dict, dict):
+            #     self.root_path_dict = self.root_path_dict["train"]
+            dirs = [d for d in os.listdir(self.root_path) if os.path.isdir(os.path.join(self.root_path, d))]
             for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
                 # if i<100:
                 if "singlet" in dir_name:
                     d = {}
                     try:
-                        #densities = np.genfromtxt(self.root_path_dict+dir_name+"/densities.csv", skip_header=1, delimiter=',')
-                        df = pd.read_csv(self.root_path_dict+dir_name+"/densities.csv", header=0).to_numpy()
+                        #densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
+                        df = pd.read_csv(self.root_path+dir_name+"/densities.csv", header=0).to_numpy()
                         vn_coords = df[:,0:3]
-                        vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
+                        vn_labels = np.expand_dims((df[:,5] + df[:,6] - df[:,3] - df[:,4]), 1)
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
@@ -271,7 +272,7 @@ class DataProcessor:
                             #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
                             d["y"] = vn_labels[sub_indices, :]
 
-                            ase_structure = io.read(self.root_path_dict+dir_name+"/structure.xsf")
+                            ase_structure = io.read(self.root_path+dir_name+"/structure.xsf")
                             pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
                             cell = torch.tensor(
                                 np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
@@ -525,8 +526,8 @@ class DataProcessor:
 
                 for i in range(total_structures):
                     structure_idx = structures[i]
-                    start_idx = structure_idx * (self.num_samples / 500)
-                    end_idx = start_idx + (self.num_samples / 500)
+                    start_idx = structure_idx * math.ceil(self.num_samples / 500)
+                    end_idx = start_idx + math.ceil(self.num_samples / 500)
                     if i < num_train:
                         dict_structures_train.extend(dict_structures[start_idx:end_idx])
                     elif i < num_train + num_val:
