@@ -21,7 +21,7 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN    
+  name: torchmd_etEarly    
   # model attributes
   dim1: 100
   dim2: 150
@@ -39,7 +39,7 @@ model:
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 
@@ -75,7 +75,7 @@ dataset:
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/relax_test_data/
+  pt_path: data/
   # Either "node" or "graph" level
   prediction_level: graph
   

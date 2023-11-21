@@ -18,6 +18,7 @@ from ase.md.langevin import Langevin
 from ase.md.verlet  import VelocityVerlet
 from ase.md.npt import NPT
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+from ase.optimize.minimahopping import MinimaHopping
 import os
 from time import time
 
@@ -26,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 class MDLCalculator(Calculator):
-    implemented_properties = ["energy", "forces", "stress"]
+    implemented_properties = ["energy", "forces", "stress", "free_energy"]
 
     def __init__(self, config):
         """
@@ -102,6 +103,7 @@ class MDLCalculator(Calculator):
         self.results['energy'] = out['energy']
         self.results['forces'] = out['forces']
         self.results['stress'] = out['stress']
+        self.results['free_energy'] = out['energy']
         
     @staticmethod
     def data_to_atoms_list(data: Data) -> List[Atoms]:
@@ -140,21 +142,24 @@ class StructureOptimizer:
         self.calculator = calculator
         self.relax_cell = relax_cell
         
-    def optimize(self, atoms: Atoms, logfile=None, write_traj_name=None):
+    def optimize(self, atoms: Atoms, logfile=None, write_traj_name=None, minima_traj='minima.traj'):
         atoms.calc = self.calculator       
-        if self.relax_cell:
-            atoms = ExpCellFilter(atoms)
+        #if self.relax_cell:
+        #    atoms = ExpCellFilter(atoms)
 
-        optimizer = FIRE(atoms, logfile=logfile)
+        #optimizer = FIRE(atoms, logfile=logfile)
+        optimizer = MinimaHopping(atoms, logfile=logfile, minima_traj=minima_traj)
         
         if write_traj_name is not None:
             traj = Trajectory(write_traj_name + '.traj', 'w', atoms)
             optimizer.attach(traj.write, interval=1)
 
         start_time = time()
-        optimizer.run(fmax=0.001, steps=500)
+        #optimizer.run(fmax=0.001, steps=500)
+        optimizer(totalsteps=10)
         end_time = time()
-        num_steps = optimizer.get_number_of_steps()
+        #num_steps = optimizer.get_number_of_steps()
+        num_steps = 10
         
         if isinstance(atoms, ExpCellFilter):
             atoms = atoms.atoms

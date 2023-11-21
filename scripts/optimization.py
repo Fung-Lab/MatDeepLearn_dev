@@ -1,7 +1,7 @@
 from ase import Atoms
 from matdeeplearn.common.ase_utils import MDLCalculator, StructureOptimizer
 import numpy as np
-from time import time
+import time
 import numpy as np
 from tqdm import tqdm
 import json
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     original_atoms, optimized_atoms = [], []
     
     optim = StructureOptimizer(calculator, relax_cell=True)
-    start = time()
+    start = time.time()
     total_iterations = len(relaxed)
     times = []
         
@@ -187,10 +187,10 @@ if __name__ == '__main__':
         atoms.set_calculator(calculator)
         original_atoms.append(atoms)
         to_optim = copy.deepcopy(atoms)
-        optimized, time_per_step = optim.optimize(to_optim)
+        optimized, time_per_step = optim.optimize(to_optim, logfile='logs/optim_' + time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(start)) + '_idx_' +str(idx) + '.log', minima_traj='minima/minima_' + time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(start)) + '_idx_' +str(idx) + '.traj') 
         times.append(time_per_step)
         optimized_atoms.append(optimized)
-    end = time()
+    end = time.time()
 
     print(f"Time elapsed: {end - start:.3f}")
     result = evaluate('relaxed', original_atoms, optimized_atoms, times, dft_relaxed=dft,
