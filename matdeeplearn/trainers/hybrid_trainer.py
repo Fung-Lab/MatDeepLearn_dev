@@ -109,10 +109,10 @@ class HybridTrainer(BaseTrainer):
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out, mask = self._forward(batch)                                       
+                    out = self._forward(batch)                                       
                     loss = self._compute_loss(out, batch)  
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
-                grad_norm = self._backward(loss, mask)  
+                grad_norm = self._backward(loss)  
                 pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))             
                 # Compute metrics
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
@@ -202,7 +202,7 @@ class HybridTrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
             batch = next(loader_iter).to(self.rank)
-            out, _ = self._forward(batch.to(self.rank))
+            out = self._forward(batch.to(self.rank))
             loss = self._compute_loss(out, batch)
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
@@ -236,7 +236,7 @@ class HybridTrainer(BaseTrainer):
         loader_iter = iter(loader)
         for i in range(0, len(loader_iter)):
             batch = next(loader_iter).to(self.rank)    
-            out, _ = self._forward(batch.to(self.rank))
+            out = self._forward(batch.to(self.rank))
             batch_p = out["output"].data.cpu().numpy()
             batch_ids = batch.structure_id 
             
@@ -337,40 +337,16 @@ class HybridTrainer(BaseTrainer):
         torch.cuda.empty_cache()
         
         return predictions
-        
-    def predict_by_calculator(self, loader):        
-        self.model.eval()
-         
-        assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
-        assert len(loader) == 1, f"Predicting by calculator only allows one structure at a time, but got {len(loader)} structures."
-
-        if str(self.rank) not in ("cpu", "cuda"):
-            loader = get_dataloader(
-                loader.dataset, batch_size=loader.batch_size, sampler=None
-            )
-            
-        results = []
-        loader_iter = iter(loader)
-        for i in range(0, len(loader_iter)):
-            batch = next(loader_iter).to(self.rank)      
-            out = self._forward(batch.to(self.rank))
-            
-            energy = None if out.get('output') is None else out.get('output').data.cpu().numpy()
-            stress = None if out.get('cell_grad') is None else out.get('cell_grad').view(-1, 3).data.cpu().numpy()
-            forces = None if out.get('pos_grad') is None else out.get('pos_grad').data.cpu().numpy()
-            
-            results = {'energy': energy, 'stress': stress, 'forces': forces}
-        return results
 
     def _forward(self, batch_data):
-        output, mask = self.model(batch_data)
-        return output, mask
+        output = self.model(batch_data)
+        return output
 
     def _compute_loss(self, out, batch_data):
         loss = self.loss_fn(out, batch_data)
         return loss
 
-    def _backward(self, loss, mask):
+    def _backward(self, loss):
         self.optimizer.zero_grad(set_to_none=True) 
         self.scaler.scale(loss).backward()
         if self.clip_grad_norm:
@@ -379,23 +355,11 @@ class HybridTrainer(BaseTrainer):
                 max_norm=self.clip_grad_norm,
             )    
         
-        original_sigmas = next(param for name, param in self.model.named_parameters() if name == 'sigmas').clone().to('cuda:0')
-        original_epsilons = next(param for name, param in self.model.named_parameters() if name == 'epsilons').clone().to('cuda:0')
-        
+        for name, param in self.model.named_parameters():
+            if name.split('.')[0] == 'sigmas' or name.split('.')[0] == 'epsilons':
+                param.data.clamp_(min=0.1)
+            
         self.scaler.step(self.optimizer)
-        
-        optimized_sigmas = next(param for name, param in self.model.named_parameters() if name == 'sigmas')
-        optimized_epsilons = next(param for name, param in self.model.named_parameters() if name == 'epsilons')
-        
-        sigmas_change = (original_sigmas - optimized_sigmas) * mask
-        epsilons_change = (original_epsilons - optimized_epsilons) * mask
-        
-        optimized_sigmas = original_sigmas - sigmas_change
-        optimized_epsilons = original_epsilons - epsilons_change
-        
-        self.model.sigmas.data = optimized_sigmas
-        self.model.epsilons.data = optimized_epsilons
-        
         self.scaler.update()            
         return grad_norm
 
