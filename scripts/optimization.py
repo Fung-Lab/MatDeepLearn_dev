@@ -3,13 +3,15 @@ from matdeeplearn.common.ase_utils import MDLCalculator, StructureOptimizer
 import numpy as np
 from time import time
 import numpy as np
-from tqdm import tqdm
+import logging
 import json
 from ase.geometry import Cell
 import copy
 import os
 from scipy.stats import norm
 from pymatgen.optimization.neighbors import find_points_in_spheres
+
+logging.basicConfig(level=logging.INFO)
 
 
 def get_rdf(structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
@@ -55,7 +57,7 @@ def cartesian_distance(original, optimized):
     return np.mean(dist)
     
 def build_atoms_list(num=-1):
-    with open('./data/test_data/optimize_data/data.json', 'r') as f:
+    with open('./data/torchmd_test_data/data.json', 'r') as f:
         data = json.load(f)
     total = num if num != -1 else len(data)
     unrelaxed = []
@@ -162,40 +164,43 @@ def evaluate(task, original_atoms, optimized_atoms, times, dft_relaxed=None,
 
                          
 if __name__ == '__main__':
-    '''
-    What you need to adjust:
-    - A data.json containing relaxed/unrelaxed version of structures (line 58)
-    - A config file containing information for calculator (line 174)
-    - Choose whether optimizing relaxed or unrelaxed structures (line 183 and 186)
-    - Folder to save results (line 197)
-    '''
     structure_ids, unrelaxed, relaxed, dft,\
-        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list(20)
+        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list()
+
+    # Configurations below
+    calc_str = './configs/calculator/config_cgcnn_lj.yml'
     
-    calc_str = './configs/config_calculator.yml'
-    # calc_str = './configs/calculator/config_calculator.yml'
-    print('Using calculator config from', calc_str)
+    save = True
+    folder = './train_outs/unrelaxed_data'
+    optim_type = 'unrelax'
+    # Configurations above
+    
     calculator = MDLCalculator(config=calc_str)
+    
+    logging.info(f"Saving optimizaion results for {optim_type}ed structures to: {folder}")
 
     original_atoms, optimized_atoms = [], []
     
     optim = StructureOptimizer(calculator, relax_cell=True)
     start = time()
-    total_iterations = len(unrelaxed)
     times = []
+    
+    to_optim = relaxed if optim_type == 'relax' else unrelaxed
         
-    for idx, atoms in enumerate(tqdm(unrelaxed, total=total_iterations)):
+    for idx, atoms in enumerate(to_optim):
         atoms.set_calculator(calculator)
         original_atoms.append(atoms)
         to_optim = copy.deepcopy(atoms)
         optimized, time_per_step = optim.optimize(to_optim)
         times.append(time_per_step)
         optimized_atoms.append(optimized)
+        if (idx + 1) % 20 == 0:
+            logging.info(f"Completed optimizing {idx + 1} structures.")
     end = time()
 
     print(f"Time elapsed: {end - start:.3f}")
-    result = evaluate('unrelaxed', original_atoms, optimized_atoms, times, dft_relaxed=dft,
-                      save=False, optim=optim, folder='./train_outs/cgcnn_lj_unrelax', filename='unrelax')
+    result = evaluate(optim_type, original_atoms, optimized_atoms, times, dft_relaxed=dft,
+                      save=True, optim=optim, folder=folder, filename=optim_type)
 
     for key in result.keys():
         print(f"{key}: {result[key]:.4f}")
