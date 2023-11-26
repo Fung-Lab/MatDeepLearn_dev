@@ -234,7 +234,7 @@ class CGCNN_Morse(BaseModel):
 
         # start = time()
         morse = self.morse_potential(data)
-        # print(f"Total time of lj calculation: {time() - start:.4f}")
+        # print(f"Total time of morse calculation: {time() - start:.4f}")
         
         return 0.8 * out + 0.2 * morse
     
@@ -279,16 +279,19 @@ class CGCNN_Morse(BaseModel):
                             (6.0 * s**5 - 15.0 * s**4 + 10.0 * s**3))
     
     def morse_potential(self, data):
+        
+        # start = time()
         num_edges = len(data.edge_index[0])
         atoms = torch.zeros(2, num_edges, dtype=torch.int64)
 
         atoms[0] = data.z[data.edge_index[0]] - 1
         atoms[1] = data.z[data.edge_index[1]] - 1
         
-        atomic_re = torch.zeros((len(self.atomic_re), 1)).to('cuda:0')
-        atomic_epsilons = torch.zeros((len(self.atomic_epsilons), 1)).to('cuda:0')
-        atomic_a = torch.zeros((len(self.atomic_a), 1)).to('cuda:0')
-        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+        atomic_re = torch.rand((len(self.atomic_re), 1)).to('cuda:0')
+        atomic_epsilons = torch.rand((len(self.atomic_epsilons), 1)).to('cuda:0')
+        atomic_a = torch.rand((len(self.atomic_a), 1)).to('cuda:0')
+        base_atomic_energy = torch.rand((len(self.base_atomic_energy), 1)).to('cuda:0')
+        # print(f"Create tensors: {time() - start:.4f}")
     
         # start = time()
         for z in np.unique(data.z.cpu()):
@@ -296,12 +299,13 @@ class CGCNN_Morse(BaseModel):
             atomic_re[z - 1] = self.atomic_re[z - 1]
             atomic_a[z - 1] = self.atomic_a[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-        # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
+        # print(f"Copy necessary parameters: {time() - start:.4f}")
         
         # start = time()
         re = (atomic_re[atoms[0]] + atomic_re[atoms[1]]).squeeze() / 2
         epsilon = (atomic_epsilons[atoms[0]] + atomic_epsilons[atoms[1]]).squeeze() / 2
         a = (atomic_a[atoms[0]] + atomic_a[atoms[1]]).squeeze() / 2
+        # print(f"Calculate necessary parameters: {time() - start:.4f}")
         
         # start = time()
         rc = self.cutoff_radius
