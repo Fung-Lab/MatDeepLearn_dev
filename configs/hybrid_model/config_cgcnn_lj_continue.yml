@@ -2,18 +2,18 @@ trainer: hybrid
 ?
 task:
   #run_mode: train
-  identifier: lj_cgcnn_v4
+  identifier: hybrid_cgcnn_lj_v4
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path: 
+  checkpoint_path: results/2023-11-22-12-18-48-542-hybrid_cgcnn_lj_v4/checkpoint/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time

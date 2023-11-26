@@ -1,19 +1,19 @@
-trainer: property
+trainer: hybrid
 ?
 task:
-  #run_mode: train
-  identifier: test_lj_cgcnn
+  run_mode: train
+  identifier: only_morse_test
   parallel: False
   # If seed is not set, then it will be random every time
-  seed: 12345678
-  # Defaults to run directory if not specified
-  save_dir: 
+  seed: 0
+  # Defaults to run directory if4not specified
+  save_dir:
   # continue from a previous job
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: 
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: CGCNN_LJ   
+  name: Morse   
   # model attributes
   dim1: 100
   dim2: 150
@@ -46,9 +46,10 @@ model:
   otf_node_attr: False
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  clamped_params: ['epsilons']
 ?
 optim:
-  max_epochs: 300
+  max_epochs: 100
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -57,8 +58,8 @@ optim:
     #loss_args: {loss_fn: l1_loss}
     loss_type: ForceStressLoss
     loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: "ForceLoss"
+    # loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
   batch_size: 128
@@ -77,7 +78,7 @@ dataset:
   name: mpforce_data
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
+  src: ../../../Shared/Materials_datasets/MP_data_forces/raw/data_subset_outliers.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
@@ -96,7 +97,7 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  #additional_attributes: [forces]
+  # additional_attributes: [forces]
   additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info

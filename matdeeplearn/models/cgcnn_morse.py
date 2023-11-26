@@ -21,8 +21,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("CGCNN_LJ")
-class CGCNN_LJ(BaseModel):
+@registry.register_model("CGCNN_Morse")
+class CGCNN_Morse(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -41,7 +41,7 @@ class CGCNN_LJ(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN_LJ, self).__init__(**kwargs)
+        super(CGCNN_Morse, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -59,12 +59,13 @@ class CGCNN_LJ(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
 
-        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        # Equilibrium bond distance
+        self.atomic_re = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        # Well depth
+        self.atomic_epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        # Well width
+        self.atomic_a = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        
-        self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -232,32 +233,11 @@ class CGCNN_LJ(BaseModel):
             out = self.lin_out(out)
 
         # start = time()
-        lj = self.lj_potential(data)
+        morse = self.morse_potential(data)
         # print(f"Total time of lj calculation: {time() - start:.4f}")
         
-        return 0.8 * out + 0.2 * lj
+        return 0.8 * out + 0.2 * morse
     
-    def cutoff_function(self, r, rc, ro):
-        """
-        Smooth cutoff function.
-
-        Goes from 1 to 0 between ro and rc, ensuring
-        that u(r) = lj(r) * cutoff_function(r) is C^1.
-
-        Defined as 1 below ro, 0 above rc.
-
-        Note that r, rc, ro are all expected to be squared,
-        i.e. `r = r_ij^2`, etc.
-
-        Taken from https://github.com/google/jax-md.
-        """
-
-        return torch.where(
-            r < ro,
-            1.0,
-            torch.where(r < rc, (rc - r) ** 2 * (rc + 2 *
-                    r - 3 * ro) / (rc - ro) ** 3, 0.0),
-        )
         
     def forward(self, data):
         
@@ -284,53 +264,62 @@ class CGCNN_LJ(BaseModel):
 
         return output
     
-    def lj_potential(self, data):
+    def cutoff_function(self, r, rc, ro):
+        """
+        Piecewise quintic C^{2,1} regular polynomial for use as a smooth cutoff.
+        Ported from JuLIP.jl, https://github.com/JuliaMolSim/JuLIP.jl
+
+        Parameters
+        ----------
+        rc - inner cutoff radius
+        ro - outder cutoff radius
+        """""
+        s = 1.0 - (r - rc) / (ro - rc)
+        return (s >= 1.0) + (((0.0 < s) & (s < 1.0)) *
+                            (6.0 * s**5 - 15.0 * s**4 + 10.0 * s**3))
+    
+    def morse_potential(self, data):
         num_edges = len(data.edge_index[0])
         atoms = torch.zeros(2, num_edges, dtype=torch.int64)
 
         atoms[0] = data.z[data.edge_index[0]] - 1
         atoms[1] = data.z[data.edge_index[1]] - 1
         
-        sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
-        coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
-        coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
+        atomic_re = torch.zeros((len(self.atomic_re), 1)).to('cuda:0')
+        atomic_epsilons = torch.zeros((len(self.atomic_epsilons), 1)).to('cuda:0')
+        atomic_a = torch.zeros((len(self.atomic_a), 1)).to('cuda:0')
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
     
         # start = time()
         for z in np.unique(data.z.cpu()):
-            sigmas[z - 1] = self.sigmas[z - 1]
-            epsilons[z - 1] = self.epsilons[z - 1]
+            atomic_epsilons[z - 1] = self.atomic_epsilons[z - 1]
+            atomic_re[z - 1] = self.atomic_re[z - 1]
+            atomic_a[z - 1] = self.atomic_a[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            coef_12[z - 1] = self.coef_12[z - 1]
-            coef_6[z - 1] = self.coef_6[z - 1]
         # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
         
         # start = time()
-        sigma = (sigmas[atoms[0]] + sigmas[atoms[1]]).squeeze() / 2
-        epsilon = (epsilons[atoms[0]] + epsilons[atoms[1]]).squeeze() / 2
-        coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
-        coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
+        re = (atomic_re[atoms[0]] + atomic_re[atoms[1]]).squeeze() / 2
+        epsilon = (atomic_epsilons[atoms[0]] + atomic_epsilons[atoms[1]]).squeeze() / 2
+        a = (atomic_a[atoms[0]] + atomic_a[atoms[1]]).squeeze() / 2
         
         # start = time()
         rc = self.cutoff_radius
         ro = 0.66 * rc
-        r2 = data.edge_weight ** 2
 
-        c6 = (sigma ** 2 / r2) ** 3
-        c6[r2 > rc ** 2] = 0.0
-        c12 = c6 ** 2
-        cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
-        pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
-        pairwise_energies *= cutoff_fn
-        # print(f"Calculate lj: {time() - start:.4f}")
+        d = data.edge_weight
+        fc = self.cutoff_function(d, ro, rc)
+
+        E = epsilon * ((1 - torch.exp(-a * (d - re))) ** 2)
+        pairwise_energies = 0.5 * (E * fc)
+        # print(f"Calculate morse: {time() - start:.4f}")
 
         # start = time()
         edge_idx_to_graph = data.batch[data.edge_index[0]]
-        lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
+        morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
     
         base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
         base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
         # print(f"Scatter adds: {time() - start:.4f}")
         
-        return lennard_jones_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
+        return morse_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)

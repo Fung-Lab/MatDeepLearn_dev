@@ -58,6 +58,16 @@ class HybridTrainer(BaseTrainer):
             checkpoint_path,          
             use_amp,
         )
+        
+    @classmethod
+    def from_config(cls, config):
+        # Call the parent class method using super()
+        trainer_cls = super().from_config(config)
+
+        # Add the extra_parameter to the returned cls
+        trainer_cls.clamped_params = config['model']['clamped_params']
+
+        return trainer_cls
 
     def train(self):
         # Start training over epochs loop
@@ -94,8 +104,6 @@ class HybridTrainer(BaseTrainer):
             train_loader_iter = iter(self.data_loader["train_loader"])
             # metrics for every epoch
             _metrics = {}
-
-            #print(f"Current gnn : lennard_jones = {self.model.gnn_ratio.data:.3f} : {1 - self.model.gnn_ratio.data:.3f}")
             
             #for i in range(skip_steps, len(self.train_loader)):
             pbar = tqdm(range(0, len(self.data_loader["train_loader"])), disable=not self.batch_tqdm)
@@ -356,7 +364,7 @@ class HybridTrainer(BaseTrainer):
             )    
         
         for name, param in self.model.named_parameters():
-            if name.split('.')[0] == 'sigmas' or name.split('.')[0] == 'epsilons':
+            if name.split('.')[0] in self.clamped_params:
                 param.data.clamp_(min=0.1)
             
         self.scaler.step(self.optimizer)
