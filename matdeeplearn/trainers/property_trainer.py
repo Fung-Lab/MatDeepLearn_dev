@@ -13,6 +13,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
+from torch.profiler import profile, record_function, ProfilerActivity
+
 
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
@@ -108,7 +110,7 @@ class PropertyTrainer(BaseTrainer):
                 # Get a batch of train data
                 batch = next(train_loader_iter).to(self.rank) 
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
-                # Compute forward, loss, backward    
+                # Compute forward, loss, backward   
                 with autocast(enabled=self.use_amp):
                     out = self._forward(batch)                                           
                     loss = self._compute_loss(out, batch)

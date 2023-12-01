@@ -21,6 +21,7 @@ from ase.md.npt import NPT
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import os
 from time import time
+from ase import units
 
 
 logging.basicConfig(level=logging.INFO)
@@ -157,19 +158,19 @@ class MDLCalculator(Calculator):
         logging.info(f'MDLCalculator: setting up {model_name} for calculation')
         model_cls = registry.get_model_class(model_name)
         model = model_cls(
-                  node_dim=node_dim, 
-                  edge_dim=edge_dim, 
-                  output_dim=1, 
-                  cutoff_radius=graph_config["cutoff_radius"], 
-                  n_neighbors=graph_config["n_neighbors"], 
-                  graph_method=graph_config["edge_calc_method"], 
-                  num_offsets=graph_config["num_offsets"], 
-                  **model_config
-                  )
+                    node_dim=node_dim, 
+                    edge_dim=edge_dim, 
+                    output_dim=1, 
+                    cutoff_radius=graph_config["cutoff_radius"], 
+                    n_neighbors=graph_config["n_neighbors"], 
+                    graph_method=graph_config["edge_calc_method"], 
+                    num_offsets=graph_config["num_offsets"], 
+                    **model_config
+                )
         model = model.to(rank)
-        checkpoint = torch.load(config['task']["checkpoint_path"])
         
         try:
+            checkpoint = torch.load(config['task']["checkpoint_path"])
             model.load_state_dict(checkpoint["state_dict"])
             logging.info(f'MDLCalculator: model weights loaded from {config["task"]["checkpoint_path"]}')
         except ValueError:
@@ -243,7 +244,7 @@ class StructureOptimizer:
         - header: Optional header for the saved file.
         """
         if header == None:
-            header = "strucure_id, original_pos, original_pos, original_pos, optimized_pos, optimized_pos, optimized_pos"
+            header = "structure_id, original_pos, original_pos, original_pos, optimized_pos, optimized_pos, optimized_pos"
         for i in range(len(original)):
             with open(file_path, 'a') as f:
                 if i == 0:
@@ -278,7 +279,6 @@ class MDSimulator:
         self.timestep = timestep
         self.temperature = temperature
         self.calculator = calculator
-        self.results = []
 
     def run_simulation(self,
                        atoms: Atoms,
@@ -308,7 +308,7 @@ class MDSimulator:
             simulation_class = VelocityVerlet
         elif self.simulation == 'NVT':
             valid_params += ['friction', 'fixcm', 'communicator', 'rng']
-            kwargs.setdefault('friction', 1e-3)
+            kwargs.setdefault('friction', 0.001 / units.fs)
             kwargs.setdefault('temperature_K', self.temperature)
             simulation_class = Langevin
         elif self.simulation == 'NPT':
@@ -325,37 +325,54 @@ class MDSimulator:
             raise ValueError(f"Invalid parameter(s): {', '.join(invalid_params)}")
 
         dyn = simulation_class(atoms, timestep=self.timestep * units.fs, **kwargs)
-        time_ps = 0
 
+        starting = atoms.get_potential_energy()
+        highest_e = starting
+        lowest_e = starting
+        
+        def calc_energy(a=atoms):
+            nonlocal highest_e, lowest_e
+            epot = a.get_potential_energy()
+            ekin = a.get_kinetic_energy()
+            etotal = epot + ekin
+            highest_e = max(highest_e, etotal) 
+            lowest_e = min(lowest_e, etotal)
+        dyn.attach(calc_energy, interval=1)
+        
         if log_console:
             def printenergy(a=atoms):
                 epot = a.get_potential_energy()
                 ekin = a.get_kinetic_energy()
                 temperature = 2 * ekin / (3 * len(a) * units.kB)
-                if save_energy:
-                    self.results.append({'time': time_ps, 'Etot': epot + ekin,
-                                         'Epot': epot, 'Ekin': ekin, 'T': temperature})
-                print('Energy of system: Epot = %.3feV  Ekin = %.3feV (T=%3.0fK)  '
-                    'Etot = %.3feV' % (epot, ekin, temperature, epot + ekin))
-                time_ps += 0.005
+                etotal = epot + ekin
+            
+                # if save_energy:
+                #     self.results.append({'time': time_ps, 'Etot': epot + ekin,
+                #                          'Epot': epot, 'Ekin': ekin, 'T': temperature})
+                logging.info('Energy of system: Epot = %.3feV  Ekin = %.3feV (T=%3.0fK)  '
+                    'Etot = %.3feV' % (epot, ekin, temperature, etotal))
             dyn.attach(printenergy, interval=log_console)
 
         start = time()
         dyn.run(steps=num_steps)
         end = time()
-        print(f"Time: {end-start:.4f}")
+        
+        if log_console:
+            logging.info(f"Time: {end-start:.4f}")
+            
+        return atoms, (end - start) / num_steps, highest_e[0][0], lowest_e[0][0]
 
-    @staticmethod
-    def traj_to_xdatcar(traj_file) -> None:
-        """
-        This static method reads a trajectory file and saves it in the XDATCAR format.
 
-        Parameters:
-        - traj_file (str): Path to the trajectory file.
+def traj_to_xdatcar(traj_file) -> None:
+    """
+    This method reads a trajectory file and saves it in the XDATCAR format.
 
-        Returns:
-        - None
-        """
-        traj = read(traj_file, index=':')
-        file_name, _ = os.path.splitext(traj_file)
-        write(file_name + '.XDATCAR', traj)
+    Parameters:
+    - traj_file (str): Path to the trajectory file.
+
+    Returns:
+    - None
+    """
+    traj = read(traj_file, index=':')
+    file_name, _ = os.path.splitext(traj_file)
+    write(file_name + '.XDATCAR', traj)

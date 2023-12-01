@@ -1,19 +1,19 @@
-trainer: hybrid
+trainer: property
 
 task:
   run_mode: train
-  identifier: torchmd_lj_v2
+  identifier: torch_md_continue_2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: results/2023-11-20-09-31-46-028-torch_md_training/checkpoint/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -25,7 +25,7 @@ task:
   use_amp: True  
 
 model:
-  name: torchmd_lj
+  name: torchmd_etEarly
   # model attributes
   hidden_channels: 128
   num_layers: 8
@@ -46,7 +46,6 @@ model:
   otf_node_attr: False
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  clamped_params: ['sigmas', 'epsilons']
 
 optim:
   max_epochs: 400
@@ -68,7 +67,7 @@ optim:
     optimizer_args: {}
   scheduler:
     scheduler_type: ReduceLROnPlateau
-    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.000001, threshold: 0.0002}
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch

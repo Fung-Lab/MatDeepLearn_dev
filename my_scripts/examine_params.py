@@ -35,6 +35,6 @@ def show_all_morse_params(state_dict):
     
 
 if __name__ == '__main__':
-    checkpoint_path = 'results/morse_mpforce_subset/checkpoint/best_checkpoint.pt'
+    checkpoint_path = 'results/2023-11-29-17-59-10-826-torchmd_lj_v2/checkpoint/best_checkpoint.pt'
     state_dict = torch.load(checkpoint_path)['state_dict']
-    show_all_morse_params(state_dict)
+    show_all_lj_params(state_dict)

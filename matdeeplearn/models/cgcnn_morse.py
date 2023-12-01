@@ -60,12 +60,15 @@ class CGCNN_Morse(BaseModel):
         self.dropout_rate = dropout_rate
 
         # Equilibrium bond distance
-        self.atomic_re = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.atomic_re = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         # Well depth
-        self.atomic_epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.atomic_epsilons = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         # Well width
         self.atomic_a = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        
+        # self.coef_const = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        # self.coef_exp = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -279,33 +282,36 @@ class CGCNN_Morse(BaseModel):
                             (6.0 * s**5 - 15.0 * s**4 + 10.0 * s**3))
     
     def morse_potential(self, data):
-        
-        # start = time()
         num_edges = len(data.edge_index[0])
         atoms = torch.zeros(2, num_edges, dtype=torch.int64)
 
         atoms[0] = data.z[data.edge_index[0]] - 1
         atoms[1] = data.z[data.edge_index[1]] - 1
         
-        atomic_re = torch.rand((len(self.atomic_re), 1)).to('cuda:0')
-        atomic_epsilons = torch.rand((len(self.atomic_epsilons), 1)).to('cuda:0')
-        atomic_a = torch.rand((len(self.atomic_a), 1)).to('cuda:0')
-        base_atomic_energy = torch.rand((len(self.base_atomic_energy), 1)).to('cuda:0')
-        # print(f"Create tensors: {time() - start:.4f}")
+        atomic_re = torch.zeros((len(self.atomic_re), 1)).to('cuda:0')
+        atomic_epsilons = torch.zeros((len(self.atomic_epsilons), 1)).to('cuda:0')
+        atomic_a = torch.zeros((len(self.atomic_a), 1)).to('cuda:0')
+        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+        # coef_const = torch.zeros((len(self.coef_const), 1)).to('cuda:0')
+        # coef_exp = torch.zeros((len(self.coef_exp), 1)).to('cuda:0')
     
         # start = time()
         for z in np.unique(data.z.cpu()):
             atomic_epsilons[z - 1] = self.atomic_epsilons[z - 1]
             atomic_re[z - 1] = self.atomic_re[z - 1]
             atomic_a[z - 1] = self.atomic_a[z - 1]
+            # coef_const[z - 1] = self.coef_const[z - 1]
+            # coef_exp[z - 1] = self.coef_exp[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-        # print(f"Copy necessary parameters: {time() - start:.4f}")
+        # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
         
         # start = time()
         re = (atomic_re[atoms[0]] + atomic_re[atoms[1]]).squeeze() / 2
         epsilon = (atomic_epsilons[atoms[0]] + atomic_epsilons[atoms[1]]).squeeze() / 2
         a = (atomic_a[atoms[0]] + atomic_a[atoms[1]]).squeeze() / 2
-        # print(f"Calculate necessary parameters: {time() - start:.4f}")
+        
+        # coef_const = (coef_const[atoms[0]] + coef_const[atoms[1]]).squeeze() / 2
+        # coef_exp = (coef_exp[atoms[0]] + coef_exp[atoms[1]]).squeeze() / 2
         
         # start = time()
         rc = self.cutoff_radius
@@ -314,6 +320,7 @@ class CGCNN_Morse(BaseModel):
         d = data.edge_weight
         fc = self.cutoff_function(d, ro, rc)
 
+        # E = epsilon * ((coef_const - coef_exp * torch.exp(-a * (d - re))) ** 2)
         E = epsilon * ((1 - torch.exp(-a * (d - re))) ** 2)
         pairwise_energies = 0.5 * (E * fc)
         # print(f"Calculate morse: {time() - start:.4f}")
