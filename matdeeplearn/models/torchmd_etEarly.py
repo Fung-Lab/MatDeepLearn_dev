@@ -180,7 +180,7 @@ class TorchMD_ET(BaseModel):
                 hidden_channels  # , track_running_stats=self.batch_track_stats
             )
             bn_vec = BatchNorm1d(
-                hidden_channels  # , track_running_stats=self.batch_track_stats
+                3  # , track_running_stats=self.batch_track_stats
             )
             self.bn_x_list.append(bn_x)
             self.bn_vec_list.append(bn_vec)
