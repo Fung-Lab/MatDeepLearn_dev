@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 import torch_geometric.nn
+from torch.nn import BatchNorm1d
 from torch_geometric.nn import MessagePassing
 from torch_scatter import scatter
 from matdeeplearn.models.utils import (
@@ -135,6 +136,7 @@ class TorchMD_ET(BaseModel):
         )
 
         self.attention_layers = nn.ModuleList()
+        self.bn_x_list, self.bn_vec_list = nn.ModuleList(), nn.ModuleList()
         for _ in range(num_layers):
             layer = EquivariantMultiHeadAttention(
                 hidden_channels,
@@ -172,6 +174,17 @@ class TorchMD_ET(BaseModel):
             self.attention_layers.append(layer)
             self.attention_layers.append(rn_vn_layer)
             # self.attention_layers.append(vn_vn_layer)
+
+        for _ in range(num_layers * 2):
+            bn_x = BatchNorm1d(
+                hidden_channels  # , track_running_stats=self.batch_track_stats
+            )
+            bn_vec = BatchNorm1d(
+                hidden_channels  # , track_running_stats=self.batch_track_stats
+            )
+            self.bn_x_list.append(bn_x)
+            self.bn_vec_list.append(bn_vec)
+
 
         self.last_attention_layers = EquivariantMultiHeadAttention(
             hidden_channels,
@@ -260,6 +273,9 @@ class TorchMD_ET(BaseModel):
                                 data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
                 x = x + dx
                 vec = vec + dvec
+            x = self.bn_x_list[i](x)
+            vec = self.bn_vec_list[i](vec)
+
 
         dx, dvec = self.last_attention_layers(x, vec, data.edge_index[:, indices_rn_to_vn],
                                               data.edge_weight[indices_rn_to_vn],
