@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try3_vn4
+  identifier: qm9_epoch500_cgcnn
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -49,7 +49,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 200
+  max_epochs: 500
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -75,27 +75,27 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../dataset/try3/data_try3.json
+  src: { train : ../data_qm9_qmc/train/ , test : ../data_qm9_qmc/test/ , val : ../data_qm9_qmc/val/}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
-  target_path: 
+  target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/try3/
+  pt_path: ../data_qm9_qmc/
   # Either "node" or "graph"
   prediction_level: node
-  
+
   transforms:
     - name: GetY
       args:
         # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
-        # For example, an index: 0 (default) will use the first entry in the target vector 
+        # For example, an index: 0 (default) will use the first entry in the target vector
         # if all values are to be predicted simultaneously, then specify index: -1
         index: -1
       otf_transform: True # Optional parameter, default is True
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
   # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
-  additional_attributes: 
+  additional_attributes:
   # Print out processing info
   verbose: True
   # Index of target column in targets.csv
@@ -103,14 +103,14 @@ dataset:
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: ocp
-    # determine if edges are computed, if false, then they need to be computed on the fly   
+    # determine if edges are computed, if false, then they need to be computed on the fly
     preprocess_edges: False
-    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_edge_features: False
-    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : 8.0
+    cutoff_radius : 6.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
@@ -122,13 +122,13 @@ dataset:
     # whether or not to add self-loops
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
-    node_representation: onehot    
+    node_representation: onehot
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
-  num_workers: 4
+  num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.9
+  num_samples: 10000
   val_ratio: 0.05
   test_ratio: 0.05
-  num_samples: 1000
