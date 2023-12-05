@@ -82,12 +82,9 @@ def process_data(dataset_config):
     return dataset
 
 
-def get_sampling_indices(vn_labels, num_samples, probability=True):
+def get_sampling_indices(vn_labels, num_samples):
     prob_distribution = vn_labels / np.sum(vn_labels)
-    if probability:
-        sampled_indices = np.random.choice(len(vn_labels), size=num_samples, p=prob_distribution.squeeze())
-    else:
-        sampled_indices = np.random.choice(len(vn_labels), size=num_samples)
+    sampled_indices = np.random.choice(len(vn_labels), size=num_samples, p=prob_distribution.squeeze())
 
     return sampled_indices
 
@@ -260,7 +257,7 @@ class DataProcessor:
                         #densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                         df = pd.read_csv(self.root_path+dir_name+"/densities.csv", header=0).to_numpy()
                         vn_coords = df[:,0:3]
-                        vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
+                        vn_labels = np.expand_dims((df[:,5] + df[:,6] - df[:,3] - df[:,4]), 1)
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
