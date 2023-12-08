@@ -196,8 +196,8 @@ class DataProcessor:
         else:
             return self.json_wrap()
         '''
-        return self.chg_wrap()
-        # return self.json_wrap()
+        # return self.chg_wrap()
+        return self.json_wrap()
 
     def chg_wrap(self):
         dict_structures = []
@@ -402,7 +402,7 @@ class DataProcessor:
             dict_structures.append(d)
 
             # check y types
-            _y = s["y"]
+            _y = s["y"][13]
             if isinstance(_y, list) == False:
                 _y = np.array([_y], dtype=np.float32)
             else:
@@ -414,7 +414,7 @@ class DataProcessor:
 
             y.append(_y)
 
-            d["y"] = np.array(_y).reshape((1, -1))
+            d["y"] = np.array(_y)
 
         y = np.array(y)
         return dict_structures
