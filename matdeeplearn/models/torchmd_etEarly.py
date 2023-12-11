@@ -241,8 +241,8 @@ class TorchMD_ET(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
 
-        indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= 12)
-        indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= 4)
+        indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= 6)
+        indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= 6)
         # indices_vn_to_vn = data.edge_mask == 0
 
         if self.neighbor_embedding is not None:
