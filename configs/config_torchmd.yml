@@ -28,9 +28,9 @@ task:
 model:
   name: torchmd_etEarly
   # model attributes
-  hidden_channels: 64
-  num_layers: 5
-  num_rbf: 25
+  hidden_channels: 128
+  num_layers: 6
+  num_rbf: 50
   activation: "silu"
   attn_activation: "silu"
   num_heads: 8
@@ -72,7 +72,7 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: { train : ../data_qm9_qmc/train/ , test : ../data_qm9_qmc/test/ , val : ../data_qm9_qmc/val/}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
