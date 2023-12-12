@@ -34,8 +34,8 @@ model:
   activation: "silu"
   attn_activation: "silu"
   num_heads: 8
-  num_post_layers: 1
-  post_hidden_channels: 64
+  num_post_layers: 2
+  post_hidden_channels: 128
   pool: "global_add_pool"
   aggr: "add"
   # Compute edge indices on the fly in the model forward
@@ -109,7 +109,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : 12.0
+    cutoff_radius : 6.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
