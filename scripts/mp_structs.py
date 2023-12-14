@@ -10,13 +10,13 @@ doc_list = [doc for doc in docs]
 unique_compositions = []
 comp_dict = {}
 for doc in doc_list:
-    if str(sorted(doc.composition.reduced_formula)) not in unique_compositions:
+    if doc.composition.alphabetical_formula not in unique_compositions:
         #add sorted composition to list
-        unique_compositions.append(str(sorted(doc.composition.reduced_formula)))
-        comp_dict[str(sorted(doc.composition.reduced_formula))] = (doc.formation_energy_per_atom, doc.material_id, doc.structure, doc.composition.reduced_formula)
+        unique_compositions.append(doc.composition.alphabetical_formula)
+        comp_dict[doc.composition.alphabetical_formula] = (doc.formation_energy_per_atom, doc.material_id, doc.structure, doc.composition.alphabetical_formula)
     else:
-        if comp_dict[str(sorted(doc.composition.reduced_formula))][0] > doc.formation_energy_per_atom:
-            comp_dict[str(sorted(doc.composition.reduced_formula))] = (doc.formation_energy_per_atom, doc.material_id, doc.structure, doc.composition.reduced_formula)
+        if comp_dict[doc.composition.alphabetical_formula][0] > doc.formation_energy_per_atom:
+            comp_dict[doc.composition.alphabetical_formula] = (doc.formation_energy_per_atom, doc.material_id, doc.structure, doc.composition.alphabetical_formula)
 print(unique_compositions[0])
 print(comp_dict[unique_compositions[0]])
 print(len(unique_compositions))
