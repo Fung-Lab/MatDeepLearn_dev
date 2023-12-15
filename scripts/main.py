@@ -73,7 +73,7 @@ if __name__ == "__main__":
     config["task"]["log_id"] = timestamp_id
     
     if not config["dataset"]["processed"]:
-        process_data(config["dataset"])
+        process_data(config["dataset"], config["task"]["seed"])
 
     if args.submit:  # Run on cluster
         # TODO: add setup to submit to cluster

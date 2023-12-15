@@ -128,6 +128,7 @@ dataset:
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.9
-  num_samples: 10000
   val_ratio: 0.05
   test_ratio: 0.05
+  num_samples: 10000
+  num_sub_batch: 500

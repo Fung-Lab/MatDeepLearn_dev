@@ -5,6 +5,7 @@ import os
 
 import random
 import numpy as np
+import numpy.random
 import pandas as pd
 import torch
 import ase
@@ -46,7 +47,7 @@ def from_config(dataset_config):
     edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
     num_samples = dataset_config.get("num_samples", 200)
-    print("num_samples:", num_samples)
+    sub_batch = dataset_config.get("num_sub_batch", 500)
 
     processor = DataProcessor(
         root_path=root_path_dict,
@@ -69,14 +70,16 @@ def from_config(dataset_config):
         verbose=verbose,
         edge_calc_method=edge_calc_method,
         device=device,
-        num_samples=num_samples
+        num_samples=num_samples,
+        sub_batch=sub_batch
     )
 
     return processor
 
 
-def process_data(dataset_config):
+def process_data(dataset_config, seed):
     processor = from_config(dataset_config)
+    numpy.random.seed(seed)
     dataset = processor.process()
 
     return dataset
@@ -112,7 +115,8 @@ class DataProcessor:
         verbose: bool = True,
         edge_calc_method: str = "mdl",
         device: str = "cpu",
-        num_samples: int = 200
+        num_samples: int = 200,
+        sub_batch: int = 500
     ) -> None:
         """
         create a DataProcessor that processes the raw data and save into data.pt file.
@@ -188,6 +192,7 @@ class DataProcessor:
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
         self.num_samples = num_samples
+        self.sub_batch = sub_batch
 
     def src_check(self):
         '''
@@ -263,7 +268,7 @@ class DataProcessor:
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
                             if self.num_samples != -1 else np.arange(len(vn_labels))
                         np.random.shuffle(indices)
-                        indices = [indices[i: min(i + 500, len(indices))] for i in range(0, len(indices), 500)]
+                        indices = [indices[i: min(i + self.sub_batch, len(indices))] for i in range(0, len(indices), self.sub_batch)]
 
                         for sub_indices in indices:
                             pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
@@ -512,7 +517,7 @@ class DataProcessor:
                 dict_structures = self.src_check()
 
                 dataset_size = len(dict_structures)
-                total_structures = int(dataset_size // (self.num_samples / 500))
+                total_structures = int(dataset_size // (self.num_samples / self.sub_batch))
                 structures = list(range(total_structures))
                 random.shuffle(structures)
 
@@ -526,8 +531,8 @@ class DataProcessor:
 
                 for i in range(total_structures):
                     structure_idx = structures[i]
-                    start_idx = structure_idx * math.ceil(self.num_samples / 500)
-                    end_idx = start_idx + math.ceil(self.num_samples / 500)
+                    start_idx = structure_idx * math.ceil(self.num_samples / self.sub_batch)
+                    end_idx = start_idx + math.ceil(self.num_samples / self.sub_batch)
                     if i < num_train:
                         dict_structures_train.extend(dict_structures[start_idx:end_idx])
                     elif i < num_train + num_val:
