@@ -113,6 +113,14 @@ class TorchMD_ET(BaseModel):
         self.output_dim = output_dim
         cutoff_lower = 0
 
+        if isinstance(self.cutoff_radius, dict):
+            self.rn_rn_radius = self.cutoff_radius['rn-rn']
+            self.rn_vn_radius = self.cutoff_radius['rn-vn']
+            self.cutoff_radius = max(self.cutoff_radius.values())
+        else:
+            self.rn_rn_radius = self.cutoff_radius
+            self.rn_vn_radius = self.cutoff_radius
+
         act_class = act_class_mapping[activation]
 
         self.embedding = nn.Embedding(self.max_z, hidden_channels)
@@ -241,8 +249,8 @@ class TorchMD_ET(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()
 
-        indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= 2.5)
-        indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= 6)
+        indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= self.rn_rn_radius)
+        indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= self.rn_vn_radius)
         # indices_vn_to_vn = data.edge_mask == 0
 
         if self.neighbor_embedding is not None:

@@ -55,6 +55,14 @@ class CGCNN(BaseModel):
         self.edge_dim = edge_dim
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
+
+        if isinstance(self.cutoff_radius, dict):
+            self.rn_rn_radius = self.cutoff_radius['rn-rn']
+            self.rn_vn_radius = self.cutoff_radius['rn-vn']
+            self.cutoff_radius = max(self.cutoff_radius.values())
+        else:
+            self.rn_rn_radius = self.cutoff_radius
+            self.rn_vn_radius = self.cutoff_radius
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -173,8 +181,8 @@ class CGCNN(BaseModel):
             edge_mask[(data.z[data.edge_index[0]] == 100) & (data.z[data.edge_index[1]] != 100)] = 2  # virtual node to regular node
             edge_mask[(data.z[data.edge_index[0]] != 100) & (data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
 
-            indices_rn_to_rn = (edge_mask == 3) & (data.edge_weight <= 8)
-            indices_rn_to_vn = (edge_mask == 1) & (data.edge_weight <= 4)
+            indices_rn_to_rn = (edge_mask == 3) & (data.edge_weight <= self.rn_rn_radius)
+            indices_rn_to_vn = (edge_mask == 1) & (data.edge_weight <= self.rn_vn_radius)
             # indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
             indices_to_keep = indices_rn_to_rn | indices_rn_to_vn  # | indices_vn_to_vn
             indices_rn_to_rn = indices_rn_to_rn[indices_to_keep]
