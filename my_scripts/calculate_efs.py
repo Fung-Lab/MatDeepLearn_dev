@@ -37,8 +37,9 @@ def get_efs_error(folder_name, ratio=(0.01, 50, 50)):
     return result
 
 if __name__ == '__main__':
-    result_path = './results/2023-11-29-21-00-20-470-cgcnn_morse_v1/train_results'
+    #result_path = './results/2023-12-14-07-07-37-147-torchmd_lj_v2//train_results'
+    result_path = './results/2023-12-08-08-34-21-195-torchmd_morse_with_coef/train_results'
     result = get_efs_error(result_path)
     
     for key in result.keys():
-        print(f"{key}: {result[key]:.4f}")
+        print(f"{key}: {result[key]:.6f}")

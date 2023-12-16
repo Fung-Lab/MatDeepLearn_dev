@@ -9,17 +9,18 @@ logging.basicConfig(level=logging.INFO)
                          
 if __name__ == '__main__':
     unrelaxed_ids, relaxed_ids, unrelaxed, relaxed, dft,\
-        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json')
+        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json', 10)
 
     # Configurations below
-    calc_str = './configs/calculator/config_cgcnn_morse.yml'
+    calc_str = './configs/calculator/config_cgcnn_lj.yml'
     
-    save = True
-    folder = './train_outs/relaxed_data_cgcnn_morse'
+    save = False
+    folder = './train_outs/unrelaxed_data_lj_no_coef'
     # folder = './train_outs/test'
-    optim_type = 'relax'
+    optim_type = 'unrelax'
     # Configurations above
     
+    assert optim_type in ['unrelax', 'relax'], f"Unsupported optimization type {optim_type}."
     calculator = MDLCalculator(config=calc_str)
     
     if save:

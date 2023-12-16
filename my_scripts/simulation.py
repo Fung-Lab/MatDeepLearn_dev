@@ -21,12 +21,12 @@ if __name__ == '__main__':
     #         idx = i
 
     # Configurations below
-    calc_str = './configs/calculator/config_cgcnn_morse.yml'
+    calc_str = './configs/calculator/config_cgcnn_lj.yml'
     simulation_type = 'NVT'
     num_steps = 5000
     temperature = 1000
     
-    save_to = 'train_outs/sim_res_morse.csv'
+    save_to = 'train_outs/lj_sim_no_coef.csv'
     save = True
     # Configurations above
     
@@ -42,21 +42,6 @@ if __name__ == '__main__':
     times = []
     startings, lows, highs = [], [], []
     ids = []
-        
-    for i, atoms_idx in enumerate(idx):
-        ids.append(relaxed[atoms_idx].structure_id)
-        relaxed[atoms_idx].set_calculator(calculator)
-        startings.append(relaxed[atoms_idx].get_potential_energy()[0][0])
-        to_optim = copy.deepcopy(relaxed[atoms_idx])
-        final_atoms, time_per_step, h, l = simulator.run_simulation(to_optim, num_steps=num_steps)
-        highs.append(h)
-        lows.append(l)
-        if (i + 1) % 10 == 0:
-            logging.info(f"Completed simulating {i + 1} structures.")
-    
-    end = time()
-    
-    print(f"Time elapsed: {end - start:.3f}")
     
     cols = {
         'structure_id': ids,
@@ -64,10 +49,34 @@ if __name__ == '__main__':
         "Highest energy": highs, 
         "Lowest energy": lows
     }
+        
+    for i, atoms_idx in enumerate(idx):
+        cols['structure_id'].append(relaxed[atoms_idx].structure_id)
+        relaxed[atoms_idx].set_calculator(calculator)
+        cols['Starting energy'].append(relaxed[atoms_idx].get_potential_energy()[0][0])
+        to_optim = copy.deepcopy(relaxed[atoms_idx])
+        final_atoms, time_per_step, h, l = simulator.run_simulation(to_optim, num_steps=num_steps)
+        cols['Highest energy'].append(h)
+        cols['Lowest energy'].append(l)
+        if (i + 1) % 10 == 0:
+            logging.info(f"Completed simulating {i + 1} structures.")
+            
+        if (i + 1) % 10 == 0:
+            logging.info(f"Saving first {i + 1} results...")
+            df = pd.DataFrame(cols)
+            try:
+                df.to_csv(save_to, mode='a', header=False, index=False)
+            except FileNotFoundError:
+                df.to_csv(save_to, header=True, index=False)
+                
+            cols = {key: [] for key in cols}
+    
+    end = time()
+    
+    print(f"Time elapsed: {end - start:.3f}")
     
     df = pd.DataFrame(cols)
-    df.to_csv(save_to, index=False)
-    
+    df.to_csv(save_to, mode='a', header=False, index=False)
 
     # for key in result.keys():
     #     print(f"{key}: {result[key]:.4f}")
