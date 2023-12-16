@@ -15,7 +15,7 @@ from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.preprocessor.helpers import GaussianSmearing
+from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
 @registry.register_model("SchNet")
 class SchNet(BaseModel):
