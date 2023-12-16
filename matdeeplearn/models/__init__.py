@@ -1,5 +1,5 @@
 __all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET",
-           "CGCNN_LJ", "LJ", "TorchMD_LJ", "Morse", "CGCNN_Morse"]
+           "CGCNN_LJ", "LJ", "TorchMD_LJ", "Morse", "CGCNN_Morse", "TorchMD_Morse"]
 
 from .base_model import BaseModel
 from .cgcnn import CGCNN
@@ -11,3 +11,4 @@ from .lj import LJ
 from .torchmd_lj import TorchMD_LJ
 from .morse import Morse
 from .cgcnn_morse import CGCNN_Morse
+from .torchmd_morse import TorchMD_Morse

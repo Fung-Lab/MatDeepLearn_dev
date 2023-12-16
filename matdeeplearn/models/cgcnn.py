@@ -227,6 +227,7 @@ class CGCNN(BaseModel):
         
         output = {}
         out = self._forward(data)
+        output["output"] = out
 
         if self.gradient == True and out.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
@@ -244,5 +245,5 @@ class CGCNN(BaseModel):
         else:
             output["pos_grad"] =  None
             output["cell_grad"] =  None    
-                  
+         
         return output
