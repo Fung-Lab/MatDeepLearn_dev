@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_rn12_vn8
+  identifier: try4_torchmd
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -26,7 +26,7 @@ task:
   use_amp: True
 
 model:
-  name: torchmd_etEarly
+  name: torchmd_etEarly_vn
   # model attributes
   hidden_channels: 128
   num_layers: 6
@@ -57,7 +57,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10
-  batch_size: 8
+  batch_size: 2
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -74,14 +74,14 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: { train : ../data_qm9_qmc/train/ , test : ../data_qm9_qmc/test/ , val : ../data_qm9_qmc/val/}
+  src: ../dataset/try4/data_try4.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../data_qm9_qmc/
+  pt_path: ../dataset/try4/
   # Either "node" or "graph"
-  prediction_level: node
+  prediction_level: virtual
 
   transforms:
     - name: GetY
@@ -109,7 +109,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : {rn-rn: 4.0, rn-vn: 4.0}
+    cutoff_radius : {rn-rn: 8.0, rn-vn: 12.0}
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)

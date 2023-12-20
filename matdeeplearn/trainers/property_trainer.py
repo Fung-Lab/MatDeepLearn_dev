@@ -110,8 +110,6 @@ class PropertyTrainer(BaseTrainer):
                     out = self._forward(batch)
                     loss = self._compute_loss(out, batch)
                     # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
-                # grad_norm = self._backward(loss +
-                #                            0.1 * torch.nn.functional.l1_loss(torch.sum(out["output"]), torch.sum(batch.y)))
                 grad_norm = self._backward(loss)
                 pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(loss.item(), grad_norm.item()))
                 # Compute metrics
@@ -257,13 +255,19 @@ class PropertyTrainer(BaseTrainer):
             # Node level prediction
             if batch_p.shape[0] > loader.batch_size:
                 node_level = True
-                virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
-                node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()
-                # node_ids = batch.z.cpu().numpy()
-                # print(batch.n_atoms.cpu().numpy())
-                structure_ids = np.repeat(
-                    batch.structure_id, [len(batch.y) // len(batch.structure_id)] * len(batch), axis=0
-                )
+                if self.model.prediction_level == "virtual":
+                    virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
+                    node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()
+                    # node_ids = batch.z.cpu().numpy()
+                    # print(batch.n_atoms.cpu().numpy())
+                    structure_ids = np.repeat(
+                        batch.structure_id, [len(batch.y) // len(batch.structure_id)] * len(batch), axis=0
+                    )
+                else:
+                    node_ids = batch.z.cpu().numpy()
+                    structure_ids = np.repeat(
+                        batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
+                    )
                 batch_ids = np.column_stack((structure_ids, node_ids))
 
             if out.get("pos_grad") != None:

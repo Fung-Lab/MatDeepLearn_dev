@@ -19,7 +19,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 
 
-@registry.register_model("torchmd_etEarly_VN")
+@registry.register_model("torchmd_etEarly_vn")
 class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
