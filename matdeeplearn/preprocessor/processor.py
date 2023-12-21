@@ -42,8 +42,7 @@ def from_config(dataset_config):
     verbose: bool = dataset_config.get("verbose", True)
     edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
-    num_samples = dataset_config.get("num_samples", 200)
-    sub_batch = dataset_config.get("num_sub_batch", 500)
+    virtual_params = dataset_config["preprocess_params"].get("virtual_params", None)
 
     processor = DataProcessor(
         root_path=root_path_dict,
@@ -66,8 +65,7 @@ def from_config(dataset_config):
         verbose=verbose,
         edge_calc_method=edge_calc_method,
         device=device,
-        num_samples=num_samples,
-        sub_batch=sub_batch
+        virtual_params=virtual_params
     )
 
     return processor
@@ -111,8 +109,7 @@ class DataProcessor:
         verbose: bool = True,
         edge_calc_method: str = "mdl",
         device: str = "cpu",
-        num_samples: int = 200,
-        sub_batch: int = 500
+        virtual_params: dict = None
     ) -> None:
         """
         create a DataProcessor that processes the raw data and save into data.pt file.
@@ -187,8 +184,8 @@ class DataProcessor:
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
-        self.num_samples = num_samples
-        self.sub_batch = sub_batch
+        self.num_samples = virtual_params["num_samples"]
+        self.sub_batch = virtual_params["sub_batch"]
 
     def src_check(self):
         if self.prediction_level == "virtual":

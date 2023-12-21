@@ -288,17 +288,18 @@ class BaseTrainer(ABC):
         else:
             output_dim = dataset[0]["y"].shape[-1]
 
-        # Determine if this is a node or graph level model
-        # if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
-        #     model_config["prediction_level"] = "node"
-        # elif dataset[0]["y"].shape[0] == 1:
-        #     model_config["prediction_level"] = "graph"
-        # else:
-        #     raise ValueError(
-        #         "Target labels do not have the correct dimensions for node or graph-level prediction."
-        #     )
-
-        model_config["prediction_level"] = "node"                  
+        # Determine if this is a node, graph or virtual level model
+        if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
+            model_config["prediction_level"] = "node"
+        elif dataset[0]["y"].shape[0] == 1:
+            model_config["prediction_level"] = "graph"
+        elif dataset[0]["y"].shape[0] == torch.sum(dataset[0]["z"] == 100):
+            model_config["prediction_level"] = "virtual"
+            model_config["cutoff_radius_vn"] = graph_config["virtual_params"]["cutoff_radius_vn"]
+        else:
+            raise ValueError(
+                "Target labels do not have the correct dimensions for node or graph-level prediction."
+            )
 
         model_cls = registry.get_model_class(model_config["name"])
         model = model_cls(

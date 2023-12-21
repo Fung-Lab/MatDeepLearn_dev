@@ -109,7 +109,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : {rn-rn: 8.0, rn-vn: 12.0}
+    cutoff_radius : 8.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
@@ -122,6 +122,11 @@ dataset:
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot
+    # virtual node settings
+    virtual_params:
+      cutoff_radius_vn: 12.0
+      num_samples: 10000
+      num_sub_batch: 500
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
@@ -130,5 +135,3 @@ dataset:
   train_ratio: 0.9
   val_ratio: 0.05
   test_ratio: 0.05
-  num_samples: 10000
-  num_sub_batch: 500
