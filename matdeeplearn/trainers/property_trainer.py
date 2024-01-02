@@ -408,19 +408,29 @@ class PropertyTrainer(BaseTrainer):
                 for x in range(ran):
                     mod = str(x)
                     self.save_results(
-                        np.column_stack((ids[x], predict[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
+                    	np.column_stack((ids[x], predict[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
                     )
                             
             #if out.get("pos_grad") != None:
             if len(ids_pos_grad) > 0:
-                self.save_results(
-                    np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
-                )
+                if isinstance(target_pos_grad, np.ndarray):
+			        self.save_results(
+                    	np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
+               		)
+                else:
+                    self.save_results(
+                        np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
+                    )
             #if out.get("cell_grad") != None:
             if len(ids_cell_grad) > 0:
-                self.save_results(
-                    np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
-                )
+                if isinstance(target_cell_grad, np.ndarray):
+                    self.save_results(
+                        np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
+                    )
+                else:
+                    self.save_results(
+                        np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
+                    )
         if labels == True:
             predict_loss = torch.mean(torch.stack(([torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in metrics]))).item()
             
@@ -511,14 +521,9 @@ class PropertyTrainer(BaseTrainer):
             # metrics = self.evaluator.eval(
                 # out, property_target, self.loss_fn, index, prev_metrics=metrics
             # )
-        if isinstance(batch_data, list):
-            metrics = self.evaluator.eval(
-                out, property_target, self.loss_fn, prev_metrics=metrics
-            )
-        else:
-            metrics = self.evaluator.eval(
-                out, property_target, self.loss_fn, prev_metrics=metrics
-            )
+	    metrics = self.evaluator.eval(
+            out, property_target, self.loss_fn, prev_metrics=metrics
+	    )
 
         return metrics
 
