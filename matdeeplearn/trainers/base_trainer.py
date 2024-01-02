@@ -37,7 +37,6 @@ class BaseTrainer(ABC):
         data_loader: DataLoader,        
         loss: nn.Module,
         max_epochs: int,
-        model_ensemble: int,
         clip_grad_norm: float = None,
         max_checkpoint_epochs: int = None,
         identifier: str = None,
@@ -59,7 +58,6 @@ class BaseTrainer(ABC):
         self.scheduler = scheduler
         self.loss_fn = loss
         self.max_epochs = max_epochs
-        self.model_ensemble = model_ensemble
         self.clip_grad_norm = clip_grad_norm
         self.max_checkpoint_epochs = max_checkpoint_epochs
         self.train_verbosity = verbosity
@@ -72,14 +70,9 @@ class BaseTrainer(ABC):
         self.step = 0
         self.epoch_time = None
 
-        if self.model_ensemble > 1:
-            self.metrics = [{} for _ in range(self.model_ensemble)]  
-            self.best_metric = [1e10 for _ in range(self.model_ensemble)]
-            self.best_model_state = [None for _ in range(self.model_ensemble)]
-        else:
-            self.metrics = {}
-            self.best_metric = 1e10
-            self.best_model_state = None
+        self.metrics = [{} for _ in range(len(self.model))]  
+        self.best_metric = [1e10 for _ in range(len(self.model))]
+        self.best_model_state = [None for _ in range(len(self.model))]
 
         self.save_dir = save_dir if save_dir else os.getcwd()
         self.checkpoint_path = checkpoint_path
@@ -152,7 +145,7 @@ class BaseTrainer(ABC):
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
         dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
-        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank, cls, config["task"]["model_ensemble"])
+        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
         data_loader = cls._load_dataloader(
@@ -161,14 +154,12 @@ class BaseTrainer(ABC):
             dataset,
             sampler,
             config["task"]["run_mode"],
-            config["model"],
-            config["task"]["model_ensemble"]
+            config["model"]
         )
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
-        model_ensemble = config["task"]["model_ensemble"]
         clip_grad_norm = config["optim"].get("clip_grad_norm", None)
         verbosity = config["optim"].get("verbosity", None)
         batch_tqdm = config["optim"].get("batch_tqdm", False)
@@ -194,7 +185,6 @@ class BaseTrainer(ABC):
             data_loader=data_loader,
             loss=loss,
             max_epochs=max_epochs,
-            model_ensemble=model_ensemble,
             clip_grad_norm=clip_grad_norm,
             max_checkpoint_epochs=max_checkpoint_epochs,
             identifier=identifier,
@@ -277,7 +267,7 @@ class BaseTrainer(ABC):
         return dataset
 
     @staticmethod
-    def _load_model(model_config, graph_config, dataset, world_size, rank, cls, model_ensemble):
+    def _load_model(model_config, graph_config, dataset, world_size, rank):
         """Loads the model if from a config file."""
 
         if dataset.get("train"):
@@ -290,8 +280,15 @@ class BaseTrainer(ABC):
         
         model_list = []
         # Obtain node, edge, and output dimensions for model initialization   
-        for mod in range(model_ensemble): 
-            cls.set_seed(random.randint(1,10000))
+        for mod in range(model_config["model_ensemble"]): 
+            rand_seed = random.randint(1,10000)
+            random.seed(rand_seed)
+            np.random.seed(rand_seed)
+            torch.manual_seed(rand_seed)
+            torch.cuda.manual_seed_all(rand_seed)
+            #torch.autograd.set_detect_anomaly(True)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
             if graph_config["node_dim"]:
                 node_dim = graph_config["node_dim"]
@@ -338,8 +335,6 @@ class BaseTrainer(ABC):
 
             model_list.append(model)
 
-        if model_ensemble == 1:
-            return model_list[0]
         return model_list
 
     @staticmethod
@@ -350,31 +345,19 @@ class BaseTrainer(ABC):
         # Some discussions here:
         # https://github.com/Lightning-AI/lightning/discussions/3706
         # https://discuss.pytorch.org/t/should-we-split-batch-size-according-to-ngpu-per-node-when-distributeddataparallel/72769/15
-        if isinstance(model, list):
-            optim_list = []
-            for i in range(len(model)):
-                if world_size > 1:
-                    optim_config["lr"] = optim_config["lr"] * world_size
-
-                optimizer = getattr(optim, optim_config["optimizer"]["optimizer_type"])(
-                    model[i].parameters(),
-                    lr=optim_config["lr"],
-                    **optim_config["optimizer"].get("optimizer_args", {}),
-                )
-                optim_list.append(optimizer)
-
-            return optim_list
-        else:
+        optim_list = []
+        for i in range(len(model)):
             if world_size > 1:
                 optim_config["lr"] = optim_config["lr"] * world_size
 
             optimizer = getattr(optim, optim_config["optimizer"]["optimizer_type"])(
-                model.parameters(),
+                model[i].parameters(),
                 lr=optim_config["lr"],
                 **optim_config["optimizer"].get("optimizer_args", {}),
             )
+            optim_list.append(optimizer)
 
-        return optimizer
+        return optim_list
 
     @staticmethod
     def _load_sampler(optim_config, dataset, world_size, rank):
@@ -395,49 +378,28 @@ class BaseTrainer(ABC):
         return sampler
 
     @staticmethod
-    def _load_dataloader(optim_config, dataset_config, dataset, sampler, run_mode, model_config, model_ensemble):
-        if model_ensemble > 1:
-            data_loader = [{} for _ in range(model_ensemble)]
-        else:
-            data_loader = {}
-        
+    def _load_dataloader(optim_config, dataset_config, dataset, sampler, run_mode, model_config):
+        data_loader = [{} for _ in range(model_config["model_ensemble"])]
+    
         batch_size = optim_config.get("batch_size")
         
-        if isinstance(data_loader, list):
-            for i in range(model_ensemble):
-                if dataset.get("train"):
-                    data_loader[i]["train_loader"] = get_dataloader(
-                        dataset["train"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=sampler
-                    )
-                if dataset.get("val"):
-                    data_loader[i]["val_loader"] = get_dataloader(
-                        dataset["val"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
-                    )
-                if dataset.get("test"):
-                    data_loader[i]["test_loader"] = get_dataloader(
-                        dataset["test"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
-                )
-                if run_mode == "predict" and dataset.get("predict"):
-                    data_loader[i]["predict_loader"] = get_dataloader(
-                        dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
-                )
-        else:
+        for i in range(model_config["model_ensemble"]):
             if dataset.get("train"):
-                data_loader["train_loader"] = get_dataloader(
+                data_loader[i]["train_loader"] = get_dataloader(
                     dataset["train"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=sampler
                 )
             if dataset.get("val"):
-                data_loader["val_loader"] = get_dataloader(
+                data_loader[i]["val_loader"] = get_dataloader(
                     dataset["val"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
                 )
             if dataset.get("test"):
-                data_loader["test_loader"] = get_dataloader(
+                data_loader[i]["test_loader"] = get_dataloader(
                     dataset["test"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
-                )
+            )
             if run_mode == "predict" and dataset.get("predict"):
-                data_loader["predict_loader"] = get_dataloader(
+                data_loader[i]["predict_loader"] = get_dataloader(
                     dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
-                )
+            )
 
         return data_loader
 
@@ -445,12 +407,10 @@ class BaseTrainer(ABC):
     def _load_scheduler(scheduler_config, optimizer):
         scheduler_type = scheduler_config["scheduler_type"]
         scheduler_args = scheduler_config["scheduler_args"]
-        if isinstance(optimizer, list):
-            scheduler = []
-            for i in range(len(optimizer)):
-                scheduler.append(LRScheduler(optimizer[i], scheduler_type, scheduler_args))
-        else:
-            scheduler = LRScheduler(optimizer, scheduler_type, scheduler_args)
+        scheduler = []
+        for i in range(len(optimizer)):
+            scheduler.append(LRScheduler(optimizer[i], scheduler_type, scheduler_args))
+        
         return scheduler
 
     @staticmethod
@@ -481,21 +441,12 @@ class BaseTrainer(ABC):
 
     def update_best_model(self, metric, index=None, write_model=False, write_csv=False):
         """Updates the best val metric and model, saves the best model, and saves the best model predictions"""
-        if index is None:
-            self.best_metric = metric[type(self.loss_fn).__name__]["metric"]
-        else:
-            self.best_metric[index] = metric[type(self.loss_fn).__name__]["metric"]
+        self.best_metric[index] = metric[type(self.loss_fn).__name__]["metric"]
         
         if str(self.rank) not in ("cpu", "cuda"):
-            if index is None:
-                self.best_model_state = copy.deepcopy(self.model.module.state_dict())
-            else:
-                self.best_model_state[index] = copy.deepcopy(self.model[index].module.state_dict())
+            self.best_model_state[index] = copy.deepcopy(self.model[index].module.state_dict())
         else:
-            if index is None:
-                self.best_model_state = copy.deepcopy(self.model.state_dict())
-            else:
-                self.best_model_state[index] = copy.deepcopy(self.model[index].state_dict())
+            self.best_model_state[index] = copy.deepcopy(self.model[index].state_dict())
         
         if write_model == True:
             self.save_model("best_checkpoint.pt", index, metric, True)
@@ -504,24 +455,17 @@ class BaseTrainer(ABC):
             logging.debug(
                 f"Saving prediction results for epoch {self.epoch} to: /results/{self.timestamp_id}/train_results/"
             )
-            if isinstance(self.model, list):
-                if "train" in self.write_output:
-                    self.predict(self.data_loader[index]["train_loader"], "train")
-                if "val" in self.write_output and self.data_loader.get("val_loader"):
-                    self.predict(self.data_loader[index]["val_loader"], "val")
-                if "test" in self.write_output and self.data_loader.get("test_loader"):
-                    self.predict(self.data_loader[index]["test_loader"], "test")
-            else:
-                if "train" in self.write_output:
-                    self.predict(self.data_loader["train_loader"], "train")
-                if "val" in self.write_output and self.data_loader.get("val_loader"):
-                    self.predict(self.data_loader["val_loader"], "val")
-                if "test" in self.write_output and self.data_loader.get("test_loader"):    
-                    self.predict(self.data_loader["test_loader"], "test")
+            
+            if "train" in self.write_output:
+                self.predict(self.data_loader[index]["train_loader"], "train")
+            if "val" in self.write_output and self.data_loader.get("val_loader"):
+                self.predict(self.data_loader[index]["val_loader"], "val")
+            if "test" in self.write_output and self.data_loader.get("test_loader"):
+                self.predict(self.data_loader[index]["test_loader"], "test")
 
     def save_model(self, checkpoint_file, index=None, metric=None, training_state=True):
         """Saves the model state dict"""
-        if isinstance(self.model, list) and (index != None):
+        if index != None:
             if str(self.rank) not in ("cpu", "cuda"):
                 if training_state:
                     state = {
@@ -562,9 +506,9 @@ class BaseTrainer(ABC):
 
             torch.save(state, filename)
             del state
-        elif isinstance(self.model, list):
+        else:
             state = []
-            for i in range(self.model_ensemble):
+            for i in range(len(self.model)):
                 if str(self.rank) not in ("cpu", "cuda"):
                     if training_state:
                         state.append({
@@ -596,7 +540,7 @@ class BaseTrainer(ABC):
                     else:
                         state.append({"state_dict": self.model[i].state_dict(), "metric" + str(i): metric})
 
-            for x in range(self.model_ensemble):
+            for x in range(len(self.model)):
                 num = str(x)
                 curr_checkpt_dir = os.path.join(
                     self.save_dir, "results", self.timestamp_id, f"checkpoint{num}"
@@ -605,46 +549,6 @@ class BaseTrainer(ABC):
                 filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
                 torch.save(state[x], filename)
-            del state
-        else:
-            if str(self.rank) not in ("cpu", "cuda"):
-                if training_state:
-                    state = {
-                        "epoch": self.epoch,
-                        "step": self.step,
-                        "state_dict": self.model.module.state_dict(),
-                        "optimizer": self.optimizer.state_dict(),
-                        "scheduler": self.scheduler.scheduler.state_dict(),
-                        "scaler":self.scaler.state_dict(),
-                        "best_metric": self.best_metric,
-                        "identifier": self.timestamp_id,
-                        "seed": torch.random.initial_seed(),
-                    }
-                else:
-                    state = {"state_dict": self.model.module.state_dict(), "metric": metric}
-            else:
-                if training_state:
-                    state = {
-                        "epoch": self.epoch,
-                        "step": self.step,
-                        "state_dict": self.model.state_dict(),
-                        "optimizer": self.optimizer.state_dict(),
-                        "scheduler": self.scheduler.scheduler.state_dict(),
-                        "scaler":self.scaler.state_dict(),
-                        "best_metric": self.best_metric,
-                        "identifier": self.timestamp_id,
-                        "seed": torch.random.initial_seed(),
-                    }
-                else:
-                    state = {"state_dict": self.model.state_dict(), "metric": metric}
-
-            curr_checkpt_dir = os.path.join(
-                self.save_dir, "results", self.timestamp_id, "checkpoint"
-            )
-            os.makedirs(curr_checkpt_dir, exist_ok=True)
-            filename = os.path.join(curr_checkpt_dir, checkpoint_file)
-
-            torch.save(state, filename)
             del state
         
         return filename
@@ -679,7 +583,6 @@ class BaseTrainer(ABC):
 
     # TODO: streamline this from PR #12
     def load_checkpoint(self, load_training_state=True):
-        print(f'loading_checkpoint')
         """Loads the model from a checkpoint.pt file"""
 
         if not self.checkpoint_path:
@@ -689,118 +592,79 @@ class BaseTrainer(ABC):
         # checkpoint_file = os.path.join(checkpoint_path, "checkpoint", "checkpoint.pt")
 
         # Load params from checkpoint
-        if self.model_ensemble > 1:
-            self.checkpoint_path = self.checkpoint_path.split(",")
-            checkpoint = [torch.load(i) for i in self.checkpoint_path]
-        else:
-            checkpoint = torch.load(self.checkpoint_path)
+        self.checkpoint_path = self.checkpoint_path.split(",")
+        checkpoint = [torch.load(i) for i in self.checkpoint_path]
 
-        if isinstance(checkpoint, list):
-            for n, check in enumerate(checkpoint):
-                if str(self.rank) not in ("cpu", "cuda"):
-                    self.model[n].module.load_state_dict(checkpoint[n]["state_dict"])
-                    self.best_model_state[n] = copy.deepcopy(self.model[n].module.state_dict())
-                else:
-                    self.model[n].load_state_dict(checkpoint[n]["state_dict"])
-                    self.best_model_state[n] = copy.deepcopy(self.model[n].state_dict())
-                # TODO: check the behavior of scheduler here and elsewhere
-                # TODO: check the behavior of the loaded seed
-                if load_training_state == True:
-                    if checkpoint[n].get("optimizer"):
-                        self.optimizer[n].load_state_dict(checkpoint[n]["optimizer"])
-                    if checkpoint[n].get("scheduler"):
-                        self.scheduler[n].scheduler.load_state_dict(checkpoint[n]["scheduler"])
-                        self.scheduler[n].update_lr()
-                    if checkpoint[n].get("epoch"):
-                        self.epoch = checkpoint[n]["epoch"]
-                    if checkpoint[n].get("step"):
-                        self.step = checkpoint[n]["step"]
-                    if checkpoint[n].get("best_metric"):
-                        self.best_metric[n] = checkpoint[n]["best_metric"]
-                    if checkpoint[n].get("seed"):
-                        seed = checkpoint[n]["seed"]
-                        self.set_seed(seed)
-                    if checkpoint[n].get("scaler"):
-                        self.scaler.load_state_dict(checkpoint[n]["scaler"])
-        else:
+        for n, check in enumerate(checkpoint):
             if str(self.rank) not in ("cpu", "cuda"):
-                self.model.module.load_state_dict(checkpoint["state_dict"])
-                self.best_model_state = copy.deepcopy(self.model.module.state_dict())
+                self.model[n].module.load_state_dict(checkpoint[n]["state_dict"])
+                self.best_model_state[n] = copy.deepcopy(self.model[n].module.state_dict())
             else:
-                self.model.load_state_dict(checkpoint["state_dict"])
-                self.best_model_state = copy.deepcopy(self.model.state_dict())
-
+                self.model[n].load_state_dict(checkpoint[n]["state_dict"])
+                self.best_model_state[n] = copy.deepcopy(self.model[n].state_dict())
             if load_training_state == True:
-                if checkpoint.get("optimizer"):
-                    self.optimizer.load_state_dict(checkpoint["optimizer"])
-                if checkpoint.get("scheduler"):
-                    self.scheduler.scheduler.load_state_dict(checkpoint["scheduler"])
-                    self.scheduler.update_lr()
-                if checkpoint.get("epoch"):
-                    self.epoch = checkpoint["epoch"]
-                if checkpoint.get("step"):
-                    self.step = checkpoint["step"]
-                if checkpoint.get("best_metric"):
-                    self.best_metric = checkpoint["best_metric"]
-                if checkpoint.get("seed"):
-                    seed = checkpoint["seed"]
-                    self.set_seed(seed) 
-                if checkpoint.get("scaler"):
-                    self.scaler.load_state_dict(checkpoint["scaler"])                
+                if checkpoint[n].get("optimizer"):
+                    self.optimizer[n].load_state_dict(checkpoint[n]["optimizer"])
+                if checkpoint[n].get("scheduler"):
+                    self.scheduler[n].scheduler.load_state_dict(checkpoint[n]["scheduler"])
+                    self.scheduler[n].update_lr()
+                if checkpoint[n].get("epoch"):
+                    self.epoch = checkpoint[n]["epoch"]
+                if checkpoint[n].get("step"):
+                    self.step = checkpoint[n]["step"]
+                if checkpoint[n].get("best_metric"):
+                    self.best_metric[n] = checkpoint[n]["best_metric"]
+                if checkpoint[n].get("seed"):
+                    seed = checkpoint[n]["seed"]
+                    self.set_seed(seed)
+                if checkpoint[n].get("scaler"):
+                    self.scaler.load_state_dict(checkpoint[n]["scaler"])
                 #todo: load dataset to recreate the same split as the prior run
                 #self._load_dataset(dataset_config, task)
         
     # Loads portion of model dict into a new model for fine tuning
     def load_pre_trained_weights(self, load_training_state=False):
-        print('loading pre-trained weights')
         """Loads the pre-trained model from a checkpoint.pt file"""
 
         if not self.checkpoint_path:
             raise ValueError("No checkpoint directory specified in config.")
             checkpoints_folder = os.path.join(self.fine_tune_from, 'checkpoint')
          
-        if self.model_ensemble > 1:
-            self.checkpoint_path = self.checkpoint_path.split(",")
-            load_model = [torch.load(i, map_location=self.device) for i in self.checkpoint_path]
-            load_state = [i["state_dict"] for i in load_model]
-            model_state = [i.state_dict() for i in self.model]
-        else:
-            load_model = torch.load(self.checkpoint_path, map_location=self.device)
-            load_state = load_model["state_dict"]
-            model_state = self.model.state_dict()
+        self.checkpoint_path = self.checkpoint_path.split(",")
+        load_model = [torch.load(i, map_location=self.device) for i in self.checkpoint_path]
+        load_state = [i["state_dict"] for i in load_model]
+        model_state = [i.state_dict() for i in self.model]
 
-        if self.model_ensemble > 1:
-            for x in range(self.model_ensemble):
-                for name, param in load_state[x].items():
-                    #if name not in model_state or name.split('.')[0] in "post_lin_list":
-                    if name not in model_state[x]:
-                        logging.debug('NOT loaded: %s', name)
-                        continue
-                    else:
-                        logging.debug('loaded: %s', name)
-                    if isinstance(param, torch.nn.parameter.Parameter):
-                        # backwards compatibility for serialized parameters
-                        param = param.data
-                    model_state[x][name].copy_(param)
-                logging.info("Loaded pre-trained model with success.")
-
-                if load_training_state == True:
-                    if checkpoint.get("optimizer"): 
-                        self.optimizer[x].load_state_dict(checkpoint["optimizer"])
-                    if checkpoint.get("scheduler"):     
-                        self.scheduler[x].scheduler.load_state_dict(checkpoint["scheduler"])
-                        self.scheduler[x].update_lr()
+        for x in range(len(self.model)):
+            for name, param in load_state[x].items():
+                #if name not in model_state or name.split('.')[0] in "post_lin_list":
+                if name not in model_state[x]:
+                    logging.debug('NOT loaded: %s', name)
+                    continue
+                else:
+                    logging.debug('loaded: %s', name)
+                if isinstance(param, torch.nn.parameter.Parameter):
+                    # backwards compatibility for serialized parameters
+                    param = param.data
+                model_state[x][name].copy_(param)
+            logging.info("Loaded pre-trained model with success.")
+            if load_training_state == True:
+                if checkpoint.get("optimizer"): 
+                    self.optimizer[x].load_state_dict(checkpoint["optimizer"])
+                if checkpoint.get("scheduler"):     
+                    self.scheduler[x].scheduler.load_state_dict(checkpoint["scheduler"])
+                    self.scheduler[x].update_lr()
                     #if checkpoint.get("epoch"): 
                     #   self.epoch = checkpoint["epoch"]
                     #if checkpoint.get("step"): 
                     #    self.step = checkpoint["step"]
                     #if checkpoint.get("best_metric"): 
                     #    self.best_metric = checkpoint["best_metric"]
-                    if checkpoint.get("seed"): 
-                        seed = checkpoint["seed"]
-                        self.set_seed(seed)
-                    if checkpoint.get("scaler"):
-                        self.scaler.load_state_dict(checkpoint["scaler"])
+                if checkpoint.get("seed"): 
+                    seed = checkpoint["seed"]
+                    self.set_seed(seed)
+                if checkpoint.get("scaler"):
+                    self.scaler.load_state_dict(checkpoint["scaler"])
 
     @staticmethod
     def set_seed(seed):
@@ -815,4 +679,3 @@ class BaseTrainer(ABC):
         #torch.autograd.set_detect_anomaly(True)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
