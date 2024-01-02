@@ -29,7 +29,7 @@ class TrainTask(BaseTask):
                     )
 
     def setup(self, trainer):
-        self.trainer = trainer        
+        self.trainer = trainer 
         use_checkpoint = self.config["task"].get("continue_job", False)
         if use_checkpoint:
             logging.info("Attempting to load checkpoint...")
@@ -62,14 +62,24 @@ class PredictTask(BaseTask):
         logging.info("Recent checkpoint loaded successfully.")
 
     def run(self):
-        assert (
-            self.trainer.data_loader.get("predict_loader") is not None
-        ), "Predict dataset is required for making predictions"
+        if isinstance(self.trainer.data_loader, list):
+            assert (
+                self.trainer.data_loader[0].get("predict_loader") is not None
+            ),  "Predict dataset is required for making predictions"
+        else:
+            assert (
+                self.trainer.data_loader.get("predict_loader") is not None
+            ),  "Predict dataset is required for making predictions"
         results_dir = f"predictions/{self.config['dataset']['name']}"
         try:
-            self.trainer.predict(
-                loader=self.trainer.data_loader["predict_loader"], split="predict", results_dir=results_dir, labels=self.config["task"]["labels"],
-            )
+            if isinstance(self.trainer.data_loader, list):
+                self.trainer.predict(
+                    loader=self.trainer.data_loader, split="predict", results_dir=results_dir, labels=self.config["task"]["labels"],
+                )
+            else:
+                self.trainer.predict(
+                    loader=self.trainer.data_loader["predict_loader"], split="predict", results_dir=results_dir, labels=self.config["task"]["labels"],
+                )
         except RuntimeError as e:
             logging.warning("Errors in predict task")
             raise e
@@ -93,4 +103,3 @@ class FineTuneTask(BaseTask):
         except RuntimeError as e:
             self._process_error(e)
             raise e
-

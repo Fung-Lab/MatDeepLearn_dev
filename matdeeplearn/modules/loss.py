@@ -17,8 +17,7 @@ class TorchLossWrapper(nn.Module):
 
     def forward(self, predictions: torch.Tensor, target: Batch):    
         return self.loss_fn(predictions["output"], target.y)
-
-
+    
 @registry.register_loss("ForceLoss")
 class ForceLoss(nn.Module):
     def __init__(self, weight_energy=1.0, weight_force=0.1):
@@ -106,3 +105,4 @@ class DOSLoss(nn.Module):
             x[0] - x[1]
         )
         return torch.stack((center, width, skew, kurtosis, ef_states), axis=1)
+
