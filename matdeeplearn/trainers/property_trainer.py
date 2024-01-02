@@ -414,9 +414,9 @@ class PropertyTrainer(BaseTrainer):
             #if out.get("pos_grad") != None:
             if len(ids_pos_grad) > 0:
                 if isinstance(target_pos_grad, np.ndarray):
-			        self.save_results(
-                    	np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
-               		)
+                    self.save_results(
+                        np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
+                    )
                 else:
                     self.save_results(
                         np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
@@ -517,13 +517,9 @@ class PropertyTrainer(BaseTrainer):
         except:
             property_target = batch_data
 
-        # if isinstance(self.model, list):
-            # metrics = self.evaluator.eval(
-                # out, property_target, self.loss_fn, index, prev_metrics=metrics
-            # )
-	    metrics = self.evaluator.eval(
+        metrics = self.evaluator.eval(
             out, property_target, self.loss_fn, prev_metrics=metrics
-	    )
+	)
 
         return metrics
 

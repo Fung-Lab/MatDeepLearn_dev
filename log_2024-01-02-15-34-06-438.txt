@@ -1,0 +1,10 @@
+Single dataset found at data/test_data/data_graph_scalar.json
+Processing device: cpu
+Reading one JSON file for multiple structures.
+Loading json file as dict (this might take a while for large json file size).
+Converting data to standardized form for downstream processing.
+Getting torch_geometric.data.Data() objects.
+Generating node features...
+Generating edge features...
+Applying transforms.
+Processed data saved successfully.
