@@ -20,8 +20,6 @@ task:
   output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
   model_save_frequency: 0
-  # Integers larger than 1 specify the number of models to use in the model ensemble, 1 is the baseline (1 model)
-  model_ensemble: 1	  
   # Specify if labels are provided for the predict task
   # labels: True
   # Use amp mixed precision
