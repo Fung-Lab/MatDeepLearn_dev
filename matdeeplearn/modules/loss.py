@@ -105,4 +105,3 @@ class DOSLoss(nn.Module):
             x[0] - x[1]
         )
         return torch.stack((center, width, skew, kurtosis, ef_states), axis=1)
-

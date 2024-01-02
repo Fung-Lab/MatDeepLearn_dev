@@ -42,4 +42,3 @@ class Evaluator:
         metrics[key]["metric"] = metrics[key]["total"] / metrics[key]["numel"]
             
         return metrics
-
