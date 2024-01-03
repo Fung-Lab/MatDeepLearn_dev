@@ -538,7 +538,7 @@ class BaseTrainer(ABC):
                             "seed": torch.random.initial_seed(),
                         })
                     else:
-                        state.append({"state_dict": self.model[i].state_dict(), "metric" + str(i): metric})
+                        state.append({"state_dict": self.model[i].state_dict(), "metric": metric})
 
             for x in range(len(self.model)):
                 num = str(x)
