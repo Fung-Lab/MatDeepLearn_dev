@@ -216,6 +216,7 @@ class PropertyTrainer(BaseTrainer):
             batch = []
             for i in range(len(self.model)):
                 batch.append(next(loader_iter[i]).to(self.rank))
+            
             out = self._forward(batch)
             loss = self._compute_loss(out, batch)
             # Compute metrics
@@ -433,7 +434,6 @@ class PropertyTrainer(BaseTrainer):
                     )
         if labels == True:
             predict_loss = torch.mean(torch.stack(([torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in metrics]))).item()
-            
             logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))        
             predictions = {"ids":ids, "predict":predict, "target":target}
         else:
@@ -477,14 +477,14 @@ class PropertyTrainer(BaseTrainer):
         return results
 
     def _forward(self, batch_data):
-        if isinstance(batch_data, list):
+        if len(batch_data) > 1:
             output = []
-            for i in range(len(batch_data)):
+            for i in range(len(self.model)):
                 output.append(self.model[i](batch_data[i]))
         else:
             output = []
             for i in range(len(self.model)):
-                output.append(self.model[i](batch_data))
+                output.append(self.model[i](batch_data[0]))
         return output
 
     def _compute_loss(self, out, batch_data):
@@ -519,7 +519,7 @@ class PropertyTrainer(BaseTrainer):
 
         metrics = self.evaluator.eval(
             out, property_target, self.loss_fn, prev_metrics=metrics
-	)
+	    )
 
         return metrics
 

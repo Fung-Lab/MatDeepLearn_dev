@@ -114,9 +114,9 @@ class BaseTrainer(ABC):
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
             if str(self.rank) not in ("cpu", "cuda"):
-                logging.debug(self.model.module)
+                logging.debug(self.model[0].module)
             else:
-                logging.debug(self.model)
+                logging.debug(self.model[0])
 
     @classmethod
     def from_config(cls, config):
@@ -499,7 +499,7 @@ class BaseTrainer(ABC):
             
             num = str(index)
             curr_checkpt_dir = os.path.join(
-                self.save_dir, "results", self.timestamp_id, f"checkpoint{num}"
+                self.save_dir, "results", self.timestamp_id, f"checkpoint_{num}"
             )
             os.makedirs(curr_checkpt_dir, exist_ok=True)
             filename = os.path.join(curr_checkpt_dir, checkpoint_file)
@@ -543,7 +543,7 @@ class BaseTrainer(ABC):
             for x in range(len(self.model)):
                 num = str(x)
                 curr_checkpt_dir = os.path.join(
-                    self.save_dir, "results", self.timestamp_id, f"checkpoint{num}"
+                    self.save_dir, "results", self.timestamp_id, f"checkpoint_{num}"
                 )
                 os.makedirs(curr_checkpt_dir, exist_ok=True)
                 filename = os.path.join(curr_checkpt_dir, checkpoint_file)
