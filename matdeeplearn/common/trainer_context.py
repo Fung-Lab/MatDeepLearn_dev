@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
+from matdeeplearn.preprocessor.processor import process_data
 
 
 @contextmanager
@@ -35,6 +36,8 @@ def new_trainer_context(*, config: Dict[str, Any], args: Namespace):
     #         gp_utils.setup_gp(config)
     try:
         setup_imports()
+        if not config["dataset"]["processed"]:
+            process_data(config)
         trainer_cls = registry.get_trainer_class(config.get("trainer", "property"))
         assert trainer_cls is not None, "Trainer not found"
 

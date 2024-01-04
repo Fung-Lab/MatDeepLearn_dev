@@ -10,6 +10,7 @@ from ase import io, Atoms, neighborlist
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
+from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 from matdeeplearn.common.registry import registry
@@ -22,7 +23,8 @@ from matdeeplearn.preprocessor.helpers import (
 )
 
 
-def from_config(dataset_config):
+def from_config(config):
+    dataset_config = config['dataset']
     root_path_dict = dataset_config["src"]
     target_path_dict = dataset_config["target_path"]
     pt_path = dataset_config.get("pt_path", None)
@@ -30,6 +32,7 @@ def from_config(dataset_config):
     preprocess_edges = dataset_config["preprocess_params"]["preprocess_edges"]
     preprocess_edge_features = dataset_config["preprocess_params"]["preprocess_edge_features"]
     preprocess_node_features = dataset_config["preprocess_params"]["preprocess_node_features"]
+    preprocess_teacher_features = dataset_config["preprocess_params"].get("preprocess_teacher_features", {})
     cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
     n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
     num_offsets = dataset_config["preprocess_params"]["num_offsets"]
@@ -51,6 +54,7 @@ def from_config(dataset_config):
         preprocess_edges=preprocess_edges,
         preprocess_edge_features=preprocess_edge_features,
         preprocess_node_features=preprocess_node_features,
+        preprocess_teacher_features=preprocess_teacher_features,
         r=cutoff_radius,
         n_neighbors=n_neighbors,
         num_offsets=num_offsets,
@@ -64,13 +68,14 @@ def from_config(dataset_config):
         verbose=verbose,
         edge_calc_method=edge_calc_method,
         device=device,
+        config=config,
     )
     
     return processor
 
 
-def process_data(dataset_config):
-    processor = from_config(dataset_config)
+def process_data(config):
+    processor = from_config(config)
     dataset = processor.process()
     
     return dataset
@@ -86,6 +91,7 @@ class DataProcessor:
         preprocess_edges, 
         preprocess_edge_features,
         preprocess_node_features,     
+        preprocess_teacher_features,
         r: float,
         n_neighbors: int,
         num_offsets: int,
@@ -99,6 +105,7 @@ class DataProcessor:
         verbose: bool = True,
         edge_calc_method: str = "mdl",
         device: str = "cpu",
+        config = None,
     ) -> None:
         """
         create a DataProcessor that processes the raw data and save into data.pt file.
@@ -159,7 +166,8 @@ class DataProcessor:
         self.prediction_level = prediction_level
         self.preprocess_edges = preprocess_edges
         self.preprocess_edge_features = preprocess_edge_features
-        self.preprocess_node_features = preprocess_node_features        
+        self.preprocess_node_features = preprocess_node_features    
+        self.preprocess_teacher_features = preprocess_teacher_features    
         self.n_neighbors = n_neighbors
         self.num_offsets = num_offsets
         self.edge_dim = edge_dim
@@ -173,6 +181,7 @@ class DataProcessor:
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
+        self.config = config
 
     def src_check(self):
         if self.target_file_path:
@@ -413,6 +422,11 @@ class DataProcessor:
 
         logging.info("Getting torch_geometric.data.Data() objects.")
 
+        #trainer for teacher model
+        if self.preprocess_teacher_features:
+            trainer_cls = registry.get_trainer_class("preprocess")
+            trainer = trainer_cls.from_config(self.config)
+
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
             #target_val = y[i]
             data = data_list[i]
@@ -511,5 +525,14 @@ class DataProcessor:
             composition(data)
 
         clean_up(data_list, ["edge_descriptor"])
+
+        # add teacher model feature
+        if self.preprocess_teacher_features:
+            logging.debug("Preprocess teacher model feature.")
+            for data in tqdm(data_list, desc="Processing teacher model feature"):
+                data_batch = [data]
+                loader = DataLoader(data_batch, batch_size=1)
+                embedding = trainer.get_embedding(loader)
+                data.embedding = embedding
 
         return data_list

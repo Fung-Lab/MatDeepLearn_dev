@@ -11,8 +11,10 @@ class Evaluator:
     def eval(self, prediction, target, loss_method, prev_metrics={}):
         metrics = prev_metrics
         res = loss_method(prediction, target)
-
-        metrics = self.update(type(loss_method).__name__, res.item(), prediction["output"].shape[0], metrics)
+        if 's_out' in prediction:
+            metrics = self.update(type(loss_method).__name__, res.item(), prediction["s_out"]["output"].shape[0], metrics)
+        else:
+            metrics = self.update(type(loss_method).__name__, res.item(), prediction["output"].shape[0], metrics)
 
         return metrics
 

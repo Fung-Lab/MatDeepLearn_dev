@@ -106,3 +106,140 @@ class DOSLoss(nn.Module):
             x[0] - x[1]
         )
         return torch.stack((center, width, skew, kurtosis, ef_states), axis=1)
+
+
+@registry.register_loss("DistillationLoss")
+class DistillationLoss(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_force=0.1, weight_stress=0.1, weight_distillation=50.0, distill_fns = "node2node", use_mae = True, use_huber = False, preprocess_teacher_features = False):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_force = weight_force
+        self.weight_stress = weight_stress
+        self.distill_fns = distill_fns
+        self.use_mae = use_mae
+        self.use_huber = use_huber
+        self.weight_distillation = weight_distillation
+        self.preprocess_teacher_features = preprocess_teacher_features
+
+    def forward(self, predictions: torch.Tensor, target: Batch):  
+
+        total_loss = self.weight_energy*F.l1_loss(predictions["s_out"]["output"], target.y) + self.weight_force*F.l1_loss(predictions["s_out"]["pos_grad"], target.forces) + self.weight_stress*F.l1_loss(predictions["s_out"]["cell_grad"], target.stress)
+
+        distill_fns = self.distill_fns.split("_")
+
+        for loss_idx, loss_name in enumerate(distill_fns):
+            method_name = f"_{loss_name}_distill_loss"
+            loss_method = getattr(self, method_name)
+
+            current_loss = loss_method(predictions, target)
+
+            total_loss += self.weight_distillation * current_loss
+
+        return total_loss
+
+    def _node2node_distill_loss(self, out_batch, target):
+        if self.preprocess_teacher_features:
+            target = target.embedding
+            n2n_mappings = []
+
+            for batch in target:
+                for item in batch:
+                    n2n_mapping = item['n2n_mapping']
+                    if n2n_mapping.device.type == 'cuda':
+                        n2n_mappings.append(n2n_mapping)
+                    else:
+                        n2n_mappings.append(n2n_mapping.to('cuda'))
+            target = torch.cat(n2n_mappings, dim=0)
+                    
+        else:
+            target = out_batch["t_out"]
+
+        if self.use_mae:
+            return torch.nn.functional.l1_loss(
+                out_batch["s_out"]["n2n_mapping"],
+                target,
+            )
+        elif self.use_huber:
+            return torch.nn.functional.huber_loss(
+                out_batch["s_out"]["n2n_mapping"],
+                target,
+                delta=self.huber_delta,
+            )
+        else:
+            return torch.nn.functional.mse_loss(
+                out_batch["s_out"]["n2n_mapping"],
+                target,
+            )
+
+    def _edge2node_distill_loss(self, out_batch, target):
+        if self.preprocess_teacher_features:
+            target = target.embedding
+            e2n_mappings = []
+
+            for batch in target:
+                for item in batch:
+                    e2n_mapping = item['e2n_mapping']
+                    if e2n_mapping.device.type == 'cuda':
+                        e2n_mappings.append(e2n_mapping)
+                    else:
+                        e2n_mappings.append(e2n_mapping.to('cuda'))
+            target = torch.cat(e2n_mappings, dim=0)
+        else:
+            target = out_batch["t_out"]
+        if self.use_mae:
+            return torch.nn.functional.l1_loss(
+                out_batch["s_out"]["e2n_feature"],
+                target,
+            )
+        elif self.use_huber:
+            return torch.nn.functional.huber_loss(
+                out_batch["s_out"]["e2n_feature"],
+                target,
+                delta=self.huber_delta,
+            )
+        else:
+            return torch.nn.functional.mse_loss(
+                out_batch["s_out"]["e2n_feature"],
+                target,
+            )
+
+    def _edge2edge_distill_loss(self, out_batch, target):
+        if self.preprocess_teacher_features:
+            target = target.embedding
+            e2e_mappings = []
+
+            for batch in target:
+                for item in batch:
+                    e2e_mapping = item['e2e_mapping']
+                    if e2e_mapping.device.type == 'cuda':
+                        e2e_mappings.append(e2e_mapping)
+                    else:
+                        e2e_mappings.append(e2e_mapping.to('cuda'))
+            target = torch.cat(e2e_mappings, dim=0)
+        else:
+            target = out_batch["t_out"]
+        return torch.nn.functional.mse_loss(
+            out_batch["s_out"]["e2e_feature"], target
+        )
+
+    def _vec2vec_distill_loss(self, out_batch, target):
+        if self.preprocess_teacher_features:
+            target = target.embedding
+            v2v_mappings = []
+
+            for batch in target:
+                for item in batch:
+                    v2v_mapping = item['v2v_mapping']
+                    if v2v_mapping.device.type == 'cuda':
+                        v2v_mappings.append(v2v_mapping)
+                    else:
+                        v2v_mappings.append(v2v_mapping.to('cuda'))
+            target = torch.cat(v2v_mappings, dim=0)
+        else:
+            target = out_batch["t_out"]
+        return torch.nn.functional.mse_loss(
+            out_batch["s_out"]["v2v_feature"],
+            target,
+        )
+
+    
