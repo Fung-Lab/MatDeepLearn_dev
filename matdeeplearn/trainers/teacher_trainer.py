@@ -65,10 +65,6 @@ class TeacherPreprocessTrainer():
                   **model_config
                   )
         model = model.to(rank)
-        # model = torch_geometric.compile(model)
-        # if model_config["load_model"] == True:
-        #    checkpoint = torch.load(model_config["model_path"])
-        #    model.load_state_dict(checkpoint["state_dict"])
         if world_size > 1:
             model = DistributedDataParallel(
                 model, device_ids=[rank], find_unused_parameters=False
@@ -91,24 +87,17 @@ class TeacherPreprocessTrainer():
         self.teacher_model.eval()
         loader_iter = iter(loader)
         embeddings = []
-        with torch.no_grad():  # 禁用梯度计算
+        with torch.no_grad(): 
             for i in range(0, len(loader_iter)):
                 batch = next(loader_iter).to(self.rank)
                 out = self._forward(batch)
-                # 将字典中的每个张量移动到CPU
                 out_cpu = {key: value.cpu() for key, value in out.items()}
-                embeddings.append(out_cpu)  # 将处理后的字典添加到列表中
-                del batch  # 清除不再需要的变量
-            torch.cuda.empty_cache()  # 清除未使用的缓存
+                embeddings.append(out_cpu) 
+                del batch
+            torch.cuda.empty_cache()
 
         return embeddings
         
     def _forward(self, batch_data):
         output = self.teacher_model.extract_feature(batch_data)
         return output
-    
-    # def _distill_forward(self, batch_list, teacher_grad=False):
-    #     # forward pass.
-    #     t_out = self.teacher_model.extract_feature(batch_list)
-    #     s_out = self.model.extract_feature(batch_list)
-    #     return {"s_out": s_out, "t_out": t_out}
