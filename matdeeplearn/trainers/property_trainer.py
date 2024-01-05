@@ -188,11 +188,11 @@ class PropertyTrainer(BaseTrainer):
                 self.save_model("best_checkpoint.pt", index=None, metric=metric, training_state=True)
             logging.info("Final Losses: ")     
             if "train" in self.write_output:
-                self.predict(self.data_loader, "train")
+                self.predict(self.data_loader[0]["train_loader"], "train")
             if "val" in self.write_output and self.data_loader[0].get("val_loader"):
-                self.predict(self.data_loader, "val")
+                self.predict(self.data_loader[0]["val_loader"], "val")
             if "test" in self.write_output and self.data_loader[0].get("test_loader"):
-                self.predict(self.data_loader, "test") 
+                self.predict(self.data_loader[0]["test_loader"], "test") 
             
         return self.best_model_state
         
@@ -234,10 +234,6 @@ class PropertyTrainer(BaseTrainer):
     def predict(self, loader, split, results_dir="train_results", write_output=True, labels=True):        
         for mod in self.model:
             mod.eval()
-            if split == "test" or split == "predict":
-                metrics = [{}]
-            else:
-                metrics = [{} for _ in range(len(self.model))]
          
         # assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
 
@@ -247,52 +243,56 @@ class PropertyTrainer(BaseTrainer):
                 loader.dataset, batch_size=loader.batch_size, sampler=None
             )
             
-        evaluator = Evaluator()
+        evaluator, metrics = Evaluator(), {}
         predict, target = None, None
         ids = []
         ids_pos_grad = []
         target_pos_grad = None
         ids_cell_grad = []
         target_cell_grad = None
-        node_level = False
+        node_level = False 
+        loader_iter = iter(loader)
+        # for i in range(len(self.model)):
+            # if split == "train":
+                # loader_iter.append(iter(loader[i]["train_loader"]))
+            # if split == "val":
+                # loader_iter.append(iter(loader[i]["val_loader"]))
+            # if split == "test":
+                # loader_iter.append(iter(loader[i]["test_loader"]))
+            # if split == "predict":
+                # loader_iter.append(iter(loader[i]["predict_loader"]))
         
-        loader_iter = [] 
-        for i in range(len(self.model)):
-            if split == "train":
-                loader_iter.append(iter(loader[i]["train_loader"]))
-            if split == "val":
-                loader_iter.append(iter(loader[i]["val_loader"]))
-            if split == "test":
-                loader_iter.append(iter(loader[i]["test_loader"]))
-            if split == "predict":
-                loader_iter.append(iter(loader[i]["predict_loader"]))
-        
-        for i in range(0, len(loader_iter[0])):
-            batch = [] 
-            for x in range(len(self.model)):
-                batch.append(next(loader_iter[x]).to(self.rank))
+        for i in range(0, len(loader_iter)):
+            batch = [next(loader_iter).to(self.rank)]
+            # batch = [] 
+            # for x in range(len(self.model)):
+                # batch.append(next(loader_iter[x]).to(self.rank))
             
-            if split == 'test' or split == 'predict':
-                batch = [batch[0]]
-                out = self._forward(batch)
-                list_of_outputs = torch.stack([o["output"] for o in out])
-                std = torch.std(list_of_outputs, dim=0)
-                tens_list = []
-                for o in out:
-                    tens_list.append(o['output'])
-                tens_list = torch.stack(tens_list)
-                tens_list = torch.mean(tens_list, dim=0)
-                out = {}
-                out["output"] = tens_list
-                out = [out]
-            else:
-                out = self._forward(batch)
-                list_of_outputs = torch.stack([o["output"] for o in out])
-                std = torch.std(list_of_outputs, dim=0)
+            # if split == 'test' or split == 'predict':
+            # batch = [batch[0]]
+            out = self._forward(batch)
+            out_for_saving_model = out
+            list_of_outputs = torch.stack([o["output"] for o in out])
+            std = torch.std(list_of_outputs, dim=0)
+            tens_list = []
+            for o in out:
+                tens_list.append(o['output'])
+            tens_list = torch.stack(tens_list)
+            tens_list = torch.mean(tens_list, dim=0)
+            out = {}
+            out["output"] = tens_list
+            out = [out]
+            # else:
+                # out = self._forward(batch)
+                # list_of_outputs = torch.stack([o["output"] for o in out])
+                # std = torch.std(list_of_outputs, dim=0)
 
             # if split != "test" and split != "predict":
-            batch_p = [o["output"].data.cpu().numpy() for o in out]
-            batch_ids = [b.structure_id for b in batch]
+            batch_p = [o["output"].data.cpu().numpy() for o in out_for_saving_model]
+            batch_ids = [batch[0].structure_id] * len(self.model)
+            batch_stds = [std.numpy()] * len(self.model)
+            # print(batch_p)
+            # print(batch_stds)
             # else:
                 # batch_p = [out["output"].data.cpu().numpy()]
                 #batch_ids = [batch.structure_id]
@@ -300,11 +300,10 @@ class PropertyTrainer(BaseTrainer):
             if labels == True:
                 loss = self._compute_loss(out, batch)
                 # if not(split == "test" or split == "predict"):
-                for n in range(len(batch)):
-                    metrics[n] = self._compute_metrics(out[n], batch[n], metrics[n])
-                    metrics[n] = evaluator.update(
-                        "loss", loss[n].item(), out[n]["output"].shape[0], metrics[n]
-                    )
+                metrics = self._compute_metrics(out[0], batch[0], metrics)
+                metrics = evaluator.update(
+                    "loss", loss[0].item(), out[0]["output"].shape[0], metrics
+                )
                 # else:
                     # metrics = self._compute_metrics(out[0], batch[0], metrics)
                     # metrics = evaluator.update(
@@ -313,13 +312,9 @@ class PropertyTrainer(BaseTrainer):
 
                 # if not(split == 'test' or split == 'predict'):
                 if str(self.rank) not in ("cpu", "cuda"):
-                    batch_t = []
-                    for x in range(len(batch)):
-                        batch_t.append(batch[x][self.model[x].module.target_attr].cpu().numpy())
+                    batch_t = [batch[0][self.model[0].module.target_attr].cpu().numpy()] * len(self.model)
                 else:
-                    batch_t = []
-                    for x in range(len(batch)):
-                        batch_t.append(batch[x][self.model[x].target_attr].cpu().numpy())
+                    batch_t = [batch[0][self.model[0].target_attr].cpu().numpy()] * len(self.model)
                 # else:    
                     # if str(self.rank) not in ("cpu", "cuda"): 
                         # batch_t = batch[self.model[0].module.target_attr].cpu().numpy()
@@ -330,17 +325,17 @@ class PropertyTrainer(BaseTrainer):
                     #)  
                         
             # Node level prediction 
-            if split == "train":
-                loader_batch_size = loader[0]["train_loader"].batch_size
-            if split == "val":
-                loader_batch_size = loader[0]["val_loader"].batch_size 
-            if split == "test":
-                loader_batch_size = loader[0]["test_loader"].batch_size
-            if split == "predict":
-                loader_batch_size = loader[0]["predict_loader"].batch_size
+            # if split == "train":
+                # loader_batch_size = loader[0]["train_loader"].batch_size
+            # if split == "val":
+                # loader_batch_size = loader[0]["val_loader"].batch_size 
+            # if split == "test":
+                # loader_batch_size = loader[0]["test_loader"].batch_size
+            # if split == "predict":
+                # loader_batch_size = loader[0]["predict_loader"].batch_size
 
             
-            if batch_p[0].shape[0] > loader_batch_size: 
+            if batch_p[0].shape[0] > loader.batch_size: 
                 node_level = True
                 node_ids = batch.z.cpu().numpy()
                 structure_ids = np.repeat(
@@ -378,23 +373,25 @@ class PropertyTrainer(BaseTrainer):
                     target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)                          
                          
             if i == 0:
-                ids = [0 for _ in range(len(batch))]
-                predict = [0 for _ in range(len(batch))]
-            for x in range(len(batch)):
-                try:
-                    ids[x] = batch_ids[x] if i == 0 else np.row_stack((ids[x], batch_ids[x]))
-                    predict[x] = batch_p[x] if i == 0 else np.concatenate((predict[x], batch_p[x]), axis=0)
-                except:
-                    x = len(batch)
+                ids = [0 for _ in range(len(self.model))]
+                predict = [0 for _ in range(len(self.model))]
+                stds = [0 for _ in range(len(self.model))]
+            for x in range(len(self.model)):
+                # try:
+                ids[x] = batch_ids[x] if i == 0 else np.row_stack((ids[x], batch_ids[x]))
+                predict[x] = batch_p[x] if i == 0 else np.concatenate((predict[x], batch_p[x]), axis=0)
+                stds[x] = batch_stds[x] if i == 0 else np.concatenate((stds[x], batch_stds[x]), axis=0)
+                # except:
+                    # x = len(batch)
         
             if labels == True:
                 if i == 0:
-                     target = [0 for _ in range(len(batch))]
-                for x in range(len(batch)):
-                    try:
-                        target[x] = batch_t[x] if i == 0 else np.concatenate((target[x], batch_t[x]), axis=0)
-                    except:
-                        x = len(batch)
+                     target = [0 for _ in range(len(self.model))]
+                for x in range(len(self.model)):
+                    # try:
+                    target[x] = batch_t[x] if i == 0 else np.concatenate((target[x], batch_t[x]), axis=0)
+                    # except:
+                        # x = len(batch)
             
             if labels == True:
                 del loss, batch, out 
@@ -403,17 +400,16 @@ class PropertyTrainer(BaseTrainer):
         
         if write_output == True:
             if labels == True:
-                ran = len(self.model) if not(split=="test" or split=="predict") else 1
-                for x in range(ran):
+                for x in range(len(self.model)):
                     mod = str(x)
                     self.save_results(
-                        np.column_stack((ids[x], target[x], predict[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
+                        np.column_stack((ids[x], target[x], predict[x], stds[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
                     )
             else:
-                for x in range(ran):
+                for x in range(len(self.model)):
                     mod = str(x)
                     self.save_results(
-                    	np.column_stack((ids[x], predict[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
+                    	np.column_stack((ids[x], predict[x], std[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
                     )
                             
             #if out.get("pos_grad") != None:
@@ -437,7 +433,8 @@ class PropertyTrainer(BaseTrainer):
                         np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
                     )
         if labels == True:
-            predict_loss = torch.mean(torch.stack(([torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in metrics]))).item()
+            predict_loss = metrics[type(self.loss_fn).__name__]["metric"]
+            #predict_loss = torch.mean(torch.stack(([torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in metrics]))).item()
             logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))        
             predictions = {"ids":ids, "predict":predict, "target":target, "std": std}
         else:

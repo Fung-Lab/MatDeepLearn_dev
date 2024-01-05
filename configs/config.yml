@@ -46,7 +46,7 @@ model:
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
   # 1 indicates normal behavior, larger numbers indicate the number of models to be used
-  model_ensemble: 1 
+  model_ensemble: 5
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: False
 
