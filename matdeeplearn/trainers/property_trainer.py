@@ -275,6 +275,8 @@ class PropertyTrainer(BaseTrainer):
             if split == 'test' or split == 'predict':
                 batch = [batch[0]]
                 out = self._forward(batch)
+                list_of_outputs = torch.stack([o["output"] for o in out])
+                std = torch.std(list_of_outputs, dim=0)
                 tens_list = []
                 for o in out:
                     tens_list.append(o['output'])
@@ -285,6 +287,8 @@ class PropertyTrainer(BaseTrainer):
                 out = [out]
             else:
                 out = self._forward(batch)
+                list_of_outputs = torch.stack([o["output"] for o in out])
+                std = torch.std(list_of_outputs, dim=0)
 
             # if split != "test" and split != "predict":
             batch_p = [o["output"].data.cpu().numpy() for o in out]
@@ -435,9 +439,9 @@ class PropertyTrainer(BaseTrainer):
         if labels == True:
             predict_loss = torch.mean(torch.stack(([torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in metrics]))).item()
             logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))        
-            predictions = {"ids":ids, "predict":predict, "target":target}
+            predictions = {"ids":ids, "predict":predict, "target":target, "std": std}
         else:
-            predictions = {"ids":ids, "predict":predict}
+            predictions = {"ids":ids, "predict":predict, "std": std}
             
         torch.cuda.empty_cache()
         
