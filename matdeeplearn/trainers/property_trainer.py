@@ -290,7 +290,7 @@ class PropertyTrainer(BaseTrainer):
             # if split != "test" and split != "predict":
             batch_p = [o["output"].data.cpu().numpy() for o in out_for_saving_model]
             batch_ids = [batch[0].structure_id] * len(self.model)
-            batch_stds = [std.numpy()] * len(self.model)
+            batch_stds = [std.cpu().numpy()] * len(self.model)
             # print(batch_p)
             # print(batch_stds)
             # else:
