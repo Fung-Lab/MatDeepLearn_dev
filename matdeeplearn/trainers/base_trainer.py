@@ -458,9 +458,9 @@ class BaseTrainer(ABC):
             
             if "train" in self.write_output:
                 self.predict(self.data_loader[index]["train_loader"], "train")
-            if "val" in self.write_output and self.data_loader.get("val_loader"):
+            if "val" in self.write_output and self.data_loader[index].get("val_loader"):
                 self.predict(self.data_loader[index]["val_loader"], "val")
-            if "test" in self.write_output and self.data_loader.get("test_loader"):
+            if "test" in self.write_output and self.data_loader[index].get("test_loader"):
                 self.predict(self.data_loader[index]["test_loader"], "test")
 
     def save_model(self, checkpoint_file, index=None, metric=None, training_state=True):
@@ -553,7 +553,7 @@ class BaseTrainer(ABC):
         
         return filename
 
-    def save_results(self, output, results_dir, filename, node_level_predictions=False, labels=True):
+    def save_results(self, output, results_dir, filename, node_level_predictions=False, labels=True, std=False):
         results_path = os.path.join(
             self.save_dir, "results", self.timestamp_id, results_dir
         )
@@ -566,12 +566,20 @@ class BaseTrainer(ABC):
             id_headers += ["node_id"]
             
         if labels==True:
-            num_cols = (shape[1] - len(id_headers)) // 2
-            headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols
+            if std == True:
+                num_cols = (shape[1] - len(id_headers)) // 3
+                headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols + ["std"] * num_cols
+            else:
+                num_cols = (shape[1] - len(id_headers)) // 2
+                headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols            
         else:
-            num_cols = (shape[1] - len(id_headers))
-            headers = id_headers + ["prediction"] * num_cols        
-        
+            if std == True:
+                num_cols = (shape[1] - len(id_headers)) // 2
+                headers = id_headers + ["prediction"] * num_cols + ["std"] * num_cols        
+            else:
+                num_cols = (shape[1] - len(id_headers))
+                headers = id_headers + ["prediction"] * num_cols     
+                        
         with open(filename, "w") as f:
             csvwriter = csv.writer(f)
             for i in range(0, len(output)+1):

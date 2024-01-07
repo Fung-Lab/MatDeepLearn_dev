@@ -79,11 +79,11 @@ class PropertyTrainer(BaseTrainer):
             logging.info("Starting regular training")
             if str(self.rank) not in ("cpu", "cuda"):
                 logging.info(
-                    f"running for {end_epoch - start_epoch} epochs on {type(self.model.module).__name__} model"
+                    f"Running for {end_epoch - start_epoch} epochs on {type(self.model[0].module).__name__} model"
                 )
             else:
                 logging.info(
-                    f"running for {end_epoch - start_epoch} epochs on {type(self.model).__name__} model"
+                    f"Running for {end_epoch - start_epoch} epochs on {type(self.model[0]).__name__} model"
                 )
      
         for epoch in range(start_epoch, end_epoch):            
@@ -112,8 +112,8 @@ class PropertyTrainer(BaseTrainer):
                 # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out = self._forward(batch)                                            
-                    loss = self._compute_loss(out, batch) 
+                    out_list = self._forward(batch)                                            
+                    loss = self._compute_loss(out_list, batch) 
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
                 grad_norm = []
                 for i in range(len(self.model)):
@@ -123,8 +123,8 @@ class PropertyTrainer(BaseTrainer):
                 # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
                 #  keep option to log metrics per epoch  
                 for n in range(len(self.model)):
-                    _metrics[n] = self._compute_metrics(out[n], batch[n], _metrics[n])
-                    self.metrics[n] = self.evaluator.update("loss", loss[n].item(), out[n]["output"].shape[0], _metrics[n])
+                    _metrics[n] = self._compute_metrics(out_list[n], batch[n], _metrics[n])
+                    self.metrics[n] = self.evaluator.update("loss", loss[n].item(), out_list[n]["output"].shape[0], _metrics[n])
 
             self.epoch = epoch + 1
 
@@ -211,20 +211,21 @@ class PropertyTrainer(BaseTrainer):
                 loader_iter.append(iter(self.data_loader[i]["test_loader"]))
             elif split == "train":
                 loader_iter.append(iter(self.data_loader[i]["train_loader"]))
+                
         for i in range(0, len(loader_iter[0])):
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
             batch = []
             for i in range(len(self.model)):
                 batch.append(next(loader_iter[i]).to(self.rank))
             
-            out = self._forward(batch)
-            loss = self._compute_loss(out, batch)
+            out_list = self._forward(batch)
+            loss = self._compute_loss(out_list, batch)
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
             for n in range(len(self.model)):
-                metrics[n] = self._compute_metrics(out[n], batch[n], metrics[n])
-                metrics[n] = evaluator.update("loss", loss[n].item(), out[n]["output"].shape[0], metrics[n])    
-            del loss, batch, out
+                metrics[n] = self._compute_metrics(out_list[n], batch[n], metrics[n])
+                metrics[n] = evaluator.update("loss", loss[n].item(), out_list[n]["output"].shape[0], metrics[n])    
+            del loss, batch, out_list
         
         torch.cuda.empty_cache()
         
@@ -251,90 +252,42 @@ class PropertyTrainer(BaseTrainer):
         ids_cell_grad = []
         target_cell_grad = None
         node_level = False 
-        loader_iter = iter(loader)
-        # for i in range(len(self.model)):
-            # if split == "train":
-                # loader_iter.append(iter(loader[i]["train_loader"]))
-            # if split == "val":
-                # loader_iter.append(iter(loader[i]["val_loader"]))
-            # if split == "test":
-                # loader_iter.append(iter(loader[i]["test_loader"]))
-            # if split == "predict":
-                # loader_iter.append(iter(loader[i]["predict_loader"]))
-        
+                
+        loader_iter = iter(loader)        
         for i in range(0, len(loader_iter)):
-            batch = [next(loader_iter).to(self.rank)]
-            # batch = [] 
-            # for x in range(len(self.model)):
-                # batch.append(next(loader_iter[x]).to(self.rank))
+            batch = next(loader_iter).to(self.rank)
+            out_list = self._forward([batch])
             
-            # if split == 'test' or split == 'predict':
-            # batch = [batch[0]]
-            out = self._forward(batch)
-            out_for_saving_model = out
-            list_of_outputs = torch.stack([o["output"] for o in out])
-            std = torch.std(list_of_outputs, dim=0)
-            tens_list = []
-            for o in out:
-                tens_list.append(o['output'])
-            tens_list = torch.stack(tens_list)
-            tens_list = torch.mean(tens_list, dim=0)
             out = {}
-            out["output"] = tens_list
-            out = [out]
-            # else:
-                # out = self._forward(batch)
-                # list_of_outputs = torch.stack([o["output"] for o in out])
-                # std = torch.std(list_of_outputs, dim=0)
-
-            # if split != "test" and split != "predict":
-            batch_p = [o["output"].data.cpu().numpy() for o in out_for_saving_model]
-            batch_ids = [batch[0].structure_id] * len(self.model)
-            batch_stds = [std.cpu().numpy()] * len(self.model)
-            # print(batch_p)
-            # print(batch_stds)
-            # else:
-                # batch_p = [out["output"].data.cpu().numpy()]
-                #batch_ids = [batch.structure_id]
+            out_stack={}            
+            for key in out_list[0].keys():
+                temp = [o[key] for o in out_list]
+                if temp[0] is not None:
+                    out_stack[key] = torch.stack(temp)
+                    out[key] = torch.mean(out_stack[key], dim=0)
+                    out[key+"_std"] = torch.std(out_stack[key], dim=0)
+                else:
+                    out[key] = None
+                    out[key+"_std"] = None
+                    
+                    
+            batch_p = [o["output"].data.cpu().numpy() for o in out_list]
+            batch_p_mean = out["output"].cpu().numpy()   
+            batch_ids = batch.structure_id
+            batch_stds = out["output_std"].cpu().numpy()   
 
             if labels == True:
                 loss = self._compute_loss(out, batch)
-                # if not(split == "test" or split == "predict"):
-                metrics = self._compute_metrics(out[0], batch[0], metrics)
+                metrics = self._compute_metrics(out, batch, metrics)
                 metrics = evaluator.update(
-                    "loss", loss[0].item(), out[0]["output"].shape[0], metrics
+                    "loss", loss.item(), out["output"].shape[0], metrics
                 )
-                # else:
-                    # metrics = self._compute_metrics(out[0], batch[0], metrics)
-                    # metrics = evaluator.update(
-                        # "loss", loss.item(), out[0]["output"].shape[0], metrics
-                    # )
-
-                # if not(split == 'test' or split == 'predict'):
                 if str(self.rank) not in ("cpu", "cuda"):
-                    batch_t = [batch[0][self.model[0].module.target_attr].cpu().numpy()] * len(self.model)
+                    batch_t = batch[self.model[0].module.target_attr].cpu().numpy()
                 else:
-                    batch_t = [batch[0][self.model[0].target_attr].cpu().numpy()] * len(self.model)
-                # else:    
-                    # if str(self.rank) not in ("cpu", "cuda"): 
-                        # batch_t = batch[self.model[0].module.target_attr].cpu().numpy()
-                    # else:
-                        # batch_t = batch[self.model[0].target_attr].cpu().numpy()             
-                    #batch_ids = np.array(
-                    #       [item for sublist in batch.structure_id for item in sublist]
-                    #)  
+                    batch_t = batch[self.model[0].target_attr].cpu().numpy()
                         
             # Node level prediction 
-            # if split == "train":
-                # loader_batch_size = loader[0]["train_loader"].batch_size
-            # if split == "val":
-                # loader_batch_size = loader[0]["val_loader"].batch_size 
-            # if split == "test":
-                # loader_batch_size = loader[0]["test_loader"].batch_size
-            # if split == "predict":
-                # loader_batch_size = loader[0]["predict_loader"].batch_size
-
-            
             if batch_p[0].shape[0] > loader.batch_size: 
                 node_level = True
                 node_ids = batch.z.cpu().numpy()
@@ -342,16 +295,10 @@ class PropertyTrainer(BaseTrainer):
                     batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
                 )
                 batch_ids = np.column_stack((structure_ids, node_ids))
-            
-            # try:
-                # get_pos_grad = out.get("pos_grad")
-                # get_cell_grad = out.get("cell_grad")
-            # except:
-                # get_pos_grad = out[0].get("pos_grad")
-                # get_cell_grad = out[0].get("cell_grad")
 
-            if out[0].get("pos_grad") != None:
+            if out.get("pos_grad") != None:
                 batch_p_pos_grad = out["pos_grad"].data.cpu().numpy()
+                batch_p_pos_grad_std = out["pos_grad_std"].data.cpu().numpy()
                 node_ids_pos_grad = batch.z.cpu().numpy()
                 structure_ids_pos_grad = np.repeat(
                     batch.structure_id, batch.n_atoms.cpu().numpy(), axis=0
@@ -359,87 +306,102 @@ class PropertyTrainer(BaseTrainer):
                 batch_ids_pos_grad = np.column_stack((structure_ids_pos_grad, node_ids_pos_grad)) 
                 ids_pos_grad = batch_ids_pos_grad if i == 0 else np.row_stack((ids_pos_grad, batch_ids_pos_grad))            
                 predict_pos_grad = batch_p_pos_grad if i == 0 else np.concatenate((predict_pos_grad, batch_p_pos_grad), axis=0)
+                predict_pos_grad_std = batch_p_pos_grad_std if i == 0 else np.concatenate((predict_pos_grad_std, batch_p_pos_grad_std), axis=0)
                 if "forces" in batch:
                     batch_t_pos_grad = batch["forces"].cpu().numpy()      
                     target_pos_grad = batch_t_pos_grad if i == 0 else np.concatenate((target_pos_grad, batch_t_pos_grad), axis=0)
 
-            if out[0].get("cell_grad") != None:  
+            if out.get("cell_grad") != None:  
                 batch_p_cell_grad = out["cell_grad"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
+                batch_p_cell_grad_std = out["cell_grad_std"].data.view(out["cell_grad"].data.size(0), -1).cpu().numpy()
                 batch_ids_cell_grad = batch.structure_id               
                 ids_cell_grad = batch_ids_cell_grad if i == 0 else np.row_stack((ids_cell_grad, batch_ids_cell_grad))            
                 predict_cell_grad = batch_p_cell_grad if i == 0 else np.concatenate((predict_cell_grad, batch_p_cell_grad), axis=0)
+                predict_cell_grad_std = batch_p_cell_grad_std if i == 0 else np.concatenate((predict_cell_grad_std, batch_p_cell_grad_std), axis=0)
                 if "stress" in batch:
                     batch_t_cell_grad = batch["stress"].view(out["cell_grad"].data.size(0), -1).cpu().numpy()
                     target_cell_grad = batch_t_cell_grad if i == 0 else np.concatenate((target_cell_grad, batch_t_cell_grad), axis=0)                          
-                         
-            if i == 0:
-                ids = [0 for _ in range(len(self.model))]
-                predict = [0 for _ in range(len(self.model))]
-                stds = [0 for _ in range(len(self.model))]
+            
+            ids = batch_ids if i == 0 else np.row_stack((ids, batch_ids))   
+            predict_mean = batch_p_mean if i == 0 else np.concatenate((predict_mean, batch_p_mean), axis=0)       
+            stds = batch_stds if i == 0 else np.row_stack((stds, batch_stds))    
+            if i == 0:                        
+                predict = [0 for _ in range(len(self.model))]        
             for x in range(len(self.model)):
-                # try:
-                ids[x] = batch_ids[x] if i == 0 else np.row_stack((ids[x], batch_ids[x]))
                 predict[x] = batch_p[x] if i == 0 else np.concatenate((predict[x], batch_p[x]), axis=0)
-                stds[x] = batch_stds[x] if i == 0 else np.concatenate((stds[x], batch_stds[x]), axis=0)
-                # except:
-                    # x = len(batch)
-        
+
             if labels == True:
-                if i == 0:
-                     target = [0 for _ in range(len(self.model))]
-                for x in range(len(self.model)):
-                    # try:
-                    target[x] = batch_t[x] if i == 0 else np.concatenate((target[x], batch_t[x]), axis=0)
-                    # except:
-                        # x = len(batch)
+                target = batch_t if i == 0 else np.concatenate((target, batch_t), axis=0)
             
             if labels == True:
                 del loss, batch, out 
             else:  
                 del batch, out 
-        
+                       
         if write_output == True:
             if labels == True:
-                for x in range(len(self.model)):
-                    mod = str(x)
+                if len(self.model) > 1:    
                     self.save_results(
-                        np.column_stack((ids[x], target[x], predict[x], stds[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
-                    )
+                        np.column_stack((ids, target, predict_mean, stds)), results_dir, f"{split}_predictions.csv", node_level, std=True,
+                    )                                                         
+                    for x in range(len(self.model)):
+                        mod = str(x)                                                            
+                        self.save_results(
+                            np.column_stack((ids, target, predict[x])), results_dir, f"{split}_predictions_{mod}.csv", node_level, std=False,
+                        )
+                else: 
+                    self.save_results(
+                        np.column_stack((ids, target, predict_mean)), results_dir, f"{split}_predictions.csv", node_level, std=False,
+                    )                                     
             else:
-                for x in range(len(self.model)):
-                    mod = str(x)
+                if len(self.model) > 1:  
                     self.save_results(
-                    	np.column_stack((ids[x], predict[x], std[x])), results_dir, f"{split}_predictions{mod}.csv", node_level
-                    )
-                            
+                        np.column_stack((ids, predict_mean, stds)), results_dir, f"{split}_predictions.csv", node_level, std=True,
+                    )                    
+                    for x in range(len(self.model)):
+                        mod = str(x)
+                        self.save_results(
+                        	np.column_stack((ids, predict[x])), results_dir, f"{split}_predictions_{mod}.csv", node_level, std=False,
+                        )
+                else: 
+                    self.save_results(
+                        np.column_stack((ids, predict_mean)), results_dir, f"{split}_predictions.csv", node_level, std=False,
+                    )  
+                                                
             #if out.get("pos_grad") != None:
             if len(ids_pos_grad) > 0:
                 if isinstance(target_pos_grad, np.ndarray):
                     self.save_results(
-                        np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
+                        np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad, predict_pos_grad_std)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
                     )
                 else:
                     self.save_results(
-                        np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
+                        np.column_stack((ids_pos_grad, predict_pos_grad, predict_pos_grad_std)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
                     )
             #if out.get("cell_grad") != None:
             if len(ids_cell_grad) > 0:
                 if isinstance(target_cell_grad, np.ndarray):
                     self.save_results(
-                        np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
+                        np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad, predict_cell_grad_std)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
                     )
                 else:
                     self.save_results(
-                        np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
+                        np.column_stack((ids_cell_grad, predict_cell_grad, predict_cell_grad_std)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
                     )
+                                                            
         if labels == True:
             predict_loss = metrics[type(self.loss_fn).__name__]["metric"]
-            #predict_loss = torch.mean(torch.stack(([torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in metrics]))).item()
-            logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))        
-            predictions = {"ids":ids, "predict":predict, "target":target, "std": std}
+            logging.info("Saved {:s} error: {:.5f}".format(split, predict_loss))    
+            if len(self.model) > 1:     
+                predictions = {"ids":ids, "predict":predict_mean, "target":target, "std": stds}
+            else:
+                predictions = {"ids":ids, "predict":predict_mean, "target":target}
         else:
-            predictions = {"ids":ids, "predict":predict, "std": std}
-            
+            if len(self.model) > 1:     
+                predictions = {"ids":ids, "predict":predict_mean, "std": stds}
+            else:
+                predictions = {"ids":ids, "predict":predict_mean} 
+
         torch.cuda.empty_cache()
         
         return predictions
@@ -460,14 +422,16 @@ class PropertyTrainer(BaseTrainer):
         loader_iter = iter(loader)
         for i in range(0, len(loader_iter)):
             batch = next(loader_iter).to(self.rank)      
-            out = self._forward(batch.to(self.rank))
-            tens_list = []
-            for o in out:
-                tens_list.append(o['output'])
-            tens_list = torch.stack(tens_list)
-            tens_list = torch.mean(tens_list, dim=0)
+            out_list = self._forward(batch.to(self.rank))
             out = {}
-            out['output'] = tens_list
+            out_stack={}            
+            for key in out_list[0].keys():
+                temp = [o[key] for o in out_list]
+                if temp[0] is not None:
+                    out_stack[key] = torch.stack(temp)
+                    out[key] = torch.mean(out_stack[key], dim=0)
+                else:
+                    out[key] = None
 
             energy = None if out.get('output') is None else out.get('output').data.cpu().numpy()
             stress = None if out.get('cell_grad') is None else out.get('cell_grad').view(-1, 3).data.cpu().numpy()
