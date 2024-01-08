@@ -21,12 +21,12 @@ if __name__ == '__main__':
     #         idx = i
 
     # Configurations below
-    calc_str = './configs/calculator/config_cgcnn_lj.yml'
+    calc_str = './configs/calculator/config_cgcnn_morse.yml'
     simulation_type = 'NVT'
     num_steps = 5000
     temperature = 1000
     
-    save_to = 'train_outs/lj_sim_no_coef.csv'
+    save_to = 'train_outs/late_cgcnn_morse_no_coef_sim.csv'
     save = True
     # Configurations above
     

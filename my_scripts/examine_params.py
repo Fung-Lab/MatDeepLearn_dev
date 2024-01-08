@@ -20,14 +20,14 @@ def show_all_lj_params(state_dict):
     print('coef_6:', coef_6)
     
 def show_all_morse_params(state_dict):
-    a, re, epsilons, base_atomic_energy, coef_const, coef_exp = [], [], [], [], [1.] * 100, [1.] * 100
+    a, re, epsilons, base_atomic_energy, coef_const, coef_exp = [], [], [], [], [], []
     for i in range(100):
         a.append(state_dict['atomic_a.' + str(i)].detach().cpu().numpy()[0][0])
         epsilons.append(state_dict['atomic_epsilons.' + str(i)].detach().cpu().numpy()[0][0])
         re.append(state_dict['atomic_re.' + str(i)].detach().cpu().numpy()[0][0])
         base_atomic_energy.append(state_dict['base_atomic_energy.' + str(i)].detach().cpu().numpy()[0][0])
-        #coef_const.append(state_dict['coef_const.' + str(i)].detach().cpu().numpy()[0][0])
-        #coef_exp.append(state_dict['coef_exp.' + str(i)].detach().cpu().numpy()[0][0])
+        coef_const.append(state_dict['coef_const.' + str(i)].detach().cpu().numpy()[0][0])
+        coef_exp.append(state_dict['coef_exp.' + str(i)].detach().cpu().numpy()[0][0])
     
     print('a:', a)
     print('epsilons:', epsilons)
@@ -39,6 +39,6 @@ def show_all_morse_params(state_dict):
     
 
 if __name__ == '__main__':
-    checkpoint_path = 'results/morse_mpforces_subset/checkpoint/best_checkpoint.pt'
+    checkpoint_path = 'results/late_cgcnn_lj/checkpoint/best_checkpoint.pt'
     state_dict = torch.load(checkpoint_path)['state_dict']
-    show_all_morse_params(state_dict)
+    show_all_lj_params(state_dict)

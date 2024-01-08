@@ -9,13 +9,13 @@ logging.basicConfig(level=logging.INFO)
                          
 if __name__ == '__main__':
     unrelaxed_ids, relaxed_ids, unrelaxed, relaxed, dft,\
-        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json', 10)
+        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json')
 
     # Configurations below
     calc_str = './configs/calculator/config_cgcnn_lj.yml'
     
-    save = False
-    folder = './train_outs/unrelaxed_data_lj_no_coef'
+    save = True
+    folder = './train_outs/unrelaxed_late_cgcnn_lj'
     # folder = './train_outs/test'
     optim_type = 'unrelax'
     # Configurations above

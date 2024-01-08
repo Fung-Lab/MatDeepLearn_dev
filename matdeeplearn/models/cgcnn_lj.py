@@ -63,8 +63,8 @@ class CGCNN_LJ(BaseModel):
         self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
-        # self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        # self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        #self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        #self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -293,8 +293,8 @@ class CGCNN_LJ(BaseModel):
         
         sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
         epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
-        # coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
-        # coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
+        #coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
+        #coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
     
         # start = time()
@@ -302,15 +302,15 @@ class CGCNN_LJ(BaseModel):
             sigmas[z - 1] = self.sigmas[z - 1]
             epsilons[z - 1] = self.epsilons[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            # coef_12[z - 1] = self.coef_12[z - 1]
-            # coef_6[z - 1] = self.coef_6[z - 1]
+            #coef_12[z - 1] = self.coef_12[z - 1]
+            #coef_6[z - 1] = self.coef_6[z - 1]
         # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
         
         # start = time()
         sigma = (sigmas[atoms[0]] + sigmas[atoms[1]]).squeeze() / 2
         epsilon = (epsilons[atoms[0]] + epsilons[atoms[1]]).squeeze() / 2
-        # coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
-        # coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
+        #coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
+        #coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
         
         # start = time()
         rc = self.cutoff_radius
@@ -322,7 +322,7 @@ class CGCNN_LJ(BaseModel):
         c12 = c6 ** 2
         cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
         pairwise_energies = 4 * epsilon * (c12 - c6)
-        # pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
+        #pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
         pairwise_energies *= cutoff_fn
         # print(f"Calculate lj: {time() - start:.4f}")
 

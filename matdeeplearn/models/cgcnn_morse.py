@@ -67,8 +67,8 @@ class CGCNN_Morse(BaseModel):
         self.atomic_a = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
-        self.coef_const = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.coef_exp = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        #self.coef_const = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        #self.coef_exp = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -292,16 +292,16 @@ class CGCNN_Morse(BaseModel):
         atomic_epsilons = torch.zeros((len(self.atomic_epsilons), 1)).to('cuda:0')
         atomic_a = torch.zeros((len(self.atomic_a), 1)).to('cuda:0')
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        coef_const = torch.zeros((len(self.coef_const), 1)).to('cuda:0')
-        coef_exp = torch.zeros((len(self.coef_exp), 1)).to('cuda:0')
+        #coef_const = torch.zeros((len(self.coef_const), 1)).to('cuda:0')
+        #coef_exp = torch.zeros((len(self.coef_exp), 1)).to('cuda:0')
     
         # start = time()
         for z in np.unique(data.z.cpu()):
             atomic_epsilons[z - 1] = self.atomic_epsilons[z - 1]
             atomic_re[z - 1] = self.atomic_re[z - 1]
             atomic_a[z - 1] = self.atomic_a[z - 1]
-            coef_const[z - 1] = self.coef_const[z - 1]
-            coef_exp[z - 1] = self.coef_exp[z - 1]
+            #coef_const[z - 1] = self.coef_const[z - 1]
+            #coef_exp[z - 1] = self.coef_exp[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
         # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
         
@@ -310,8 +310,8 @@ class CGCNN_Morse(BaseModel):
         epsilon = (atomic_epsilons[atoms[0]] + atomic_epsilons[atoms[1]]).squeeze() / 2
         a = (atomic_a[atoms[0]] + atomic_a[atoms[1]]).squeeze() / 2
         
-        coef_const = (coef_const[atoms[0]] + coef_const[atoms[1]]).squeeze() / 2
-        coef_exp = (coef_exp[atoms[0]] + coef_exp[atoms[1]]).squeeze() / 2
+        #coef_const = (coef_const[atoms[0]] + coef_const[atoms[1]]).squeeze() / 2
+        #coef_exp = (coef_exp[atoms[0]] + coef_exp[atoms[1]]).squeeze() / 2
         
         # start = time()
         rc = self.cutoff_radius
@@ -320,8 +320,8 @@ class CGCNN_Morse(BaseModel):
         d = data.edge_weight
         fc = self.cutoff_function(d, ro, rc)
 
-        E = epsilon * ((coef_const - coef_exp * torch.exp(-a * (d - re))) ** 2) - epsilon
-        # E = epsilon * ((1 - torch.exp(-a * (d - re))) ** 2)
+        #E = epsilon * ((coef_const - coef_exp * torch.exp(-a * (d - re))) ** 2) - epsilon
+        E = epsilon * ((1 - torch.exp(-a * (d - re))) ** 2)
         pairwise_energies = 0.5 * (E * fc)
         # print(f"Calculate morse: {time() - start:.4f}")
 
