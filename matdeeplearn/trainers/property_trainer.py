@@ -342,61 +342,60 @@ class PropertyTrainer(BaseTrainer):
             if labels == True:
                 if len(self.model) > 1:    
                     self.save_results(
-                        np.column_stack((ids, target, predict_mean, stds)), results_dir, f"{split}_predictions.csv", node_level, std=True,
+                        np.column_stack((ids, target, predict_mean, stds)), results_dir, f"{split}_predictions.csv", node_level, True, std=True,
                     )                                                         
                     for x in range(len(self.model)):
                         mod = str(x)                                                            
                         self.save_results(
-                            np.column_stack((ids, target, predict[x])), results_dir, f"{split}_predictions_{mod}.csv", node_level, std=False,
+                            np.column_stack((ids, target, predict[x])), results_dir, f"{split}_predictions_{mod}.csv", node_level, True, std=False,
                         )
                 else: 
                     self.save_results(
-                        np.column_stack((ids, target, predict_mean)), results_dir, f"{split}_predictions.csv", node_level, std=False,
+                        np.column_stack((ids, target, predict_mean)), results_dir, f"{split}_predictions.csv", node_level, True, std=False,
                     )                                     
             else:
                 if len(self.model) > 1:  
                     self.save_results(
-                        np.column_stack((ids, predict_mean, stds)), results_dir, f"{split}_predictions.csv", node_level, std=True,
+                        np.column_stack((ids, predict_mean, stds)), results_dir, f"{split}_predictions.csv", node_level, False, std=True,
                     )                    
                     for x in range(len(self.model)):
                         mod = str(x)
                         self.save_results(
-                        	np.column_stack((ids, predict[x])), results_dir, f"{split}_predictions_{mod}.csv", node_level, std=False,
+                        	np.column_stack((ids, predict[x])), results_dir, f"{split}_predictions_{mod}.csv", node_level, False, std=False,
                         )
                 else: 
                     self.save_results(
-                        np.column_stack((ids, predict_mean)), results_dir, f"{split}_predictions.csv", node_level, std=False,
-                    )  
-                                                
+                        np.column_stack((ids, predict_mean)), results_dir, f"{split}_predictions.csv", node_level, False, std=False,
+                    )                                   
             #if out.get("pos_grad") != None:
             if len(ids_pos_grad) > 0:
                 if isinstance(target_pos_grad, np.ndarray):
                     if len(self.model) > 1: 
                         self.save_results(
-                            np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad, predict_pos_grad_std)), results_dir, f"{split}_predictions_pos_grad.csv", True, True
+                            np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad, predict_pos_grad_std)), results_dir, f"{split}_predictions_pos_grad.csv", True, True, std=True
                         )
                     else:
                         self.save_results(
-                            np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
+                            np.column_stack((ids_pos_grad, target_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, True, std=False
                         )                    
                 else:
                     self.save_results(
-                        np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False
+                        np.column_stack((ids_pos_grad, predict_pos_grad)), results_dir, f"{split}_predictions_pos_grad.csv", True, False, std=False
                     )
             #if out.get("cell_grad") != None:
             if len(ids_cell_grad) > 0:
                 if isinstance(target_cell_grad, np.ndarray):
                     if len(self.model) > 1: 
                         self.save_results(
-                            np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad, predict_cell_grad_std)), results_dir, f"{split}_predictions_cell_grad.csv", False, True
+                            np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad, predict_cell_grad_std)), results_dir, f"{split}_predictions_cell_grad.csv", False, True, std=True
                         )
                     else:
                         self.save_results(
-                            np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
+                            np.column_stack((ids_cell_grad, target_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, True, std=False
                         )                    
                 else:
                     self.save_results(
-                        np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False
+                        np.column_stack((ids_cell_grad, predict_cell_grad)), results_dir, f"{split}_predictions_cell_grad.csv", False, False, std=False
                     )
                                                             
         if labels == True:
