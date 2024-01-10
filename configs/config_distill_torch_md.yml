@@ -56,8 +56,8 @@ teacher_model:
 model:
   name: torchmd_etEarly
   # model attributes
-  hidden_channels: 128
-  num_layers: 4
+  hidden_channels: 64
+  num_layers: 8
   num_rbf: 50
   activation: "silu"
   attn_activation: "silu"
@@ -76,7 +76,7 @@ model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # layer output for distillation
-  distill_layers: "a4"
+  distill_layers: "a8"
 
 optim:
   max_epochs: 400
@@ -94,7 +94,7 @@ optim:
     weight_energy: 0.01
     weight_force: 50.0
     weight_stress: 50.0
-    weight_distillation: 10.0
+    weight_distillation: 1
   clip_grad_norm: 10
          
   batch_size: 16

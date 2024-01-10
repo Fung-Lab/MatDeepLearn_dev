@@ -152,7 +152,7 @@ class DistillationLoss(nn.Module):
             target = torch.cat(n2n_mappings, dim=0)
                     
         else:
-            target = out_batch["t_out"]
+            target = out_batch["t_out"]["n2n_mapping"]
 
         if self.use_mae:
             return torch.nn.functional.l1_loss(
@@ -185,7 +185,7 @@ class DistillationLoss(nn.Module):
                         e2n_mappings.append(e2n_mapping.to('cuda'))
             target = torch.cat(e2n_mappings, dim=0)
         else:
-            target = out_batch["t_out"]
+            target = out_batch["t_out"]["e2n_feature"]
         if self.use_mae:
             return torch.nn.functional.l1_loss(
                 out_batch["s_out"]["e2n_feature"],
@@ -217,7 +217,7 @@ class DistillationLoss(nn.Module):
                         e2e_mappings.append(e2e_mapping.to('cuda'))
             target = torch.cat(e2e_mappings, dim=0)
         else:
-            target = out_batch["t_out"]
+            target = out_batch["t_out"]["e2e_feature"]
         return torch.nn.functional.mse_loss(
             out_batch["s_out"]["e2e_feature"], target
         )
@@ -236,7 +236,7 @@ class DistillationLoss(nn.Module):
                         v2v_mappings.append(v2v_mapping.to('cuda'))
             target = torch.cat(v2v_mappings, dim=0)
         else:
-            target = out_batch["t_out"]
+            target = out_batch["t_out"]["v2v_feature"]
         return torch.nn.functional.mse_loss(
             out_batch["s_out"]["v2v_feature"],
             target,
