@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 import torch_geometric.nn
 from torch_geometric.nn import MessagePassing
-from torch_scatter import scatter
+from torch_geometric.utils import scatter
 from matdeeplearn.models.utils import (
     NeighborEmbedding,
     CosineCutoff,
