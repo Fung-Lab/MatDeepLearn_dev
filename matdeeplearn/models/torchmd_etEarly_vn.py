@@ -161,20 +161,20 @@ class TorchMD_ET(BaseModel):
                 self.cutoff_radius,
                 aggr,
             ).jittable()
-            # vn_vn_layer = EquivariantMultiHeadAttention(
-            #     hidden_channels,
-            #     num_rbf,
-            #     distance_influence,
-            #     num_heads,
-            #     act_class,
-            #     attn_activation,
-            #     cutoff_lower,
-            #     self.cutoff_radius,
-            #     aggr,
-            # ).jittable()
+            vn_vn_layer = EquivariantMultiHeadAttention(
+                hidden_channels,
+                num_rbf,
+                distance_influence,
+                num_heads,
+                act_class,
+                attn_activation,
+                cutoff_lower,
+                self.cutoff_radius,
+                "mean",
+            ).jittable()
             self.attention_layers.append(layer)
             self.attention_layers.append(rn_vn_layer)
-            # self.attention_layers.append(vn_vn_layer)
+            self.attention_layers.append(vn_vn_layer)
 
         self.last_attention_layers = EquivariantMultiHeadAttention(
             hidden_channels,
@@ -246,7 +246,7 @@ class TorchMD_ET(BaseModel):
 
         indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= self.cutoff_radius)
         indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= self.cutoff_radius_vn)
-        # indices_vn_to_vn = data.edge_mask == 0
+        indices_vn_to_vn = data.edge_mask == 0
 
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
@@ -254,14 +254,19 @@ class TorchMD_ET(BaseModel):
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for i, attn in enumerate(self.attention_layers):
-            if i % 2 == 0:  # rn-rn
+            if i % 3 == 0:  # rn-rn
                 dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_rn], data.edge_weight[indices_rn_to_rn],
                                 data.edge_attr[indices_rn_to_rn, :], data.edge_vec[indices_rn_to_rn, :])
                 x = x + dx
                 vec = vec + dvec
-            if i % 2 == 1:  # rn-vn
+            if i % 3 == 1:  # rn-vn
                 dx, dvec = attn(x, vec, data.edge_index[:, indices_rn_to_vn], data.edge_weight[indices_rn_to_vn],
                                 data.edge_attr[indices_rn_to_vn, :], data.edge_vec[indices_rn_to_vn, :])
+                x = x + dx
+                vec = vec + dvec
+            if i % 3 == 2:  # rn-rn
+                dx, dvec = attn(x, vec, data.edge_index[:, indices_vn_to_vn], data.edge_weight[indices_vn_to_vn],
+                                data.edge_attr[indices_vn_to_vn, :], data.edge_vec[indices_vn_to_vn, :])
                 x = x + dx
                 vec = vec + dvec
 
