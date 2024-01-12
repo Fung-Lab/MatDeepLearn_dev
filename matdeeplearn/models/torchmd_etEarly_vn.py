@@ -214,7 +214,7 @@ class TorchMD_ET(BaseModel):
     def _forward(self, data):
 
         x = self.embedding(data.z)
-        x[data.z == 100] = torch.zeros(self.hidden_channels)
+        x[data.z == 100] = torch.zeros(self.hidden_channels, device=x.device)
 
         # edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
         # assert (
