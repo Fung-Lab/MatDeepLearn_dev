@@ -28,14 +28,14 @@ task:
 model:
   name: torchmd_etEarly_vn
   # model attributes
-  hidden_channels: 128
-  num_layers: 6
-  num_rbf: 50
+  hidden_channels: 64
+  num_layers: 5
+  num_rbf: 25
   activation: "silu"
   attn_activation: "silu"
   num_heads: 8
   num_post_layers: 2
-  post_hidden_channels: 128
+  post_hidden_channels: 64
   pool: "global_add_pool"
   aggr: "add"
   # Compute edge indices on the fly in the model forward
