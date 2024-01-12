@@ -148,7 +148,7 @@ class TorchMD_ET(BaseModel):
                 attn_activation,
                 cutoff_lower,
                 self.cutoff_radius,
-                aggr,
+                "mean",
             ).jittable()
             rn_vn_layer = EquivariantMultiHeadAttention(
                 hidden_channels,

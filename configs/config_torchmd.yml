@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_torchmd
+  identifier: try4_torchmd_meanRN
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -45,10 +45,10 @@ model:
   # Compute node attributes on the fly in the model forward
   otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True
-  gradient: True
+  gradient: False
 
 optim:
-  max_epochs: 200
+  max_epochs: 300
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -57,7 +57,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10
-  batch_size: 2
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
