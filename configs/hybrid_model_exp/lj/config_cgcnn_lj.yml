@@ -2,12 +2,12 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: cgcnn_morse_bcomb_1_1
+  identifier: late_cgcnn_lj_avg
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
-  # Defaults to run directory if4not specified
-  save_dir:
+  # Defaults to run directory if not specified
+  save_dir: 
   # continue from a previous job
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: CGCNN_Morse   
+  name: CGCNN_LJ   
   # model attributes
   dim1: 100
   dim2: 150
@@ -47,13 +47,13 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the e and 2e term for morse
+  # whether to include coefficients on the 12 and 6 term for lj
   with_coefs: True
-  # method to combine atomic parameters: average (default), Berthelot
+  # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
   combination_method: average
-  # GNN : Morse ratio
+  # GNN : LJ ratio
   gnn_potential_ratio: [1., 1.]
-  clamped_params: ['rm', 'sigmas', 'D']
+  clamped_params: ['epsilons', 'sigmas']
 ?
 optim:
   max_epochs: 400
@@ -65,8 +65,8 @@ optim:
     #loss_args: {loss_fn: l1_loss}
     loss_type: ForceStressLoss
     loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    # loss_type: "ForceLoss"
-    # loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    #loss_type: "ForceLoss"
+    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
   batch_size: 128
@@ -90,7 +90,7 @@ dataset:
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/
+  pt_path: data/force_data/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -104,7 +104,7 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  # additional_attributes: [forces]
+  #additional_attributes: [forces]
   additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info

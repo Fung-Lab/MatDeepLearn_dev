@@ -1,19 +1,19 @@
 trainer: property
 ?
 task:
-  #run_mode: train
-  identifier: cgcnn_efs
+  run_mode: train
+  identifier: raw_cgcnn_late
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2023-11-19-21-52-05-546-cgcnn_efs/checkpoint/checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -33,7 +33,7 @@ model:
   gc_count: 4
   post_fc_count: 3
   pool: global_add_pool
-  pool_order: early
+  pool_order: late
   batch_norm: False
   batch_track_stats: True
   act: silu
@@ -44,6 +44,7 @@ model:
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
+  model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 ?

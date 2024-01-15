@@ -19,8 +19,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("LJ")
-class LJ(BaseModel):
+@registry.register_model("LJ_Matrix")
+class LJ_Matrix(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -39,7 +39,7 @@ class LJ(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(LJ, self).__init__(**kwargs)
+        super(LJ_Matrix, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -57,16 +57,15 @@ class LJ(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
         
-        self.combination_method = kwargs.get('combination_method', 'average')
-        self.with_coefs = kwargs.get("with_coefs", False)
+        # self.with_coefs = kwargs.get("with_coefs", False)
 
-        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.sigmas = Parameter(1.5 * torch.ones(100, 100, requires_grad=True))
+        self.epsilons = Parameter(1.5 * torch.ones(100, 100, requires_grad=True))
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
-        if self.with_coefs:
-            self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-            self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        # if self.with_coefs:
+        #     self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        #     self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
   
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -144,65 +143,37 @@ class LJ(BaseModel):
         return output
     
     def lj_potential(self, data):
+        
         atoms = data.z[data.edge_index] - 1
-        
-        sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
+
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        
-        if self.with_coefs:
-            coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
-            coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
-    
         for z in np.unique(data.z.cpu()):
-            sigmas[z - 1] = self.sigmas[z - 1]
-            epsilons[z - 1] = self.epsilons[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            if self.with_coefs:
-                coef_12[z - 1] = self.coef_12[z - 1]
-                coef_6[z - 1] = self.coef_6[z - 1]
+        
+            # if self.with_coefs:
+            #     coef_12[z - 1] = self.coef_12[z - 1]
+            #     coef_6[z - 1] = self.coef_6[z - 1]
 
         rc = self.cutoff_radius
         ro = 0.66 * rc
         r2 = data.edge_weight ** 2
         cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
         
-        sigma_i, sigma_j = sigmas[atoms[0]], sigmas[atoms[1]]
-        epsilon_i, epsilon_j = epsilons[atoms[0]], epsilons[atoms[1]]
-
-        if self.combination_method != 'Kong':
-            if self.combination_method == 'average':
-                sigma = (sigma_i + sigma_j).squeeze() / 2
-                epsilon = (epsilon_i + epsilon_j).squeeze() / 2
-            elif self.combination_method == 'Lorentz-Berthelot':
-                sigma = (sigma_i + sigma_j).squeeze() / 2
-                epsilon = torch.sqrt(epsilon_i * epsilon_j).squeeze()
-            elif self.combination_method == 'Fender-Halsey':
-                sigma = (sigma_i + sigma_j).squeeze() / 2
-                epsilon = (2 * epsilon_i * epsilon_j / (epsilon_i + epsilon_j)).squeeze()
-            else:
-                raise NotImplementedError(f"{self.combination_method} isn't an implemented combination method.")
-            
-            c6 = (sigma ** 2 / r2) ** 3
-            c6[r2 > rc ** 2] = 0.0
-            c12 = c6 ** 2
+        sigma = self.sigmas[atoms[0], atoms[1]]
+        epsilon = self.epsilons[atoms[0], atoms[1]]
         
-            if self.with_coefs:
-                coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
-                coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
-                pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
-            else:
-                pairwise_energies = 4 * epsilon * (c12 - c6)
-            
-        else: # combination_method == 'Kong'
-            term_6 = torch.sqrt(epsilon_i * epsilon_j) * (sigma_i * sigma_j) ** 3
-            term_12 = ((epsilon_i * (sigma_i ** 12)) ** (1 / 13) + (epsilon_j * (sigma_j ** 12)) ** (1 / 13) / 2) ** 13
-            
-            term_6, term_12 = term_6.squeeze(), term_12.squeeze()
-            pairwise_energies = 4 * (term_12 / (r2 ** 6) - term_6 / (r2 ** 3))
+        # print(data.edge_weight.shape, sigma.shape, epsilon.shape)
         
-        
-        pairwise_energies *= cutoff_fn
+        c6 = (sigma ** 2 / r2) ** 3
+        c6[r2 > rc ** 2] = 0.0
+        c12 = c6 ** 2
+    
+        # if self.with_coefs:
+        #     coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
+        #     coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
+        #     pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
+        # else:
+        pairwise_energies = 4 * epsilon * (c12 - c6) * cutoff_fn
 
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))

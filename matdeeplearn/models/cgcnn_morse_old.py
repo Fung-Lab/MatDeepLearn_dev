@@ -1,7 +1,8 @@
-import numpy as np
 import logging
 from time import time
+import math
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch_geometric
@@ -21,8 +22,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("CGCNN_LJ")
-class CGCNN_LJ(BaseModel):
+@registry.register_model("CGCNN_Morse_Old")
+class CGCNN_Morse_Old(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -41,7 +42,7 @@ class CGCNN_LJ(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN_LJ, self).__init__(**kwargs)
+        super(CGCNN_Morse_Old, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -62,14 +63,15 @@ class CGCNN_LJ(BaseModel):
         self.combination_method = kwargs.get('combination_method', 'average')
         self.with_coefs = kwargs.get("with_coefs", False)
         self.ratio = kwargs.get("gnn_potential_ratio", [1., 1.])
-        
-        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+
+        self.rm = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
+        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.D = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
         if self.with_coefs:
-            self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-            self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+            self.coef_e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+            self.coef_2e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -236,31 +238,9 @@ class CGCNN_LJ(BaseModel):
                 out = getattr(F, self.act)(out)
             out = self.lin_out(out)
 
-        lj = self.lj_potential(data)
-        return self.ratio[0] * out + self.ratio[1] * lj
+        morse = self.morse_potential(data)
+        return self.ratio[0] * out + self.ratio[1] * morse
     
-    def cutoff_function(self, r, rc, ro):
-        """
-        Smooth cutoff function.
-
-        Goes from 1 to 0 between ro and rc, ensuring
-        that u(r) = lj(r) * cutoff_function(r) is C^1.
-
-        Defined as 1 below ro, 0 above rc.
-
-        Note that r, rc, ro are all expected to be squared,
-        i.e. `r = r_ij^2`, etc.
-
-        Taken from https://github.com/google/jax-md.
-        """
-
-        return torch.where(
-            r < ro,
-            1.0,
-            torch.where(r < rc, (rc - r) ** 2 * (rc + 2 *
-                    r - 3 * ro) / (rc - ro) ** 3, 0.0),
-        )
-        
     def forward(self, data):
         
         output = {}
@@ -286,71 +266,72 @@ class CGCNN_LJ(BaseModel):
 
         return output
     
-    def lj_potential(self, data):
+    def cutoff_function(self, r, rc, ro):
+        """
+        Piecewise quintic C^{2,1} regular polynomial for use as a smooth cutoff.
+        Ported from JuLIP.jl, https://github.com/JuliaMolSim/JuLIP.jl
+
+        Parameters
+        ----------
+        rc - inner cutoff radius
+        ro - outder cutoff radius
+        """""
+        s = 1.0 - (r - rc) / (ro - rc)
+        return (s >= 1.0) + (((0.0 < s) & (s < 1.0)) *
+                            (6.0 * s**5 - 15.0 * s**4 + 10.0 * s**3))
+    
+    def morse_potential(self, data):
         atoms = data.z[data.edge_index] - 1
         
-        sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
+        atomic_rm = torch.zeros((len(self.rm), 1)).to('cuda:0')
+        atomic_D = torch.zeros((len(self.D), 1)).to('cuda:0')
+        atomic_sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
         
         if self.with_coefs:
-            coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
-            coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
+            coef_e = torch.zeros((len(self.coef_e), 1)).to('cuda:0')
+            coef_2e = torch.zeros((len(self.coef_2e), 1)).to('cuda:0')
     
         for z in np.unique(data.z.cpu()):
-            sigmas[z - 1] = self.sigmas[z - 1]
-            epsilons[z - 1] = self.epsilons[z - 1]
-            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
+            atomic_sigmas[z - 1] = self.sigmas[z - 1]
+            atomic_rm[z - 1] = self.rm[z - 1]
+            atomic_D[z - 1] = self.D[z - 1]
+            
             if self.with_coefs:
-                coef_12[z - 1] = self.coef_12[z - 1]
-                coef_6[z - 1] = self.coef_6[z - 1]
-
+                coef_e[z - 1] = self.coef_e[z - 1]
+                coef_2e[z - 1] = self.coef_2e[z - 1]
+            
+            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
+            
+        if self.with_coefs:
+            coef_e = (coef_e[atoms[0]] + coef_e[atoms[1]]).squeeze() / 2
+            coef_2e = (coef_2e[atoms[0]] + coef_2e[atoms[1]]).squeeze() / 2
+        
         rc = self.cutoff_radius
         ro = 0.66 * rc
-        r2 = data.edge_weight ** 2
-        cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
-        
-        sigma_i, sigma_j = sigmas[atoms[0]], sigmas[atoms[1]]
-        epsilon_i, epsilon_j = epsilons[atoms[0]], epsilons[atoms[1]]
 
-        if self.combination_method != 'Kong':
-            if self.combination_method == 'average':
-                sigma = (sigma_i + sigma_j).squeeze() / 2
-                epsilon = (epsilon_i + epsilon_j).squeeze() / 2
-            elif self.combination_method == 'Lorentz-Berthelot':
-                sigma = (sigma_i + sigma_j).squeeze() / 2
-                epsilon = torch.sqrt(epsilon_i * epsilon_j).squeeze()
-            elif self.combination_method == 'Fender-Halsey':
-                sigma = (sigma_i + sigma_j).squeeze() / 2
-                epsilon = (2 * epsilon_i * epsilon_j / (epsilon_i + epsilon_j)).squeeze()
-            else:
-                raise NotImplementedError(f"{self.combination_method} isn't an implemented combination method.")
-            
-            c6 = (sigma ** 2 / r2) ** 3
-            c6[r2 > rc ** 2] = 0.0
-            c12 = c6 ** 2
+        d = data.edge_weight
+        fc = self.cutoff_function(d, ro, rc)
         
-            if self.with_coefs:
-                coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
-                coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
-                pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
-            else:
-                pairwise_energies = 4 * epsilon * (c12 - c6)
-            
-        else: # combination_method == 'Kong'
-            term_6 = torch.sqrt(epsilon_i * epsilon_j) * (sigma_i * sigma_j) ** 3
-            term_12 = ((epsilon_i * (sigma_i ** 12)) ** (1 / 13) + (epsilon_j * (sigma_j ** 12)) ** (1 / 13) / 2) ** 13
-            
-            term_6, term_12 = term_6.squeeze(), term_12.squeeze()
-            pairwise_energies = 4 * (term_12 / (r2 ** 6) - term_6 / (r2 ** 3))
+        rm_i, rm_j = atomic_rm[atoms[0]], atomic_rm[atoms[1]]
+        sigma_i, sigma_j = atomic_sigmas[atoms[0]], atomic_sigmas[atoms[1]]
+        D_i, D_j = atomic_D[atoms[0]], atomic_D[atoms[1]]
+
+        rm = (rm_i + rm_j).squeeze() / 2
+        sigma = (sigma_i + sigma_j).squeeze() / 2
+        D = (D_i + D_j).squeeze() / 2
         
+        if self.with_coefs:
+            E = D * (coef_e - coef_2e * torch.exp(-sigma * (d - rm))) ** 2 - D
+        else:
+            E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
         
-        pairwise_energies *= cutoff_fn
+        pairwise_energies = 0.5 * (E * fc)
 
         edge_idx_to_graph = data.batch[data.edge_index[0]]
-        lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
+        morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
     
         base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
         base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
-               
-        return lennard_jones_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
+        
+        return morse_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)

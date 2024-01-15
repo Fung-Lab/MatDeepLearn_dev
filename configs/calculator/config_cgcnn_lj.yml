@@ -1,6 +1,6 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: results/CGCNN_LJ_v4/checkpoint/best_checkpoint.pt
+  checkpoint_path: results/late_cgcnn_lj/checkpoint/best_checkpoint.pt
 
 model:
   # Model used by the calculator
@@ -12,7 +12,7 @@ model:
   gc_count: 4
   post_fc_count: 3
   pool: global_add_pool
-  pool_order: early
+  pool_order: late
   batch_norm: False
   batch_track_stats: True
   act: silu
@@ -22,7 +22,7 @@ model:
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 

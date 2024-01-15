@@ -2,7 +2,7 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: cgcnn_morse_bcomb_1_1
+  identifier: cgcnn_morse_old_0.1_test
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: CGCNN_Morse   
+  name: CGCNN_Morse_Old   
   # model attributes
   dim1: 100
   dim2: 150
@@ -52,7 +52,7 @@ model:
   # method to combine atomic parameters: average (default), Berthelot
   combination_method: average
   # GNN : Morse ratio
-  gnn_potential_ratio: [1., 1.]
+  gnn_potential_ratio: [0.1, 1.]
   clamped_params: ['rm', 'sigmas', 'D']
 ?
 optim:

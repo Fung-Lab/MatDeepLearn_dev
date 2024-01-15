@@ -1,5 +1,6 @@
 __all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "LRM",
-           "CGCNN_LJ", "LJ", "TorchMD_LJ", "Morse", "CGCNN_Morse", "TorchMD_Morse"]
+           "CGCNN_LJ", "LJ", "TorchMD_LJ", "Morse", "CGCNN_Morse", "TorchMD_Morse", "LJ_Matrix",
+           "CGCNN_Morse_Old"]
 
 from .base_model import BaseModel
 from .cgcnn import CGCNN
@@ -13,3 +14,5 @@ from .morse import Morse
 from .long_range_morse import LRM
 from .cgcnn_morse import CGCNN_Morse
 from .torchmd_morse import TorchMD_Morse
+from .lj_matrix import LJ_Matrix
+from .cgcnn_morse_old import CGCNN_Morse_Old

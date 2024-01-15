@@ -1,8 +1,8 @@
 trainer: hybrid
 ?
 task:
-  #run_mode: train
-  identifier: lj_cgcnn_v4
+  run_mode: train
+  identifier: late_cgcnn_lj_avg_0.1_1
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: 
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -33,7 +33,7 @@ model:
   gc_count: 4
   post_fc_count: 3
   pool: global_add_pool
-  pool_order: early
+  pool_order: late
   batch_norm: False
   batch_track_stats: True
   act: silu
@@ -44,8 +44,16 @@ model:
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
+  model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  # whether to include coefficients on the 12 and 6 term for lj
+  with_coefs: False
+  # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
+  combination_method: average
+  # GNN : LJ ratio
+  gnn_potential_ratio: [0.1, 1.]
+  clamped_params: ['epsilons', 'sigmas']
 ?
 optim:
   max_epochs: 400
@@ -75,7 +83,7 @@ optim:
   
 dataset:
   name: mpforce_data
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: data/force_data/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file

@@ -2,7 +2,7 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: only_morse_test
+  identifier: only_morse_pt_origin
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 0
@@ -44,22 +44,26 @@ model:
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
+  model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  clamped_params: ['atomic_epsilons', 'atomic_re']
+  clamped_params: ['rm', 'sigmas', 'D']
+  with_coefs: True
+  # either average or Berthelot
+  combination_method: Berthelot
 ?
 optim:
-  max_epochs: 100
+  max_epochs: 50
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    # loss_type: "ForceLoss"
-    # loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: ForceStressLoss
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: "ForceLoss"
+    loss_args: {weight_energy: 0.01, weight_force: 50.}
   clip_grad_norm: 10
          
   batch_size: 128
@@ -76,9 +80,9 @@ optim:
   
 dataset:
   name: mpforce_data
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../Shared/Materials_datasets/MP_data_forces/raw/data_subset_outliers.json
+  src: ../../../Shared/Materials_datasets/Pt_data_forces/raw/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
@@ -97,8 +101,8 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  # additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
+  # additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
   verbose: True
@@ -130,6 +134,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.01
+  val_ratio: 0.005
+  test_ratio: 0.005

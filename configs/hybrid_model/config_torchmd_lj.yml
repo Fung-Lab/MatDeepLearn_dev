@@ -2,7 +2,7 @@ trainer: hybrid
 
 task:
   run_mode: train
-  identifier: torchmd_lj_v2
+  identifier: torchmd_lj_late
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: 
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -44,6 +44,7 @@ model:
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
+  model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   clamped_params: ['sigmas', 'epsilons']

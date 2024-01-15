@@ -205,11 +205,11 @@ class TorchMD_ET(BaseModel):
         x = self.out_norm(x)
         
         if self.prediction_level == "graph":
-            x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
             for i in range(0, len(self.post_lin_list) - 1):
                 x = self.post_lin_list[i](x)
                 x = getattr(F, self.activation)(x)
             x = self.post_lin_list[-1](x)
+            x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
             #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
             #x = self.pool.reduce(x, data.batch)
         elif self.prediction_level == "node":

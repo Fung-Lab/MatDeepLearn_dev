@@ -424,41 +424,6 @@ class HybridTrainer(BaseTrainer):
         torch.cuda.empty_cache()
         
         return predictions
-        
-    def predict_by_calculator(self, loader):        
-        for x, mod in self.model:
-            mod.eval()
-        
-        assert isinstance(loader, torch.utils.data.dataloader.DataLoader)
-        assert len(loader) == 1, f"Predicting by calculator only allows one structure at a time, but got {len(loader)} structures."
-
-        if str(self.rank) not in ("cpu", "cuda"):
-            loader = get_dataloader(
-                loader.dataset, batch_size=loader.batch_size, sampler=None
-            )
-            
-        results = []
-        loader_iter = iter(loader)
-        for i in range(0, len(loader_iter)):
-            batch = next(loader_iter).to(self.rank)      
-            out_list = self._forward(batch.to(self.rank))
-            out = {}
-            out_stack={}            
-            for key in out_list[0].keys():
-                temp = [o[key] for o in out_list]
-                if temp[0] is not None:
-                    out_stack[key] = torch.stack(temp)
-                    out[key] = torch.mean(out_stack[key], dim=0)
-                else:
-                    out[key] = None
-
-            energy = None if out.get('output') is None else out.get('output').data.cpu().numpy()
-            stress = None if out.get('cell_grad') is None else out.get('cell_grad').view(-1, 3).data.cpu().numpy()
-            forces = None if out.get('pos_grad') is None else out.get('pos_grad').data.cpu().numpy()
-            
-            results = {'energy': energy, 'stress': stress, 'forces': forces}
-        
-        return results
 
     def _forward(self, batch_data):
         if len(batch_data) > 1:
@@ -488,6 +453,12 @@ class HybridTrainer(BaseTrainer):
                 self.model[index].parameters(),
                 max_norm=self.clip_grad_norm,
             )
+        
+        for model in self.model:
+            for name, param in model.named_parameters():
+                if name.split('.')[0] in self.clamped_params:
+                    param.data.clamp_(min=0.1)
+        
         self.scaler.step(self.optimizer[index])
         self.scaler.update()
             

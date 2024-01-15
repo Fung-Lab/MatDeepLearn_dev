@@ -1,6 +1,6 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: results/CGCNN_morse_v1/checkpoint/best_checkpoint.pt
+  checkpoint_path: results/late_cgcnn_morse_no_coef/checkpoint/best_checkpoint.pt
 
 model:
   # Model used by the calculator
@@ -12,7 +12,7 @@ model:
   gc_count: 4
   post_fc_count: 3
   pool: global_add_pool
-  pool_order: early
+  pool_order: late
   batch_norm: False
   batch_track_stats: True
   act: silu
