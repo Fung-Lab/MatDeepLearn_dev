@@ -295,7 +295,10 @@ class BaseTrainer(ABC):
             model_config["prediction_level"] = "graph"
         elif dataset[0]["y"].shape[0] == torch.sum(dataset[0]["z"] == 100):
             model_config["prediction_level"] = "virtual"
-            model_config["cutoff_radius_vn"] = graph_config["virtual_params"]["cutoff_radius_vn"]
+            model_config["cutoff_radius_rn_vn"] = graph_config["virtual_params"].get("cutoff_radius_rn_vn", 8)
+            model_config["cutoff_radius_vn_vn"] = graph_config["virtual_params"].get("cutoff_radius_vn_vn", 4)
+            model_config["rn_vn_aggr"] = graph_config["virtual_params"].get("rn_vn_aggr", "add")
+            model_config["vn_vn_aggr"] = graph_config["virtual_params"].get("vn_vn_aggr", "add")
         else:
             raise ValueError(
                 "Target labels do not have the correct dimensions for node or graph-level prediction."

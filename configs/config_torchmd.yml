@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_torchmd_meanRN
+  identifier: try4_torchmd_VN-VN4_half
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -37,7 +37,7 @@ model:
   num_post_layers: 2
   post_hidden_channels: 64
   pool: "global_add_pool"
-  aggr: "add"
+  aggr: "mean"
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True
   # Compute edge attributes on the fly in the model forward
@@ -124,7 +124,10 @@ dataset:
     node_representation: onehot
     # virtual node settings
     virtual_params:
-      cutoff_radius_vn: 12.0
+      cutoff_radius_rn_vn: 12.0
+      cutoff_radius_vn_vn: 4.0
+      rn_vn_aggr: "add"
+      vn_vn_aggr: "mean"
       num_samples: 10000
       num_sub_batch: 500
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
