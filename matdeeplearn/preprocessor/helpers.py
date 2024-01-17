@@ -72,7 +72,7 @@ def calculate_edges_master(
         cell = cell.view(1, 3, 3)
         
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            r, n_neighbors, pos, cell, torch.tensor([len(pos)]), [True, True, True], offset_number
+            r, n_neighbors, pos, cell, torch.tensor([len(pos)], device = device), [True, True, True], offset_number
         )
 
         ocp_out = get_pbc_distances(
