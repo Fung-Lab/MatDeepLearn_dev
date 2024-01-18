@@ -11,12 +11,16 @@ from matdeeplearn.common.registry import registry
 
 @registry.register_loss("TorchLossWrapper")
 class TorchLossWrapper(nn.Module):
-    def __init__(self, loss_fn="l1_loss"):
+    def __init__(self, loss_fn="l1_loss", reduction='mean'):
         super().__init__()
-        self.loss_fn = getattr(F, loss_fn)
+        self.reduction = reduction
+        self.loss_fn = getattr(F, loss_fn)(reduction=reduction)
 
-    def forward(self, predictions: torch.Tensor, target: Batch):    
-        return self.loss_fn(predictions["output"], target.y)
+    def forward(self, predictions: torch.Tensor, target: Batch):
+        if self.reduction == "mean":
+            return self.loss_fn(predictions["output"], target.y)
+        elif self.reduction == "sum":
+            return self.loss_fn(predictions["output"], target.y) / torch.sum(target.y)
 
 
 @registry.register_loss("ForceLoss")
