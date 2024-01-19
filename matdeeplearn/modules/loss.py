@@ -17,7 +17,10 @@ class TorchLossWrapper(nn.Module):
         self.loss_fn = getattr(F, loss_fn)
 
     def forward(self, predictions: torch.Tensor, target: Batch):
-        return self.loss_fn(predictions["output"], target.y, reduction=self.reduction)
+        if self.reduction == 'mean':
+            return self.loss_fn(predictions["output"], target.y, reduction=self.reduction)
+        elif self.reduction == 'sum':
+            return self.loss_fn(predictions["output"], target.y, reduction=self.reduction) / torch.sum(target.y)
 
 
 @registry.register_loss("ForceLoss")
