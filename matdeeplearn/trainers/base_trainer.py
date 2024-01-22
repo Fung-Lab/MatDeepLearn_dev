@@ -30,11 +30,11 @@ class BaseTrainer(ABC):
     def __init__(
         self,
         model: BaseModel,
-        dataset: Dataset,
+        dataset: Dataset | None,
         optimizer: Optimizer,
         sampler: DistributedSampler,
         scheduler: LRScheduler,
-        data_loader: DataLoader,        
+        data_loader: DataLoader | None,        
         loss: nn.Module,
         max_epochs: int,
         clip_grad_norm: float = None,
@@ -101,17 +101,18 @@ class BaseTrainer(ABC):
             logging.info(
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"
             )
-            logging.info("Dataset(s) used:")
-            for key in self.dataset:
-                logging.info(f"Dataset length: {key, len(self.dataset[key])}")
-            if self.dataset.get("train"):
-                logging.debug(self.dataset["train"][0])
-                logging.debug(self.dataset["train"][0].z[0])
-                logging.debug(self.dataset["train"][0].y[0])
-            else:
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
+            if !(self.dataset is None):
+                logging.info("Dataset(s) used:")
+                for key in self.dataset:
+                    logging.info(f"Dataset length: {key, len(self.dataset[key])}")
+                if self.dataset.get("train"):
+                    logging.debug(self.dataset["train"][0])
+                    logging.debug(self.dataset["train"][0].z[0])
+                    logging.debug(self.dataset["train"][0].y[0])
+                else:
+                    logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
+                    logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
+                    logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
             if str(self.rank) not in ("cpu", "cuda"):
                 logging.debug(self.model[0].module)
@@ -144,7 +145,7 @@ class BaseTrainer(ABC):
         else:
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if hasattr(config["dataset"], "src") else None
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
         sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
@@ -155,7 +156,7 @@ class BaseTrainer(ABC):
             sampler,
             config["task"]["run_mode"],
             config["model"]
-        )
+        ) if hasattr(config["dataset"], "src") else None
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
