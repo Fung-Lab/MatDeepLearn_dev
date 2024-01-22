@@ -271,10 +271,11 @@ class BaseTrainer(ABC):
     def _load_model(model_config, graph_config, dataset, world_size, rank):
         """Loads the model if from a config file."""
 
-        if dataset.get("train"):
-            dataset = dataset["train"]
-        else:
-            dataset = dataset[list(dataset.keys())[0]]
+        if !(dataset is None):
+            if dataset.get("train"):
+                dataset = dataset["train"]
+            else:
+                dataset = dataset[list(dataset.keys())[0]]
                     
         if isinstance(dataset, torch.utils.data.Subset): 
             dataset = dataset.dataset 
@@ -296,13 +297,17 @@ class BaseTrainer(ABC):
             else:
                 node_dim = dataset.num_features   
             edge_dim = graph_config["edge_dim"] 
-            if dataset[0]["y"].ndim == 0:
+            if graph_config["output_dim"]:
+                output_dim = graph_config["output_dim"]
+            elif dataset[0]["y"].ndim == 0:
                 output_dim = 1
             else:
                 output_dim = dataset[0]["y"].shape[1]     
 
             # Determine if this is a node or graph level model
-            if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
+            if graph_config["prediction_level"]:
+                model_config["prediction_level"] = graph_config["prediction_level"]
+            elif dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
                 model_config["prediction_level"] = "node"
             elif dataset[0]["y"].shape[0] == 1:
                 model_config["prediction_level"] = "graph"
