@@ -99,9 +99,9 @@ class MDLCalculator(Calculator):
         forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
         stresses = torch.stack([entry["cell_grad"] for entry in out_list]).mean(dim=0)
         
-        self.results['energy'] = energy.detach().cpu().numpy()
-        self.results['forces'] = forces.detach().cpu().numpy()
-        self.results['stress'] = stresses.squeeze().detach().cpu().numpy()
+        self.results['energy'] = energy.detach().cpu().numpy().squeeze()
+        self.results['forces'] = forces.detach().cpu().numpy().squeeze()
+        self.results['stress'] = stresses.squeeze().detach().cpu().numpy().squeeze()
         
     @staticmethod
     def data_to_atoms_list(data: Data) -> List[Atoms]:
@@ -148,7 +148,7 @@ class MDLCalculator(Calculator):
         model_config = config['model']
         
         model_list = []
-        model_name = 'matdeeplearn.models.' + model_config["name"]
+        model_name = model_config["name"]
         logging.info(f'MDLCalculator: setting up {model_name} for calculation')
         # Obtain node, edge, and output dimensions for model initialization   
         for _ in range(model_config["model_ensemble"]): 
