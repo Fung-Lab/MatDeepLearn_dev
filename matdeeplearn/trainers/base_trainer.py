@@ -32,7 +32,7 @@ class BaseTrainer(ABC):
         model: BaseModel,
         dataset: Dataset | None,
         optimizer: Optimizer,
-        sampler: DistributedSampler,
+        sampler: DistributedSampler | None,
         scheduler: LRScheduler,
         data_loader: DataLoader | None,        
         loss: nn.Module,
@@ -148,7 +148,7 @@ class BaseTrainer(ABC):
         dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if hasattr(config["dataset"], "src") else None
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
-        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
+        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank) if hasattr(config["dataset"], "src") else None
         data_loader = cls._load_dataloader(
             config["optim"],
             config["dataset"],
