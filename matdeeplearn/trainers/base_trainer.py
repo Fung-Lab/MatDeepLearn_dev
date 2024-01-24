@@ -101,7 +101,7 @@ class BaseTrainer(ABC):
             logging.info(
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"
             )
-            if !(self.dataset is None):
+            if not (self.dataset is None):
                 logging.info("Dataset(s) used:")
                 for key in self.dataset:
                     logging.info(f"Dataset length: {key, len(self.dataset[key])}")
