@@ -292,17 +292,20 @@ class BaseTrainer(ABC):
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
-            if graph_config["node_dim"]:
-                node_dim = graph_config["node_dim"]
+            if not (dataset is None)::
+                node_dim = dataset.num_features
             else:
-                node_dim = dataset.num_features   
-            edge_dim = graph_config["edge_dim"] 
+                node_dim = graph_config["node_dim"]
+            edge_dim = graph_config["edge_dim"]
             if graph_config["output_dim"]:
                 output_dim = graph_config["output_dim"]
-            elif dataset[0]["y"].ndim == 0:
-                output_dim = 1
+            if not (dataset is None):
+                if dataset[0]["y"].ndim == 0:
+                    output_dim = 1
+                else:
+                    output_dim = dataset[0]["y"].shape[1]
             else:
-                output_dim = dataset[0]["y"].shape[1]     
+                output_dim = graph_config["output_dim"]
 
             # Determine if this is a node or graph level model
             if graph_config["prediction_level"]:
