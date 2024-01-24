@@ -271,7 +271,7 @@ class BaseTrainer(ABC):
     def _load_model(model_config, graph_config, dataset, world_size, rank):
         """Loads the model if from a config file."""
 
-        if !(dataset is None):
+        if not (dataset is None):
             if dataset.get("train"):
                 dataset = dataset["train"]
             else:
