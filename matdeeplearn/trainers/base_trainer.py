@@ -292,7 +292,7 @@ class BaseTrainer(ABC):
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
-            if not (dataset is None)::
+            if not (dataset is None):
                 node_dim = dataset.num_features
             else:
                 node_dim = graph_config["node_dim"]
