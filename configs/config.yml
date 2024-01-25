@@ -9,11 +9,11 @@ task:
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: 
+  checkpoint_path: "/net/csefiles/coc-fung-cluster/Victor/ML_Matdeeplearn/MatDeepLearn_dev/scn_all_md_s2ef_converted.pt"
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -26,19 +26,25 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN    
+  name: scn    
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: global_add_pool
-  pool_order: early
-  batch_norm: True
-  batch_track_stats: True
-  act: relu
-  dropout_rate: 0.0
+  name: scn
+  num_interactions: 16
+  hidden_channels: 1024
+  sphere_channels: 128
+  sphere_channels_reduce: 128
+  num_sphere_samples: 128
+  num_basis_functions: 128
+  distance_function: "gaussian"
+  show_timing_info: False
+  max_num_neighbors: 40
+  cutoff: 8.0
+  lmax: 6
+  num_bands: 2
+  use_grid: True
+  regress_forces: True
+  use_pbc: True
+  basis_width_scalar: 2.0
   # Compute edge indices on the fly in the model forward
   otf_edge_index: False 
   # Compute edge attributes on the fly in the model forward
@@ -53,7 +59,7 @@ model:
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.0001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: TorchLossWrapper
@@ -75,7 +81,7 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: data/test_data/data_graph_scalar.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
@@ -132,4 +138,4 @@ dataset:
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.8
   val_ratio: 0.05
-  test_ratio: 1
+  test_ratio: 0.15

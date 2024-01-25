@@ -295,7 +295,7 @@ class SphericalChannelNetwork(BaseModel):
         sorted_indices = torch.argsort(edge_index[1])
         data.edge_index = edge_index[:, sorted_indices]
         edge_index = data.edge_index
-        edge_distance = data.distances
+        edge_distance = data.edge_weight
         edge_distance_vec = data.edge_vec
 
         ###############################################################
@@ -430,11 +430,16 @@ class SphericalChannelNetwork(BaseModel):
             forces = forces.view(-1, self.num_sphere_samples, 1)
             forces = forces * sphere_points.view(1, self.num_sphere_samples, 3)
             forces = torch.sum(forces, dim=1) / self.num_sphere_samples
-
+        
+        out = {}
         if not self.regress_forces:
-            return energy
+            out["output"] = energy
         else:
-            return energy, forces
+            out["output"] = energy
+            out["pos_grad"] = forces                    
+        
+        return out
+
 
     def _init_edge_rot_mat(self, data, edge_index, edge_distance_vec):
         edge_vec_0 = edge_distance_vec
