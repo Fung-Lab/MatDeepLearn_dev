@@ -292,10 +292,10 @@ class BaseTrainer(ABC):
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
-            if not (dataset is None):
-                node_dim = dataset.num_features
-            else:
+            if graph_config["node_dim"]:
                 node_dim = graph_config["node_dim"]
+            else:
+                node_dim = dataset.num_features
             edge_dim = graph_config["edge_dim"]
             if not (dataset is None):
                 if dataset[0]["y"].ndim == 0:
