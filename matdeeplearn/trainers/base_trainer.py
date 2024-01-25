@@ -139,7 +139,7 @@ class BaseTrainer(ABC):
             local_world_size = os.environ.get("LOCAL_WORLD_SIZE", None)
             local_world_size = int(local_world_size)
             dist.init_process_group(
-                "nccl", world_size=local_world_size, init_method="env://"
+                backend="nccl", world_size=local_world_size, init_method="env://"
             )
             rank = int(dist.get_rank())
         else:

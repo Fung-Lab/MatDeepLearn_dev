@@ -60,7 +60,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10       
-  batch_size: 100
+  batch_size: 10
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -75,14 +75,14 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/test_data/data_graph_scalar.json
+  src: /autofs/nccs-svm1_home2/akaashrp/Matbench/data_log_gvrh.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
-  target_path: 
+  target_path: # /autofs/nccs-svm1_home2/akaashrp/Surface_data_npj/targets.csv
   # Path to save processed data.pt file
-  pt_path: data/
+  pt_path: /tmp/
   # Either "node" or "graph" level
   prediction_level: graph
   
