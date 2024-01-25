@@ -51,7 +51,7 @@ teacher_model:
   # Train teacher model at the same time
   trainable: False
   # Load teacher model from a checkpoint path.
-  teacher_checkpoint_path: results/2023-10-25-11-17-02-107-torch_md_training/checkpoint/best_checkpoint.pt
+  teacher_checkpoint_path: results/best_torchmd_subset/checkpoint/best_checkpoint.pt
 
 model:
   name: CGCNN     
@@ -59,7 +59,7 @@ model:
   dim1: 100
   dim2: 150
   pre_fc_count: 1
-  gc_count: 3
+  gc_count: 4
   post_fc_count: 1
   pool: global_add_pool
   pool_order: early
@@ -76,7 +76,7 @@ model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # layer output for distillation
-  distill_layers: "g3"
+  distill_layers: "g4"
 
 optim:
   max_epochs: 400
@@ -94,10 +94,12 @@ optim:
     weight_energy: 0.01
     weight_force: 50.0
     weight_stress: 50.0
-    weight_distillation: 10
+    weight_distillation: 1
+    attention_weight: False
+    attention_dim: 32
   clip_grad_norm: 10
          
-  batch_size: 16
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {"weight_decay": 0.0001}

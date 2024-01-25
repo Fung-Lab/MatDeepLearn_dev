@@ -18,8 +18,6 @@ from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 @registry.register_model("torchmd_etEarly")
-
-
 class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
@@ -94,6 +92,7 @@ class TorchMD_ET(BaseModel):
         projection_head=False,
         id_mapping=False,
         force_linear_n2n=False,
+        is_teacher=False,
         **kwargs
     ):
         super(TorchMD_ET, self).__init__(**kwargs)
@@ -135,6 +134,7 @@ class TorchMD_ET(BaseModel):
         self.teacher_edge_dim = 1
         self.teacher_node_dim = 1
         self.teacher_vec_dim = 1
+        self.is_teacher = is_teacher
 
         act_class = act_class_mapping[activation]
 
@@ -212,62 +212,40 @@ class TorchMD_ET(BaseModel):
     
     def setup_distillation(self):
         model_feature_dim = self.extract_feature_dimensions()
-        if self.projection_head:
+
+        if self.is_teacher or self.id_mapping:
+            self.n2n_mapping = torch.nn.Identity()
+            self.v2v_mapping = torch.nn.Identity()
+            self.e2n_mapping = torch.nn.Identity()
+            self.e2e_mapping = torch.nn.Identity()
+        elif self.projection_head:
+            # Conditions for projection head
             self.n2n_mapping = torch.nn.Sequential(
-                torch.nn.Linear(
-                    model_feature_dim["node_dim"],
-                    2 * self.hidden_channels,
-                ),
+                torch.nn.Linear(model_feature_dim["node_dim"], 2 * self.hidden_channels),
                 torch.nn.ReLU(),
                 torch.nn.Linear(2 * self.hidden_channels, self.teacher_node_dim),
             )
-        elif self.id_mapping and not self.force_linear_n2n:
-            self.n2n_mapping = torch.nn.Identity()
-        else:
-            self.n2n_mapping = torch.nn.Linear(
-                model_feature_dim["node_dim"], self.teacher_node_dim
-            )
-
-        if self.id_mapping:
-            self.v2v_mapping = torch.nn.Identity()
-        else:
-            self.v2v_mapping = torch.nn.Linear(
-                model_feature_dim["vec_dim"],
-                self.teacher_vec_dim,
-                bias=False,
-            )
-
-        if self.projection_head:
-            self.n2e_mapping = torch.nn.Sequential(
-                torch.nn.Linear(
-                     model_feature_dim["node_dim"],
-                    2 * self.hidden_channels,
-                ),
+            self.e2n_mapping = torch.nn.Sequential(
+                torch.nn.Linear(model_feature_dim["node_dim"], 2 * self.hidden_channels),
                 torch.nn.ReLU(),
                 torch.nn.Linear(2 * self.hidden_channels, self.teacher_edge_dim),
             )
-        elif self.id_mapping:
-            self.n2e_mapping = torch.nn.Identity()
-        else:
-            self.n2e_mapping = torch.nn.Linear(
-                 model_feature_dim["node_dim"], self.teacher_edge_dim
-            )
-
-        if self.projection_head:
             self.e2e_mapping = torch.nn.Sequential(
-                torch.nn.Linear(
-                    model_feature_dim["edge_dim"],
-                    2 * self.edge_dim,
-                ),
+                torch.nn.Linear(model_feature_dim["edge_dim"], 2 * self.edge_dim),
                 torch.nn.ReLU(),
                 torch.nn.Linear(2 * self.edge_dim, self.teacher_edge_dim),
             )
-        elif self.id_mapping:
-            self.e2e_mapping = torch.nn.Identity()
-        else:
-            self.e2e_mapping = torch.nn.Linear(
-                model_feature_dim["edge_dim"], self.teacher_edge_dim
+            self.v2v_mapping = torch.nn.Sequential(
+                torch.nn.Linear(model_feature_dim["vec_dim"], 2 * self.teacher_vec_dim),
+                torch.nn.ReLU(),
+                torch.nn.Linear(2 * self.teacher_vec_dim, self.teacher_vec_dim),
             )
+        else:
+            # Conditions for linear mapping
+            self.n2n_mapping = torch.nn.Linear(model_feature_dim["node_dim"], self.teacher_node_dim)
+            self.v2v_mapping = torch.nn.Linear(model_feature_dim["vec_dim"], self.teacher_vec_dim)
+            self.e2n_mapping = torch.nn.Linear(model_feature_dim["node_dim"], self.teacher_edge_dim)
+            self.e2e_mapping = torch.nn.Linear(model_feature_dim["edge_dim"], self.teacher_edge_dim)
 
     def reset_parameters(self):
         self.embedding.reset_parameters()
@@ -437,10 +415,16 @@ class TorchMD_ET(BaseModel):
         node_feat = torch.cat(node_feature, dim=-1)     
         edge_feat = torch.cat(edge_feature, dim=-1)
         vec_feat = torch.cat(vec_feature, dim=-1)
+        if self.is_teacher:
+            edge_to_node_feat = scatter(edge_feat, data.edge_index[0], dim=0, reduce='mean')
+            output["e2n_mapping"] = self.e2n_mapping(edge_to_node_feat.float())
+        else:
+            output["e2n_mapping"] = self.e2n_mapping(node_feat.float())
         output["n2n_mapping"] = self.n2n_mapping(node_feat.float())
-        output["n2e_mapping"] = self.n2e_mapping(node_feat.float())
         output["e2e_mapping"] = self.e2e_mapping(edge_feat.float())
-        output["v2v_mapping"] = self.v2v_mapping(vec_feat.float())
+        vec_feat = vec_feat.reshape(vec_feat.size(0), -1)
+        v2v = self.v2v_mapping(vec_feat.float())
+        output["v2v_mapping"] = v2v
 
         if self.gradient == True and x.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
@@ -465,7 +449,7 @@ class TorchMD_ET(BaseModel):
         num_distill_layer = len(self.distill_layers)
         node_feature_dim = num_distill_layer * self.hidden_channels
         edge_feature_dim = num_distill_layer * self.num_rbf
-        vec_feature_dim = num_distill_layer * self.hidden_channels
+        vec_feature_dim = 3 * num_distill_layer * self.hidden_channels
         return {"node_dim":node_feature_dim, "edge_dim":edge_feature_dim, "vec_dim":vec_feature_dim}
 
     def set_teacher_dim(self, teacher_dim):

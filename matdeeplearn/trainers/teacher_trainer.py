@@ -62,6 +62,7 @@ class TeacherPreprocessTrainer():
                   n_neighbors=graph_config["n_neighbors"], 
                   graph_method=graph_config["edge_calc_method"], 
                   num_offsets=graph_config["num_offsets"], 
+                  is_teacher=True,
                   **model_config
                   )
         model = model.to(rank)

@@ -12,6 +12,7 @@ from matdeeplearn.common.data import get_dataloader
 from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
+from torch.nn.parallel import DistributedDataParallel
 
 
 
@@ -70,6 +71,8 @@ class DistillForcesTrainer(BaseTrainer):
         original_loss_fn=None,
         preprocess_teacher_features=False,
         teacher_model=None,
+        attention_model=None,
+        attention_weight=False,
     ):
         super().__init__(
             model,
@@ -95,6 +98,8 @@ class DistillForcesTrainer(BaseTrainer):
         self.teacher_model = teacher_model
         self.preprocess_teacher_features = preprocess_teacher_features
         self.original_loss_fn = original_loss_fn
+        self.attention_model = attention_model
+        self.attention_weight = attention_weight
     
 
     @classmethod
@@ -128,17 +133,26 @@ class DistillForcesTrainer(BaseTrainer):
 
         # set up teacher model and mapping funtion
         config['teacher_model']['use_distill'] = True
-        config['teacher_model']['id_mapping'] = True
+        config['teacher_model']['is_teacher'] = True
         config['model']['use_distill'] = True
         preprocess_teacher_features = config['dataset']['preprocess_params']['preprocess_teacher_features']
         teacher_model = cls._load_teacher_model(config["teacher_model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         teacher_model.setup_distillation()
         teacher_dim = teacher_model.extract_feature_dimensions()
 
+        #set up attention model for adaptive loss
+        if config['optim']['loss']['attention_weight']:
+            attention_model =  cls._load_attention_model(teacher_dim, config['optim']['loss']['attention_dim'], local_world_size, rank)
+            attention_model.to(rank)
+        else:
+            attention_model = None
+        attention_weight = config['optim']['loss']['attention_weight']
+
         if preprocess_teacher_features:
             del teacher_model
             # Clear memeory of teacher model
             torch.cuda.empty_cache()
+            teacher_model = None
         else:
             teacher_model.to(rank)
 
@@ -177,55 +191,33 @@ class DistillForcesTrainer(BaseTrainer):
      
         if local_world_size > 1:
             dist.barrier()
-        if preprocess_teacher_features:
-            return cls(
-                model=model,
-                dataset=dataset,
-                optimizer=optimizer,
-                sampler=sampler,
-                scheduler=scheduler,
-                data_loader=data_loader,
-                loss=loss,
-                max_epochs=max_epochs,
-                clip_grad_norm=clip_grad_norm,
-                max_checkpoint_epochs=max_checkpoint_epochs,
-                identifier=identifier,
-                verbosity=verbosity,
-                batch_tqdm=batch_tqdm,
-                write_output=write_output,
-                output_frequency=output_frequency,
-                model_save_frequency=model_save_frequency,
-                save_dir=save_dir,
-                checkpoint_path=checkpoint_path,
-                use_amp=config["task"].get("use_amp", False),
-                original_loss_fn=original_loss_fn,
-                preprocess_teacher_features=preprocess_teacher_features
-            )
-        else:
-            return cls(
-                model=model,
-                dataset=dataset,
-                optimizer=optimizer,
-                sampler=sampler,
-                scheduler=scheduler,
-                data_loader=data_loader,
-                loss=loss,
-                max_epochs=max_epochs,
-                clip_grad_norm=clip_grad_norm,
-                max_checkpoint_epochs=max_checkpoint_epochs,
-                identifier=identifier,
-                verbosity=verbosity,
-                batch_tqdm=batch_tqdm,
-                write_output=write_output,
-                output_frequency=output_frequency,
-                model_save_frequency=model_save_frequency,
-                save_dir=save_dir,
-                checkpoint_path=checkpoint_path,
-                use_amp=config["task"].get("use_amp", False),
-                original_loss_fn=original_loss_fn,
-                preprocess_teacher_features=preprocess_teacher_features,
-                teacher_model=teacher_model
-            )
+    
+        return cls(
+            model=model,
+            dataset=dataset,
+            optimizer=optimizer,
+            sampler=sampler,
+            scheduler=scheduler,
+            data_loader=data_loader,
+            loss=loss,
+            max_epochs=max_epochs,
+            clip_grad_norm=clip_grad_norm,
+            max_checkpoint_epochs=max_checkpoint_epochs,
+            identifier=identifier,
+            verbosity=verbosity,
+            batch_tqdm=batch_tqdm,
+            write_output=write_output,
+            output_frequency=output_frequency,
+            model_save_frequency=model_save_frequency,
+            save_dir=save_dir,
+            checkpoint_path=checkpoint_path,
+            use_amp=config["task"].get("use_amp", False),
+            original_loss_fn=original_loss_fn,
+            preprocess_teacher_features=preprocess_teacher_features,
+            teacher_model=teacher_model,
+            attention_model=attention_model,
+            attention_weight=attention_weight,
+        )
 
     def _load_teacher_model(teacher_config, graph_config, dataset, world_size, rank):
         teacher_model = DistillForcesTrainer._load_model(teacher_config, graph_config, dataset, world_size, rank)
@@ -243,6 +235,24 @@ class DistillForcesTrainer(BaseTrainer):
 
         return teacher_model
 
+    def _load_attention_model(teacher_dim, attention_dim, world_size, rank):
+        attention_model_cls = registry.get_model_class("attention_loss")
+        attention_model = attention_model_cls(
+            teacher_node_dim = teacher_dim["node_dim"], 
+            teacher_edge_dim = teacher_dim["edge_dim"], 
+            teacher_vec_dim = teacher_dim["vec_dim"],
+            attention_dim = attention_dim,
+        )
+        attention_model = attention_model.to(rank)
+        # model = torch_geometric.compile(model)
+        # if model_config["load_model"] == True:
+        #    checkpoint = torch.load(model_config["model_path"])
+        #    model.load_state_dict(checkpoint["state_dict"])
+        if world_size > 1:
+            attention_model = DistributedDataParallel(
+                attention_model, device_ids=[rank], find_unused_parameters=False
+            )
+        return attention_model
 
     def _load_loss(loss_config, preprocess_teacher_features):
         """Loads the loss function based on the provided configuration."""
@@ -252,7 +262,8 @@ class DistillForcesTrainer(BaseTrainer):
 
         optional_args = [
             "distill_fns", "use_mae", "use_huber", 
-            "weight_energy", "weight_force", "weight_stress","weight_distillation"
+            "weight_energy", "weight_force", "weight_stress",
+            "weight_distillation","attention_weight"
         ]
         for arg in optional_args:
             if arg in loss_config:
@@ -322,12 +333,17 @@ class DistillForcesTrainer(BaseTrainer):
                 #self.step = epoch * len(self.train_loader) + i + 1
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024)) 
                 self.model.train()
+                if self.attention_model:
+                    self.attention_model.train()
                 # Get a batch of train data
                 batch = next(train_loader_iter).to(self.rank) 
                 #print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
                 with autocast(enabled=self.use_amp):
-                    out = self._distill_forward(batch)                                            
+                    out = self._distill_forward(batch)
+                    # process attention for loss
+                    if self.attention_weight:
+                        out = self._compute_attention(out, batch)
                     loss = self._compute_distill_loss(out, batch)  
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
                 grad_norm = self._backward(loss)  
@@ -408,6 +424,8 @@ class DistillForcesTrainer(BaseTrainer):
     @torch.no_grad()
     def validate(self, split="val"):
         self.model.eval()
+        if self.attention_model:
+            self.attention_model.eval()
         evaluator, metrics = Evaluator(), {}
 
         if split == "val":
@@ -420,7 +438,9 @@ class DistillForcesTrainer(BaseTrainer):
         for i in range(0, len(loader_iter)):
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
             batch = next(loader_iter).to(self.rank)
-            out = self._distill_forward(batch)                                            
+            out = self._distill_forward(batch)
+            if self.attention_weight:
+                out = self._compute_attention(out, batch)                                            
             loss = self._compute_distill_loss(out, batch)  
             # Compute metrics
             #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))          
@@ -585,7 +605,7 @@ class DistillForcesTrainer(BaseTrainer):
         output = self.model(batch_data)
         return output
     
-    def _distill_forward(self, batch_list, teacher_grad=False):
+    def _distill_forward(self, batch_list):
         # forward pass.
         if self.preprocess_teacher_features:
             s_out = self.model.extract_feature(batch_list)
@@ -593,6 +613,13 @@ class DistillForcesTrainer(BaseTrainer):
         t_out = self.teacher_model.extract_feature(batch_list)
         s_out = self.model.extract_feature(batch_list)
         return {"s_out": s_out, "t_out": t_out}
+
+    def _compute_attention(self, output, batch_list):
+        if self.preprocess_teacher_features:
+            output = self.attention_model.compute_attention(output, batch_list)
+        else:
+            output = self.attention_model.compute_attention(output)
+        return output
     
     def _compute_loss(self, out, batch_data):
 

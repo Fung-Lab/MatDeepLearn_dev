@@ -88,10 +88,13 @@ class MDLCalculator(Calculator):
         data_list = [data]
         loader = DataLoader(data_list, batch_size=1)
 
-        out = self.trainer.predict_by_calculator(loader)
-        self.results['energy'] = out['energy']
-        self.results['forces'] = out['forces']
-        self.results['stress'] = out['stress']
+        energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)
+        forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
+        stresses = torch.stack([entry["cell_grad"] for entry in out_list]).mean(dim=0)
+        
+        self.results['energy'] = energy.detach().cpu().numpy().squeeze()
+        self.results['forces'] = forces.detach().cpu().numpy().squeeze()
+        self.results['stress'] = stresses.squeeze().detach().cpu().numpy().squeeze()
         
     @staticmethod
     def data_to_atoms_list(data: Data) -> List[Atoms]:
@@ -120,3 +123,56 @@ class MDLCalculator(Calculator):
         for i in range(len(data.structure_id)):
             atoms_list[i].structure_id = data.structure_id[i][0]
         return atoms_list
+    
+    @staticmethod
+    def _load_model(config: dict, rank: str) -> List[BaseModel]:
+        """
+        This static method loads a model based on the provided configuration.
+
+        Parameters:
+        - config (dict): Configuration dictionary containing model and dataset parameters.
+        - rank: Rank information for distributed training.
+
+        Returns:
+        - model_list: A list of loaded models.
+        """
+        
+        graph_config = config['dataset']['preprocess_params']
+        model_config = config['model']
+        
+        model_list = []
+        #model_name = 'matdeeplearn.models.' + model_config["name"]
+        model_name = model_config["name"]
+        logging.info(f'MDLCalculator: setting up {model_name} for calculation')
+        # Obtain node, edge, and output dimensions for model initialization   
+        for _ in range(model_config["model_ensemble"]): 
+            node_dim = graph_config["node_dim"]
+            edge_dim = graph_config["edge_dim"]   
+
+            model_cls = registry.get_model_class(model_name)
+            model = model_cls(
+                    node_dim=node_dim, 
+                    edge_dim=edge_dim, 
+                    output_dim=1, 
+                    cutoff_radius=graph_config["cutoff_radius"], 
+                    n_neighbors=graph_config["n_neighbors"], 
+                    graph_method=graph_config["edge_calc_method"], 
+                    num_offsets=graph_config["num_offsets"], 
+                    **model_config
+                    )
+            model = model.to(rank)
+            model_list.append(model)
+        
+        checkpoints = config['task']["checkpoint_path"].split(',')
+        if len(checkpoints) == 0:
+            logging.warning("MDLCalculator: No checkpoint.pt file is found, and untrained models are used for prediction.")
+        else:
+            for i in range(len(checkpoints)):
+                try:
+                    checkpoint = torch.load(checkpoints[i])
+                    model_list[i].load_state_dict(checkpoint["state_dict"])
+                    logging.info(f'MDLCalculator: weights for model No.{i+1} loaded from {checkpoints[i]}')
+                except ValueError:
+                    logging.warning(f"MDLCalculator: No checkpoint.pt file is found for model No.{i+1}, and an untrained model is used for prediction.")
+
+        return model_list

@@ -40,6 +40,7 @@ class CGCNN(BaseModel):
         projection_head=False,
         id_mapping=False,
         force_linear_n2n=False,
+        is_teacher=False,
         **kwargs
     ):
         super(CGCNN, self).__init__(**kwargs)
@@ -67,6 +68,7 @@ class CGCNN(BaseModel):
         self.teacher_edge_dim = 1
         self.teacher_node_dim = 1
         self.teacher_vec_dim = 1
+        self.is_teacher = is_teacher
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -106,10 +108,10 @@ class CGCNN(BaseModel):
             ), "Distill layer number in CGCNN is less than 1"
             assert all(
                 code[1] <= (pre_fc_count+gc_count+post_fc_count) for code in distill_layers
-            ), "Distill layer number in Painn is large than num_layers"
+            ), "Distill layer number in CGCNN is large than num_layers"
             assert all(
                 code[0] in ["pr", "g", "po"] for code in distill_layers
-            ), "Distill layer type in Painn not pr(pre_fc), g(gc), po(post_fc)"
+            ), "Distill layer type in CGCNN not pr(pre_fc), g(gc), po(post_fc)"
             self.distill_layers = distill_layers
             self.num_distill_layers = len(self.distill_layers)
 
@@ -174,65 +176,43 @@ class CGCNN(BaseModel):
                 lin_out = torch.nn.Linear(self.post_fc_dim, self.output_dim)
 
         return post_lin_list, lin_out
+    
     def setup_distillation(self):
         model_feature_dim = self.extract_feature_dimensions()
-        if self.projection_head:
-            self.n2n_mapping = torch.nn.Sequential(
-                torch.nn.Linear(
-                    model_feature_dim["node_dim"],
-                    2 * self.dim2,
-                ),
-                torch.nn.ReLU(),
-                torch.nn.Linear(2 * self.dim2, self.teacher_node_dim),
-            )
-        elif self.id_mapping and not self.force_linear_n2n:
+
+        if self.is_teacher or self.id_mapping:
             self.n2n_mapping = torch.nn.Identity()
-        else:
-            self.n2n_mapping = torch.nn.Linear(
-                model_feature_dim["node_dim"], self.teacher_node_dim
-            )
-
-        # if self.id_mapping:
-        #     self.v2v_mapping = torch.nn.Identity()
-        # else:
-        #     self.v2v_mapping = torch.nn.Linear(
-        #         self.num_distill_layers * self.distil_node_dim,
-        #         self.teacher_edge_dim,
-        #         bias=False,
-        #     )
-
-        if self.projection_head:
-            self.n2e_mapping = torch.nn.Sequential(
-                torch.nn.Linear(
-                     model_feature_dim["node_dim"],
-                    2 * self.dim2,
-                ),
+            self.v2v_mapping = torch.nn.Identity()
+            self.e2n_mapping = torch.nn.Identity()
+            self.e2e_mapping = torch.nn.Identity()
+        elif self.projection_head:
+            # Conditions for projection head
+            self.n2n_mapping = torch.nn.Sequential(
+                torch.nn.Linear(model_feature_dim["node_dim"], 2 * self.hidden_channels),
                 torch.nn.ReLU(),
-                torch.nn.Linear(2 * self.dim2, self.teacher_edge_dim),
+                torch.nn.Linear(2 * self.hidden_channels, self.teacher_node_dim),
             )
-        elif self.id_mapping:
-            self.n2e_mapping = torch.nn.Identity()
-        else:
-            self.n2e_mapping = torch.nn.Linear(
-                 model_feature_dim["node_dim"], self.teacher_edge_dim
+            self.e2n_mapping = torch.nn.Sequential(
+                torch.nn.Linear(model_feature_dim["node_dim"], 2 * self.hidden_channels),
+                torch.nn.ReLU(),
+                torch.nn.Linear(2 * self.hidden_channels, self.teacher_edge_dim),
             )
-
-        if self.projection_head:
             self.e2e_mapping = torch.nn.Sequential(
-                torch.nn.Linear(
-                    model_feature_dim["edge_dim"],
-                    2 * self.edge_dim,
-                ),
+                torch.nn.Linear(model_feature_dim["edge_dim"], 2 * self.edge_dim),
                 torch.nn.ReLU(),
                 torch.nn.Linear(2 * self.edge_dim, self.teacher_edge_dim),
             )
-        elif self.id_mapping:
-            self.e2e_mapping = torch.nn.Identity()
-        else:
-            self.e2e_mapping = torch.nn.Linear(
-                model_feature_dim["edge_dim"], self.teacher_edge_dim
+            self.v2v_mapping = torch.nn.Sequential(
+                torch.nn.Linear(model_feature_dim["vec_dim"], 2 * self.teacher_vec_dim),
+                torch.nn.ReLU(),
+                torch.nn.Linear(2 * self.teacher_vec_dim, self.teacher_vec_dim),
             )
-
+        else:
+            # Conditions for linear mapping
+            self.n2n_mapping = torch.nn.Linear(model_feature_dim["node_dim"], self.teacher_node_dim)
+            self.v2v_mapping = torch.nn.Linear(model_feature_dim["vec_dim"], self.teacher_vec_dim)
+            self.e2n_mapping = torch.nn.Linear(model_feature_dim["node_dim"], self.teacher_edge_dim)
+            self.e2e_mapping = torch.nn.Linear(model_feature_dim["edge_dim"], self.teacher_edge_dim)
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
@@ -446,8 +426,8 @@ class CGCNN(BaseModel):
         output["output"] =  out
 
         output["n2n_mapping"] = self.n2n_mapping(node_feat.float())
-        output["n2e_mapping"] = self.n2e_mapping(node_feat.float())
-        output["e2e_mapping"] = self.e2e_mapping(edge_feat.float()),
+        output["n2e_mapping"] = self.e2n_mapping(node_feat.float())
+        output["e2e_mapping"] = self.e2e_mapping(edge_feat.float())
 
         if self.gradient == True and out.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
@@ -481,7 +461,7 @@ class CGCNN(BaseModel):
             elif l == "po":
                 node_feature_dim += self.dim2
 
-        return  {"node_dim":node_feature_dim, "edge_dim":edge_feature_dim}
+        return  {"node_dim":node_feature_dim, "edge_dim":edge_feature_dim, "vec_dim":1}
 
     def set_teacher_dim(self, teacher_dim):
         self.teacher_edge_dim = teacher_dim.get("edge_dim", 1)
