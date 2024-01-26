@@ -145,10 +145,10 @@ class BaseTrainer(ABC):
         else:
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if hasattr(config["dataset"], "src") else None
+        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if "src" in config["dataset"] else None
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
-        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank) if hasattr(config["dataset"], "src") else None
+        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank) if "src" in config["dataset"] else None
         data_loader = cls._load_dataloader(
             config["optim"],
             config["dataset"],
@@ -156,7 +156,7 @@ class BaseTrainer(ABC):
             sampler,
             config["task"]["run_mode"],
             config["model"]
-        ) if hasattr(config["dataset"], "src") else None
+        ) if "src" in config["dataset"] else None
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
