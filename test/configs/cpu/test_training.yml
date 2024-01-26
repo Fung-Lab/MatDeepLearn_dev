@@ -46,6 +46,7 @@ model:
   otf_node_attr: False
   # compute gradients w.r.t to positions and cell, requires otf_edge=True  
   gradient: False
+  model_ensemble: 1
 
 optim:
   max_epochs: 5
