@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_torchmd_RN-VN
+  identifier: try4_torchmd_RN-VN4
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -124,7 +124,7 @@ dataset:
     node_representation: onehot
     # virtual node settings
     virtual_params:
-      cutoff_radius_rn_vn: 12.0
+      cutoff_radius_rn_vn: 4.0
       cutoff_radius_vn_vn: 4.0
       rn_vn_aggr: "add"
       vn_vn_aggr: "mean"
