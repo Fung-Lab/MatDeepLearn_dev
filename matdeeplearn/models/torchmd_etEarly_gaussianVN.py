@@ -254,7 +254,7 @@ class TorchMD_ET(BaseModel):
         exp = -0.5 * dist * dist / c_exp * c_exp
         gaussians_values_all = a_exp * torch.exp(exp)
         gaussians_sum = torch.sum(gaussians_values_all, dim=-1)
-        gaussians_sum = torch.sum(gaussians_sum, dim=-1)
+        gaussians_sum = torch.sum(gaussians_sum, dim=-1, keepdim=True)
         # print(gaussians_values_all.shape, gaussians_sum.shape)
         return gaussians_sum
 
@@ -367,7 +367,7 @@ class TorchMD_ET(BaseModel):
 
         gaussian_sum = self.gaussian(a_exp, c_exp, data.pos[data.z == 100], data.pos[data.z != 100])
 
-        out = torch.sum(gaussian_sum, vn_x)
+        out = gaussian_sum + vn_x
 
         return out
 
