@@ -299,6 +299,7 @@ class BaseTrainer(ABC):
             model_config["cutoff_radius_vn_vn"] = graph_config["virtual_params"].get("cutoff_radius_vn_vn", 4)
             model_config["rn_vn_aggr"] = graph_config["virtual_params"].get("rn_vn_aggr", "add")
             model_config["vn_vn_aggr"] = graph_config["virtual_params"].get("vn_vn_aggr", "add")
+            model_config["num_gaussians"] = graph_config["virtual_params"].get("num_gaussians", 10)
         else:
             raise ValueError(
                 "Target labels do not have the correct dimensions for node or graph-level prediction."

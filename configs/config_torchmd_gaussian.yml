@@ -26,7 +26,7 @@ task:
   use_amp: True
 
 model:
-  name: torchmd_etEarly_vn
+  name: torchmd_etEarly_vn_gaussian
   # model attributes
   hidden_channels: 128
   num_layers: 6
@@ -130,6 +130,7 @@ dataset:
       vn_vn_aggr: "mean"
       num_samples: 10000
       num_sub_batch: 500
+      num_gaussians: 10
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
