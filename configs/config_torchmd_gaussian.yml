@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_torchmd_RN-VN4
+  identifier: try4_torchmd_gaussian1
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -130,7 +130,7 @@ dataset:
       vn_vn_aggr: "mean"
       num_samples: 10000
       num_sub_batch: 500
-      num_gaussians: 10
+      num_gaussians: 1
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
