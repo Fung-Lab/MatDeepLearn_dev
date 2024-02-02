@@ -69,6 +69,9 @@ class CGCNN_Morse_Old(BaseModel):
         self.D = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
+        self.return_comb = kwargs.get("return_comb", True)
+        self.train_first = kwargs.get("train_first", "gnn")
+        
         if self.with_coefs:
             self.coef_e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
             self.coef_2e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
@@ -239,6 +242,8 @@ class CGCNN_Morse_Old(BaseModel):
             out = self.lin_out(out)
 
         morse = self.morse_potential(data)
+        if not self.return_comb:
+            return self.ratio[0] * out if self.train_first == 'gnn' else self.ratio[1] * morse
         return self.ratio[0] * out + self.ratio[1] * morse
     
     def forward(self, data):

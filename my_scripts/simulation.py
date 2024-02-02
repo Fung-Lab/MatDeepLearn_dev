@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
                          
 if __name__ == '__main__':
     unrelaxed_ids, relaxed_ids, unrelaxed, relaxed, dft,\
-        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json')
+        unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json', 1)
     
     random.seed(42)
     idx = [random.randint(0, len(relaxed_ids) - 1) for _ in range(500)]
@@ -21,13 +21,13 @@ if __name__ == '__main__':
     #         idx = i
 
     # Configurations below
-    calc_str = './configs/calculator/config_cgcnn_morse.yml'
+    calc_str = './configs/calculator/config_cgcnn.yml'
     simulation_type = 'NVT'
     num_steps = 5000
     temperature = 1000
     
     save_to = 'train_outs/late_cgcnn_morse_no_coef_sim.csv'
-    save = True
+    save = False
     # Configurations above
     
     calculator = MDLCalculator(config=calc_str)
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     for i, atoms_idx in enumerate(idx):
         cols['structure_id'].append(relaxed[atoms_idx].structure_id)
         relaxed[atoms_idx].set_calculator(calculator)
-        cols['Starting energy'].append(relaxed[atoms_idx].get_potential_energy()[0][0])
+        cols['Starting energy'].append(relaxed[atoms_idx].get_potential_energy())
         to_optim = copy.deepcopy(relaxed[atoms_idx])
         final_atoms, time_per_step, h, l = simulator.run_simulation(to_optim, num_steps=num_steps)
         cols['Highest energy'].append(h)

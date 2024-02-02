@@ -13,8 +13,8 @@ from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
 
-@registry.register_trainer("hybrid")
-class HybridTrainer(BaseTrainer):
+@registry.register_trainer("phase")
+class PhaseTrainer(BaseTrainer):
     def __init__(
         self,
         model,
@@ -66,6 +66,7 @@ class HybridTrainer(BaseTrainer):
 
         # Add the extra_parameter to the returned cls
         trainer_cls.clamped_params = config['model']['clamped_params']
+        trainer_cls.turning_epoch = config['model'].get('turning_epoch', trainer_cls.max_epochs / 2)
 
         return trainer_cls
 
@@ -96,7 +97,13 @@ class HybridTrainer(BaseTrainer):
                     f"Running for {end_epoch - start_epoch} epochs on {type(self.model[0]).__name__} model"
                 )
      
-        for epoch in range(start_epoch, end_epoch):            
+        for epoch in range(start_epoch, end_epoch): 
+            
+            if epoch == self.turning_epoch:
+                for m in self.model:
+                    m.return_comb = True
+                    logging.info(f"Now training GNN + potential: {m.return_comb}")
+                       
             epoch_start_time = time.time()
             if self.train_sampler:
                 self.train_sampler.set_epoch(epoch)
@@ -444,6 +451,7 @@ class HybridTrainer(BaseTrainer):
         else:
             loss = self.loss_fn(out, batch_data)
         return loss
+    
 
     def _backward(self, loss, index=None):
         self.optimizer[index].zero_grad(set_to_none=True)

@@ -1,19 +1,19 @@
-trainer: property
-
+trainer: hybrid
+?
 task:
   run_mode: train
-  identifier: torch_md_late_5
+  identifier: lj_sio2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-01-18-06-45-21-637-torch_md_late_4/checkpoint_0/checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -22,21 +22,21 @@ task:
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: True  
-
+  use_amp: False  
+?
 model:
-  name: torchmd_etEarly
+  name: LJ 
   # model attributes
-  hidden_channels: 128
-  num_layers: 8
-  num_rbf: 50
-  activation: "silu"
-  attn_activation: "silu"
-  num_heads: 8
-  num_post_layers: 1
-  post_hidden_channels: 64
-  pool: "global_add_pool"
-  aggr: "add"
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: global_add_pool
+  pool_order: late
+  batch_norm: False
+  batch_track_stats: True
+  act: silu
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True 
@@ -47,11 +47,17 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-
+  # whether to include coefficients on the 12 and 6 term for lj
+  with_coefs: False
+  with_exp_coefs: True
+  # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
+  combination_method: average
+  clamped_params: []
+?
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.00005
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -62,7 +68,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 128
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -75,15 +81,15 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: test_data
+  name: silica_data
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/force_data/data.json
+  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/force_data/
+  pt_path: data/Silica_data/
   # Either "node" or "graph"
   prediction_level: graph
   

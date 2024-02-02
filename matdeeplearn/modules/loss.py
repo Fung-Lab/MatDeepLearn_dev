@@ -45,6 +45,23 @@ class ForceStressLoss(nn.Module):
         stress_loss = self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
         # print(f"Error e: {energy_loss:.4f}, f: {force_loss:.4f}, s: {stress_loss:.4f}")
         return energy_loss + force_loss + stress_loss
+    
+@registry.register_loss("ForceStressLoss_Phase")
+class ForceStressLoss_Phase(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_force=0.1, weight_stress=0.1, epochs=200):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_force = weight_force
+        self.weight_stress = weight_stress
+        self.epochs = epochs
+
+    def forward(self, pred: tuple, target: Batch, epoch: int):
+        predictions = pred[0] if epoch < self.epochs else pred[0] + pred[1]
+        energy_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y)
+        force_loss = self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
+        stress_loss = self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
+        # print(f"Error e: {energy_loss:.4f}, f: {force_loss:.4f}, s: {stress_loss:.4f}")
+        return energy_loss + force_loss + stress_loss
         
 
 @registry.register_loss("DOSLoss")

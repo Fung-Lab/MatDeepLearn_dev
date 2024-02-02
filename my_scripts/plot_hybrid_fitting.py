@@ -58,6 +58,6 @@ def show_all_morse_params(state_dict):
 
 
 if __name__ == '__main__':
-    checkpoint_path = 'results/late_cgcnn_lj/checkpoint/best_checkpoint.pt'
+    checkpoint_path = 'results/2024-01-16-09-39-17-067-only_lj_pt/checkpoint_0/checkpoint.pt'
     state_dict = torch.load(checkpoint_path)['state_dict']
     show_all_lj_params(state_dict)

@@ -1,8 +1,8 @@
-trainer: property
+trainer: phase
 
 task:
   run_mode: train
-  identifier: torch_md_late_5
+  identifier: silica_torchmd_lj_phase_cont_2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-01-18-06-45-21-637-torch_md_late_4/checkpoint_0/checkpoint.pt
+  checkpoint_path: results/2024-02-01-18-20-19-686-silica_torchmd_lj_phase_cont/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -47,6 +47,16 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  with_coefs: False
+  with_exp_coefs: False
+  # Only set to False during training!!!
+  return_comb: False
+  # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
+  combination_method: average
+  # GNN : potential
+  gnn_potential_ratio: [1., 1.]
+  turning_epoch: 200
+  clamped_params: []
 
 optim:
   max_epochs: 400
@@ -75,15 +85,15 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: test_data
+  name: silica_data
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/force_data/data.json
+  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/force_data/
+  pt_path: data/Silica_data/
   # Either "node" or "graph"
   prediction_level: graph
   

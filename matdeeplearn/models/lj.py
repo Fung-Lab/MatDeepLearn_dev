@@ -59,6 +59,7 @@ class LJ(BaseModel):
         
         self.combination_method = kwargs.get('combination_method', 'average')
         self.with_coefs = kwargs.get("with_coefs", False)
+        self.with_exp_coefs = kwargs.get("with_exp_coefs", False)
 
         self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
@@ -67,6 +68,10 @@ class LJ(BaseModel):
         if self.with_coefs:
             self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
             self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+            
+        if self.with_exp_coefs:
+            self.coef_exp_12 = ParameterList([Parameter(12 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+            self.coef_exp_6 = ParameterList([Parameter(6 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
   
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -153,6 +158,10 @@ class LJ(BaseModel):
         if self.with_coefs:
             coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
             coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
+            
+        if self.with_exp_coefs:
+            coef_exp_12 = torch.zeros((len(self.coef_exp_12), 1)).to('cuda:0')
+            coef_exp_6 = torch.zeros((len(self.coef_exp_6), 1)).to('cuda:0')
     
         for z in np.unique(data.z.cpu()):
             sigmas[z - 1] = self.sigmas[z - 1]
@@ -161,6 +170,9 @@ class LJ(BaseModel):
             if self.with_coefs:
                 coef_12[z - 1] = self.coef_12[z - 1]
                 coef_6[z - 1] = self.coef_6[z - 1]
+            if self.with_exp_coefs:
+                coef_exp_12[z - 1] = self.coef_exp_12[z - 1]
+                coef_exp_6[z - 1] = self.coef_exp_6[z - 1]
 
         rc = self.cutoff_radius
         ro = 0.66 * rc
@@ -182,14 +194,21 @@ class LJ(BaseModel):
                 epsilon = (2 * epsilon_i * epsilon_j / (epsilon_i + epsilon_j)).squeeze()
             else:
                 raise NotImplementedError(f"{self.combination_method} isn't an implemented combination method.")
-            
-            c6 = (sigma ** 2 / r2) ** 3
-            c6[r2 > rc ** 2] = 0.0
-            c12 = c6 ** 2
         
             if self.with_coefs:
                 coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
                 coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
+            if self.with_exp_coefs:
+                coef_exp_12 = (coef_exp_12[atoms[0]] + coef_exp_12[atoms[1]]).squeeze() / 2
+                coef_exp_6 = (coef_exp_6[atoms[0]] + coef_exp_6[atoms[1]]).squeeze() / 2
+                c6 = (sigma / data.edge_weight) ** coef_exp_6
+                c12 = (sigma / data.edge_weight) ** coef_exp_12
+            else:
+                c6 = (sigma ** 2 / r2) ** 3
+                c6[r2 > rc ** 2] = 0.0
+                c12 = c6 ** 2
+                
+            if self.with_coefs:
                 pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
             else:
                 pairwise_energies = 4 * epsilon * (c12 - c6)

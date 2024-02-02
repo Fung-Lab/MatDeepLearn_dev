@@ -113,12 +113,19 @@ class TorchMD_LJ(BaseModel):
         self.output_dim = output_dim
         cutoff_lower = 0
         
+        self.combination_method = kwargs.get('combination_method', 'average')
+        self.with_coefs = kwargs.get("with_coefs", False)
+        self.ratio = kwargs.get("gnn_potential_ratio", [1., 1.])
+        self.return_comb = kwargs.get("return_comb", True)
+        self.train_first = kwargs.get("train_first", "gnn")
+        
         self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         self.epsilons = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
-        self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        if self.with_coefs:
+            self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+            self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
 
         act_class = act_class_mapping[activation]
 
@@ -227,7 +234,9 @@ class TorchMD_LJ(BaseModel):
             x = self.post_lin_list[-1](x) 
         
         lj = self.lj_potential(data)
-        return 0.8 * x + 0.2 * lj
+        if not self.return_comb:
+            return self.ratio[0] * x if self.train_first == 'gnn' else self.ratio[1] * lj
+        return self.ratio[0] * x + self.ratio[1] * lj
         
     def forward(self, data):
     
@@ -297,54 +306,72 @@ class TorchMD_LJ(BaseModel):
         )
         
     def lj_potential(self, data):
-        num_edges = len(data.edge_index[0])
-        atoms = torch.zeros(2, num_edges, dtype=torch.int64)
-
-        atoms[0] = data.z[data.edge_index[0]] - 1
-        atoms[1] = data.z[data.edge_index[1]] - 1
+        atoms = data.z[data.edge_index] - 1
         
         sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
         epsilons = torch.zeros((len(self.epsilons), 1)).to('cuda:0')
-        coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
-        coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
         base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+        
+        if self.with_coefs:
+            coef_12 = torch.zeros((len(self.coef_12), 1)).to('cuda:0')
+            coef_6 = torch.zeros((len(self.coef_6), 1)).to('cuda:0')
     
-        # start = time()
         for z in np.unique(data.z.cpu()):
             sigmas[z - 1] = self.sigmas[z - 1]
             epsilons[z - 1] = self.epsilons[z - 1]
             base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            coef_12[z - 1] = self.coef_12[z - 1]
-            coef_6[z - 1] = self.coef_6[z - 1]
-        # print(f"Copy necessary sigmas and epsilons: {time() - start:.4f}")
-        
-        # start = time()
-        sigma = (sigmas[atoms[0]] + sigmas[atoms[1]]).squeeze() / 2
-        epsilon = (epsilons[atoms[0]] + epsilons[atoms[1]]).squeeze() / 2
-        coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
-        coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
-        
-        # start = time()
+            if self.with_coefs:
+                coef_12[z - 1] = self.coef_12[z - 1]
+                coef_6[z - 1] = self.coef_6[z - 1]
+
         rc = self.cutoff_radius
         ro = 0.66 * rc
         r2 = data.edge_weight ** 2
-
-        c6 = (sigma ** 2 / r2) ** 3
-        c6[r2 > rc ** 2] = 0.0
-        c12 = c6 ** 2
         cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
-        pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
-        pairwise_energies *= cutoff_fn
-        # print(f"Calculate lj: {time() - start:.4f}")
+        
+        sigma_i, sigma_j = sigmas[atoms[0]], sigmas[atoms[1]]
+        epsilon_i, epsilon_j = epsilons[atoms[0]], epsilons[atoms[1]]
 
-        # start = time()
+        if self.combination_method != 'Kong':
+            if self.combination_method == 'average':
+                sigma = (sigma_i + sigma_j).squeeze() / 2
+                epsilon = (epsilon_i + epsilon_j).squeeze() / 2
+            elif self.combination_method == 'Lorentz-Berthelot':
+                sigma = (sigma_i + sigma_j).squeeze() / 2
+                epsilon = torch.sqrt(epsilon_i * epsilon_j).squeeze()
+            elif self.combination_method == 'Fender-Halsey':
+                sigma = (sigma_i + sigma_j).squeeze() / 2
+                epsilon = (2 * epsilon_i * epsilon_j / (epsilon_i + epsilon_j)).squeeze()
+            else:
+                raise NotImplementedError(f"{self.combination_method} isn't an implemented combination method.")
+            
+            c6 = (sigma ** 2 / r2) ** 3
+            c6[r2 > rc ** 2] = 0.0
+            c12 = c6 ** 2
+        
+            if self.with_coefs:
+                coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
+                coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
+                pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
+            else:
+                pairwise_energies = 4 * epsilon * (c12 - c6)
+            
+        else: # combination_method == 'Kong'
+            term_6 = torch.sqrt(epsilon_i * epsilon_j) * (sigma_i * sigma_j) ** 3
+            term_12 = ((epsilon_i * (sigma_i ** 12)) ** (1 / 13) + (epsilon_j * (sigma_j ** 12)) ** (1 / 13) / 2) ** 13
+            
+            term_6, term_12 = term_6.squeeze(), term_12.squeeze()
+            pairwise_energies = 4 * (term_12 / (r2 ** 6) - term_6 / (r2 ** 3))
+        
+        
+        pairwise_energies *= cutoff_fn
+
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
     
         base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
         base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
-        # print(f"Scatter adds: {time() - start:.4f}")
-        
+               
         return lennard_jones_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
 
 
