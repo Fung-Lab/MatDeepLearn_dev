@@ -43,8 +43,8 @@ def calculate_edges_master(
     out = dict()
     neighbors = torch.empty(0)
     cell_offset_distances = torch.empty(0)
-    
-    if torch.sum(cell) == 0:
+
+    if not torch.any(cell > 0.0):
         cell = None
         method = "mdl"
 
