@@ -109,16 +109,16 @@ class EquiformerV2_OC20(BaseModel):
 
     def __init__(
         self,
-        num_atoms: int,  # not used
-        bond_feat_dim: int,  # not used
-        num_targets: int,  # not used
+        # num_atoms: int,  # not used
+        # bond_feat_dim: int,  # not used
+        # num_targets: int,  # not used
         use_pbc: bool = True,
         regress_forces: bool = True,
         otf_graph: bool = True,
         max_neighbors: int = 500,
         max_radius: float = 5.0,
         max_num_elements: int = 90,
-        num_layers: int = 12,
+        num_layers: int = 6,
         sphere_channels: int = 128,
         attn_hidden_channels: int = 128,
         num_heads: int = 8,
@@ -152,8 +152,9 @@ class EquiformerV2_OC20(BaseModel):
         avg_degree: Optional[float] = None,
         use_energy_lin_ref: Optional[bool] = False,
         load_energy_lin_ref: Optional[bool] = False,
+        **kwargs
     ):
-        super().__init__()
+        super(EquiformerV2_OC20, self).__init__(**kwargs)
 
         import sys
 
@@ -413,11 +414,11 @@ class EquiformerV2_OC20(BaseModel):
 
     @conditional_grad(torch.enable_grad())
     def forward(self, data):
-        self.batch_size = len(data.natoms)
+        self.batch_size = len(data.n_atoms)
         self.dtype = data.pos.dtype
         self.device = data.pos.device
 
-        atomic_numbers = data.atomic_numbers.long()
+        atomic_numbers = data.z.long()
         num_atoms = len(atomic_numbers)
 
         '''
@@ -446,6 +447,26 @@ class EquiformerV2_OC20(BaseModel):
             self.n_neighbors
         )
 
+        ###############################################################
+        # Filter RN-RN & RN-VN edges
+        ###############################################################
+        edge_mask = torch.zeros_like(data.edge_index[0])
+        edge_mask[(data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] == 100)] = 0  # VN-VN
+        edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)] = 1  # RN-VN
+        edge_mask[(data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] != 100)] = 2  # VN-RN
+        edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
+
+        indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
+        indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
+        mask = torch.isin(torch.arange(len(edge_index)), torch.cat((indices_rn_to_rn, indices_rn_to_vn)))
+        edge_index = edge_index[:, mask]
+        edge_distance = edge_distance[mask]
+        edge_distance_vec = edge_distance_vec[mask]
+
+        edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)] = 1  # RN-VN
+        edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
+        indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
+        indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
         ###############################################################
         # Initialize data structures
         ###############################################################
@@ -524,6 +545,7 @@ class EquiformerV2_OC20(BaseModel):
 
         # Final layer norm
         x.embedding = self.norm(x.embedding)
+        print("After norm shape of x.embedding:", x.embedding.shape)
         outputs = {}
 
         ###############################################################
@@ -579,8 +601,10 @@ class EquiformerV2_OC20(BaseModel):
         virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
         x.embedding = torch.index_select(x.embedding, 0, virtual_mask)
         node_density = self.density_block(x)
+        print("Before narrow shape of node_density:", node_density.embedding.shape)
         node_density = node_density.embedding.narrow(1, 0, 1)
-        outputs["output"] = node_density
+        print("output shape:", node_density.embedding.shape)
+        outputs["output"] = node_density.embedding
         return outputs
 
     # Initialize the edge rotation matrics
@@ -641,3 +665,6 @@ class EquiformerV2_OC20(BaseModel):
                     no_wd_list.append(global_parameter_name)
 
         return set(no_wd_list)
+
+    def target_attr(self):
+        return "y"
