@@ -24,7 +24,7 @@ class ConvLayer(MessagePassing):
     """
     Convolutional operation on graphs
     """
-    def __init__(self, atom_fea_len, edge_fea_len):
+    def __init__(self, atom_fea_len, edge_fea_len, dropout_rate = 0.2):
         """
         Initialize ConvLayer.
 
@@ -44,15 +44,16 @@ class ConvLayer(MessagePassing):
         self.fc_f = nn.Linear(2*self.atom_fea_len+self.edge_fea_len, self.atom_fea_len)
         self.fc_s = nn.Linear(2*self.atom_fea_len+self.edge_fea_len, self.atom_fea_len)
         self.softmax= nn.Softmax(dim=1)
-        self.softplus1 = nn.ReLU()
+        self.softplus1 = nn.SiLU()
         self.bn1 = nn.BatchNorm1d(2*self.atom_fea_len+self.edge_fea_len)
         self.bn2 =  nn.BatchNorm1d(self.atom_fea_len)
-        self.dropout = nn.Dropout()
+        self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x, edge_index, distances):
         self.edge_attrs = distances
         aggregatedMessages = self.propagate(edge_index, x=x, distances=distances)
         aggregatedMessages = self.bn2(aggregatedMessages)
+        aggregatedMessages = self.dropout(aggregatedMessages)
         out = aggregatedMessages + x
         return out, self.edge_attrs
 
@@ -67,11 +68,8 @@ class ConvLayer(MessagePassing):
         #split into atom features, bond features, and bond distances and apply functions
         nbr_filter, nbr_core, new_edge_attrs = total_gated_fea.split([self.atom_fea_len,self.atom_fea_len,self.edge_fea_len], dim=1)
         #aggregate and return
-        self.edge_attrs += new_edge_attrs
+        self.edge_attrs = self.edge_attrs + new_edge_attrs
         return self.softmax(self.fc_f(z)) * self.softplus1(self.fc_s(z)) 
-
-            
-
 
 @registry.register_model("CrystalGraph")
 class CrystalGraphConvNet(BaseModel):
@@ -81,7 +79,8 @@ class CrystalGraphConvNet(BaseModel):
     """
     def __init__(self, node_dim, edge_dim, output_dim,
                 dim1=128, n_conv=4, dim2=128, n_h=1, pool="global_mean_pool",
-                pool_order="early", act="relu", classification=False, **kwargs):
+                pool_order="early", act="silu", gradient_method = "nequip", classification=False,
+                dropout_rate = 0.2, **kwargs):
         """
         Initialize CrystalGraphConvNet.
 
@@ -105,11 +104,12 @@ class CrystalGraphConvNet(BaseModel):
         self.classification = classification
         self.embedding = nn.Linear(node_dim, dim1)
         self.convs = nn.ModuleList([ConvLayer(atom_fea_len=dim1,
+                                              dropout_rate = dropout_rate,
                                     edge_fea_len=edge_dim)
                                     for _ in range(n_conv)])
         self.conv_to_fc = nn.Linear(dim1, dim2)
-        self.conv_to_fc_softplus = nn.ReLU()
-        self.output_softplus= nn.ReLU()
+        self.conv_to_fc_softplus = nn.SiLU()
+        self.output_softplus= nn.SiLU()
         if n_h > 1:
             self.fcs = nn.ModuleList([nn.Linear(dim2, dim2)
                                       for _ in range(n_h-1)])
@@ -121,11 +121,13 @@ class CrystalGraphConvNet(BaseModel):
             self.logsoftmax = nn.LogSoftmax(dim=1)
             self.dropout = nn.Dropout()
         
+        self.dropout1 = nn.Dropout(dropout_rate)
+        
         self.pool = pool
         self.act = act
         self.pool_order = pool_order
-        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
-
+        self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, edge_dim, 0.2)
+        self.gradient_method = gradient_method
 
     def forward(self, data):
     
@@ -224,13 +226,15 @@ class CrystalGraphConvNet(BaseModel):
                 if hasattr(self, 'fcs'):
                     for fc in self.fcs:
                         crys_fea = getattr(F, self.act)(fc(crys_fea))
+                        crys_fea = self.dropout1(crys_fea)
                 out = self.fc_out(crys_fea)    
             elif self.pool_order == "late":
-                crys_fea = self.conv_to_fc(getattr(F, self.act)(crys_fea))
+                crys_fea = self.conv_to_fc(getattr(F, self.act)(atom_fea))
                 crys_fea = getattr(F, self.act)(crys_fea)
                 if hasattr(self, 'fcs'):
                     for fc in self.fcs:
                         crys_fea = getattr(F, self.act)(fc(crys_fea))
+                        crys_fea = self.dropout1(crys_fea)
                 out = self.fc_out(crys_fea) 
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
                     
@@ -241,6 +245,7 @@ class CrystalGraphConvNet(BaseModel):
             if hasattr(self, 'fcs'):
                 for fc in self.fcs:
                     crys_fea = getattr(F, self.act)(fc(crys_fea))
+                    crys_fea = self.dropout1(crys_fea)
             out = self.fc_out(crys_fea)
                      
         return out   

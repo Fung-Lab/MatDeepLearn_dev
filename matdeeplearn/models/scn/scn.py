@@ -292,9 +292,9 @@ class SphericalChannelNetwork(BaseModel):
         #    neighbors,
         #) = self.generate_graph(data)
         edge_index = data.edge_index
-        sorted_indices = torch.argsort(edge_index[1])
-        data.edge_index = edge_index[:, sorted_indices]
-        edge_index = data.edge_index
+        # sorted_indices = torch.argsort(edge_index[1])
+        # edge_index = edge_index[:, sorted_indices]
+        #edge_index = data.edge_index
         edge_distance = data.edge_weight
         edge_distance_vec = data.edge_vec
 
@@ -538,6 +538,7 @@ class SphericalChannelNetwork(BaseModel):
         )
 
         num_atoms = torch.max(edge_index) + 1
+        #num_atoms = num_atoms.item()
         distance_sort = torch.full(
             [num_atoms * max_num_neighbors], np.inf, device=device
         )
