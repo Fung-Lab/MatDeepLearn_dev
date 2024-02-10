@@ -105,7 +105,7 @@ def calculate_edges_master(
         edge_vec = ocp_out["distance_vec"]
 
     elif method == "inf":
-        coefficients = [-0.801, -0.074, 0.145]
+        coefficients=[-0.801, -0.074, 0.145]
 
         u = (
             torch.arange(0, z.size(0), 1)
@@ -146,9 +146,7 @@ def calculate_edges_master(
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
 
-        edge_index, edge_weights, _ = add_selfloop(
-            len(z), edge_index, edge_weights, cutoff_distance_matrix, True
-        )
+        edge_index, edge_weights,_ = add_selfloop(len(z),edge_index,edge_weights,cutoff_distance_matrix,True)
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
 
@@ -560,23 +558,17 @@ def generate_edge_features(input_data, edge_steps, r, device):
             input_data[i].edge_descriptor["distance"]
         )
 
-
 def generate_edge_features_inf(input_data, edge_steps, r, device):
-    gaussian = GaussianSmearing(0, 1, edge_steps // 2, 0.2, device=device)
+    gaussian = GaussianSmearing(0, 1, edge_steps//2, 0.2, device=device)
 
     if isinstance(input_data, Data):
         input_data = [input_data]
 
     normalize_edge_cutoff(input_data, "distance", r)
     for i, data in enumerate(input_data):
-        input_data[i].edge_attr = torch.cat(
-            (
-                gaussian(input_data[i].edge_descriptor["distance"]),
-                torch.squeeze(gaussian(input_data[i].inf_edge_attr)),
-            ),
-            dim=-1,
-        )
-
+        input_data[i].edge_attr = torch.cat((gaussian(
+            input_data[i].edge_descriptor["distance"]
+        ),torch.squeeze(gaussian(input_data[i].inf_edge_attr))),dim=-1)
 
 def triplets(
     edge_index,
@@ -1066,7 +1058,6 @@ def calculate_edges_ase(
 
     return edge_index, cell_offsets, edge_weights, edge_vec
 
-
 def calculate_inf_potentials(
     v,
     Omega,
@@ -1078,7 +1069,6 @@ def calculate_inf_potentials(
         Omega (np.ndarray): unit cell
         R (torch.Tensor): cutoff radius
     """
-
     def zeta_cal(v, w, vecs, vecs_inv, d, det, p=1.0, eps=1e-12):
         result = sum(
             np.e ** (2 * np.pi * 1.0j * vecs @ w)
@@ -1409,21 +1399,20 @@ def calculate_inf_potentials(
         (
             zeta(v, Omega, param=0.5, R=R, eps=1e-12),  # Coulomb
             zeta(v, Omega, param=3.0, R=R, eps=1e-12),  # LD
-            exp(v, Omega, param=3.0, R=R, eps=1e-12),  # Pauli
+            exp(v, Omega, param=3.0, R=R, eps=1e-12),   # Pauli
         )
     )
-
 
 class RBFExpansion(torch.nn.Module):
     """Expand interatomic distances with radial basis functions."""
 
     def __init__(
-        self,
-        vmin: float = 0,
-        vmax: float = 8,
-        bins: int = 40,
-        lengthscale: Optional[float] = None,
-        type: str = "gaussian",
+    self,
+    vmin: float = 0,
+    vmax: float = 8,
+    bins: int = 40,
+    lengthscale: Optional[float] = None,
+    type: str = "gaussian",
     ):
         """Register torch parameters for RBF expansion."""
         super().__init__()

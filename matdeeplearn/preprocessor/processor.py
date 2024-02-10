@@ -29,12 +29,8 @@ def from_config(dataset_config):
     pt_path = dataset_config.get("pt_path", None)
     prediction_level = dataset_config.get("prediction_level", "graph")
     preprocess_edges = dataset_config["preprocess_params"]["preprocess_edges"]
-    preprocess_edge_features = dataset_config["preprocess_params"][
-        "preprocess_edge_features"
-    ]
-    preprocess_node_features = dataset_config["preprocess_params"][
-        "preprocess_node_features"
-    ]
+    preprocess_edge_features = dataset_config["preprocess_params"]["preprocess_edge_features"]
+    preprocess_node_features = dataset_config["preprocess_params"]["preprocess_node_features"]
     cutoff_radius = dataset_config["preprocess_params"]["cutoff_radius"]
     n_neighbors = dataset_config["preprocess_params"]["n_neighbors"]
     num_offsets = dataset_config["preprocess_params"]["num_offsets"]
@@ -42,14 +38,10 @@ def from_config(dataset_config):
     data_format = dataset_config.get("data_format", "json")
     image_selfloop = dataset_config.get("image_selfloop", True)
     self_loop = dataset_config.get("self_loop", True)
-    node_representation = dataset_config["preprocess_params"].get(
-        "node_representation", "onehot"
-    )
+    node_representation = dataset_config["preprocess_params"].get("node_representation", "onehot")
     additional_attributes = dataset_config.get("additional_attributes", [])
     verbose: bool = dataset_config.get("verbose", True)
-    edge_calc_method = dataset_config["preprocess_params"].get(
-        "edge_calc_method", "mdl"
-    )
+    edge_calc_method = dataset_config["preprocess_params"].get("edge_calc_method", "mdl")
     device: str = dataset_config.get("device", "cpu")
 
     processor = DataProcessor(
@@ -213,11 +205,8 @@ class DataProcessor:
             cell = torch.tensor(
                 np.array(s.get_cell()), device=self.device, dtype=torch.float
             ).view(1, 3, 3)
-            if (
-                np.array(cell)
-                == np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
-            ).all():
-                cell = torch.zeros((3, 3)).unsqueeze(0)
+            if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
+                cell = torch.zeros((3,3)).unsqueeze(0)
             atomic_numbers = torch.LongTensor(s.get_atomic_numbers())
 
             d["positions"] = pos
@@ -277,15 +266,15 @@ class DataProcessor:
         logging.info("Converting data to standardized form for downstream processing.")
         for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
             d = {}
-            if len(s["atomic_numbers"]) == 1:
+            if (len(s["atomic_numbers"]) == 1):
                 continue
             pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
             if "cell" in s:
                 cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
                 if cell.shape[0] != 1:
-                    cell = cell.view(1, 3, 3)
+                    cell = cell.view(1,3,3)
             else:
-                cell = torch.zeros((3, 3)).unsqueeze(0)
+                cell = torch.zeros((3,3)).unsqueeze(0)
             atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
             d["positions"] = pos
@@ -308,9 +297,9 @@ class DataProcessor:
                 _y = np.array([_y], dtype=np.float32)
             else:
                 _y = np.array(_y, dtype=np.float32)
-            # if isinstance(_y, str):
+            #if isinstance(_y, str):
             #    _y = float(_y)
-            # elif isinstance(_y, list):
+            #elif isinstance(_y, list):
             #    _y = [float(each) for each in _y]
 
             y.append(_y)
@@ -322,7 +311,7 @@ class DataProcessor:
 
     def process(self, save=True):
 
-        data_list = {}
+        data_list={}
         if isinstance(self.root_path_dict, dict):
 
             if self.root_path_dict.get("train"):
@@ -426,13 +415,13 @@ class DataProcessor:
         logging.info("Getting torch_geometric.data.Data() objects.")
 
         for i, sdict in enumerate(tqdm(dict_structures, disable=self.disable_tqdm)):
-            # target_val = y[i]
+            #target_val = y[i]
             data = data_list[i]
 
             pos = sdict["positions"]
             cell = sdict["cell"]
             atomic_numbers = sdict["atomic_numbers"]
-            # data.structure_id = [[structure_id] * len(data.y)]
+            #data.structure_id = [[structure_id] * len(data.y)]
             structure_id = sdict["structure_id"]
 
             data.n_atoms = len(atomic_numbers)
@@ -447,16 +436,12 @@ class DataProcessor:
             data.y = torch.Tensor(np.array(target_val))
             if self.prediction_level == "graph":
                 if data.y.dim() > 1 and data.y.shape[0] != 0:
-                    raise ValueError(
-                        "Target labels do not have the correct dimensions for graph-level prediction."
-                    )
+                    raise ValueError('Target labels do not have the correct dimensions for graph-level prediction.')
                 elif data.y.dim() == 1:
                     data.y = data.y.unsqueeze(0)
             elif self.prediction_level == "node":
                 if data.y.shape[0] != data.n_atoms:
-                    raise ValueError(
-                        "Target labels do not have the correct dimensions for node-level prediction."
-                    )
+                    raise ValueError('Target labels do not have the correct dimensions for node-level prediction.')
                 elif data.y.dim() == 1:
                     data.y = data.y.unsqueeze(1)
 
@@ -476,7 +461,7 @@ class DataProcessor:
                 cell_offsets = edge_gen_out["cell_offsets"]
                 edge_vec = edge_gen_out["edge_vec"]
                 neighbors = edge_gen_out["neighbors"]
-                if edge_vec.dim() > 2:
+                if(edge_vec.dim() > 2):
                     edge_vec = edge_vec[edge_indices[0], edge_indices[1]]
 
                 data.edge_index, data.edge_weight = edge_indices, edge_weights
@@ -494,6 +479,7 @@ class DataProcessor:
                     data.inf_edge_attr = edge_gen_out["inf_edge_attr"]
                     data.inf_edge_index = edge_gen_out["inf_edge_index"]
 
+
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
@@ -507,13 +493,9 @@ class DataProcessor:
             logging.info("Generating edge features...")
 
             if self.edge_calc_method == "inf":
-                generate_edge_features_inf(
-                    data_list, self.edge_dim, self.r, device=self.device
-                )
+                generate_edge_features_inf(data_list, self.edge_dim, self.r, device=self.device)
             else:
-                generate_edge_features(
-                    data_list, self.edge_dim, self.r, device=self.device
-                )
+                generate_edge_features(data_list, self.edge_dim, self.r, device=self.device)
 
         # compile non-otf transforms
         logging.debug("Applying transforms.")
