@@ -20,7 +20,7 @@ def trainer_property(config, train: bool):
 
 def assert_valid_predictions(trainer, load: str):
     try:
-        out = trainer.predict(loader=trainer.data_loader[load], split="predict", write_output=False)
+        out = trainer.predict(loader=trainer.data_loader[0][load], split="predict", write_output=False)
         assert isinstance(out["predict"][0][0], (floating, float, integer, int))
         assert isinstance(out["ids"][0][0], str)    
         if load != "predict_loader":

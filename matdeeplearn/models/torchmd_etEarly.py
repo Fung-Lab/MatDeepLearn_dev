@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 import torch_geometric.nn
 from torch_geometric.nn import MessagePassing
-from torch_scatter import scatter
+from torch_geometric.utils import scatter
 from matdeeplearn.models.utils import (
     NeighborEmbedding,
     CosineCutoff,
@@ -183,7 +183,7 @@ class TorchMD_ET(BaseModel):
         #), "Distance module did not return directional information"
         if self.otf_edge_index == True:
             #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
-            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
         data.edge_attr = self.distance_expansion(data.edge_weight) 
                             
         #mask = data.edge_index[0] != data.edge_index[1]        
