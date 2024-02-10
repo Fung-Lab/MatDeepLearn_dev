@@ -4,7 +4,7 @@ import os
 import sys
 from itertools import combinations, product
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import ase
 import numpy as np
@@ -38,7 +38,7 @@ def calculate_edges_master(
     experimental_distance: bool = False,
     device: torch.device = torch.device("cpu"),
 ) -> dict[str, torch.Tensor]:
-    """Generates edges using one of three methods (ASE, OCP, or MDL implementations) due to limitations of each method.
+    """Generates edges using one of three methods (ASE, OCP, MDL, or INF implementations) due to limitations of each method.
     Args:
         r (float): cutoff radius
         n_neighbors (int): number of neighbors to consider
@@ -103,6 +103,62 @@ def calculate_edges_master(
         edge_weights = ocp_out["distances"]
         cell_offsets = ocp_out["offsets"]
         edge_vec = ocp_out["distance_vec"]
+
+    elif method == "inf":
+        coefficients = [-0.801, -0.074, 0.145]
+
+        u = (
+            torch.arange(0, z.size(0), 1)
+            .unsqueeze(1)
+            .repeat((1, z.size(0)))
+            .flatten()
+            .long()
+        )
+        v = (
+            torch.arange(0, z.size(0), 1)
+            .unsqueeze(0)
+            .repeat((z.size(0), 1))
+            .flatten()
+            .long()
+        )
+        edge_index = torch.stack([u, v])
+
+        out["inf_edge_index"] = edge_index
+
+        vecs = (
+            pos[u.flatten().numpy().astype(np.int32)]
+            - pos[v.flatten().numpy().astype(np.int32)]
+        )
+
+        potentials = calculate_inf_potentials(
+            vecs.cpu().detach().numpy(),
+            np.squeeze(cell.cpu().detach().numpy()),
+            R=int(r),
+        )
+
+        cutoff_distance_matrix, cell_offsets, edge_vec = get_cutoff_distance_matrix(
+            pos,
+            cell,
+            10000000,
+            10000000,
+            offset_number=offset_number,
+        )
+
+        edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
+
+        edge_index, edge_weights, _ = add_selfloop(
+            len(z), edge_index, edge_weights, cutoff_distance_matrix, True
+        )
+        # get into correct shape for model stage
+        edge_vec = edge_vec[edge_index[0], edge_index[1]]
+
+        weightedSum = sum(
+            [potentials[i] * coefficients[i] for i in range(len(coefficients))]
+        )
+
+        out["inf_edge_attr"] = (
+            torch.from_numpy(weightedSum).unsqueeze(-1).to(torch.float32)
+        )
 
     out["edge_index"] = edge_index
     out["edge_weights"] = edge_weights
@@ -502,6 +558,23 @@ def generate_edge_features(input_data, edge_steps, r, device):
     for i, data in enumerate(input_data):
         input_data[i].edge_attr = distance_gaussian(
             input_data[i].edge_descriptor["distance"]
+        )
+
+
+def generate_edge_features_inf(input_data, edge_steps, r, device):
+    gaussian = GaussianSmearing(0, 1, edge_steps // 2, 0.2, device=device)
+
+    if isinstance(input_data, Data):
+        input_data = [input_data]
+
+    normalize_edge_cutoff(input_data, "distance", r)
+    for i, data in enumerate(input_data):
+        input_data[i].edge_attr = torch.cat(
+            (
+                gaussian(input_data[i].edge_descriptor["distance"]),
+                torch.squeeze(gaussian(input_data[i].inf_edge_attr)),
+            ),
+            dim=-1,
         )
 
 
@@ -992,3 +1065,410 @@ def calculate_edges_ase(
     edge_index = torch.stack([first_idex, second_idex], dim=0)
 
     return edge_index, cell_offsets, edge_weights, edge_vec
+
+
+def calculate_inf_potentials(
+    v,
+    Omega,
+    R=3,
+):
+    """Calculates the infinite potentials
+    Args:
+        v (np.ndarray): vecs
+        Omega (np.ndarray): unit cell
+        R (torch.Tensor): cutoff radius
+    """
+
+    def zeta_cal(v, w, vecs, vecs_inv, d, det, p=1.0, eps=1e-12):
+        result = sum(
+            np.e ** (2 * np.pi * 1.0j * vecs @ w)
+            * cython_upper_bessel(-p, np.linalg.norm(vecs + v, axis=1) ** 2, 0, eps)
+            + np.e ** (2 * np.pi * 1.0j * v @ w)
+            / det
+            * np.pi ** (d / 2)
+            * np.e ** (-2 * np.pi * 1.0j * vecs_inv @ v)
+            * cython_upper_bessel(
+                p - d / 2,
+                np.pi**2 * np.linalg.norm(vecs_inv + w, axis=1) ** 2,
+                0,
+                eps,
+            )
+        )
+
+        if (v == 0).all():
+            result = result - 1.0 / p
+        else:
+            result = result + cython_upper_bessel_k(-p, np.linalg.norm(v) ** 2, 0, eps)
+
+        if (w == 0).all():
+            result = result - np.pi ** (d / 2) / ((d / 2 - p) * det)
+        else:
+            result = result + np.e ** (2 * np.pi * 1.0j * v @ w) / det * np.pi ** (
+                d / 2
+            ) * cython_upper_bessel_k(
+                p - d / 2, np.pi**2 * np.linalg.norm(w) ** 2, 0, eps
+            )
+        return result
+
+    def epstein(v, w, Omega, param=1.0, R=3, eps=1e-12, parallel=False, verbose=False):
+        d = Omega.shape[0]
+
+        assert len(np.shape(v)) == len(np.shape(w))
+        if len(np.shape(v)) == 1:
+            v = [v]
+            w = [w]
+
+        v = np.array(v, dtype=np.double)
+        w = np.array(w, dtype=np.double)
+
+        num_vectors = v.shape[0]
+
+        # normalization
+        det = abs(np.linalg.det(Omega))
+        assert det > 0
+
+        gamma_norm = det ** (1.0 / d)
+        Omega = Omega / gamma_norm
+        Omega_inv = np.linalg.inv(Omega).T
+        v = v / gamma_norm
+        w = w * gamma_norm
+        det = 1.0
+
+        gamma_p = cython_gsl_sf_gamma(param)
+
+        products = np.array(
+            [
+                l
+                for l in itertools.product(*[list(range(-R, R + 1)) for _ in range(d)])
+                if any(l)
+            ]
+        )
+        vecs = products @ Omega
+        vecs_inv = products @ Omega_inv
+
+        if verbose:
+            for i in range(num_vectors):
+                rounds = np.array(
+                    [
+                        l
+                        for l in itertools.product(
+                            *[list(range(-1, 2)) for _ in range(d)]
+                        )
+                        if any(l)
+                    ]
+                )
+                _, s1, _ = np.linalg.svd(Omega)
+                minor_minus1 = (
+                    np.clip(s1[-1] * R - np.linalg.norm(v[i]), a_min=0, a_max=np.inf)
+                    ** 2
+                )
+                error_radius1 = np.sqrt(minor_minus1)
+                rho1 = np.min(np.linalg.norm(rounds @ Omega, axis=1))
+                error1 = (
+                    d
+                    / 2
+                    * (2 / rho1) ** d
+                    * cython_gsl_sf_gamma_inc(d / 2, (error_radius1 - rho1 / 2) ** 2)
+                )
+
+                _, s2, _ = np.linalg.svd(Omega_inv)
+                minor_minus2 = (
+                    np.clip(s2[-1] * R - np.linalg.norm(w[i]), a_min=0, a_max=np.inf)
+                    ** 2
+                )
+                error_radius2 = np.sqrt(np.pi**2 * minor_minus2)
+                rho2 = np.pi * np.min(np.linalg.norm(rounds @ Omega_inv, axis=1))
+                error2 = (
+                    d
+                    / 2
+                    * (2 / rho2) ** d
+                    * cython_gsl_sf_gamma_inc(d / 2, (error_radius2 - rho2 / 2) ** 2)
+                )
+                print(
+                    "Error upper bound for "
+                    + str(i)
+                    + " vector is "
+                    + str(error1 + error2)
+                )
+
+        values = np.array(
+            [
+                zeta_cal(v[i], w[i], vecs, vecs_inv, d, det, p=param, eps=eps).real
+                for i in range(num_vectors)
+            ],
+            dtype=np.double,
+        )
+
+        return values * gamma_norm ** (-2 * param) / gamma_p
+
+    # Coulomb
+    def zeta(v, Omega, param=1.0, R=3, eps=1e-12, parallel=False, verbose=False):
+        return epstein(
+            v,
+            np.zeros_like(v),
+            Omega,
+            param=param,
+            R=R,
+            eps=eps,
+            parallel=parallel,
+            verbose=verbose,
+        )
+
+    def exp_cal(v, vecs, vecs_inv, d, det, B, eps=1e-12):
+        return sum(
+            np.e ** (2 * np.pi * 1.0j * vecs_inv @ v)
+            / det
+            * cython_upper_bessel(
+                -0.5 - d / 2, B + np.pi * np.linalg.norm(vecs_inv, axis=1) ** 2, 0, eps
+            )
+            + cython_upper_bessel(
+                0.5, np.pi * np.linalg.norm(vecs + v, axis=1) ** 2, B, eps
+            )
+        ).real
+
+    # Pauli
+    def exp(v, Omega, param=1.0, R=3, eps=1e-12, parallel=False, verbose=False):
+        d = Omega.shape[0]
+
+        if len(np.shape(v)) == 1:
+            v = [v]
+
+        v = np.array(v, dtype=np.double)
+        num_vectors = v.shape[0]
+
+        det = abs(np.linalg.det(Omega))
+        assert det > 0
+
+        gamma_norm = det ** (1.0 / d)
+        Omega = Omega / gamma_norm
+        Omega_inv = np.linalg.inv(Omega).T
+        v = v / gamma_norm
+        det = 1.0
+
+        param = param * np.sqrt(gamma_norm)
+
+        products = np.array(
+            [l for l in itertools.product(*[list(range(-R, R + 1)) for _ in range(d)])]
+        )
+
+        vecs = products @ Omega
+        vecs_inv = products @ Omega_inv
+
+        if verbose:
+            for i in range(num_vectors):
+                rounds = np.array(
+                    [
+                        l
+                        for l in itertools.product(
+                            *[list(range(-1, 2)) for _ in range(d)]
+                        )
+                        if any(l)
+                    ]
+                )
+                _, s1, _ = np.linalg.svd(Omega)
+                minor_minus1 = (
+                    np.clip(s1[-1] * R - np.linalg.norm(v[i]), a_min=0, a_max=np.inf)
+                    ** 2
+                )
+                error_radius1 = np.sqrt(np.pi * minor_minus1)
+                rho1 = np.sqrt(np.pi) * np.min(np.linalg.norm(rounds @ Omega, axis=1))
+                error1 = (
+                    d
+                    / 2
+                    * (2 / rho1) ** d
+                    * cython_gsl_sf_gamma_inc(d / 2, (error_radius1 - rho1 / 2) ** 2)
+                )
+
+                _, s2, _ = np.linalg.svd(Omega_inv)
+                minor_minus2 = np.clip(s2[-1] * R, a_min=0, a_max=np.inf) ** 2
+                error_radius2 = np.sqrt(np.pi * minor_minus2)
+                rho2 = np.sqrt(np.pi) * np.min(
+                    np.linalg.norm(rounds @ Omega_inv, axis=1)
+                )
+                error2 = (
+                    d
+                    / 2
+                    * (2 / rho2) ** d
+                    * cython_gsl_sf_gamma_inc(d / 2, (error_radius2 - rho2 / 2) ** 2)
+                )
+                print(
+                    "Error upper bound for "
+                    + str(i)
+                    + " vector is "
+                    + str(error1 + error2)
+                )
+
+        B = param**2 / 4.0 / np.pi
+
+        values = np.array(
+            [exp_cal(v[i], vecs, vecs_inv, d, det, B, eps) for i in range(num_vectors)],
+            dtype=np.double,
+        )
+
+        return values * param / 2.0 / np.pi
+
+    # TODO: Add error bound approximation for LJ potential
+    def lj(v, Omega, param=1.0, R=3, eps=1e-12, parallel=False, verbose=False):
+        if verbose:
+            raise NotImplementedError(
+                "Error bound for LJ potential is not implemented yet"
+            )
+        return param**12 * zeta(
+            v, Omega, param=6.0, R=R, eps=eps, parallel=parallel
+        ) - param**6 * zeta(v, Omega, param=3.0, R=R, eps=eps, parallel=parallel)
+
+    # TODO: Add error bound approximation for morse potential
+    def morse(
+        v, Omega, param=1.0, re=1.0, R=3, eps=1e-12, parallel=False, verbose=False
+    ):
+        if verbose:
+            raise NotImplementedError(
+                "Error bound for morse potential is not implemented yet"
+            )
+        return np.exp(2.0 * param * re) * exp(
+            v, Omega, param=2.0 * param, R=R, eps=eps, parallel=parallel
+        ) - 2.0 * np.exp(param * re) * exp(
+            v, Omega, param=param, R=R, eps=eps, parallel=parallel
+        )
+
+    def screened_coulomb_cal(v, vecs, vecs_inv, d, det, B, eps=1e-12):
+        result = sum(
+            np.e ** (2 * np.pi * 1.0j * vecs_inv @ v)
+            * np.pi ** (d / 2)
+            / det
+            * cython_upper_bessel(
+                0.5 - d / 2,
+                B + np.pi**2 * np.linalg.norm(vecs_inv, axis=1) ** 2,
+                0,
+                eps,
+            )
+            + cython_upper_bessel(-0.5, np.linalg.norm(vecs + v, axis=1) ** 2, B, eps)
+        ).real
+        if (v == 0).all():
+            result = result + B**0.5 * (
+                cython_gsl_sf_gamma(-0.5) - cython_gsl_sf_gamma_inc(-0.5, B)
+            )
+        else:
+            result = result + cython_upper_bessel_k(
+                -0.5, np.linalg.norm(v) ** 2, B, eps
+            )
+        return result
+
+    # TODO: Add error bound approximation for screened coulomb potential
+    def screened_coulomb(
+        v, Omega, param=1.0, R=3, eps=1e-12, parallel=False, verbose=False
+    ):
+        d = Omega.shape[0]
+
+        if len(np.shape(v)) == 1:
+            v = [v]
+
+        v = np.array(v, dtype=np.double)
+        num_vectors = v.shape[0]
+
+        det = abs(np.linalg.det(Omega))
+        assert det > 0
+
+        gamma_norm = det ** (1.0 / d)
+        Omega = Omega / gamma_norm
+        Omega_inv = np.linalg.inv(Omega).T
+        v = v / gamma_norm
+        det = 1.0
+
+        param = param * np.sqrt(gamma_norm)
+
+        products = np.array(
+            [
+                l
+                for l in itertools.product(*[list(range(-R, R + 1)) for _ in range(d)])
+                if any(l)
+            ]
+        )
+
+        vecs = products @ Omega
+        vecs_inv = products @ Omega_inv
+
+        B = param**2
+
+        if verbose:
+            raise NotImplementedError(
+                "Error bound for screened coulomb potential is not implemented yet"
+            )
+
+        values = np.array(
+            [
+                screened_coulomb_cal(v[i], vecs, vecs_inv, d, det, B, eps)
+                for i in range(num_vectors)
+            ],
+            dtype=np.double,
+        )
+
+        return values / np.sqrt(np.pi) / np.sqrt(gamma_norm)
+
+    return np.vstack(
+        (
+            zeta(v, Omega, param=0.5, R=R, eps=1e-12),  # Coulomb
+            zeta(v, Omega, param=3.0, R=R, eps=1e-12),  # LD
+            exp(v, Omega, param=3.0, R=R, eps=1e-12),  # Pauli
+        )
+    )
+
+
+class RBFExpansion(torch.nn.Module):
+    """Expand interatomic distances with radial basis functions."""
+
+    def __init__(
+        self,
+        vmin: float = 0,
+        vmax: float = 8,
+        bins: int = 40,
+        lengthscale: Optional[float] = None,
+        type: str = "gaussian",
+    ):
+        """Register torch parameters for RBF expansion."""
+        super().__init__()
+        self.vmin = vmin
+        self.vmax = vmax
+        self.bins = bins
+        self.register_buffer("centers", torch.linspace(vmin, vmax, bins))
+        self.type = type
+
+        if lengthscale is None:
+            # SchNet-style
+            # set lengthscales relative to granularity of RBF expansion
+            self.lengthscale = np.diff(self.centers).mean()
+            self.gamma = 1 / self.lengthscale
+
+        else:
+            self.lengthscale = lengthscale
+            self.gamma = 1 / (lengthscale**2)
+
+        def forward(self, distance: torch.Tensor) -> torch.Tensor:
+            """Apply RBF expansion to interatomic distance tensor."""
+            base = self.gamma * (distance - self.centers)
+            if self.type == "gaussian":
+                return (-(base**2)).exp()
+            elif self.type == "quadratic":
+                return base**2
+            elif self.type == "linear":
+                return base
+            elif self.type == "inverse_quadratic":
+                return 1.0 / (1.0 + base**2)
+            elif self.type == "multiquadric":
+                return (1.0 + base**2).sqrt()
+            elif self.type == "inverse_multiquadric":
+                return 1.0 / (1.0 + base**2).sqrt()
+            elif self.type == "spline":
+                return base**2 * (base + 1.0).log()
+            elif self.type == "poisson_one":
+                return (base - 1.0) * (-base).exp()
+            elif self.type == "poisson_two":
+                return (base - 2.0) / 2.0 * base * (-base).exp()
+            elif self.type == "matern32":
+                return (1.0 + 3**0.5 * base) * (-(3**0.5) * base).exp()
+            elif self.type == "matern52":
+                return (1.0 + 5**0.5 * base + 5 / 3 * base**2) * (
+                    -(5**0.5) * base
+                ).exp()
+            else:
+                raise Exception("No Implemented Radial Basis Method")
