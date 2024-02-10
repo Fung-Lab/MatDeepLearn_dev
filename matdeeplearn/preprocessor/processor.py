@@ -2,11 +2,11 @@ import json
 import logging
 import os
 
-import ase
 import numpy as np
 import pandas as pd
 import torch
-from ase import Atoms, io, neighborlist
+import ase
+from ase import io, Atoms, neighborlist
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import Compose
 from torch_geometric.utils import dense_to_sparse
@@ -14,12 +14,12 @@ from tqdm import tqdm
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
-    calculate_edges_master,
     clean_up,
     generate_edge_features,
     generate_edge_features_inf,
     generate_node_features,
     get_cutoff_distance_matrix,
+    calculate_edges_master,
 )
 
 

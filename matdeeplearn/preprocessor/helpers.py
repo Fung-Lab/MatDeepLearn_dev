@@ -145,7 +145,7 @@ def calculate_edges_master(
         )
 
         edge_index, edge_weights = dense_to_sparse(cutoff_distance_matrix)
-
+        
         edge_index, edge_weights,_ = add_selfloop(len(z),edge_index,edge_weights,cutoff_distance_matrix,True)
         # get into correct shape for model stage
         edge_vec = edge_vec[edge_index[0], edge_index[1]]
@@ -569,7 +569,7 @@ def generate_edge_features_inf(input_data, edge_steps, r, device):
         input_data[i].edge_attr = torch.cat((gaussian(
             input_data[i].edge_descriptor["distance"]
         ),torch.squeeze(gaussian(input_data[i].inf_edge_attr))),dim=-1)
-
+    
 def triplets(
     edge_index,
     num_nodes,
