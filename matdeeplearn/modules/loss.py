@@ -119,20 +119,20 @@ class DistillationLoss(nn.Module):
             use_mae = True, 
             use_huber = False, 
             preprocess_teacher_features = False,
-            attention_weight = False):
-        super().__init__()
-        self.weight_energy = weight_energy
-        self.weight_force = weight_force
-        self.weight_stress = weight_stress
-        self.distill_fns = distill_fns
-        self.use_mae = use_mae
-        self.use_huber = use_huber
-        self.weight_distillation = weight_distillation
-        self.preprocess_teacher_features = preprocess_teacher_features
-        self.attention_weight = attention_weight
+            attention_weight = False
+        ):
+            super().__init__()
+            self.weight_energy = weight_energy
+            self.weight_force = weight_force
+            self.weight_stress = weight_stress
+            self.distill_fns = distill_fns
+            self.use_mae = use_mae
+            self.use_huber = use_huber
+            self.weight_distillation = weight_distillation
+            self.preprocess_teacher_features = preprocess_teacher_features
+            self.attention_weight = attention_weight
 
     def forward(self, predictions: torch.Tensor, target: Batch):  
-
         total_loss = self.weight_energy*F.l1_loss(predictions["s_out"]["output"], target.y) + \
                      self.weight_force*F.l1_loss(predictions["s_out"]["pos_grad"], target.forces) + \
                      self.weight_stress*F.l1_loss(predictions["s_out"]["cell_grad"], target.stress)

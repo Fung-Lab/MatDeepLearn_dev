@@ -2,10 +2,10 @@ trainer: distill
 
 task:
   #run_mode: train
-  identifier: my_train_job
+  identifier: torch_md_distill_mlp_64
   parallel: False
   # If seed is not set, then it will be random every time
-  seed: 12345678
+  seed: 1111
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
@@ -51,7 +51,9 @@ teacher_model:
   # Train teacher model at the same time
   trainable: False
   # Load teacher model from a checkpoint path.
-  teacher_checkpoint_path: results/2023-10-25-11-17-02-107-torch_md_training/checkpoint/best_checkpoint.pt
+  teacher_checkpoint_path: results/best_torchmd_subset/checkpoint/best_checkpoint.pt
+  # 1 indicates normal behavior, larger numbers indicate the number of models to be used
+  model_ensemble: 1
 
 model:
   name: torchmd_etEarly
@@ -77,6 +79,9 @@ model:
   gradient: True
   # layer output for distillation
   distill_layers: "a8"
+  # 1 indicates normal behavior, larger numbers indicate the number of models to be used
+  model_ensemble: 1
+  projection_head: True
 
 optim:
   max_epochs: 400
@@ -87,17 +92,19 @@ optim:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
     loss_type: DistillationLoss
-    distill_fns: "node2node"
+    distill_fns: "node2node_vec2vec"
     use_mae: True
     use_huber: False
     huber_delta: 1.0
     weight_energy: 0.01
     weight_force: 50.0
     weight_stress: 50.0
-    weight_distillation: 1
+    weight_distillation: 1.0
+    attention_weight: False
+    attention_dim: 32
   clip_grad_norm: 10
          
-  batch_size: 16
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {"weight_decay": 0.0001}

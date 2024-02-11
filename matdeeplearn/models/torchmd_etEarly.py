@@ -5,7 +5,7 @@ from torch.nn.parameter import Parameter
 from torch import Tensor, nn
 import torch_geometric.nn
 from torch_geometric.nn import MessagePassing
-from torch_scatter import scatter
+from torch_geometric.utils import scatter
 from matdeeplearn.models.utils import (
     NeighborEmbedding,
     CosineCutoff,
@@ -222,22 +222,22 @@ class TorchMD_ET(BaseModel):
             # Conditions for projection head
             self.n2n_mapping = torch.nn.Sequential(
                 torch.nn.Linear(model_feature_dim["node_dim"], 2 * self.hidden_channels),
-                torch.nn.ReLU(),
+                torch.nn.SiLU(),
                 torch.nn.Linear(2 * self.hidden_channels, self.teacher_node_dim),
             )
             self.e2n_mapping = torch.nn.Sequential(
                 torch.nn.Linear(model_feature_dim["node_dim"], 2 * self.hidden_channels),
-                torch.nn.ReLU(),
+                torch.nn.SiLU(),
                 torch.nn.Linear(2 * self.hidden_channels, self.teacher_edge_dim),
             )
             self.e2e_mapping = torch.nn.Sequential(
                 torch.nn.Linear(model_feature_dim["edge_dim"], 2 * self.edge_dim),
-                torch.nn.ReLU(),
+                torch.nn.SiLU(),
                 torch.nn.Linear(2 * self.edge_dim, self.teacher_edge_dim),
             )
             self.v2v_mapping = torch.nn.Sequential(
                 torch.nn.Linear(model_feature_dim["vec_dim"], 2 * self.teacher_vec_dim),
-                torch.nn.ReLU(),
+                torch.nn.SiLU(),
                 torch.nn.Linear(2 * self.teacher_vec_dim, self.teacher_vec_dim),
             )
         else:

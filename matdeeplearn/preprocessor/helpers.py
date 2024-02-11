@@ -43,8 +43,9 @@ def calculate_edges_master(
     out = dict()
     neighbors = torch.empty(0)
     cell_offset_distances = torch.empty(0)
-    
-    if torch.sum(cell) == 0:
+
+    #check if cell consists of all zeros; if a cell is not present when processing input data, it is set to torch.zeros()
+    if not torch.any(cell>0.0):
         cell = None
         method = "mdl"
 
@@ -72,7 +73,7 @@ def calculate_edges_master(
         cell = cell.view(1, 3, 3)
         
         edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            r, n_neighbors, pos, cell, torch.tensor([len(pos)]), [True, True, True], offset_number
+            r, n_neighbors, pos, cell, torch.tensor([len(pos)], device = device), [True, True, True], offset_number
         )
 
         ocp_out = get_pbc_distances(

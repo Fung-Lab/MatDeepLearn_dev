@@ -2,18 +2,18 @@ trainer: property
 
 task:
   run_mode: train
-  identifier: torch_md_training
+  identifier: torch_md_continue_2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: results/best_torch_md/best_checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -28,7 +28,7 @@ model:
   name: torchmd_etEarly
   # model attributes
   hidden_channels: 128
-  num_layers: 6
+  num_layers: 8
   num_rbf: 50
   activation: "silu"
   attn_activation: "silu"
@@ -48,9 +48,9 @@ model:
   gradient: True
 
 optim:
-  max_epochs: 400
+  max_epochs: 500
   max_checkpoint_epochs: 0
-  lr: 0.0001
+  lr: 0.00005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -61,7 +61,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 16
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -77,12 +77,12 @@ dataset:
   name: test_data
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
+  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/force_data/
+  pt_path: data/force_data_full/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -129,6 +129,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.8
-  val_ratio: 0.1
-  test_ratio: 0.1
+  train_ratio: 0.9
+  val_ratio: 0.05
+  test_ratio: 0.05

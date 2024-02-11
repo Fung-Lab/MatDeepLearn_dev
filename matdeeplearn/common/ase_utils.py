@@ -1,37 +1,50 @@
-import torch
+from typing import List
+import logging
+
 import numpy as np
+import torch
 import yaml
 from ase import Atoms
 from ase.geometry import Cell
 from ase.calculators.calculator import Calculator
-from matdeeplearn.preprocessor.helpers import generate_node_features
 from torch_geometric.data.data import Data
 from torch_geometric.loader import DataLoader
-import logging
-from typing import List
+
 from matdeeplearn.common.registry import registry
+from matdeeplearn.models.base_model import BaseModel
+from matdeeplearn.preprocessor.helpers import generate_node_features
 
 
 logging.basicConfig(level=logging.INFO)
 
 
 class MDLCalculator(Calculator):
+    """
+    A neural networked based Calculator that calculates the energy, forces and stress of a crystal structure.
+    """
     implemented_properties = ["energy", "forces", "stress"]
 
-    def __init__(self, config):
+    def __init__(self, config, rank='cuda:0'):
         """
         Initialize the MDLCalculator instance.
 
         Args:
-            config (str or dict): Configuration settings for the MDLCalculator.
+        - config (str or dict): Configuration settings for the MDLCalculator.
+        - rank (str): Rank of device the calculator calculates properties. Defaults to 'cuda:0'
 
         Raises:
-            AssertionError: If the trainer name is not in the correct format or if the trainer class is not found.
+        - AssertionError: If the trainer name is not in the correct format or if the trainer class is not found.
         """
         Calculator.__init__(self)
+        
         if isinstance(config, str):
+            logging.info(f'MDLCalculator instantiated from config: {config}')
             with open(config, "r") as yaml_file:
                 config = yaml.safe_load(yaml_file)
+        elif isinstance(config, dict):
+            logging.info('MDLCalculator instantiated from a dictionary.')
+        else:
+            raise NotImplementedError('Unsupported config type.')
                 
         gradient = config["model"].get("gradient", False)
         otf_edge_index = config["model"].get("otf_edge_index", False)
@@ -39,36 +52,24 @@ class MDLCalculator(Calculator):
         self.otf_node_attr = config["model"].get("otf_node_attr", False)
         assert otf_edge_index and otf_edge_attr and gradient, "To use this calculator to calculate forces and stress, you should set otf_edge_index, oft_edge_attr and gradient to True."
         
-        trainer_name = config.get("trainer", "matdeeplearn.trainers.PropertyTrainer")
-        assert trainer_name.count(".") >= 1, "Trainer name should be in format {module}.{trainer_name}, like matdeeplearn.trainers.PropertyTrainer"
-        
-        trainer_cls = registry.get_trainer_class(trainer_name)
-        load_state = config['task'].get('checkpoint_path', None)
-        assert trainer_cls is not None, "Trainer not found"
-        self.trainer = trainer_cls.from_config(config)
-        
-        try:
-            self.trainer.load_checkpoint()
-        except ValueError:
-            logging.warning("No checkpoint.pt file is found, and an untrained model is used for prediction.")
-        
+        self.device = rank if torch.cuda.is_available() else 'cpu'
+        self.models = MDLCalculator._load_model(config, self.device)
         self.n_neighbors = config['dataset']['preprocess_params'].get('n_neighbors', 250)
-        self.device = 'cpu'
 
-    def calculate(self, atoms: Atoms, properties=implemented_properties, system_changes=None):
+    def calculate(self, atoms: Atoms, properties=implemented_properties, system_changes=None) -> None:
         """
         Calculate energy, forces, and stress for a given ase.Atoms object.
 
         Args:
-            atoms (ase.Atoms): The atomic structure for which calculations are to be performed.
-            properties (list): List of properties to calculate. Defaults to ['energy', 'forces', 'stress'].
-            system_changes: Not supported in the current implementation.
+        - atoms (ase.Atoms): The atomic structure for which calculations are to be performed.
+        - properties (list): List of properties to calculate. Defaults to ['energy', 'forces', 'stress'].
+        - system_changes: Not supported in the current implementation.
 
         Returns:
-            None: The results are stored in the instance variable 'self.results'.
+        - None: The results are stored in the instance variable 'self.results'.
 
         Note:
-            This method performs energy, forces, and stress calculations using a neural network-based calculator.
+        - This method performs energy, forces, and stress calculations using a neural network-based calculator.
             The results are stored in the instance variable 'self.results' as 'energy', 'forces', and 'stress'.
         """
         Calculator.calculate(self, atoms, properties, system_changes)
@@ -87,6 +88,12 @@ class MDLCalculator(Calculator):
         
         data_list = [data]
         loader = DataLoader(data_list, batch_size=1)
+        loader_iter = iter(loader)
+        batch = next(loader_iter).to(self.device)
+        
+        out_list = []
+        for model in self.models:      
+            out_list.append(model(batch))
 
         energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)
         forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
@@ -104,11 +111,11 @@ class MDLCalculator(Calculator):
         with its associated properties such as positions and cell.
         
         Args:
-            data (Data): A data object containing information about atomic structures.
+        - data (Data): A data object containing information about atomic structures.
             
         Returns:
-            List[Atoms]: A list of 'ase.Atoms' objects, each representing an atomic structure
-                         with positions and associated properties.
+        - List[Atoms]: A list of 'ase.Atoms' objects, each representing an atomic structure
+            with positions and associated properties.
         """
         cells = data.cell.numpy()
         
@@ -141,7 +148,6 @@ class MDLCalculator(Calculator):
         model_config = config['model']
         
         model_list = []
-        #model_name = 'matdeeplearn.models.' + model_config["name"]
         model_name = model_config["name"]
         logging.info(f'MDLCalculator: setting up {model_name} for calculation')
         # Obtain node, edge, and output dimensions for model initialization   
