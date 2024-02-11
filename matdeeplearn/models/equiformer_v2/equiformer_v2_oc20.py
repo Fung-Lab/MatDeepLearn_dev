@@ -118,7 +118,7 @@ class EquiformerV2_OC20(BaseModel):
         max_neighbors: int = 500,
         max_radius: float = 5.0,
         max_num_elements: int = 90,
-        num_layers: int = 6,
+        num_layers: int = 1,
         sphere_channels: int = 128,
         attn_hidden_channels: int = 128,
         num_heads: int = 8,
@@ -135,7 +135,7 @@ class EquiformerV2_OC20(BaseModel):
         share_atom_edge_embedding: bool = False,
         use_m_share_rad: bool = False,
         distance_function: str = "gaussian",
-        num_distance_basis: int = 512,
+        num_distance_basis: int = 128,
         attn_activation: str = "scaled_silu",
         use_s2_act_attn: bool = False,
         use_attn_renorm: bool = True,
@@ -450,7 +450,7 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
         # Filter RN-RN & RN-VN edges
         ###############################################################
-        edge_mask = torch.zeros_like(data.edge_index[0])
+        edge_mask = torch.zeros_like(edge_index[0])
         edge_mask[(data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] == 100)] = 0  # VN-VN
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)] = 1  # RN-VN
         edge_mask[(data.z[edge_index[0]] == 100) & (data.z[edge_index[1]] != 100)] = 2  # VN-RN
@@ -458,11 +458,12 @@ class EquiformerV2_OC20(BaseModel):
 
         indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
         indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
-        mask = torch.isin(torch.arange(len(edge_index)), torch.cat((indices_rn_to_rn, indices_rn_to_vn)))
+        mask = indices_rn_to_rn | indices_rn_to_vn
         edge_index = edge_index[:, mask]
         edge_distance = edge_distance[mask]
         edge_distance_vec = edge_distance_vec[mask]
 
+        edge_mask = torch.zeros_like(edge_index[0])
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)] = 1  # RN-VN
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
         indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
