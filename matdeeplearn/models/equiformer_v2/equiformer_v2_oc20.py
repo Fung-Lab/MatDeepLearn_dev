@@ -457,7 +457,7 @@ class EquiformerV2_OC20(BaseModel):
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
 
         indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
-        indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
+        indices_rn_to_vn = (edge_mask == 1) # & (edge_distance <= self.cutoff_radius_rn_vn)
         mask = indices_rn_to_rn | indices_rn_to_vn
         edge_index = edge_index[:, mask]
         edge_distance = edge_distance[mask]
@@ -467,7 +467,7 @@ class EquiformerV2_OC20(BaseModel):
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)] = 1  # RN-VN
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
         indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
-        indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
+        indices_rn_to_vn = (edge_mask == 1) # & (edge_distance <= self.cutoff_radius_rn_vn)
         ###############################################################
         # Initialize data structures
         ###############################################################

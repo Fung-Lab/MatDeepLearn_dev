@@ -316,9 +316,9 @@ class BaseTrainer(ABC):
                   num_offsets=graph_config["num_offsets"], 
                   **model_config
                   )
-        print(model.SO3_m_grid[0])
+        print(model.mappingReduced.l_harmonic)
         model = model.to(rank)
-        print(model.SO3_m_grid[0])
+        print(model.mappingReduced.l_harmonic)
         # model = torch_geometric.compile(model)
         # if model_config["load_model"] == True:
         #    checkpoint = torch.load(model_config["model_path"])
