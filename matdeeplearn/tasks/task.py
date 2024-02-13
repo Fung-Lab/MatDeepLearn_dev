@@ -75,6 +75,7 @@ class PredictTask(BaseTask):
             # if isinstance(self.trainer.data_loader, list):
             self.trainer.predict(
                 loader=self.trainer.data_loader, split="predict", results_dir=results_dir, labels=self.config["task"]["labels"],
+                vmap_pred = self.config["task"].get("vmap_pred", False)
             )
             # else:
                 # self.trainer.predict(
