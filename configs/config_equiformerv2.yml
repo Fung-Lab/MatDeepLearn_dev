@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer
+  identifier: try4_equiformer_r4_l4m2_
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -109,7 +109,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : 8.0
+    cutoff_radius : 4.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
@@ -131,7 +131,7 @@ dataset:
       num_samples: 10000
       num_sub_batch: 500
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
-  num_workers: 0
+  num_workers: 8
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)

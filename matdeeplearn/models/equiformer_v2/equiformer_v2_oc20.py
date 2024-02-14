@@ -118,7 +118,7 @@ class EquiformerV2_OC20(BaseModel):
         max_neighbors: int = 500,
         max_radius: float = 5.0,
         max_num_elements: int = 101,
-        num_layers: int = 6,
+        num_layers: int = 12,
         sphere_channels: int = 128,
         attn_hidden_channels: int = 128,
         num_heads: int = 8,
@@ -126,7 +126,7 @@ class EquiformerV2_OC20(BaseModel):
         attn_value_channels: int = 16,
         ffn_hidden_channels: int = 512,
         norm_type: str = "rms_norm_sh",
-        lmax_list: List[int] = [6],
+        lmax_list: List[int] = [4],
         mmax_list: List[int] = [2],
         grid_resolution: Optional[int] = None,
         num_sphere_samples: int = 128,
@@ -152,7 +152,7 @@ class EquiformerV2_OC20(BaseModel):
         avg_degree: Optional[float] = None,
         use_energy_lin_ref: Optional[bool] = False,
         load_energy_lin_ref: Optional[bool] = False,
-        cutoff_radius_rn_vn: float = 8.0,
+        cutoff_radius_rn_vn: float = 4.0,
         cutoff_radius_vn_vn: float = 4.0,
         **kwargs
     ):
@@ -463,7 +463,7 @@ class EquiformerV2_OC20(BaseModel):
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
 
         indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
-        indices_rn_to_vn = (edge_mask == 1) # & (edge_distance <= self.cutoff_radius_rn_vn)
+        indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
         mask = indices_rn_to_rn | indices_rn_to_vn
         edge_index = edge_index[:, mask]
         edge_distance = edge_distance[mask]
@@ -542,17 +542,25 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
 
         for i in range(self.num_layers):
-            x = self.blocks[i](
-                x,  # SO3_Embedding
-                atomic_numbers,
-                edge_distance,
-                edge_index,
-                batch=data.batch,  # for GraphDropPath
-            )
+            if i % 2 == 0:
+                x = self.blocks[i](
+                    x,  # SO3_Embedding
+                    atomic_numbers,
+                    edge_distance[indices_rn_to_rn],
+                    edge_index[:, indices_rn_to_rn],
+                    batch=data.batch,  # for GraphDropPath
+                )
+            elif i % 2 == 1:
+                x = self.blocks[i](
+                    x,  # SO3_Embedding
+                    atomic_numbers,
+                    edge_distance[indices_rn_to_vn],
+                    edge_index[:, indices_rn_to_vn],
+                    batch=data.batch,  # for GraphDropPath
+                )
 
         # Final layer norm
         x.embedding = self.norm(x.embedding)
-        print("After norm shape of x.embedding:", x.embedding.shape)
         outputs = {}
 
         ###############################################################
@@ -608,10 +616,8 @@ class EquiformerV2_OC20(BaseModel):
         virtual_mask = torch.argwhere(data.z == 100).squeeze(1)
         x.embedding = torch.index_select(x.embedding, 0, virtual_mask)
         node_density = self.density_block(x)
-        print("Before narrow shape of node_density:", node_density.embedding.shape)
         node_density = node_density.embedding.narrow(1, 0, 1)
-        print("output shape:", node_density.shape)
-        outputs["output"] = node_density
+        outputs["output"] = node_density.view(-1, 1)
         return outputs
 
     # Initialize the edge rotation matrics
