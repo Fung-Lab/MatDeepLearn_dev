@@ -277,9 +277,13 @@ class EquiformerV2_OC20(BaseModel):
             self.source_embedding, self.target_embedding = None, None
 
         # Initialize the module that compute WignerD matrices and other values for spherical harmonic calculations
-        self.SO3_rotation = nn.ModuleList()
+        self.SO3_rotation_all = nn.ModuleList()
+        self.SO3_rotation_rn = nn.ModuleList()
+        self.SO3_rotation_vn = nn.ModuleList()
         for i in range(self.num_resolutions):
-            self.SO3_rotation.append(SO3_Rotation(self.lmax_list[i]))
+            self.SO3_rotation_all.append(SO3_Rotation(self.lmax_list[i]))
+            self.SO3_rotation_rn.append(SO3_Rotation(self.lmax_list[i]))
+            self.SO3_rotation_vn.append(SO3_Rotation(self.lmax_list[i]))
 
         # Initialize conversion between degree l and order m layouts
         self.mappingReduced = CoefficientMappingModule(
@@ -308,7 +312,7 @@ class EquiformerV2_OC20(BaseModel):
             self.sphere_channels,
             self.lmax_list,
             self.mmax_list,
-            self.SO3_rotation,
+            self.SO3_rotation_all,
             self.mappingReduced,
             self.max_num_elements,
             self.edge_channels_list,
@@ -319,35 +323,66 @@ class EquiformerV2_OC20(BaseModel):
         # Initialize the blocks for each layer of EquiformerV2
         self.blocks = nn.ModuleList()
         for i in range(self.num_layers):
-            block = TransBlockV2(
-                self.sphere_channels,
-                self.attn_hidden_channels,
-                self.num_heads,
-                self.attn_alpha_channels,
-                self.attn_value_channels,
-                self.ffn_hidden_channels,
-                self.sphere_channels,
-                self.lmax_list,
-                self.mmax_list,
-                self.SO3_rotation,
-                self.mappingReduced,
-                self.SO3_grid,
-                self.max_num_elements,
-                self.edge_channels_list,
-                self.block_use_atom_edge_embedding,
-                self.use_m_share_rad,
-                self.attn_activation,
-                self.use_s2_act_attn,
-                self.use_attn_renorm,
-                self.ffn_activation,
-                self.use_gate_act,
-                self.use_grid_mlp,
-                self.use_sep_s2_act,
-                self.norm_type,
-                self.alpha_drop,
-                self.drop_path_rate,
-                self.proj_drop,
-            )
+            if i % 2 == 0:
+                block = TransBlockV2(
+                    self.sphere_channels,
+                    self.attn_hidden_channels,
+                    self.num_heads,
+                    self.attn_alpha_channels,
+                    self.attn_value_channels,
+                    self.ffn_hidden_channels,
+                    self.sphere_channels,
+                    self.lmax_list,
+                    self.mmax_list,
+                    self.SO3_rotation_rn,
+                    self.mappingReduced,
+                    self.SO3_grid,
+                    self.max_num_elements,
+                    self.edge_channels_list,
+                    self.block_use_atom_edge_embedding,
+                    self.use_m_share_rad,
+                    self.attn_activation,
+                    self.use_s2_act_attn,
+                    self.use_attn_renorm,
+                    self.ffn_activation,
+                    self.use_gate_act,
+                    self.use_grid_mlp,
+                    self.use_sep_s2_act,
+                    self.norm_type,
+                    self.alpha_drop,
+                    self.drop_path_rate,
+                    self.proj_drop,
+                )
+            elif i % 2 == 1:
+                block = TransBlockV2(
+                    self.sphere_channels,
+                    self.attn_hidden_channels,
+                    self.num_heads,
+                    self.attn_alpha_channels,
+                    self.attn_value_channels,
+                    self.ffn_hidden_channels,
+                    self.sphere_channels,
+                    self.lmax_list,
+                    self.mmax_list,
+                    self.SO3_rotation_vn,
+                    self.mappingReduced,
+                    self.SO3_grid,
+                    self.max_num_elements,
+                    self.edge_channels_list,
+                    self.block_use_atom_edge_embedding,
+                    self.use_m_share_rad,
+                    self.attn_activation,
+                    self.use_s2_act_attn,
+                    self.use_attn_renorm,
+                    self.ffn_activation,
+                    self.use_gate_act,
+                    self.use_grid_mlp,
+                    self.use_sep_s2_act,
+                    self.norm_type,
+                    self.alpha_drop,
+                    self.drop_path_rate,
+                    self.proj_drop,
+                )
             self.blocks.append(block)
 
         # Output blocks for energy and forces
@@ -479,13 +514,21 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
 
         # Compute 3x3 rotation matrix per edge
-        edge_rot_mat = self._init_edge_rot_mat(
+        edge_rot_mat_all = self._init_edge_rot_mat(
             data, edge_index, edge_distance_vec
+        )
+        edge_rot_mat_rn = self._init_edge_rot_mat(
+            data, edge_index[:, indices_rn_to_rn], edge_distance_vec[indices_rn_to_rn]
+        )
+        edge_rot_mat_vn = self._init_edge_rot_mat(
+            data, edge_index[:, indices_rn_to_vn], edge_distance_vec[indices_rn_to_vn]
         )
 
         # Initialize the WignerD matrices and other values for spherical harmonic calculations
         for i in range(self.num_resolutions):
-            self.SO3_rotation[i].set_wigner(edge_rot_mat)
+            self.SO3_rotation_all[i].set_wigner(edge_rot_mat_all)
+            self.SO3_rotation_rn[i].set_wigner(edge_rot_mat_rn)
+            self.SO3_rotation_vn[i].set_wigner(edge_rot_mat_vn)
 
         ###############################################################
         # Initialize node embeddings
