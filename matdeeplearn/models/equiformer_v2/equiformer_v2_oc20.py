@@ -117,8 +117,8 @@ class EquiformerV2_OC20(BaseModel):
         otf_graph: bool = True,
         max_neighbors: int = 500,
         max_radius: float = 5.0,
-        max_num_elements: int = 90,
-        num_layers: int = 1,
+        max_num_elements: int = 101,
+        num_layers: int = 6,
         sphere_channels: int = 128,
         attn_hidden_channels: int = 128,
         num_heads: int = 8,
@@ -152,6 +152,8 @@ class EquiformerV2_OC20(BaseModel):
         avg_degree: Optional[float] = None,
         use_energy_lin_ref: Optional[bool] = False,
         load_energy_lin_ref: Optional[bool] = False,
+        cutoff_radius_rn_vn: float = 8.0,
+        cutoff_radius_vn_vn: float = 4.0,
         **kwargs
     ):
         super(EquiformerV2_OC20, self).__init__(**kwargs)
@@ -171,6 +173,8 @@ class EquiformerV2_OC20(BaseModel):
         self.max_radius = max_radius
         self.cutoff = max_radius
         self.max_num_elements = max_num_elements
+        self.cutoff_radius_rn_vn = cutoff_radius_rn_vn
+        self.cutoff_radius_vn_vn = cutoff_radius_vn_vn
 
         self.num_layers = num_layers
         self.sphere_channels = sphere_channels
@@ -352,6 +356,7 @@ class EquiformerV2_OC20(BaseModel):
             lmax=max(self.lmax_list),
             num_channels=self.sphere_channels,
         )
+        '''
         self.energy_block = FeedForwardNetwork(
             self.sphere_channels,
             self.ffn_hidden_channels,
@@ -364,6 +369,7 @@ class EquiformerV2_OC20(BaseModel):
             self.use_grid_mlp,
             self.use_sep_s2_act,
         )
+        '''
 
         self.density_block = FeedForwardNetwork(
             self.sphere_channels,
@@ -377,7 +383,7 @@ class EquiformerV2_OC20(BaseModel):
             self.use_grid_mlp,
             self.use_sep_s2_act,
         )
-
+        '''
         if self.regress_forces:
             self.force_block = SO2EquivariantGraphAttention(
                 self.sphere_channels,
@@ -408,7 +414,7 @@ class EquiformerV2_OC20(BaseModel):
                 torch.zeros(self.max_num_elements),
                 requires_grad=False,
             )
-
+        '''
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
 
@@ -467,7 +473,7 @@ class EquiformerV2_OC20(BaseModel):
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] == 100)] = 1  # RN-VN
         edge_mask[(data.z[edge_index[0]] != 100) & (data.z[edge_index[1]] != 100)] = 3  # RN-RN
         indices_rn_to_rn = (edge_mask == 3) & (edge_distance <= self.cutoff_radius)
-        indices_rn_to_vn = (edge_mask == 1) # & (edge_distance <= self.cutoff_radius_rn_vn)
+        indices_rn_to_vn = (edge_mask == 1) & (edge_distance <= self.cutoff_radius_rn_vn)
         ###############################################################
         # Initialize data structures
         ###############################################################
@@ -604,8 +610,8 @@ class EquiformerV2_OC20(BaseModel):
         node_density = self.density_block(x)
         print("Before narrow shape of node_density:", node_density.embedding.shape)
         node_density = node_density.embedding.narrow(1, 0, 1)
-        print("output shape:", node_density.embedding.shape)
-        outputs["output"] = node_density.embedding
+        print("output shape:", node_density.shape)
+        outputs["output"] = node_density
         return outputs
 
     # Initialize the edge rotation matrics
