@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_r4_l4m2_
+  identifier: try4_equiformer_config
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -28,24 +28,40 @@ task:
 model:
   name: equiformer_v2
   # model attributes
-  hidden_channels: 128
-  num_layers: 6
-  num_rbf: 50
-  activation: "silu"
-  attn_activation: "silu"
+  use_pbc: True
+  regress_forces: False
+  otf_graph: True
+  max_neighbors: 250
+  max_radius: 4.0
+  max_num_elements: 101
+  num_layers: 12
+  sphere_channels: 128
+  attn_hidden_channels: 64              # [64, 96] This determines the hidden size of message passing. Do not necessarily use 96.
   num_heads: 8
-  num_post_layers: 2
-  post_hidden_channels: 128
-  pool: "global_add_pool"
-  aggr: "mean"
-  # Compute edge indices on the fly in the model forward
-  otf_edge_index: True
-  # Compute edge attributes on the fly in the model forward
-  otf_edge_attr: True
-  # Compute node attributes on the fly in the model forward
-  otf_node_attr: True
-  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True
-  gradient: False
+  attn_alpha_channels: 64              # Not used when `use_s2_act_attn` is True.
+  attn_value_channels: 16
+  ffn_hidden_channels: 128
+  norm_type: 'layer_norm_sh'    # ['rms_norm_sh', 'layer_norm', 'layer_norm_sh']
+  lmax_list: [ 4 ]
+  mmax_list: [ 2 ]
+  grid_resolution: 18              # [18, 16, 14, None] For `None`, simply comment this line.
+  num_sphere_samples: 128
+  edge_channels: 128
+  use_atom_edge_embedding: True
+  share_atom_edge_embedding: False         # If `True`, `use_atom_edge_embedding` must be `True` and the atom edge embedding will be shared across all blocks.
+  distance_function: 'gaussian'
+  num_distance_basis: 512           # not used
+  attn_activation: 'silu'
+  use_s2_act_attn: False       # [False, True] Switch between attention after S2 activation or the original EquiformerV1 attention.
+  use_attn_renorm: True        # Attention re-normalization. Used for ablation study.
+  ffn_activation: 'silu'      # ['silu', 'swiglu']
+  use_gate_act: False       # [True, False] Switch between gate activation and S2 activation
+  use_grid_mlp: True        # [False, True] If `True`, use projecting to grids and performing MLPs for FFNs.
+  use_sep_s2_act: True        # Separable S2 activation. Used for ablation study.
+  alpha_drop: 0.1         # [0.0, 0.1]
+  drop_path_rate: 0.05        # [0.0, 0.05]
+  proj_drop: 0.0
+  weight_init: 'uniform'    # ['uniform', 'normal']
 
 optim:
   max_epochs: 200
@@ -57,7 +73,7 @@ optim:
     loss_args: {loss_fn: l1_loss }
   # gradient clipping value
   clip_grad_norm: 10
-  batch_size: 4
+  batch_size: 6
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
