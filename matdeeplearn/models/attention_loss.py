@@ -24,19 +24,70 @@ class AttentionLoss(nn.Module):
                  teacher_edge_dim, 
                  teacher_vec_dim,
                  attention_dim,
+                 multiple_layer = False,
         ):
         super(AttentionLoss, self).__init__()
         # Student Model Layers
-        self.student_n2n_mapping = nn.Linear(teacher_node_dim, attention_dim)
-        self.student_e2n_mapping = nn.Linear(teacher_edge_dim, attention_dim)
-        self.student_e2e_mapping = nn.Linear(teacher_edge_dim, attention_dim)
-        self.student_v2v_mapping = nn.Linear(teacher_vec_dim, attention_dim)
+        if multiple_layer:
+            self.student_n2n_mapping = nn.Sequential(
+                nn.Linear(teacher_node_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
 
-        # Teacher Model Layers
-        self.teacher_n2n_mapping = nn.Linear(teacher_node_dim, attention_dim)
-        self.teacher_e2n_mapping = nn.Linear(teacher_edge_dim, attention_dim)
-        self.teacher_e2e_mapping = nn.Linear(teacher_edge_dim, attention_dim)
-        self.teacher_v2v_mapping = nn.Linear(teacher_vec_dim, attention_dim)
+            self.student_e2n_mapping = nn.Sequential(
+                nn.Linear(teacher_edge_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+
+            self.student_e2e_mapping = nn.Sequential(
+                nn.Linear(teacher_edge_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+
+            self.student_v2v_mapping = nn.Sequential(
+                nn.Linear(teacher_vec_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+
+            # Teacher Model Layers (using the same pattern)
+            self.teacher_n2n_mapping = nn.Sequential(
+                nn.Linear(teacher_node_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+
+            self.teacher_e2n_mapping = nn.Sequential(
+                nn.Linear(teacher_edge_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+
+            self.teacher_e2e_mapping = nn.Sequential(
+                nn.Linear(teacher_edge_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+
+            self.teacher_v2v_mapping = nn.Sequential(
+                nn.Linear(teacher_vec_dim, attention_dim),
+                nn.SiLU(),
+                nn.Linear(attention_dim, attention_dim),
+            )
+        else:
+            self.student_n2n_mapping = nn.Linear(teacher_node_dim, attention_dim)
+            self.student_e2n_mapping = nn.Linear(teacher_edge_dim, attention_dim)
+            self.student_e2e_mapping = nn.Linear(teacher_edge_dim, attention_dim)
+            self.student_v2v_mapping = nn.Linear(teacher_vec_dim, attention_dim)
+
+            # Teacher Model Layers
+            self.teacher_n2n_mapping = nn.Linear(teacher_node_dim, attention_dim)
+            self.teacher_e2n_mapping = nn.Linear(teacher_edge_dim, attention_dim)
+            self.teacher_e2e_mapping = nn.Linear(teacher_edge_dim, attention_dim)
+            self.teacher_v2v_mapping = nn.Linear(teacher_vec_dim, attention_dim)
 
     def compute_attention(self, output, batch_list = None):
         n2n_q = self.student_n2n_mapping(output['s_out']['n2n_mapping'])

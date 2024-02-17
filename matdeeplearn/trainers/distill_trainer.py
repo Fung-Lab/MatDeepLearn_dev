@@ -142,7 +142,7 @@ class DistillForcesTrainer(BaseTrainer):
 
         #set up attention model for adaptive loss
         if config['optim']['loss']['attention_weight']:
-            attention_model =  cls._load_attention_model(teacher_dim, config['optim']['loss']['attention_dim'], local_world_size, rank)
+            attention_model =  cls._load_attention_model(teacher_dim, config['optim']['loss'], local_world_size, rank)
             attention_model.to(rank)
         else:
             attention_model = None
@@ -236,13 +236,14 @@ class DistillForcesTrainer(BaseTrainer):
 
         return teacher_model
 
-    def _load_attention_model(teacher_dim, attention_dim, world_size, rank):
+    def _load_attention_model(teacher_dim, loss_config, world_size, rank):
         attention_model_cls = registry.get_model_class("attention_loss")
         attention_model = attention_model_cls(
             teacher_node_dim = teacher_dim["node_dim"], 
             teacher_edge_dim = teacher_dim["edge_dim"], 
             teacher_vec_dim = teacher_dim["vec_dim"],
-            attention_dim = attention_dim,
+            attention_dim = loss_config['attention_dim'],
+            multiple_layer = loss_config['multiple_layer']
         )
         attention_model = attention_model.to(rank)
         # model = torch_geometric.compile(model)
