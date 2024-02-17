@@ -517,12 +517,8 @@ class EquiformerV2_OC20(BaseModel):
         edge_rot_mat_all = self._init_edge_rot_mat(
             data, edge_index, edge_distance_vec
         )
-        edge_rot_mat_rn = self._init_edge_rot_mat(
-            data, edge_index[:, indices_rn_to_rn], edge_distance_vec[indices_rn_to_rn]
-        )
-        edge_rot_mat_vn = self._init_edge_rot_mat(
-            data, edge_index[:, indices_rn_to_vn], edge_distance_vec[indices_rn_to_vn]
-        )
+        edge_rot_mat_rn = edge_rot_mat_all[indices_rn_to_rn]
+        edge_rot_mat_vn = edge_rot_mat_all[indices_rn_to_vn]
 
         # Initialize the WignerD matrices and other values for spherical harmonic calculations
         for i in range(self.num_resolutions):
@@ -585,7 +581,7 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
 
         for i in range(self.num_layers):
-            if i % 2 == 0:
+            if i % 2 == 0 and edge_rot_mat_rn.shape[0] != 0:
                 x = self.blocks[i](
                     x,  # SO3_Embedding
                     atomic_numbers,
