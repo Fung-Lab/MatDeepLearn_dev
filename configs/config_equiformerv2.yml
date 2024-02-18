@@ -35,18 +35,18 @@ model:
   max_radius: 4.0
   max_num_elements: 101
   num_layers: 8
-  sphere_channels: 32
-  attn_hidden_channels: 32              # [64, 96] This determines the hidden size of message passing. Do not necessarily use 96.
+  sphere_channels: 64
+  attn_hidden_channels: 64              # [64, 96] This determines the hidden size of message passing. Do not necessarily use 96.
   num_heads: 8
-  attn_alpha_channels: 32              # Not used when `use_s2_act_attn` is True.
+  attn_alpha_channels: 64              # Not used when `use_s2_act_attn` is True.
   attn_value_channels: 16
-  ffn_hidden_channels: 32
+  ffn_hidden_channels: 64
   norm_type: 'layer_norm_sh'    # ['rms_norm_sh', 'layer_norm', 'layer_norm_sh']
   lmax_list: [ 4 ]
   mmax_list: [ 2 ]
   grid_resolution: 18              # [18, 16, 14, None] For `None`, simply comment this line.
   num_sphere_samples: 128
-  edge_channels: 32
+  edge_channels: 64
   use_atom_edge_embedding: True
   share_atom_edge_embedding: False         # If `True`, `use_atom_edge_embedding` must be `True` and the atom edge embedding will be shared across all blocks.
   distance_function: 'gaussian'
