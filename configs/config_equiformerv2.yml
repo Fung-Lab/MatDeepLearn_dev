@@ -66,20 +66,20 @@ model:
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.0004
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: TorchLossWrapper
     loss_args: {loss_fn: l1_loss }
   # gradient clipping value
-  clip_grad_norm: 10
+  clip_grad_norm: 100
   batch_size: 6
   optimizer:
     optimizer_type: AdamW
-    optimizer_args: {}
+    optimizer_args: {weight_decay: 0.001}
   scheduler:
-    scheduler_type: ReduceLROnPlateau
-    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
+    scheduler_type: LambdaLR
+    scheduler_args: {lambda_type: cosine, warmup_factor: 0.2, warmup_epochs: 0.1, lr_min_factor: 0.01}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
