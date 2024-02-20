@@ -17,9 +17,9 @@ task:
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
   # Use amp mixed precision
@@ -81,7 +81,7 @@ optim:
     scheduler_type: ReduceLROnPlateau
     scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
-  verbosity: 5
+  verbosity: 1
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
 
