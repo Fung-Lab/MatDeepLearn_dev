@@ -718,5 +718,6 @@ class EquiformerV2_OC20(BaseModel):
 
         return set(no_wd_list)
 
+    @property
     def target_attr(self):
         return "y"
