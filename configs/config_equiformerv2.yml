@@ -17,7 +17,7 @@ task:
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
