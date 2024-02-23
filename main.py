@@ -47,11 +47,25 @@ class Runner:  # submitit.helpers.Checkpointable):
 
 
 if __name__ == "__main__":
-
-
     # setup_logging()
     local_rank = os.environ.get('LOCAL_RANK', None)
+    print("Local Rank: ", local_rank)
     if local_rank == None or int(local_rank) == 0:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+        
+        timestamp = datetime.now().timestamp()
+        timestamp_id = datetime.fromtimestamp(timestamp).strftime(
+            "%Y-%m-%d-%H-%M-%S-%f"
+        )[:-3]    
+        fh = logging.FileHandler('log_'+timestamp_id+'.txt', 'w+')        
+        fh.setLevel(logging.DEBUG)  
+        root_logger.addHandler(fh)  
+                
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setLevel(logging.DEBUG)                               
+        root_logger.addHandler(sh)
+    else:
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
         
@@ -70,7 +84,10 @@ if __name__ == "__main__":
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
-    config["task"]["log_id"] = timestamp_id
+    if local_rank == None or int(local_rank) == 0:
+        config["task"]["log_id"] = timestamp_id
+    else:
+        config["task"]["log_id"] = timestamp_id
     
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])

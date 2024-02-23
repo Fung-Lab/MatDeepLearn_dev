@@ -149,9 +149,16 @@ class BaseTrainer(ABC):
             print(f"Master address on local rank {local_rank}: {master_addr}", flush=True)
 
             dist.init_process_group(
-                backend="nccl", world_size=local_world_size, init_method="env://"
+                backend="nccl",
+                init_method="tcp://{}:{}".format(master_addr, master_port),
+                rank=rank,
+                world_size=world_size,
             )
-            rank = int(dist.get_rank())
+
+            if rank == 0: 
+                print(f"Group initialized? {dist.is_initialized()}", flush=True)
+            # rank = torch.device(f"cuda:{LOCAL_RANK}")
+            torch.cuda.set_device(local_rank)
         else:
             local_rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             world_size = 1
@@ -185,7 +192,7 @@ class BaseTrainer(ABC):
         save_dir = config["task"].get("save_dir", None)
         checkpoint_path = config["task"].get("checkpoint_path", None)
 
-        if local_world_size > 1:
+        if world_size > 1:
             dist.barrier()
             
         return cls(
