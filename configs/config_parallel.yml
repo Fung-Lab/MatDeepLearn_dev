@@ -45,6 +45,8 @@ model:
   otf_edge_attr: False  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
+  # 1 indicates normal behavior, larger numbers indicate the number of models to be used
+  model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: False
 
@@ -58,7 +60,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10       
-  batch_size: 100
+  batch_size: 800
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -75,12 +77,12 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /autofs/nccs-svm1_home2/akaashrp/Matbench/data_log_gvrh.json
+  src: /lustre/orion/mat265/scratch/akaashrp/Matbench/data_log_gvrh.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: # /autofs/nccs-svm1_home2/akaashrp/Surface_data_npj/targets.csv
   # Path to save processed data.pt file
-  pt_path: /tmp/
+  pt_path: /lustre/orion/mat265/scratch/akaashrp/MatDeepLearn_dev/data/processed/gvrh/
   # Either "node" or "graph" level
   prediction_level: graph
   

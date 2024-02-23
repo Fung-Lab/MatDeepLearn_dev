@@ -134,21 +134,32 @@ class BaseTrainer(ABC):
         cls.set_seed(config["task"].get("seed"))
 
         if config["task"]["parallel"] == True:
-            # os.environ["MASTER_ADDR"] = "localhost"
-            # os.environ["MASTER_PORT"] = "12355"
-            local_world_size = os.environ.get("LOCAL_WORLD_SIZE", None)
-            local_world_size = int(local_world_size)
+            # local world size??????
+            world_size = int(os.environ['WORLD_SIZE']) # torch.distributed.get_world_size()
+            rank = int(os.environ['SLURM_PROCID']) # rank = int(dist.get_rank())
+            num_gpus_per_node = torch.cuda.device_count()
+
+            local_rank = rank % num_gpus_per_node # local_rank = rank - gpus_per_node * (rank // gpus_per_node)
+            master_addr = os.environ['MASTER_ADDR']
+            master_port = os.environ['MASTER_PORT']
+            
+            print(f"Hello from rank {rank} of {world_size} where there are" \
+                  f" {num_gpus_per_node} allocated GPUs per node.", flush=True)
+            print ("local_rank = " + str(local_rank), flush=True)
+            print(f"Master address on local rank {local_rank}: {master_addr}", flush=True)
+
             dist.init_process_group(
                 backend="nccl", world_size=local_world_size, init_method="env://"
             )
             rank = int(dist.get_rank())
         else:
-            rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            local_world_size = 1
+            local_rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            world_size = 1
+            torch.cuda.set_device("cuda:0")
         dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if "src" in config["dataset"] else None
-        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
-        optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
-        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank) if "src" in config["dataset"] else None
+        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, world_size, local_rank)
+        optimizer = cls._load_optimizer(config["optim"], model, world_size)
+        sampler = cls._load_sampler(config["optim"], dataset, world_size, local_rank) if "src" in config["dataset"] else None
         data_loader = cls._load_dataloader(
             config["optim"],
             config["dataset"],
