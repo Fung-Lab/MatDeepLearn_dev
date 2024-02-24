@@ -2,18 +2,18 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_nan_debug
+  identifier: try4_equiformer_lr4
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir:
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: ./results/2024-02-20-12-30-02-156-try4_equiformer_config/checkpoint/checkpoint.pt
+  checkpoint_path:
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
