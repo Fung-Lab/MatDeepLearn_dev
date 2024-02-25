@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_torchmd_RN-VN4
+  identifier: qm9_diff_datasize
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -28,16 +28,16 @@ task:
 model:
   name: torchmd_etEarly_vn
   # model attributes
-  hidden_channels: 128
-  num_layers: 6
-  num_rbf: 50
+  hidden_channels: 64
+  num_layers: 5
+  num_rbf: 25
   activation: "silu"
   attn_activation: "silu"
   num_heads: 8
-  num_post_layers: 2
-  post_hidden_channels: 128
+  num_post_layers: 1
+  post_hidden_channels: 64
   pool: "global_add_pool"
-  aggr: "mean"
+  aggr: "add"
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True
   # Compute edge attributes on the fly in the model forward
@@ -48,7 +48,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 300
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -57,7 +57,7 @@ optim:
     loss_args: {loss_fn: l1_loss }
   # gradient clipping value
   clip_grad_norm: 10
-  batch_size: 16
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -65,21 +65,21 @@ optim:
     scheduler_type: ReduceLROnPlateau
     scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
-  verbosity: 5
+  verbosity: 10
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
 
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../dataset/try4/data_try4.json
+  src: {'test': '../data_qm9_qmc/test/', 'train': '../data_qm9_qmc/train/', 'val': '../data_qm9_qmc/val/'}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/try4/
+  pt_path: ../data_qm9_qmc/
   # Either "node" or "graph"
   prediction_level: virtual
 
@@ -109,7 +109,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : 8.0
+    cutoff_radius : 12.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
     n_neighbors : 250
     # number of pbc offsets to consider when determining neighbors (usually not changed)
@@ -124,7 +124,7 @@ dataset:
     node_representation: onehot
     # virtual node settings
     virtual_params:
-      cutoff_radius_rn_vn: 4.0
+      cutoff_radius_rn_vn: 12.0
       cutoff_radius_vn_vn: 4.0
       rn_vn_aggr: "add"
       vn_vn_aggr: "mean"
