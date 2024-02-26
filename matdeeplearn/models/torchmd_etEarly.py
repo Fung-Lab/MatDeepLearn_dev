@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+rlyfrom typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -19,7 +19,7 @@ from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 @registry.register_model("torchmd_etEarly")
 
 
-class TorchMD_ET(BaseModel):
+class TorchMD_ET_Early(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
     Args:
