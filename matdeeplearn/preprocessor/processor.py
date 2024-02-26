@@ -16,6 +16,7 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import (
     clean_up,
     generate_edge_features,
+    generate_edge_features_inf,
     generate_node_features,
     get_cutoff_distance_matrix,
     calculate_edges_master,
@@ -472,8 +473,13 @@ class DataProcessor:
                 # data.edge_descriptor["mask"] = cd_matrix_masked
                 data.edge_descriptor["distance"] = edge_weights
                 # data.distances = edge_weights
-            
 
+                # Infinite potentials
+                if self.edge_calc_method == "inf":
+                    data.inf_edge_attr = edge_gen_out["inf_edge_attr"]
+                    data.inf_edge_index = edge_gen_out["inf_edge_index"]
+
+            
             # add additional attributes
             if self.additional_attributes:
                 for attr in self.additional_attributes:
@@ -485,7 +491,11 @@ class DataProcessor:
 
         if self.preprocess_edge_features == True:
             logging.info("Generating edge features...")
-            generate_edge_features(data_list, self.edge_dim, self.r, device=self.device)
+
+            if self.edge_calc_method == "inf":
+                generate_edge_features_inf(data_list, self.edge_dim, self.r, device=self.device)
+            else:
+                generate_edge_features(data_list, self.edge_dim, self.r, device=self.device)
 
         # compile non-otf transforms
         logging.debug("Applying transforms.")
