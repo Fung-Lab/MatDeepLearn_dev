@@ -104,9 +104,7 @@ def build_config(args, args_override):
         config["task"]["run_mode"] = args.run_mode
     if args.seed != None:    
         config["task"]["seed"] = args.seed
-    if args.num_samples != None:
-        config["dataset"]["preprocess_params"]["virtual_params"]["num_samples"] = args.num_samples
-    #
+
     # Submit
     config["submit"] = args.submit
     # config["summit"] = args.summit
