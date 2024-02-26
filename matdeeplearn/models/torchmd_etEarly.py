@@ -19,7 +19,7 @@ from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 @registry.register_model("torchmd_etEarly")
 
 
-class TorchMD_ET(BaseModel):
+class TorchMD_ET_Early(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
     Args:
@@ -81,7 +81,7 @@ class TorchMD_ET(BaseModel):
         aggr="add",
         **kwargs
     ):
-        super(TorchMD_ET, self).__init__(**kwargs)
+        super(TorchMD_ET_Early, self).__init__(**kwargs)
 
         assert distance_influence in ["keys", "values", "both", "none"]
         assert rbf_type in rbf_class_mapping, (
