@@ -79,7 +79,7 @@ dataset:
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../data_qm9_qmc/
+  pt_path: ../data_qm9_qmc_test/
   # Either "node" or "graph"
   prediction_level: virtual
 
