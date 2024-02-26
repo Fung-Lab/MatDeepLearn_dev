@@ -1,4 +1,4 @@
-rlyfrom typing import Optional, Tuple
+from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -81,7 +81,7 @@ class TorchMD_ET_Early(BaseModel):
         aggr="add",
         **kwargs
     ):
-        super(TorchMD_ET, self).__init__(**kwargs)
+        super(TorchMD_ET_Early, self).__init__(**kwargs)
 
         assert distance_influence in ["keys", "values", "both", "none"]
         assert rbf_type in rbf_class_mapping, (
