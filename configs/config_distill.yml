@@ -2,10 +2,10 @@ trainer: distill
 
 task:
   #run_mode: train
-  identifier: my_train_job
+  identifier: cgcnn_distill
   parallel: False
   # If seed is not set, then it will be random every time
-  seed: 12345678
+  seed: 3333
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
@@ -47,11 +47,12 @@ teacher_model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # layer output for distillation
-  distill_layers: "a8"
+  distill_layers: "a6_a8"
   # Train teacher model at the same time
   trainable: False
   # Load teacher model from a checkpoint path.
   teacher_checkpoint_path: results/best_torchmd_subset/checkpoint/best_checkpoint.pt
+  model_ensemble: 1
 
 model:
   name: CGCNN     
@@ -59,10 +60,10 @@ model:
   dim1: 100
   dim2: 150
   pre_fc_count: 1
-  gc_count: 4
+  gc_count: 8
   post_fc_count: 1
   pool: global_add_pool
-  pool_order: early
+  pool_order: late
   batch_norm: False
   batch_track_stats: True
   act: silu
@@ -76,7 +77,9 @@ model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # layer output for distillation
-  distill_layers: "g4"
+  distill_layers: "g6_g8"
+  model_ensemble: 1
+  mapping_layers: 2
 
 optim:
   max_epochs: 400
@@ -94,12 +97,12 @@ optim:
     weight_energy: 0.01
     weight_force: 50.0
     weight_stress: 50.0
-    weight_distillation: 1
+    weight_distillation: 1.0
     attention_weight: False
-    attention_dim: 32
+    attention_dim: 64
   clip_grad_norm: 10
          
-  batch_size: 32
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {"weight_decay": 0.0001}
@@ -151,7 +154,7 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_node_features: True
     # determine if teacher model output are computed during processing
-    preprocess_teacher_features: True
+    preprocess_teacher_features: False
     cutoff_radius : 8.0
     n_neighbors : 250
     num_offsets: 2

@@ -5,6 +5,7 @@ import os
 import random
 from abc import ABC, abstractmethod
 from datetime import datetime
+import inspect
 
 import numpy as np
 import torch
@@ -319,16 +320,40 @@ class BaseTrainer(ABC):
                 model_config["prediction_level"] = graph_config["prediction_level"]
 
             model_cls = registry.get_model_class(model_config["name"])
-            model = model_cls(
-                    node_dim=node_dim, 
-                    edge_dim=edge_dim, 
-                    output_dim=output_dim, 
-                    cutoff_radius=graph_config["cutoff_radius"], 
-                    n_neighbors=graph_config["n_neighbors"], 
-                    graph_method=graph_config["edge_calc_method"], 
-                    num_offsets=graph_config["num_offsets"], 
-                    **model_config
-                    )
+            parent_cls = model_cls.__bases__[0] 
+
+            supported_params_cls = set(inspect.signature(model_cls.__init__).parameters.keys())
+            if parent_cls is not object:
+                supported_params_parent = set(inspect.signature(parent_cls.__init__).parameters.keys())
+            else:
+                supported_params_parent = set()
+
+            supported_params = supported_params_cls.union(supported_params_parent)
+
+            all_params = {
+                "node_dim": node_dim, 
+                "edge_dim": edge_dim, 
+                "output_dim": output_dim, 
+                "cutoff_radius": graph_config["cutoff_radius"], 
+                "n_neighbors": graph_config["n_neighbors"], 
+                "graph_method": graph_config["edge_calc_method"], 
+                "num_offsets": graph_config["num_offsets"],
+                **model_config
+            }
+
+            filtered_params = {k: v for k, v in all_params.items() if k in supported_params}
+
+            model = model_cls(**filtered_params)
+            # model = model_cls(
+            #         node_dim=node_dim, 
+            #         edge_dim=edge_dim, 
+            #         output_dim=output_dim, 
+            #         cutoff_radius=graph_config["cutoff_radius"], 
+            #         n_neighbors=graph_config["n_neighbors"], 
+            #         graph_method=graph_config["edge_calc_method"], 
+            #         num_offsets=graph_config["num_offsets"], 
+            #         **model_config
+            #         )
             model = model.to(rank)
             
             # model = torch_geometric.compile(model)

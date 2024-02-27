@@ -408,15 +408,18 @@ class CGCNN(BaseModel):
             out = self.lin_out(out)
 
         assert distill_layer == (None, None)
-        node_feat = torch.cat(node_feature, dim=-1)     
-        edge_feat = torch.cat(edge_feature, dim=-1)                
+        # node_feat = torch.cat(node_feature, dim=-1)     
+        # edge_feat = torch.cat(edge_feature, dim=-1)                
         
         output = {}
         output["output"] =  out
-
-        output["n2n_mapping"] = self.n2n_mapping(node_feat.float())
-        output["n2e_mapping"] = self.e2n_mapping(node_feat.float())
-        output["e2e_mapping"] = self.e2e_mapping(edge_feat.float())
+        if self.is_teacher:
+            edge_to_node_feat = [scatter(feature, data.edge_index[0], dim=0, reduce='mean') for feature in edge_feature]
+            output["e2n_mapping"] = [self.e2n_mapping(feature.float()) for feature in edge_to_node_feat]
+        else:
+            output["e2n_mapping"] = [self.e2n_mapping(feature.float()) for feature in node_feature]
+        output["n2n_mapping"] = [self.n2n_mapping(feature.float()) for feature in node_feature]
+        output["e2e_mapping"] = [self.e2e_mapping(feature.float()) for feature in edge_feature]
 
         if self.gradient == True and out.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
@@ -439,18 +442,18 @@ class CGCNN(BaseModel):
         
 
     def extract_feature_dimensions(self):
-        node_feature_dim = 0
-        edge_feature_dim = 0
-        for (l,i) in self.distill_layers:
-            if l == "pr":
-                node_feature_dim += self.dim1
-            elif l == "g":
-                node_feature_dim += self.gc_dim
-                edge_feature_dim += self.edge_dim
-            elif l == "po":
-                node_feature_dim += self.dim2
+        # node_feature_dim = 0
+        # edge_feature_dim = 0
+        # for (l,i) in self.distill_layers:
+        #     if l == "pr":
+        #         node_feature_dim += self.dim1
+        #     elif l == "g":
+        #         node_feature_dim += self.gc_dim
+        #         edge_feature_dim += self.edge_dim
+        #     elif l == "po":
+        #         node_feature_dim += self.dim2
 
-        return  {"node_dim":node_feature_dim, "edge_dim":edge_feature_dim, "vec_dim":1}
+        return  {"node_dim": self.gc_dim, "edge_dim": self.edge_dim, "vec_dim":1}
 
     def set_teacher_dim(self, teacher_dim):
         self.teacher_edge_dim = teacher_dim.get("edge_dim", 1)

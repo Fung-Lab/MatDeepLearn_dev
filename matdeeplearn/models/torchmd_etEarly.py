@@ -402,18 +402,18 @@ class TorchMD_ET(BaseModel):
 
         output["output"] =  x
         assert distill_layer == (None, None)
-        node_feat = torch.cat(node_feature, dim=-1)     
-        edge_feat = torch.cat(edge_feature, dim=-1)
-        vec_feat = torch.cat(vec_feature, dim=-1)
+        #node_feat = torch.cat(node_feature, dim=-1)     
+        #edge_feat = torch.cat(edge_feature, dim=-1)
+        #vec_feat = torch.cat(vec_feature, dim=-1)
         if self.is_teacher:
-            edge_to_node_feat = scatter(edge_feat, data.edge_index[0], dim=0, reduce='mean')
-            output["e2n_mapping"] = self.e2n_mapping(edge_to_node_feat.float())
+            edge_to_node_feat = [scatter(feature, data.edge_index[0], dim=0, reduce='mean') for feature in edge_feature]
+            output["e2n_mapping"] = [self.e2n_mapping(feature.float()) for feature in edge_to_node_feat]
         else:
-            output["e2n_mapping"] = self.e2n_mapping(node_feat.float())
-        output["n2n_mapping"] = self.n2n_mapping(node_feat.float())
-        output["e2e_mapping"] = self.e2e_mapping(edge_feat.float())
-        vec_feat = vec_feat.reshape(vec_feat.size(0), -1)
-        v2v = self.v2v_mapping(vec_feat.float())
+            output["e2n_mapping"] = [self.e2n_mapping(feature.float()) for feature in node_feature]
+        output["n2n_mapping"] = [self.n2n_mapping(feature.float()) for feature in node_feature]
+        output["e2e_mapping"] = [self.e2e_mapping(feature.float()) for feature in edge_feature]
+        vec_feat = [vec.reshape(vec.size(0), -1) for vec in vec_feature]
+        v2v = [self.v2v_mapping(feature.float()) for feature in vec_feat]
         output["v2v_mapping"] = v2v
 
         if self.gradient == True and x.requires_grad == True:         
@@ -437,9 +437,9 @@ class TorchMD_ET(BaseModel):
     
     def extract_feature_dimensions(self):
         num_distill_layer = len(self.distill_layers)
-        node_feature_dim = num_distill_layer * self.hidden_channels
-        edge_feature_dim = num_distill_layer * self.num_rbf
-        vec_feature_dim = 3 * num_distill_layer * self.hidden_channels
+        node_feature_dim = self.hidden_channels
+        edge_feature_dim =  self.num_rbf
+        vec_feature_dim = 3 * self.hidden_channels
         return {"node_dim":node_feature_dim, "edge_dim":edge_feature_dim, "vec_dim":vec_feature_dim}
 
     def set_teacher_dim(self, teacher_dim):

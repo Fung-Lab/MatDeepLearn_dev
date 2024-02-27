@@ -168,48 +168,6 @@ class DistillationLoss(nn.Module):
 
         return total_loss
     
-    def _node2node_distill_loss(self, out_batch, target):
-        if self.preprocess_teacher_features:
-            target = target.embedding
-            n2n_mappings = []
-
-            for batch in target:
-                for item in batch:
-                    n2n_mapping = item['n2n_mapping']
-                    if n2n_mapping.device.type == 'cuda':
-                        n2n_mappings.append(n2n_mapping)
-                    else:
-                        n2n_mappings.append(n2n_mapping.to('cuda'))
-            target = torch.cat(n2n_mappings, dim=0)
-        else:
-            target = out_batch["t_out"]["n2n_mapping"]
-
-        reduction = 'none' if self.attention_weight else 'mean'
-
-        # Dynamic loss function selection
-        if self.use_mae:
-            current_loss = torch.nn.functional.l1_loss(
-                out_batch["s_out"]["n2n_mapping"],
-                target,
-                reduction=reduction
-            )
-        elif self.loss_function == 'huber':
-            current_loss = torch.nn.functional.huber_loss(
-                out_batch["s_out"]["n2n_mapping"],
-                target,
-                delta=self.huber_delta,
-                reduction=reduction
-            )
-        else:  # Default to MSE
-            current_loss = torch.nn.functional.mse_loss(
-                out_batch["s_out"]["n2n_mapping"],
-                target,
-                reduction=reduction
-            )
-        if reduction == 'none':
-            current_loss = torch.mean(current_loss, dim=1)
-        return current_loss
-
     # def _node2node_distill_loss(self, out_batch, target):
     #     if self.preprocess_teacher_features:
     #         target = target.embedding
@@ -226,56 +184,87 @@ class DistillationLoss(nn.Module):
     #     else:
     #         target = out_batch["t_out"]["n2n_mapping"]
 
-    #     if self.use_mae and self.attention_weight==False:
-    #         return torch.nn.functional.l1_loss(
-    #             out_batch["s_out"]["n2n_mapping"],
-    #             target,
-    #         )
-    #     elif self.use_mae and self.attention_weight:
-    #         return torch.nn.functional.l1_loss(
-    #             out_batch["s_out"]["n2n_mapping"],
-    #             target,
-    #             reduction='none'
-    #         )
+    #     reduction = 'none' if self.attention_weight else 'mean'
 
-    #     elif self.use_huber and self.attention_weight==False:
-    #         return torch.nn.functional.huber_loss(
+    #     # Dynamic loss function selection
+    #     if self.use_mae:
+    #         current_loss = torch.nn.functional.l1_loss(
+    #             out_batch["s_out"]["n2n_mapping"],
+    #             target,
+    #             reduction=reduction
+    #         )
+    #     elif self.loss_function == 'huber':
+    #         current_loss = torch.nn.functional.huber_loss(
     #             out_batch["s_out"]["n2n_mapping"],
     #             target,
     #             delta=self.huber_delta,
+    #             reduction=reduction
     #         )
-    #     elif self.use_huber and self.attention_weight:
-    #         return torch.nn.functional.huber_loss(
+    #     else:  # Default to MSE
+    #         current_loss = torch.nn.functional.mse_loss(
     #             out_batch["s_out"]["n2n_mapping"],
     #             target,
-    #             delta=self.huber_delta,
-    #             reduction='none'
+    #             reduction=reduction
     #         )
-    #     elif self.attention_weight:
-    #         return torch.nn.functional.mse_loss(
-    #             out_batch["s_out"]["n2n_mapping"],
-    #             target,
-    #             reduction='none'
-    #         )
-    #     else:
-    #         return torch.nn.functional.mse_loss(
-    #             out_batch["s_out"]["n2n_mapping"],
-    #             target,
-    #         )
-
-    def _edge2node_distill_loss(self, out_batch, target):
+    #     if reduction == 'none':
+    #         current_loss = torch.mean(current_loss, dim=1)
+    #     return current_loss
+    
+    def _node2node_distill_loss(self, out_batch, target):
+        loss_list = []
         if self.preprocess_teacher_features:
             target = target.embedding
+            #n2n_mappings =  [[] for _ in range(len(out_batch['s_out']['n2n_mapping']))]
             n2n_mappings = []
 
             for batch in target:
                 for item in batch:
-                    n2n_mapping = item['e2n_mapping']
-                    if n2n_mapping.device.type == 'cuda':
-                        n2n_mappings.append(n2n_mapping)
+                    n2n_mapping = item['n2n_mapping']
+                    if n2n_mapping[0].device.type == 'cuda':
+                        for i in range(len(n2n_mapping)):
+                            n2n_mappings.append(n2n_mapping[i])
                     else:
-                        n2n_mappings.append(n2n_mapping.to('cuda'))
+                        for i in range(len(n2n_mapping)):
+                            n2n_mappings.append(n2n_mapping[i].to('cuda'))
+            
             target = torch.cat(n2n_mappings, dim=0)
+        else:
+            target = out_batch["t_out"]["n2n_mapping"]
+
+        reduction = 'none' if self.attention_weight else 'mean'
+
+        student_n2n_mappings = out_batch["s_out"]["n2n_mapping"]
+     
+        for student_mapping, teacher_mapping in zip(student_n2n_mappings, target):
+            student_mapping = student_mapping.float()
+            teacher_mapping = teacher_mapping.float()
+
+            if self.use_mae:
+                current_loss = F.l1_loss(student_mapping, teacher_mapping, reduction=reduction)
+            elif self.use_huber:
+                current_loss = F.huber_loss(student_mapping, teacher_mapping, delta=self.huber_delta, reduction=reduction)
+            else:  
+                current_loss = F.mse_loss(student_mapping, teacher_mapping, reduction=reduction)
+
+            loss_list.append(current_loss)
+
+        total_loss = torch.mean(torch.stack(loss_list))
+
+        return total_loss
+
+    def _edge2node_distill_loss(self, out_batch, target):
+        if self.preprocess_teacher_features:
+            target = target.embedding
+            e2n_mappings = []
+
+            for batch in target:
+                for item in batch:
+                    e2n_mapping = item['e2n_mapping']
+                    if e2n_mapping.device.type == 'cuda':
+                        e2n_mappings.append(e2n_mapping)
+                    else:
+                        e2n_mappings.append(e2n_mapping.to('cuda'))
+            target = torch.cat(e2n_mappings, dim=0)
         else:
             target = out_batch["t_out"]["e2n_mapping"]
 
@@ -348,45 +337,86 @@ class DistillationLoss(nn.Module):
             current_loss = torch.mean(current_loss, dim=1)
         return current_loss
 
-
     def _vec2vec_distill_loss(self, out_batch, target):
+        loss_list = []
         if self.preprocess_teacher_features:
             target = target.embedding
+            #v2v_mappings =  [[] for _ in range(len(out_batch['s_out']['v2v_mapping']))]
             v2v_mappings = []
 
             for batch in target:
                 for item in batch:
                     v2v_mapping = item['v2v_mapping']
-                    if v2v_mapping.device.type == 'cuda':
-                        v2v_mappings.append(v2v_mapping)
+                    if v2v_mapping[0].device.type == 'cuda':
+                        for i in range(len(v2v_mapping)):
+                            v2v_mappings.append(v2v_mapping[i])
                     else:
-                        v2v_mappings.append(v2v_mapping.to('cuda'))
+                        for i in range(len(v2v_mapping)):
+                            v2v_mappings.append(v2v_mapping[i].to('cuda'))
+            
             target = torch.cat(v2v_mappings, dim=0)
         else:
             target = out_batch["t_out"]["v2v_mapping"]
-        
+
         reduction = 'none' if self.attention_weight else 'mean'
 
-        if self.use_mae:
-            current_loss = torch.nn.functional.l1_loss(
-                out_batch["s_out"]["v2v_mapping"],
-                target,
-                reduction=reduction
-            )
-        elif self.loss_function == 'huber':
-            current_loss = torch.nn.functional.huber_loss(
-                out_batch["s_out"]["v2v_mapping"],
-                target,
-                delta=self.huber_delta,
-                reduction=reduction
-            )
-        else:  # Default to MSE
-            current_loss = torch.nn.functional.mse_loss(
-                out_batch["s_out"]["v2v_mapping"],
-                target,
-                reduction=reduction
-            )
+        student_v2v_mappings = out_batch["s_out"]["v2v_mapping"]
+     
+        for student_mapping, teacher_mapping in zip(student_v2v_mappings, target):
+            student_mapping = student_mapping.float()
+            teacher_mapping = teacher_mapping.float()
+
+            if self.use_mae:
+                current_loss = F.l1_loss(student_mapping, teacher_mapping, reduction=reduction)
+            elif self.use_huber:
+                current_loss = F.huber_loss(student_mapping, teacher_mapping, delta=self.huber_delta, reduction=reduction)
+            else:  
+                current_loss = F.mse_loss(student_mapping, teacher_mapping, reduction=reduction)
+
+            loss_list.append(current_loss)
+
+        total_loss = torch.mean(torch.stack(loss_list))
+
+        return total_loss
+
+    # def _vec2vec_distill_loss(self, out_batch, target):
+    #     if self.preprocess_teacher_features:
+    #         target = target.embedding
+    #         v2v_mappings = []
+
+    #         for batch in target:
+    #             for item in batch:
+    #                 v2v_mapping = item['v2v_mapping']
+    #                 if v2v_mapping.device.type == 'cuda':
+    #                     v2v_mappings.append(v2v_mapping)
+    #                 else:
+    #                     v2v_mappings.append(v2v_mapping.to('cuda'))
+    #         target = torch.cat(v2v_mappings, dim=0)
+    #     else:
+    #         target = out_batch["t_out"]["v2v_mapping"]
+        
+    #     reduction = 'none' if self.attention_weight else 'mean'
+
+    #     if self.use_mae:
+    #         current_loss = torch.nn.functional.l1_loss(
+    #             out_batch["s_out"]["v2v_mapping"],
+    #             target,
+    #             reduction=reduction
+    #         )
+    #     elif self.loss_function == 'huber':
+    #         current_loss = torch.nn.functional.huber_loss(
+    #             out_batch["s_out"]["v2v_mapping"],
+    #             target,
+    #             delta=self.huber_delta,
+    #             reduction=reduction
+    #         )
+    #     else:  # Default to MSE
+    #         current_loss = torch.nn.functional.mse_loss(
+    #             out_batch["s_out"]["v2v_mapping"],
+    #             target,
+    #             reduction=reduction
+    #         )
     
-        if reduction == 'none':
-            current_loss = torch.mean(current_loss, dim=1)
-        return current_loss
+    #     if reduction == 'none':
+    #         current_loss = torch.mean(current_loss, dim=1)
+    #     return current_loss

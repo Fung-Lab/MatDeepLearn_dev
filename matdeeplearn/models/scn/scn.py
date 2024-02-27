@@ -100,7 +100,7 @@ class SphericalChannelNetwork(BaseModel):
         direct_forces=True,
         **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         import sys
 
@@ -248,6 +248,19 @@ class SphericalChannelNetwork(BaseModel):
 
     @conditional_grad(torch.enable_grad())
     def forward(self, data):
+
+        if self.otf_edge_index == True:
+            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
+            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+            if self.otf_edge_attr == True:
+                data.edge_attr = self.distance_expansion(data.edge_weight)
+            else:
+                logging.warning("Edge attributes should be re-computed for otf edge indices.")
+                
+        if self.otf_edge_index == False:
+            if self.otf_edge_attr == True:
+                data.edge_attr = self.distance_expansion(data.edge_weight) 
+
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
         self.batch_size = len(data.n_atoms)
@@ -291,10 +304,14 @@ class SphericalChannelNetwork(BaseModel):
         #    _,  # cell offset distances
         #    neighbors,
         #) = self.generate_graph(data)
+        # edge_index = data.edge_index
+        # edge_distance = data.edge_weight
+        # edge_distance_vec = data.edge_vec
+
         edge_index = data.edge_index
-        # sorted_indices = torch.argsort(edge_index[1])
-        # edge_index = edge_index[:, sorted_indices]
-        #edge_index = data.edge_index
+        sorted_indices = torch.argsort(edge_index[1])
+        data.edge_index = edge_index[:, sorted_indices]
+        edge_index = data.edge_index
         edge_distance = data.edge_weight
         edge_distance_vec = data.edge_vec
 

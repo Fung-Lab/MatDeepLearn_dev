@@ -500,7 +500,8 @@ class DistillForcesTrainer(BaseTrainer):
             out = {}
             out_stack={}            
             for key in out_list[0]["s_out"].keys():
-                temp = [o["s_out"][key] for o in out_list]
+                temp = [item for o in out_list for item in (o["s_out"][key] if isinstance(o["s_out"][key], list) else [o["s_out"][key]])]
+                #temp = [o["s_out"][key] for o in out_list]
                 if temp[0] is not None:
                     out_stack[key] = torch.stack(temp)
                     out[key] = torch.mean(out_stack[key], dim=0)

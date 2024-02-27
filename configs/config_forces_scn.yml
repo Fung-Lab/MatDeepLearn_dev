@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: ECN
+  identifier: SCN
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -77,7 +77,7 @@ model:
   use_pbc: True
   basis_width_scalar: 2.0
   # Compute edge indices on the fly in the model forward
-  otf_edge_index: False 
+  otf_edge_index: True 
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: False  
   # Compute node attributes on the fly in the model forward
@@ -91,7 +91,7 @@ model:
 
 
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.0001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -101,7 +101,7 @@ optim:
     #loss_args: {weight_energy: 0.01, weight_force: 50.0}
   # gradient clipping value
   clip_grad_norm: 10       
-  batch_size: 8
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -147,9 +147,9 @@ dataset:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: ocp 
     # determine if edges are computed, if false, then they need to be computed on the fly   
-    preprocess_edges: True
+    preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_edge_features: True
+    preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_node_features: True
     # distance cutoff to determine if two atoms are connected by an edge

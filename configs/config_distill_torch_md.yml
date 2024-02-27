@@ -2,7 +2,7 @@ trainer: distill
 
 task:
   #run_mode: train
-  identifier: torch_md_distill_mlp_64
+  identifier: torch_md_distill_4/8
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 1111
@@ -47,7 +47,7 @@ teacher_model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # layer output for distillation
-  distill_layers: "a8"
+  distill_layers: "a4_a8"
   # Train teacher model at the same time
   trainable: False
   # Load teacher model from a checkpoint path.
@@ -78,10 +78,11 @@ model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # layer output for distillation
-  distill_layers: "a8"
+  distill_layers: "a4_a8"
   # 1 indicates normal behavior, larger numbers indicate the number of models to be used
   model_ensemble: 1
-  projection_head: True
+  projection_head: False
+  mapping_layers: 1
 
 optim:
   max_epochs: 400
@@ -101,10 +102,10 @@ optim:
     weight_stress: 50.0
     weight_distillation: 1.0
     attention_weight: False
-    attention_dim: 32
+    attention_dim: 64
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {"weight_decay": 0.0001}
