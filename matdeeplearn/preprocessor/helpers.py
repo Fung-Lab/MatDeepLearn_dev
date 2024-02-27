@@ -426,7 +426,8 @@ def add_selfloop(
         edge_indices, edge_weights, num_nodes=num_nodes, fill_value=0
     )
 
-    distance_matrix_masked = (cutoff_distance_matrix.fill_diagonal_(1) != 0).int()
+    cutoff_distance_matrix = cutoff_distance_matrix.fill_diagonal(1)
+    distance_matrix_masked = (cutoff_distance_matrix != 0).int()
     return edge_indices, edge_weights, distance_matrix_masked
 
 
@@ -685,7 +686,7 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
         + torch.arange(len(index), device=device)
         - index_neighbor_offset_expand
     )
-    distance_sort.index_copy_(0, index_sort_map, atom_distance)
+    distance_sort = distance_sort.index_copy(0, index_sort_map, atom_distance)
     distance_sort = distance_sort.view(num_atoms, max_num_neighbors)
 
     # Sort neighboring atoms based on distance
@@ -706,7 +707,7 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
     # closest max_num_neighbors_threshold neighbors per atom
     # Create a mask to remove all pairs not in index_sort
     mask_num_neighbors = torch.zeros(len(index), device=device, dtype=bool)
-    mask_num_neighbors.index_fill_(0, index_sort, True)
+    mask_num_neighbors = mask_num_neighbors.index_fill(0, index_sort, True)
 
     return mask_num_neighbors, num_neighbors_image
     
