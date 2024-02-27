@@ -92,7 +92,7 @@ class TeacherPreprocessTrainer():
             for i in range(0, len(loader_iter)):
                 batch = next(loader_iter).to(self.rank)
                 out = self._forward(batch)
-                out_cpu = {key: value.cpu() for key, value in out.items()}
+                out_cpu = {key: [tensor.cpu() for tensor in value] for key, value in out.items()}
                 embeddings.append(out_cpu) 
                 del batch
             torch.cuda.empty_cache()
