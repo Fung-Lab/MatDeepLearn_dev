@@ -134,10 +134,10 @@ class BaseTrainer(ABC):
         cls.set_seed(config["task"].get("seed"))
 
         if config["task"]["parallel"] == True:
-            # local world size??????
+            # local_world_size vs world_size
             world_size = int(os.environ['WORLD_SIZE']) # torch.distributed.get_world_size()
             rank = int(os.environ['SLURM_PROCID']) # rank = int(dist.get_rank())
-            num_gpus_per_node = torch.cuda.device_count()
+            num_gpus_per_node = int(os.environ['NUM_GPUS_PER_NODE'])
 
             local_rank = rank % num_gpus_per_node # local_rank = rank - gpus_per_node * (rank // gpus_per_node)
             master_addr = os.environ['MASTER_ADDR']
@@ -540,7 +540,7 @@ class BaseTrainer(ABC):
                         state.append({
                             "epoch": self.epoch,
                             "step": self.step,
-                            "state_dict": self.model.module[i].state_dict(),
+                            "state_dict": self.model[i].module.state_dict(),
                             "optimizer": self.optimizer[i].state_dict(),
                             "scheduler": self.scheduler[i].scheduler.state_dict(),
                             "scaler":self.scaler.state_dict(),

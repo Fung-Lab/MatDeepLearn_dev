@@ -168,8 +168,7 @@ class PropertyTrainer(BaseTrainer):
                             else:
                                 self.update_best_model(metric[i], i, write_model=False, write_csv=True)
                     
-                self._scheduler_step()
-                
+                self._scheduler_step()    
 
             torch.cuda.empty_cache()        
         
@@ -183,10 +182,13 @@ class PropertyTrainer(BaseTrainer):
             #    metric = self.validate("test")
             #    test_loss = metric[type(self.loss_fn).__name__]["metric"]
             #else:
-            #    test_loss = "N/A"             
-            if self.model_save_frequency != -1:
-                self.save_model("best_checkpoint.pt", index=None, metric=metric, training_state=True)
-            logging.info("Final Losses: ")     
+            #    test_loss = "N/A"
+            if str(self.rank) in ("0", "cpu", "cuda"):      
+                if self.model_save_frequency != -1:
+                    self.save_model("best_checkpoint.pt", index=None, metric=metric, training_state=True)
+
+            # if self.rank == 0: 
+            logging.info("Final Losses: ")
             if "train" in self.write_output:
                 self.predict(self.data_loader[0]["train_loader"], "train")
             if "val" in self.write_output and self.data_loader[0].get("val_loader"):
