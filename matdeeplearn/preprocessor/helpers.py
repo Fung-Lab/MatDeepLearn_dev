@@ -307,9 +307,7 @@ def get_distances_pbc(
     n_cells = len(offsets[0])
     
     pos1 = positions.view(-1, 1, 1, 3).expand(-1, n_atoms, n_cells, 3)
-    pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3)
-    offsets = offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
-    pos2 = pos2 + offsets
+    pos2 = positions.view(1, -1, 1, 3).expand(n_atoms, -1, n_cells, 3) + offsets.view(-1, n_cells, 3).expand(pos2.shape[0], n_cells, 3)
 
     # calculate pairwise distances
     atomic_distances = torch.linalg.norm(pos1 - pos2, dim=-1)
