@@ -320,7 +320,7 @@ def get_distances_pbc(
 
     # get minimum
     min_atomic_distances, min_indices = torch.min(atomic_distances, dim=-1)
-    expanded_min_indices = min_indices.clone().detach()
+    expanded_min_indices = min_indices.clone()
     
 
     atom_rij = (pos1 - pos2).squeeze(2)
@@ -811,7 +811,7 @@ def radius_graph_pbc(
     # (which they usually are). Changing this to sparse (scatter) operations
     # might be worth the effort if this function becomes a bottleneck.
     #max_rep = [rep_a1.max(), rep_a2.max(), rep_a3.max()]
-    max_rep = [min(rep_a1.max().detach(), offset_number), min(rep_a2.max().detach(), offset_number), min(rep_a3.max().detach(), offset_number)]
+    max_rep = [min(rep_a1.max(), offset_number), min(rep_a2.max(), offset_number), min(rep_a3.max(), offset_number)]
     
     # Tensor of unit cells
     cells_per_dim = [
