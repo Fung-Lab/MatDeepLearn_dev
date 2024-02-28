@@ -74,7 +74,7 @@ optim:
     loss_args: {loss_fn: l1_loss }
   # gradient clipping value
   clip_grad_norm: 100
-  batch_size: 6
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {weight_decay: 0.001}
@@ -91,7 +91,7 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
+  src: data/test_data/data_node_scalar.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:

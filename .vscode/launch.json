@@ -1,0 +1,83 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Crystal graph",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--run_mode=train",
+                "--config_path=configs/config_forces_crystal.yml"
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "loadModuleAndActivateConda",
+            "redirectOutput": true
+        },
+        {
+            "name": "SCN",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--run_mode=train",
+                "--config_path=configs/config_forces_scn.yml"
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "loadModuleAndActivateConda",
+            "redirectOutput": true
+        },
+        {
+            "name": "Torch md distill",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--run_mode=train",
+                "--config_path=configs/config_distill_torch_md.yml"
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "loadModuleAndActivateConda",
+            "redirectOutput": true
+        },
+        {
+            "name": "CGCNN distill",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--run_mode=train",
+                "--config_path=configs/config_distill.yml"
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "loadModuleAndActivateConda",
+            "redirectOutput": true
+        },
+        {
+            "name": "CGCNN",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--run_mode=train",
+                "--config_path=configs/config_forces.yml"
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "loadModuleAndActivateConda",
+            "redirectOutput": true
+        },
+        {
+            "name": "Equiformer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--run_mode=train",
+                "--config_path=configs/config_eqf.yml"
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "loadModuleAndActivateConda",
+            "redirectOutput": true
+        },
+    ]
+}
