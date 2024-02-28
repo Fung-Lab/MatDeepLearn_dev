@@ -60,7 +60,7 @@ class TorchMD_ET(BaseModel):
 
     def __init__(
         self,
-	    node_dim,
+	      node_dim,
         edge_dim,
         output_dim,
         hidden_channels=128,
@@ -110,7 +110,6 @@ class TorchMD_ET(BaseModel):
         self.distance_influence = distance_influence
         self.max_z = max_z
         self.pool = pool
-        assert pool_order in ['early', 'late'], f"{pool_order} is currently not supported"
         self.pool_order = pool_order
         self.output_dim = output_dim
         cutoff_lower = 0
