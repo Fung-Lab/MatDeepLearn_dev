@@ -19,8 +19,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("LJ_Matrix")
-class LJ_Matrix(BaseModel):
+@registry.register_model("LJ_Si")
+class LJ_Si(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -39,7 +39,7 @@ class LJ_Matrix(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(LJ_Matrix, self).__init__(**kwargs)
+        super(LJ_Si, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -57,15 +57,18 @@ class LJ_Matrix(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
         
-        # self.with_coefs = kwargs.get("with_coefs", False)
+        self.combination_method = kwargs.get('combination_method', 'average')
+        self.with_coefs = kwargs.get("with_coefs", False)
+        self.with_exp_coefs = kwargs.get("with_exp_coefs", False)
 
-        self.sigmas = Parameter(1.5 * torch.ones(100, 100, requires_grad=True))
-        self.epsilons = Parameter(1.5 * torch.ones(100, 100, requires_grad=True))
-        self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.ep_sig_o_o = ParameterList([Parameter(torch.ones(1), requires_grad=True),
+                                         Parameter(1.5 * torch.ones(1), requires_grad=True)]).to('cuda:0')
+        self.ep_sig_si_si = ParameterList([Parameter(torch.ones(1), requires_grad=True),
+                                         Parameter(1.5 * torch.ones(1), requires_grad=True)]).to('cuda:0')
+        self.ep_sig_si_o = ParameterList([Parameter(torch.ones(1), requires_grad=True),
+                                         Parameter(1.5 * torch.ones(1), requires_grad=True)]).to('cuda:0')
         
-        # if self.with_coefs:
-        #     self.coef_12 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        #     self.coef_6 = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
   
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -142,41 +145,39 @@ class LJ_Matrix(BaseModel):
 
         return output
     
-    def lj_potential(self, data):
-        
-        atoms = data.z[data.edge_index] - 1
-
-        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        for z in np.unique(data.z.cpu()):
-            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-        
-            # if self.with_coefs:
-            #     coef_12[z - 1] = self.coef_12[z - 1]
-            #     coef_6[z - 1] = self.coef_6[z - 1]
-
+    def pairwise_lj(self, data, epsilon, sigma, mask):
+        x = data.edge_weight[mask]
         rc = self.cutoff_radius
         ro = 0.66 * rc
-        r2 = data.edge_weight ** 2
+        r2 = x ** 2
         cutoff_fn = self.cutoff_function(r2, rc**2, ro**2)
-        
-        sigma = self.sigmas[atoms[0], atoms[1]]
-        epsilon = self.epsilons[atoms[0], atoms[1]]
-        
-        # print(data.edge_weight.shape, sigma.shape, epsilon.shape)
         
         c6 = (sigma ** 2 / r2) ** 3
         c6[r2 > rc ** 2] = 0.0
         c12 = c6 ** 2
-    
-        # if self.with_coefs:
-        #     coef_12 = (coef_12[atoms[0]] + coef_12[atoms[1]]).squeeze() / 2
-        #     coef_6 = (coef_6[atoms[0]] + coef_6[atoms[1]]).squeeze() / 2
-        #     pairwise_energies = 4 * epsilon * (coef_12 * c12 - coef_6 * c6)
-        # else:
-        pairwise_energies = 4 * epsilon * (c12 - c6) * cutoff_fn
+                
+        pairwise_energies = 4 * epsilon * (c12 - c6)
+        
+        pairwise_energies *= cutoff_fn
 
-        edge_idx_to_graph = data.batch[data.edge_index[0]]
-        lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
+        edge_idx_to_graph = data.batch[data.edge_index[0, mask]]
+        return 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
+        
+    
+    def lj_potential(self, data):
+        atoms = data.z[data.edge_index] - 1
+        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+    
+        for z in np.unique(data.z.cpu()):
+            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
+        
+        oxygen_oxygen_mask = (atoms[0] == 7) & (atoms[1] == 7)
+        si_si_mask = (atoms[0] == 13) & (atoms[1] == 13)
+        si_oxygen_mask = (~oxygen_oxygen_mask) & (~si_si_mask)
+        
+        lennard_jones_out = self.pairwise_lj(data, self.ep_sig_o_o[0], self.ep_sig_o_o[1], oxygen_oxygen_mask) +\
+            self.pairwise_lj(data, self.ep_sig_si_si[0], self.ep_sig_si_si[1], si_si_mask) +\
+            self.pairwise_lj(data, self.ep_sig_si_o[0], self.ep_sig_si_o[1], si_oxygen_mask)
     
         base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
         base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)

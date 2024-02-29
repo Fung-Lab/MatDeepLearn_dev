@@ -47,13 +47,10 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: False
-  gnn_potential_ratio: [0.1, 1.]
-  # method to combine atomic parameters: average (default), Berthelot
-  combination_method: average
-  clamped_params: []
+  n_trail: 1
+  n_lead: 1
+  n_intervals: 25
+
 ?
 optim:
   max_epochs: 400

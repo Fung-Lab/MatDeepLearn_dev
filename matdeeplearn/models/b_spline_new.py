@@ -1,5 +1,6 @@
 from math import prod
 from time import time
+import operator
 
 import numpy as np
 from scipy import interpolate
@@ -23,8 +24,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("Spline")
-class Spline(BaseModel):
+@registry.register_model("Spline_New")
+class Spline_New(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -43,7 +44,7 @@ class Spline(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(Spline, self).__init__(**kwargs)
+        super(Spline_New, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -61,18 +62,21 @@ class Spline(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
         
-        subinterval_size = kwargs.get('subinterval_size', 5)
         n_intervals = kwargs.get('n_intervals', 25)
-        self.n_trail = kwargs.get('n_trail', 1)
-        self.n_lead = kwargs.get('n_lead', 1)
-        self.n_repeats = kwargs.get('n_repeats', 3)
+        self.degree = kwargs.get('degree', 3)
         
-        init_knots = torch.linspace(0, self.cutoff_radius, n_intervals + 1)
-        init_knots = torch.cat([torch.tensor([init_knots[0] for _ in range(self.n_repeats, 0, -1)]),
-                                init_knots,
-                                torch.tensor([init_knots[-1] for _ in range(self.n_repeats)])])
-        self.subintervals = torch.stack([init_knots[i:i+subinterval_size] for i in range(len(init_knots)-subinterval_size+1)])
-        self.coefs = ParameterList([Parameter(torch.ones(self.subintervals.shape[0] - self.n_trail - self.n_lead), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.n_trail = kwargs.get('n_trail', 1)
+        self.n_lead = kwargs.get('n_lead', 0)
+        
+        init_knots = torch.linspace(0, self.cutoff_radius, n_intervals + 1, device='cuda:0')
+        knot_dist = init_knots[1] - init_knots[0]
+        self.t = torch.cat([torch.tensor([init_knots[0] - i * knot_dist for i in range(3, 0, -1)], device='cuda:0'),
+                            init_knots,
+                            torch.tensor([init_knots[-1] + i * knot_dist for i in range(3)], device='cuda:0')])
+        
+        self.n = self.t.shape[0] - self.degree - 1
+        
+        self.coefs = ParameterList([Parameter(torch.ones(self.n), requires_grad=True) for _ in range(100)]).to('cuda:0')
 
         self.use_atomic_energy = kwargs.get('use_atomic_energy', True)
         if self.use_atomic_energy:
@@ -159,10 +163,8 @@ class Spline(BaseModel):
         result = torch.zeros_like(x, dtype=int, device='cuda:0')
 
         nan_indices = torch.isnan(x)
-        result[nan_indices] = -1
-
         out_of_bounds_indices = torch.logical_or(x < tb, x > te)
-        result[out_of_bounds_indices] = -1
+        result[out_of_bounds_indices | nan_indices] = -1
 
         l = torch.full_like(x, k, dtype=int)
         while torch.any(torch.logical_and(x < t[l], l != k)):
@@ -179,8 +181,8 @@ class Spline(BaseModel):
     def evaluate_spline(self, t, c, k, xp, out):
         if out.shape[0] != xp.shape[0]:
             raise ValueError("out and xp have incompatible shapes")
-        if out.shape[1] != c.shape[1]:
-            raise ValueError("out and c have incompatible shapes")
+        # if out.shape[1] != c.shape[1]:
+        #     raise ValueError("out and c have incompatible shapes")
 
         # work: (N, 2k + 2)
         work = torch.empty(xp.shape[0], 2 * k + 2, dtype=torch.float, device='cuda:0')
@@ -195,23 +197,23 @@ class Spline(BaseModel):
             return out
         
         work[~invalid_mask] = self.vectorized_deboor(t, xp[~invalid_mask], k, intervals[~invalid_mask], work[~invalid_mask])
+        # print(work[~invalid_mask].shape, c[intervals[~invalid_mask][:, None] + torch.arange(-k, 1, device='cuda:0')].shape)
         
-        # c = torch.stack([c[i-k:i+1] for i in intervals[~invalid_mask]]).squeeze(dim=2)
-        c = c[intervals[~invalid_mask][:, None] + torch.arange(-k, 1, device='cuda:0')].squeeze(dim=2)
+        # c = c[:, intervals[~invalid_mask][:, None] + torch.arange(-k, 1, device='cuda:0')].squeeze(dim=2)
+        indices = intervals[:, None] + torch.arange(-k, 1, device='cuda:0')
+
+        # Index into c using advanced indexing
+        c = c[torch.arange(c.size(0))[:, None], indices]
         out[~invalid_mask, :] = torch.sum(work[~invalid_mask, :k+1] * c, dim=1).unsqueeze(dim=-1)
         return out
-
-    def B(self, x, k, i, t):
-        if k == 0:
-            return torch.where((t[i] <= x) & (x < t[i+1]), 1.0, 0.0)
-        
-        c1 = torch.where(t[i+k] == t[i], 0.0, (x - t[i]) / (t[i+k] - t[i]) * self.B(x, k-1, i, t))
-        c2 = torch.where(t[i+k+1] == t[i+1], 0.0, (t[i+k+1] - x) / (t[i+k+1] - t[i+1]) * self.B(x, k-1, i+1, t))
-        
-        return c1 + c2
+    
+    def b_spline(self, k, t, c, x):
+        out = torch.empty((len(x), 1), dtype=c.dtype, device='cuda:0')
+        res = torch.nan_to_num(self.evaluate_spline(t, c.reshape(c.shape[0], -1), k, x, out), nan=0)
+        return res
         
     def compute_b_spline(self, data):
-        coefs = torch.zeros((len(self.coefs), self.subintervals.shape[0] - self.n_trail - self.n_lead)).to('cuda:0')
+        coefs = torch.zeros((len(self.coefs), self.n)).to('cuda:0')
         if self.use_atomic_energy:
             base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
         for z in np.unique(data.z.cpu()):
@@ -223,28 +225,10 @@ class Spline(BaseModel):
         coef_i, coef_j = coefs[atoms[0]], coefs[atoms[1]]
         coef = (coef_i + coef_j) / 2
         
-        x = data.edge_weight
-        # coef[:, :self.n_lead] = 
-        
-        out_stack = None
-        for i in range(self.n_lead, len(self.subintervals) - self.n_trail):
-            t = self.subintervals[i]
-            k = len(t) - 2
-            t = torch.cat([torch.tensor((t[0]-1,) * k), t, torch.tensor((t[-1]+1,) * k)]).to('cuda:0')
-            c = torch.zeros_like(t, device='cuda:0')
-            c[k] = 1.
-            
-            out = torch.empty((len(x), prod(c.shape[1:])), dtype=c.dtype, device='cuda:0')
-            res = torch.nan_to_num(self.evaluate_spline(t, c.reshape(c.shape[0], -1), k, x, out), nan=0)
-            
-            # print(res.shape, coef.shape, coefs.shape)
-            interval_res = res * coef[:, i-self.n_lead].view(-1, 1)
-    
-            out_stack = interval_res if out_stack is None else torch.cat([out_stack, interval_res], dim=-1)
+        spline_res = torch.empty(len(data.edge_weight), device='cuda:0')
 
-        # print(out_stack.shape)
-        spline_res = torch.sum(out_stack, dim=1)
-        
+        spline_res = self.b_spline(self.degree, self.t, coef, data.edge_weight).squeeze()
+        # print(spline_res.shape)
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         spline_out = 0.5 * scatter_add(spline_res, index=edge_idx_to_graph, dim_size=len(data))
         

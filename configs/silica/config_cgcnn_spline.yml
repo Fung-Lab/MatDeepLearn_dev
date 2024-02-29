@@ -1,8 +1,8 @@
-trainer: hybrid
+trainer: property
 ?
 task:
   run_mode: train
-  identifier: cgcnn_lj_sio2_exp_coef
+  identifier: cgcnn_spline_0.1_1
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -17,15 +17,15 @@ task:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
 ?
 model:
-  name: CGCNN_LJ 
+  name: CGCNN_Spline 
   # model attributes
   dim1: 100
   dim2: 150
@@ -48,13 +48,9 @@ model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: True
-  # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
-  combination_method: average
-  # GNN : potential
-  gnn_potential_ratio: [1., 1.]
   clamped_params: []
+  degree: 2
+  knots_interval: 0.25
 ?
 optim:
   max_epochs: 200
@@ -66,6 +62,8 @@ optim:
     #loss_args: {loss_fn: l1_loss}
     loss_type: ForceStressLoss
     loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    # loss_type: "EFSLoss_Spline_Regularized"
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0, lambda_1: 0.00001, lambda_2: 0.00001}
     #loss_type: "ForceLoss"
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10

@@ -1,5 +1,6 @@
 from math import prod
 from time import time
+import operator
 
 import numpy as np
 from scipy import interpolate
@@ -23,8 +24,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("Spline")
-class Spline(BaseModel):
+@registry.register_model("Spline_New_Si")
+class Spline_New_Si(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -43,7 +44,7 @@ class Spline(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(Spline, self).__init__(**kwargs)
+        super(Spline_New_Si, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -61,18 +62,24 @@ class Spline(BaseModel):
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
         
-        subinterval_size = kwargs.get('subinterval_size', 5)
         n_intervals = kwargs.get('n_intervals', 25)
-        self.n_trail = kwargs.get('n_trail', 1)
-        self.n_lead = kwargs.get('n_lead', 1)
-        self.n_repeats = kwargs.get('n_repeats', 3)
+        self.degree = kwargs.get('degree', 3)
         
-        init_knots = torch.linspace(0, self.cutoff_radius, n_intervals + 1)
-        init_knots = torch.cat([torch.tensor([init_knots[0] for _ in range(self.n_repeats, 0, -1)]),
-                                init_knots,
-                                torch.tensor([init_knots[-1] for _ in range(self.n_repeats)])])
-        self.subintervals = torch.stack([init_knots[i:i+subinterval_size] for i in range(len(init_knots)-subinterval_size+1)])
-        self.coefs = ParameterList([Parameter(torch.ones(self.subintervals.shape[0] - self.n_trail - self.n_lead), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.n_trail = kwargs.get('n_trail', 1)
+        self.n_lead = kwargs.get('n_lead', 0)
+        
+        init_knots = torch.linspace(0, self.cutoff_radius, n_intervals + 1, device='cuda:0')
+        knot_dist = init_knots[1] - init_knots[0]
+        self.t = init_knots
+        self.t = torch.cat([torch.tensor([init_knots[0] - i * knot_dist for i in range(3, 0, -1)], device='cuda:0'),
+                            init_knots,
+                            torch.tensor([init_knots[-1] + i * knot_dist for i in range(1, 4, 1)], device='cuda:0')])
+        
+        self.n = self.t.shape[0] - self.degree - 1
+        
+        self.coefs_o_o = ParameterList([Parameter(torch.ones(self.n), requires_grad=True)]).to('cuda:0')
+        self.coefs_si_si = ParameterList([Parameter(torch.ones(self.n), requires_grad=True)]).to('cuda:0')
+        self.coefs_si_o = ParameterList([Parameter(torch.ones(self.n), requires_grad=True)]).to('cuda:0')
 
         self.use_atomic_energy = kwargs.get('use_atomic_energy', True)
         if self.use_atomic_energy:
@@ -107,7 +114,7 @@ class Spline(BaseModel):
         
         output = {}
         out = self._forward(data)
-        output["c"] = self.coefs
+        # output["c"] = self.coefs
         output["output"] = out
 
         if self.gradient == True and out.requires_grad == True:         
@@ -159,10 +166,8 @@ class Spline(BaseModel):
         result = torch.zeros_like(x, dtype=int, device='cuda:0')
 
         nan_indices = torch.isnan(x)
-        result[nan_indices] = -1
-
         out_of_bounds_indices = torch.logical_or(x < tb, x > te)
-        result[out_of_bounds_indices] = -1
+        result[out_of_bounds_indices | nan_indices] = -1
 
         l = torch.full_like(x, k, dtype=int)
         while torch.any(torch.logical_and(x < t[l], l != k)):
@@ -179,8 +184,6 @@ class Spline(BaseModel):
     def evaluate_spline(self, t, c, k, xp, out):
         if out.shape[0] != xp.shape[0]:
             raise ValueError("out and xp have incompatible shapes")
-        if out.shape[1] != c.shape[1]:
-            raise ValueError("out and c have incompatible shapes")
 
         # work: (N, 2k + 2)
         work = torch.empty(xp.shape[0], 2 * k + 2, dtype=torch.float, device='cuda:0')
@@ -194,59 +197,41 @@ class Spline(BaseModel):
         if invalid_mask.all():
             return out
         
-        work[~invalid_mask] = self.vectorized_deboor(t, xp[~invalid_mask], k, intervals[~invalid_mask], work[~invalid_mask])
-        
+        work[~invalid_mask] = self.vectorized_deboor(t, xp[~invalid_mask], k, intervals[~invalid_mask], work[~invalid_mask])        
         # c = torch.stack([c[i-k:i+1] for i in intervals[~invalid_mask]]).squeeze(dim=2)
         c = c[intervals[~invalid_mask][:, None] + torch.arange(-k, 1, device='cuda:0')].squeeze(dim=2)
         out[~invalid_mask, :] = torch.sum(work[~invalid_mask, :k+1] * c, dim=1).unsqueeze(dim=-1)
         return out
-
-    def B(self, x, k, i, t):
-        if k == 0:
-            return torch.where((t[i] <= x) & (x < t[i+1]), 1.0, 0.0)
+    
+    def pair_b_spline(self, data, c, mask):
+        x = data.edge_weight[mask]
+        out = torch.empty((len(x), 1), dtype=c.dtype, device='cuda:0')
+        spline_res = torch.nan_to_num(self.evaluate_spline(self.t, c.reshape(c.shape[0], -1), self.degree, x, out), nan=0).squeeze()
+        # print(spline_res.shape)
+        edge_idx_to_graph = data.batch[data.edge_index[0, mask]]
+        return 0.5 * scatter_add(spline_res, index=edge_idx_to_graph, dim_size=len(data))
         
-        c1 = torch.where(t[i+k] == t[i], 0.0, (x - t[i]) / (t[i+k] - t[i]) * self.B(x, k-1, i, t))
-        c2 = torch.where(t[i+k+1] == t[i+1], 0.0, (t[i+k+1] - x) / (t[i+k+1] - t[i+1]) * self.B(x, k-1, i+1, t))
-        
-        return c1 + c2
         
     def compute_b_spline(self, data):
-        coefs = torch.zeros((len(self.coefs), self.subintervals.shape[0] - self.n_trail - self.n_lead)).to('cuda:0')
         if self.use_atomic_energy:
             base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        for z in np.unique(data.z.cpu()):
-            if self.use_atomic_energy:
+        
+        if self.use_atomic_energy:
+            for z in np.unique(data.z.cpu()):
                 base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            coefs[z - 1] = self.coefs[z - 1]
+        
+        spline_res = torch.empty(len(data.edge_weight), device='cuda:0')
         
         atoms = data.z[data.edge_index] - 1
-        coef_i, coef_j = coefs[atoms[0]], coefs[atoms[1]]
-        coef = (coef_i + coef_j) / 2
+        print(torch.min(data.edge_weight))
         
-        x = data.edge_weight
-        # coef[:, :self.n_lead] = 
-        
-        out_stack = None
-        for i in range(self.n_lead, len(self.subintervals) - self.n_trail):
-            t = self.subintervals[i]
-            k = len(t) - 2
-            t = torch.cat([torch.tensor((t[0]-1,) * k), t, torch.tensor((t[-1]+1,) * k)]).to('cuda:0')
-            c = torch.zeros_like(t, device='cuda:0')
-            c[k] = 1.
-            
-            out = torch.empty((len(x), prod(c.shape[1:])), dtype=c.dtype, device='cuda:0')
-            res = torch.nan_to_num(self.evaluate_spline(t, c.reshape(c.shape[0], -1), k, x, out), nan=0)
-            
-            # print(res.shape, coef.shape, coefs.shape)
-            interval_res = res * coef[:, i-self.n_lead].view(-1, 1)
-    
-            out_stack = interval_res if out_stack is None else torch.cat([out_stack, interval_res], dim=-1)
+        oxygen_oxygen_mask = (atoms[0] == 7) & (atoms[1] == 7)
+        si_si_mask = (atoms[0] == 13) & (atoms[1] == 13)
+        si_oxygen_mask = (~oxygen_oxygen_mask) & (~si_si_mask)
 
-        # print(out_stack.shape)
-        spline_res = torch.sum(out_stack, dim=1)
-        
-        edge_idx_to_graph = data.batch[data.edge_index[0]]
-        spline_out = 0.5 * scatter_add(spline_res, index=edge_idx_to_graph, dim_size=len(data))
+        spline_out = self.pair_b_spline(data, self.coefs_o_o[0], oxygen_oxygen_mask)\
+            + self.pair_b_spline(data, self.coefs_si_si[0], si_si_mask)\
+            + self.pair_b_spline(data, self.coefs_si_o[0], si_oxygen_mask)
         
         if self.use_atomic_energy:
             base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  

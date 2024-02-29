@@ -49,7 +49,7 @@ model:
   gradient: True
   # whether to include coefficients on the 12 and 6 term for lj
   with_coefs: False
-  with_exp_coefs: True
+  with_exp_coefs: False
   # method to combine atomic parameters: average (default), Berthelot
   combination_method: average
   clamped_params: []

@@ -2,7 +2,7 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: cgcnn_lj_sio2_exp_coef
+  identifier: cgcnn_lj_sio2_400
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -57,7 +57,7 @@ model:
   clamped_params: []
 ?
 optim:
-  max_epochs: 200
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper

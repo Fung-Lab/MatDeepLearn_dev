@@ -44,11 +44,11 @@ def show_all_morse_params(state_dict):
     print('base_atomic_energy:', base_atomic_energy[7], base_atomic_energy[13], (base_atomic_energy[7] + base_atomic_energy[13]) / 2)
     # print('coef_e:', coef_e)
     # print('coef_2e:', coef_2e)
-    
-    
+
 
 if __name__ == '__main__':
     # checkpoint_path = 'results/silica_tests/2024-01-23-17-34-49-899-torchmd_morse_sio2/checkpoint_0/best_checkpoint.pt'
-    checkpoint_path = 'results/2024-01-30-18-39-32-475-cgcnn_lj_sio2_both_coef/checkpoint_0/best_checkpoint.pt'
+    checkpoint_path = 'results/2024-02-02-10-02-00-998-CGCNN_morse_sio2/checkpoint_0/checkpoint.pt'
     state_dict = torch.load(checkpoint_path)['state_dict']
+    print(torch.load(checkpoint_path)['epoch'])
     show_all_lj_params(state_dict)

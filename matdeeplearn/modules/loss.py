@@ -46,22 +46,44 @@ class ForceStressLoss(nn.Module):
         # print(f"Error e: {energy_loss:.4f}, f: {force_loss:.4f}, s: {stress_loss:.4f}")
         return energy_loss + force_loss + stress_loss
     
-@registry.register_loss("ForceStressLoss_Phase")
+@registry.register_loss("EFSLoss_Spline_Regularized")
 class ForceStressLoss_Phase(nn.Module):
-    def __init__(self, weight_energy=1.0, weight_force=0.1, weight_stress=0.1, epochs=200):
+    def __init__(self, weight_energy=1.0, weight_force=0.1, weight_stress=0.1, lambda_1=1e-5, lambda_2=1e-5):
         super().__init__()
         self.weight_energy = weight_energy
         self.weight_force = weight_force
         self.weight_stress = weight_stress
-        self.epochs = epochs
+        self.lambda_1 = lambda_1
+        self.lambda_2 = lambda_2
 
-    def forward(self, pred: tuple, target: Batch, epoch: int):
-        predictions = pred[0] if epoch < self.epochs else pred[0] + pred[1]
+    def forward(self, predictions: torch.Tensor, target: Batch):
         energy_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y)
         force_loss = self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
         stress_loss = self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
-        # print(f"Error e: {energy_loss:.4f}, f: {force_loss:.4f}, s: {stress_loss:.4f}")
-        return energy_loss + force_loss + stress_loss
+        coefs = predictions["c"]
+        
+        coef_sum = self.lambda_1 * sum([torch.sum(c ** 2) for c in coefs])
+        coef_rolling_sum = self.lambda_2 * sum([(c[:, :-2] - 2 * c[:, 1:-1] + c[:, 2:]).sum() for c in coefs])
+        return energy_loss + force_loss + stress_loss + coef_sum + coef_rolling_sum
+    
+@registry.register_loss("EFLoss_Spline_Regularized")
+class ForceLoss_Phase(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_force=0.1, lambda_1=1e-3, lambda_2=1e-3):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_force = weight_force
+        self.lambda_1 = lambda_1
+        self.lambda_2 = lambda_2
+
+    def forward(self, predictions: torch.Tensor, target: Batch):
+        energy_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y)
+        force_loss = self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
+        coefs = predictions["c"]
+        
+        coef_sum = self.lambda_1 * sum([torch.sum(c ** 2) for c in coefs])
+        coef_rolling_sum = self.lambda_2 * sum([(c[:, :-2] - 2 * c[:, 1:-1] + c[:, 2:]).sum() for c in coefs])
+        # print(coef_sum, coef_rolling_sum)
+        return energy_loss + force_loss + coef_sum + coef_rolling_sum
         
 
 @registry.register_loss("DOSLoss")

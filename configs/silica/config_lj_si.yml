@@ -2,7 +2,7 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: cgcnn_lj_sio2_exp_coef
+  identifier: pairwise_lj_sio2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -17,7 +17,7 @@ task:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: CGCNN_LJ 
+  name: LJ_Si
   # model attributes
   dim1: 100
   dim2: 150
@@ -49,11 +49,9 @@ model:
   gradient: True
   # whether to include coefficients on the 12 and 6 term for lj
   with_coefs: False
-  with_exp_coefs: True
+  with_exp_coefs: False
   # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
   combination_method: average
-  # GNN : potential
-  gnn_potential_ratio: [1., 1.]
   clamped_params: []
 ?
 optim:
@@ -70,7 +68,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 128
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}

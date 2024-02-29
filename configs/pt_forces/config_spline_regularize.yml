@@ -2,7 +2,7 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: cgcnn_lj_sio2_exp_coef
+  identifier: spline_pt_forces_regularized_0.25
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -17,15 +17,15 @@ task:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
 ?
 model:
-  name: CGCNN_LJ 
+  name: Spline 
   # model attributes
   dim1: 100
   dim2: 150
@@ -48,13 +48,9 @@ model:
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
   # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: True
-  # method to combine atomic parameters: average (default), Lorentz-Berthelot, Fender-Halsey, Kong
-  combination_method: average
-  # GNN : potential
-  gnn_potential_ratio: [1., 1.]
   clamped_params: []
+  degree: 2
+  knots_interval: 0.25
 ?
 optim:
   max_epochs: 200
@@ -64,13 +60,13 @@ optim:
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: ForceStressLoss
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: "EFLoss_Spline_Regularized"
+    loss_args: {weight_energy: 0.01, weight_force: 50.0, lambda_1: 0.00001, lambda_2: 0.00001}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 128
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -83,15 +79,15 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: silica_data
+  name: pt_force_data
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
+  src: data/pt_force_data/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica_data/
+  pt_path: data/pt_force_data/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -105,8 +101,8 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
+  # additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
   verbose: True
@@ -138,6 +134,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.01
+  val_ratio: 0.005
+  test_ratio: 0.005

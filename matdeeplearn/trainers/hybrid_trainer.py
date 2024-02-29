@@ -271,8 +271,13 @@ class HybridTrainer(BaseTrainer):
             out = {}
             out_stack={}            
             for key in out_list[0].keys():
+                # if key not in ['output', 'pos_grad', 'cell_grad']:
+                #     continue
                 temp = [o[key] for o in out_list]
                 if temp[0] is not None:
+                    if key == 'c':
+                        out[key] = temp[0]
+                        continue
                     out_stack[key] = torch.stack(temp)
                     out[key] = torch.mean(out_stack[key], dim=0)
                     out[key+"_std"] = torch.std(out_stack[key], dim=0)
