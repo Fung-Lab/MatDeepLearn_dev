@@ -27,10 +27,7 @@ task:
 
 model:
   name: torchmd_etEarly
-  load_model: False
-  save_model: True
-  model_path: "my_model.pth"
-  #model attributes
+  # model attributes 
   hidden_channels: 256
   num_filters: 128
   num_layers: 8
@@ -42,12 +39,9 @@ model:
   num_heads: 8
   distance_influence: "both"
   neighbor_embedding: True
-  cutoff_lower: 0.0
-  cutoff_upper: 8.0
   max_z: 100
-  max_num_neighbors: 32
   aggr: "add"
-  num_post_layers: 3
+  num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_mean_pool"
   pool_order: "early"
@@ -63,7 +57,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 300
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -89,15 +83,15 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  src: data/test_data/data_graph_scalar.json
   #src: "/project/Rithwik/2D_data_npj/raw/"
   #src: "/project/Rithwik/QM9/data.json"
   # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  target_path: 
   #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
   #target_path:
   # Path to save processed data.pt file
-  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
+  pt_path: data/
   prediction_level: graph
 
   transforms:

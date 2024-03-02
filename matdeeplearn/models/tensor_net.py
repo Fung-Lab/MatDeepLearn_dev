@@ -128,19 +128,14 @@ class TensorNet(BaseModel):
         output_dim,
         hidden_channels=128,
         num_layers=2,
-        num_rbf=32,
+        num_rbf=50,
         rbf_type="expnorm",
-        trainable_rbf=False,
+        trainable_rbf=True,
         activation="silu",
-        cutoff_lower=0,
-        cutoff_upper=4.5,
-        max_num_neighbors=64,
         max_z=128,
         equivariance_invariance_group="O(3)",
         static_shapes=True,
-        check_errors=True,
         dtype=torch.float32,
-        box_vecs=None,
         num_post_layers=1,
         post_hidden_channels=64,
         pool="global_mean_pool",
@@ -168,19 +163,19 @@ class TensorNet(BaseModel):
         self.num_layers = num_layers
         self.num_rbf = num_rbf
         self.rbf_type = rbf_type
-        self.activation = activation
-        self.cutoff_lower = cutoff_lower
-        self.cutoff_upper = cutoff_upper
+        self.activation = activation        
+        cutoff_lower = 0
+        
         act_class = act_class_mapping[activation]
         self.distance_expansion = rbf_class_mapping[rbf_type](
-            cutoff_lower, cutoff_upper, num_rbf, trainable_rbf
+            cutoff_lower, self.cutoff_radius, num_rbf, trainable_rbf
         )
         self.tensor_embedding = TensorEmbedding(
             hidden_channels,
             num_rbf,
             act_class,
             cutoff_lower,
-            cutoff_upper,
+            self.cutoff_radius,
             trainable_rbf,
             max_z,
             dtype,
@@ -195,7 +190,7 @@ class TensorNet(BaseModel):
                         hidden_channels,
                         act_class,
                         cutoff_lower,
-                        cutoff_upper,
+                        self.cutoff_radius,
                         equivariance_invariance_group,
                         dtype,
                     )

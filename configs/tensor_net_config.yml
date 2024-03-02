@@ -27,27 +27,19 @@ task:
 
 model:
   name: tensor_net
-  load_model: False
-  save_model: True
-  model_path: "my_model.pth"
   #model attributes
-  hidden_channels: 128
+  hidden_channels: 256
   num_layers: 2
-  num_rbf: 32
+  num_rbf: 50
   rbf_type: "expnorm"
-  trainable_rbf: False
+  trainable_rbf: True
   activation: "silu"
-  cutoff_lower: 0
-  cutoff_upper: 4.5
-  max_num_neighbors: 64
-  max_z: 128
+  max_z: 100
   equivariance_invariance_group: "O(3)"
   static_shapes: True
-  check_errors: True
   dtype: torch.float32
-  box_vecs: None
-  num_post_layers: 1
-  post_hidden_channels: 64
+  num_post_layers: 2
+  post_hidden_channels: 128
   pool: "global_mean_pool"
   aggr: "add"
   pool_order: "early"
@@ -89,15 +81,15 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/raw/"
+  src: data/test_data/data_graph_scalar.json
   #src: "/project/Rithwik/2D_data_npj/raw/"
   #src: "/project/Rithwik/QM9/data.json"
   # Path to target file within data_path
-  target_path: "/global/cfs/projectdirs/m3641/Shared/Materials_datasets/2D_data_npj/targets.csv"
+  target_path: 
   #target_path: "/project/Rithwik/2D_data_npj/targets.csv"
   #target_path:
   # Path to save processed data.pt file
-  pt_path: "/global/cfs/projectdirs/m3641/Rithwik/datasets/2D_data_npj/"
+  pt_path: data/
   prediction_level: graph
 
   transforms:
