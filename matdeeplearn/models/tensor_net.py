@@ -143,7 +143,7 @@ class TensorNet(BaseModel):
         pool_order="early",
         **kwargs
     ):
-        super(TensorNet, self).__init__()
+        super(TensorNet, self).__init__(**kwargs)
 
         assert rbf_type in rbf_class_mapping, (
             f'Unknown RBF type "{rbf_type}". '
