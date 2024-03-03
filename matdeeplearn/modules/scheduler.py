@@ -43,8 +43,9 @@ class LRScheduler:
                 raise ValueError
             model_parameters["lr_lambda"] = scheduler_lambda_fn
 
+        self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)
         model_parameters = self.filter_kwargs(model_parameters)
-        self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
+        self.scheduler = self.scheduler(
             optimizer, **model_parameters
         )
 
