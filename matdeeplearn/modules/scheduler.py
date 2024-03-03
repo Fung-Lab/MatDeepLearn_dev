@@ -1,3 +1,4 @@
+import inspect
 import math
 import torch
 
@@ -42,6 +43,7 @@ class LRScheduler:
                 raise ValueError
             model_parameters["lr_lambda"] = scheduler_lambda_fn
 
+        model_parameters = self.filter_kwargs(model_parameters)
         self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
             optimizer, **model_parameters
         )
@@ -70,3 +72,17 @@ class LRScheduler:
     def update_lr(self):
         for param_group in self.optimizer.param_groups:
             self.lr = param_group["lr"]
+
+    def filter_kwargs(self, config):
+        # adapted from https://stackoverflow.com/questions/26515595/
+        sig = inspect.signature(self.scheduler)
+        filter_keys = [
+            param.name
+            for param in sig.parameters.values()
+            if param.kind == param.POSITIONAL_OR_KEYWORD
+        ]
+        filter_keys.remove("optimizer")
+        scheduler_args = {
+            arg: config[arg] for arg in config if arg in filter_keys
+        }
+        return scheduler_args
