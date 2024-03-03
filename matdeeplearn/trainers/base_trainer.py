@@ -155,7 +155,6 @@ class BaseTrainer(ABC):
             config["task"]["run_mode"],
         )
 
-        scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
 
@@ -180,6 +179,8 @@ class BaseTrainer(ABC):
                     scheduler_params[k] = multiply(
                         scheduler_params[k], n_iter_per_epoch
                     )
+
+        scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
 
         clip_grad_norm = config["optim"].get("clip_grad_norm", None)
         verbosity = config["optim"].get("verbosity", None)
