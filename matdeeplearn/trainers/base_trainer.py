@@ -158,6 +158,29 @@ class BaseTrainer(ABC):
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
+
+        def multiply(obj, num):
+            if isinstance(obj, list):
+                for i in range(len(obj)):
+                    obj[i] = obj[i] * num
+            else:
+                obj = obj * num
+            return obj
+
+        config["optim"]["scheduler"]["scheduler_args"]["epochs"] = max_epochs
+        config["optim"]["scheduler"]["scheduler_args"]["lr"] = config["optim"]["lr"]
+        if "train_loader" in data_loader:
+            n_iter_per_epoch = len(data_loader["train_loader"])
+        else:
+            n_iter_per_epoch = 0
+        scheduler_params = config["optim"]["scheduler"]["scheduler_args"]
+        for k in scheduler_params.keys():
+            if "epochs" in k:
+                if isinstance(scheduler_params[k], (int, float, list)):
+                    scheduler_params[k] = multiply(
+                        scheduler_params[k], n_iter_per_epoch
+                    )
+
         clip_grad_norm = config["optim"].get("clip_grad_norm", None)
         verbosity = config["optim"].get("verbosity", None)
         batch_tqdm = config["optim"].get("batch_tqdm", False)
