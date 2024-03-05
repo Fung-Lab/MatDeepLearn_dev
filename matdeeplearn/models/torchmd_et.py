@@ -16,9 +16,9 @@ from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import node_rep_one_hot
+
+
 @registry.register_model("torchmd_et")
-
-
 class TorchMD_ET(BaseModel):
     r"""The TorchMD equivariant Transformer architecture.
 
@@ -60,7 +60,7 @@ class TorchMD_ET(BaseModel):
 
     def __init__(
         self,
-	    node_dim,
+            node_dim,
         edge_dim,
         output_dim,
         hidden_channels=128,
@@ -110,7 +110,8 @@ class TorchMD_ET(BaseModel):
         self.distance_influence = distance_influence
         self.max_z = max_z
         self.pool = pool
-        assert pool_order in ['early', 'late'], f"{pool_order} is currently not supported"
+        assert pool_order in [
+            'early', 'late'], f"{pool_order} is currently not supported"
         self.pool_order = pool_order
         self.output_dim = output_dim
         cutoff_lower = 0
@@ -159,10 +160,13 @@ class TorchMD_ET(BaseModel):
         self.post_lin_list = nn.ModuleList()
         for i in range(self.num_post_layers):
             if i == 0:
-                self.post_lin_list.append(nn.Linear(hidden_channels, post_hidden_channels))
+                self.post_lin_list.append(
+                    nn.Linear(hidden_channels, post_hidden_channels))
             else:
-                self.post_lin_list.append(nn.Linear(post_hidden_channels, post_hidden_channels))
-        self.post_lin_list.append(nn.Linear(post_hidden_channels, self.output_dim))
+                self.post_lin_list.append(
+                    nn.Linear(post_hidden_channels, post_hidden_channels))
+        self.post_lin_list.append(
+            nn.Linear(post_hidden_channels, self.output_dim))
 
         self.reset_parameters()
 
@@ -174,39 +178,43 @@ class TorchMD_ET(BaseModel):
         for attn in self.attention_layers:
             attn.reset_parameters()
         self.out_norm.reset_parameters()
-        
+
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
 
         x = self.embedding(data.z)
 
-        #edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
-        #assert (
+        # edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
+        # assert (
         #    edge_vec is not None
-        #), "Distance module did not return directional information"
+        # ), "Distance module did not return directional information"
         if self.otf_edge_index == True:
-            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
-            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
-        data.edge_attr = self.distance_expansion(data.edge_weight) 
-                            
-        #mask = data.edge_index[0] != data.edge_index[1]        
-        #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
-        data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
-        
+            # data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(
+                data, self.cutoff_radius, self.n_neighbors)
+        data.edge_attr = self.distance_expansion(data.edge_weight)
+
+        # mask = data.edge_index[0] != data.edge_index[1]
+        # data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
+        data.edge_vec = data.edge_vec / \
+            torch.norm(data.edge_vec, dim=1).unsqueeze(1)
+
         if self.otf_node_attr == True:
-            data.x = node_rep_one_hot(data.z).float()          
-        
+            data.x = node_rep_one_hot(data.z).float()
+
         if self.neighbor_embedding is not None:
-            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
+            x = self.neighbor_embedding(
+                data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
-            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+            dx, dvec = attn(x, vec, data.edge_index,
+                            data.edge_weight, data.edge_attr, data.edge_vec)
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
-        
+
         if self.prediction_level == "graph":
             if self.pool_order == 'early':
                 x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
@@ -216,40 +224,40 @@ class TorchMD_ET(BaseModel):
             x = self.post_lin_list[-1](x)
             if self.pool_order == 'late':
                 x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-            #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
-            #x = self.pool.reduce(x, data.batch)
+            # x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
+            # x = self.pool.reduce(x, data.batch)
         elif self.prediction_level == "node":
             for i in range(0, len(self.post_lin_list) - 1):
                 x = self.post_lin_list[i](x)
                 x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x) 
-                    
+            x = self.post_lin_list[-1](x)
+
         return x
-        
+
     def forward(self, data):
-    
+
         output = {}
         out = self._forward(data)
-        output["output"] =  out
+        output["output"] = out
 
-        if self.gradient == True and out.requires_grad == True:         
-            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-            grad = torch.autograd.grad(
-                    out,
-                    [data.pos, data.displacement],
-                    grad_outputs=torch.ones_like(out),
-                    create_graph=self.training) 
-            forces = -1 * grad[0]
-            stress = grad[1]
-            stress = stress / volume.view(-1, 1, 1)         
+        # if self.gradient == True and out.requires_grad == True:
+        #     volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
+        #     grad = torch.autograd.grad(
+        #             out,
+        #             [data.pos, data.displacement],
+        #             grad_outputs=torch.ones_like(out),
+        #             create_graph=self.training)
+        #     forces = -1 * grad[0]
+        #     stress = grad[1]
+        #     stress = stress / volume.view(-1, 1, 1)
 
-            output["pos_grad"] =  forces
-            output["cell_grad"] =  stress
-        else:
-            output["pos_grad"] =  None
-            output["cell_grad"] =  None  
-                  
-        return output        
+        #     output["pos_grad"] =  forces
+        #     output["cell_grad"] =  stress
+        # else:
+        #     output["pos_grad"] =  None
+        #     output["cell_grad"] =  None
+
+        return output
 
     def __repr__(self):
         return (
@@ -267,6 +275,7 @@ class TorchMD_ET(BaseModel):
             f"cutoff_lower={self.cutoff_lower}, "
             f"self.cutoff_radius={self.self.cutoff_radius})"
         )
+
     @property
     def target_attr(self):
         return "y"
@@ -285,7 +294,8 @@ class EquivariantMultiHeadAttention(MessagePassing):
         cutoff_upper,
         aggregation,
     ):
-        super(EquivariantMultiHeadAttention, self).__init__(aggr=aggregation, node_dim=0)
+        super(EquivariantMultiHeadAttention, self).__init__(
+            aggr=aggregation, node_dim=0)
         assert hidden_channels % num_heads == 0, (
             f"The number of hidden channels ({hidden_channels}) "
             f"must be evenly divisible by the number of "
@@ -307,7 +317,8 @@ class EquivariantMultiHeadAttention(MessagePassing):
         self.v_proj = nn.Linear(hidden_channels, hidden_channels * 3)
         self.o_proj = nn.Linear(hidden_channels, hidden_channels * 3)
 
-        self.vec_proj = nn.Linear(hidden_channels, hidden_channels * 3, bias=False)
+        self.vec_proj = nn.Linear(
+            hidden_channels, hidden_channels * 3, bias=False)
 
         self.dk_proj = None
         if distance_influence in ["keys", "both"]:
@@ -343,21 +354,23 @@ class EquivariantMultiHeadAttention(MessagePassing):
         k = self.k_proj(x).reshape(-1, self.num_heads, self.head_dim)
         v = self.v_proj(x).reshape(-1, self.num_heads, self.head_dim * 3)
 
-        vec1, vec2, vec3 = torch.split(self.vec_proj(vec), self.hidden_channels, dim=-1)
+        vec1, vec2, vec3 = torch.split(
+            self.vec_proj(vec), self.hidden_channels, dim=-1)
         vec = vec.reshape(-1, 3, self.num_heads, self.head_dim)
         vec_dot = (vec1 * vec2).sum(dim=1)
 
         dk = (
-            self.act(self.dk_proj(f_ij)).reshape(-1, self.num_heads, self.head_dim)
+            self.act(self.dk_proj(f_ij)).reshape(-1,
+                                                 self.num_heads, self.head_dim)
             if self.dk_proj is not None
             else None
         )
         dv = (
-            self.act(self.dv_proj(f_ij)).reshape(-1, self.num_heads, self.head_dim * 3)
+            self.act(self.dv_proj(f_ij)).reshape(-1,
+                                                 self.num_heads, self.head_dim * 3)
             if self.dv_proj is not None
             else None
         )
-        
 
         # propagate_type: (q: Tensor, k: Tensor, v: Tensor, vec: Tensor, dk: Tensor, dv: Tensor, r_ij: Tensor, d_ij: Tensor)
         x, vec = self.propagate(
