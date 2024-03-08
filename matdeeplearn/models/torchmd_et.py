@@ -233,6 +233,8 @@ class TorchMD_ET(BaseModel):
         #         x = getattr(F, self.activation)(x)
         #     x = self.post_lin_list[-1](x)
 
+        # TODO: FIGURE OUT HOW TO ACCESS EMBEDDINGS; WE NEED THEM TO COMPUTE
+        #       MOLECULAR FINGERPRINTS.
         return x
 
     def forward(self, data):
