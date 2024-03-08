@@ -213,24 +213,25 @@ class TorchMD_ET(BaseModel):
                             data.edge_weight, data.edge_attr, data.edge_vec)
             x = x + dx
             vec = vec + dvec
+        # just output the embeddings => stop before the prediction layer
         x = self.out_norm(x)
 
-        if self.prediction_level == "graph":
-            if self.pool_order == 'early':
-                x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-            for i in range(0, len(self.post_lin_list) - 1):
-                x = self.post_lin_list[i](x)
-                x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x)
-            if self.pool_order == 'late':
-                x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
-            # x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
-            # x = self.pool.reduce(x, data.batch)
-        elif self.prediction_level == "node":
-            for i in range(0, len(self.post_lin_list) - 1):
-                x = self.post_lin_list[i](x)
-                x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x)
+        # if self.prediction_level == "graph":
+        #     if self.pool_order == 'early':
+        #         x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+        #     for i in range(0, len(self.post_lin_list) - 1):
+        #         x = self.post_lin_list[i](x)
+        #         x = getattr(F, self.activation)(x)
+        #     x = self.post_lin_list[-1](x)
+        #     if self.pool_order == 'late':
+        #         x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+        #     # x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
+        #     # x = self.pool.reduce(x, data.batch)
+        # elif self.prediction_level == "node":
+        #     for i in range(0, len(self.post_lin_list) - 1):
+        #         x = self.post_lin_list[i](x)
+        #         x = getattr(F, self.activation)(x)
+        #     x = self.post_lin_list[-1](x)
 
         return x
 
@@ -240,22 +241,25 @@ class TorchMD_ET(BaseModel):
         out = self._forward(data)
         output["output"] = out
 
-        # if self.gradient == True and out.requires_grad == True:
-        #     volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
-        #     grad = torch.autograd.grad(
-        #             out,
-        #             [data.pos, data.displacement],
-        #             grad_outputs=torch.ones_like(out),
-        #             create_graph=self.training)
-        #     forces = -1 * grad[0]
-        #     stress = grad[1]
-        #     stress = stress / volume.view(-1, 1, 1)
+        # this is skipped reached since we're not getting the prediction (I think?)
+        # even if it is reached, we're probably fine lol.
+        if self.gradient == True and out.requires_grad == True:
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(
+                data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
+            grad = torch.autograd.grad(
+                out,
+                [data.pos, data.displacement],
+                grad_outputs=torch.ones_like(out),
+                create_graph=self.training)
+            forces = -1 * grad[0]
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)
 
-        #     output["pos_grad"] =  forces
-        #     output["cell_grad"] =  stress
-        # else:
-        #     output["pos_grad"] =  None
-        #     output["cell_grad"] =  None
+            output["pos_grad"] = forces
+            output["cell_grad"] = stress
+        else:
+            output["pos_grad"] = None
+            output["cell_grad"] = None
 
         return output
 
