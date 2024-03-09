@@ -1,5 +1,8 @@
-import torch
+from typing import List
+import logging
+
 import numpy as np
+import torch
 import yaml
 from ase import Atoms, units
 from ase.geometry import Cell
@@ -40,13 +43,18 @@ class MDLCalculator(Calculator):
         Args:
         - config (str or dict): Configuration settings for the MDLCalculator.
         - rank (str): Rank of device the calculator calculates properties. Defaults to 'cuda:0'
+        - config (str or dict): Configuration settings for the MDLCalculator.
+        - rank (str): Rank of device the calculator calculates properties. Defaults to 'cuda:0'
 
         Raises:
+        - AssertionError: If the trainer name is not in the correct format or if the trainer class is not found.
         - AssertionError: If the trainer name is not in the correct format or if the trainer class is not found.
         """
         Calculator.__init__(self)
         
+        
         if isinstance(config, str):
+            logging.info(f'MDLCalculator instantiated from config: {config}')
             logging.info(f'MDLCalculator instantiated from config: {config}')
             with open(config, "r") as yaml_file:
                 config = yaml.safe_load(yaml_file)
@@ -63,6 +71,8 @@ class MDLCalculator(Calculator):
         
         self.device = rank if torch.cuda.is_available() else 'cpu'
         self.models = MDLCalculator._load_model(config, self.device)
+        self.device = rank if torch.cuda.is_available() else 'cpu'
+        self.models = MDLCalculator._load_model(config, self.device)
         self.n_neighbors = config['dataset']['preprocess_params'].get('n_neighbors', 250)
 
     def calculate(self, atoms: Atoms, properties=implemented_properties, system_changes=None) -> None:
@@ -73,8 +83,12 @@ class MDLCalculator(Calculator):
         - atoms (ase.Atoms): The atomic structure for which calculations are to be performed.
         - properties (list): List of properties to calculate. Defaults to ['energy', 'forces', 'stress'].
         - system_changes: Not supported in the current implementation.
+        - atoms (ase.Atoms): The atomic structure for which calculations are to be performed.
+        - properties (list): List of properties to calculate. Defaults to ['energy', 'forces', 'stress'].
+        - system_changes: Not supported in the current implementation.
 
         Returns:
+        - None: The results are stored in the instance variable 'self.results'.
         - None: The results are stored in the instance variable 'self.results'.
 
         Note:
@@ -97,6 +111,20 @@ class MDLCalculator(Calculator):
         
         data_list = [data]
         loader = DataLoader(data_list, batch_size=1)
+        loader_iter = iter(loader)
+        batch = next(loader_iter).to(self.device)
+        
+        out_list = []
+        for model in self.models:      
+            out_list.append(model(batch))
+
+        energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)
+        forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
+        stresses = torch.stack([entry["cell_grad"] for entry in out_list]).mean(dim=0)
+        
+        self.results['energy'] = energy.detach().cpu().numpy().squeeze()
+        self.results['forces'] = forces.detach().cpu().numpy().squeeze()
+        self.results['stress'] = stresses.squeeze().detach().cpu().numpy().squeeze()
         loader_iter = iter(loader)
         batch = next(loader_iter).to(self.device)
         
@@ -138,7 +166,6 @@ class MDLCalculator(Calculator):
                         cell=Cell(cells[i])) for i in range(len(data.structure_id))]
         for i in range(len(data.structure_id)):
             atoms_list[i].structure_id = data.structure_id[i][0]
-        return atoms_list
     
     @staticmethod
     def _load_model(config: dict, rank: str) -> List[BaseModel]:

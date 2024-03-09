@@ -1,8 +1,8 @@
+
 __all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "LRM",
            "CGCNN_LJ", "LJ", "TorchMD_LJ", "Morse", "CGCNN_Morse", "TorchMD_Morse", "LJ_Si",
            "CGCNN_Morse_Old", "Morse_Old", "Spline", "CGCNN_Spline", "Spline_New", "Spline_Si",
            "CGCNN_Spline_Si", "Morse_Old_Si", "Spline_New_Si", "Hybrid_CGCNN"]
-
 from .base_model import BaseModel
 from .cgcnn import CGCNN
 from .mpnn import MPNN
@@ -26,3 +26,5 @@ from .morse_old_si import Morse_Old_Si
 from .b_spline_new import Spline_New
 from .b_spline_new_si import Spline_New_Si
 from .hybrid_cgcnn import Hybrid_CGCNN
+from .torchmd_et import TorchMD_ET
+from .torchmd_etEarly import TorchMD_ET_Early

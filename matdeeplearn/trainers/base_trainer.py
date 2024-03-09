@@ -101,17 +101,18 @@ class BaseTrainer(ABC):
             logging.info(
                 f"GPU is available: {torch.cuda.is_available()}, Quantity: {os.environ.get('LOCAL_WORLD_SIZE', None)}"
             )
-            logging.info("Dataset(s) used:")
-            for key in self.dataset:
-                logging.info(f"Dataset length: {key, len(self.dataset[key])}")
-            if self.dataset.get("train"):
-                logging.debug(self.dataset["train"][0])
-                logging.debug(self.dataset["train"][0].z[0])
-                logging.debug(self.dataset["train"][0].y[0])
-            else:
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
+            if not (self.dataset is None):
+                logging.info("Dataset(s) used:")
+                for key in self.dataset:
+                    logging.info(f"Dataset length: {key, len(self.dataset[key])}")
+                if self.dataset.get("train"):
+                    logging.debug(self.dataset["train"][0])
+                    logging.debug(self.dataset["train"][0].z[0])
+                    logging.debug(self.dataset["train"][0].y[0])
+                else:
+                    logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
+                    logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
+                    logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
             if str(self.rank) not in ("cpu", "cuda"):
                 logging.debug(self.model[0].module)
@@ -144,10 +145,10 @@ class BaseTrainer(ABC):
         else:
             rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             local_world_size = 1
-        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"])
+        dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if "src" in config["dataset"] else None
         model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, local_world_size, rank)
         optimizer = cls._load_optimizer(config["optim"], model, local_world_size)
-        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank)
+        sampler = cls._load_sampler(config["optim"], dataset, local_world_size, rank) if "src" in config["dataset"] else None
         data_loader = cls._load_dataloader(
             config["optim"],
             config["dataset"],
@@ -155,7 +156,7 @@ class BaseTrainer(ABC):
             sampler,
             config["task"]["run_mode"],
             config["model"]
-        )
+        ) if "src" in config["dataset"] else None
 
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
         loss = cls._load_loss(config["optim"]["loss"])
@@ -270,10 +271,11 @@ class BaseTrainer(ABC):
     def _load_model(model_config, graph_config, dataset, world_size, rank):
         """Loads the model if from a config file."""
 
-        if dataset.get("train"):
-            dataset = dataset["train"]
-        else:
-            dataset = dataset[list(dataset.keys())[0]]
+        if not (dataset is None):
+            if dataset.get("train"):
+                dataset = dataset["train"]
+            else:
+                dataset = dataset[list(dataset.keys())[0]]
                     
         if isinstance(dataset, torch.utils.data.Subset): 
             dataset = dataset.dataset 
@@ -293,22 +295,28 @@ class BaseTrainer(ABC):
             if graph_config["node_dim"]:
                 node_dim = graph_config["node_dim"]
             else:
-                node_dim = dataset.num_features   
-            edge_dim = graph_config["edge_dim"] 
-            if dataset[0]["y"].ndim == 0:
-                output_dim = 1
+                node_dim = dataset.num_features
+            edge_dim = graph_config["edge_dim"]
+            if not (dataset is None):
+                if dataset[0]["y"].ndim == 0:
+                    output_dim = 1
+                else:
+                    output_dim = dataset[0]["y"].shape[1]
             else:
-                output_dim = dataset[0]["y"].shape[1]     
+                output_dim = graph_config["output_dim"]
 
             # Determine if this is a node or graph level model
-            if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
-                model_config["prediction_level"] = "node"
-            elif dataset[0]["y"].shape[0] == 1:
-                model_config["prediction_level"] = "graph"
+            if not (dataset is None):
+                if dataset[0]["y"].shape[0] == dataset[0]["z"].shape[0]:
+                    model_config["prediction_level"] = "node"
+                elif dataset[0]["y"].shape[0] == 1:
+                    model_config["prediction_level"] = "graph"
+                else:
+                    raise ValueError(
+                        "Target labels do not have the correct dimensions for node or graph-level prediction."
+                    )
             else:
-                raise ValueError(
-                    "Target labels do not have the correct dimensions for node or graph-level prediction."
-                )
+                model_config["prediction_level"] = graph_config["prediction_level"]
 
             model_cls = registry.get_model_class(model_config["name"])
             model = model_cls(
@@ -398,7 +406,7 @@ class BaseTrainer(ABC):
             )
             if run_mode == "predict" and dataset.get("predict"):
                 data_loader[i]["predict_loader"] = get_dataloader(
-                    dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
+                    dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, shuffle=True
             )
 
         return data_loader
