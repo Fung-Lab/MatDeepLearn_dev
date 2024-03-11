@@ -235,6 +235,7 @@ class TorchMD_ET(BaseModel):
 
         # TODO: FIGURE OUT HOW TO ACCESS EMBEDDINGS; WE NEED THEM TO COMPUTE
         #       MOLECULAR FINGERPRINTS.
+
         return x
 
     def forward(self, data):
