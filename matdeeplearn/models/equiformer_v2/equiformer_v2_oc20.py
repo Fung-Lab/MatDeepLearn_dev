@@ -250,8 +250,8 @@ class EquiformerV2_OC20(BaseModel):
             self.distance_expansion = GaussianSmearing(
                 0.0,
                 self.cutoff,
-                600,
-                2.0,
+                50,
+                1.0,
             )
             # self.distance_expansion = GaussianRadialBasisLayer(num_basis=self.num_distance_basis, cutoff=self.max_radius)
         else:
