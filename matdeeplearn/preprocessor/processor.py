@@ -221,10 +221,10 @@ class DataProcessor:
 
                 charge_density = torch.tensor(s["charge_density"], device=self.device, dtype=torch.float)
 
-                num_virtual_nodes = charge_density.numel()
+                num_virtual_nodes = len(charge_density)
                 num_half = num_virtual_nodes // 2
                 random_indices = torch.randperm(num_virtual_nodes)[:num_half]
-                charge_density = charge_density.view(-1)[random_indices]
+                charge_density = charge_density[random_indices]
 
                 pos_vn = charge_density[:, :3]
                 vn_labels = charge_density[:, -1].view(-1, 1)
