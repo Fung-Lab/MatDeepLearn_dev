@@ -17,6 +17,8 @@ from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import node_rep_one_hot
+from matdeeplearn.models.local_structure import DistanceNet
+
 @registry.register_model("torchmd_etEarly")
 
 
@@ -176,6 +178,8 @@ class TorchMD_ET_Early(BaseModel):
                 aggr,
             ).jittable()
             self.attention_layers.append(layer)
+
+        self.distance_net = DistanceNet()
 
         self.out_norm = nn.LayerNorm(hidden_channels)
 
@@ -349,7 +353,8 @@ class TorchMD_ET_Early(BaseModel):
         #set distillation feature vectors
         node_feature = []
         edge_feature = []     
-        vec_feature = []   
+        vec_feature = []
+        local_structure_feature = []   
         distill_layers_iter = iter(self.distill_layers)
         distill_layer = next(distill_layers_iter, (None, None))
 
@@ -382,6 +387,8 @@ class TorchMD_ET_Early(BaseModel):
             x = x + dx
             vec = vec + dvec
             if distill_layer == ("a", i+1):
+                local_structure = self.distance_net(x, data.edge_index)
+                local_structure_feature.append(local_structure.clone)
                 node_feature.append(x.clone())
                 vec_feature.append(vec.clone())
                 edge_feature.append(data.edge_attr.clone())
@@ -417,7 +424,8 @@ class TorchMD_ET_Early(BaseModel):
         vec_feat = [vec.reshape(vec.size(0), -1) for vec in vec_feature]
         v2v = [self.v2v_mapping(feature.float()) for feature in vec_feat]
         output["v2v_mapping"] = v2v
-
+        output["local_structure"] = local_structure_feature
+        
         if self.gradient == True and x.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
             grad = torch.autograd.grad(

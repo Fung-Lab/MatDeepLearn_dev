@@ -58,7 +58,7 @@ teacher_model:
 model:
   name: torchmd_etEarly
   # model attributes
-  hidden_channels: 64
+  hidden_channels: 16
   num_layers: 8
   num_rbf: 50
   activation: "silu"
@@ -101,8 +101,8 @@ optim:
     weight_force: 50.0
     weight_stress: 50.0
     weight_distillation: 1.0
-    attention_weight: False
-    attention_dim: 64
+    attention_weight: True
+    attention_dim: 32
   clip_grad_norm: 10
          
   batch_size: 16

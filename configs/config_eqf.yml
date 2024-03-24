@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_lr4
+  identifier: equiformer_energy
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -17,7 +17,7 @@ task:
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
@@ -63,9 +63,12 @@ model:
   proj_drop: 0.0
   weight_init: 'uniform'    # ['uniform', 'normal']
   model_ensemble: 1
+  # use_energy_lin_ref: True
+  # load_energy_lin_ref: True
+  pool: "global_add_pool"
 
 optim:
-  max_epochs: 200
+  max_epochs: 20
   max_checkpoint_epochs: 0
   lr: 0.0002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -89,16 +92,16 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/test_data/data_node_scalar.json
+  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
   pt_path: data/force_data/
   # Either "node" or "graph"
-  prediction_level: virtual
+  prediction_level: graph
 
   transforms:
     - name: GetY

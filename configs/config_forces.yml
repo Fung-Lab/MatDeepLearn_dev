@@ -46,6 +46,7 @@ model:
   otf_node_attr: False
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  model_ensemble: 1
 
 optim:
   max_epochs: 400
@@ -55,8 +56,8 @@ optim:
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: ForceLoss
+    loss_args: {weight_energy: 0.01, weight_force: 50.0}
     #loss_type: "ForceLoss"
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
@@ -77,7 +78,7 @@ dataset:
   name: test_data
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/force_data/data.json
+  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 

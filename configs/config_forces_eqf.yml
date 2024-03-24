@@ -2,18 +2,18 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: Equiformer
+  identifier: Equiformer_n200
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path: 
+  checkpoint_path: results/2024-03-11-06-58-02-179-Equiformer_n200/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -25,13 +25,13 @@ task:
   use_amp: False  
 
 model:
-  name: Equiformer     
+  name: equiformer_v2    
   # model attributes
   use_pbc:                  True
   regress_forces:           True
   otf_graph:                True
-  max_neighbors:            20
-  max_radius:               12.0
+  max_neighbors:            100
+  max_radius:               8.0
   max_num_elements:         90
 
   num_layers:               8
@@ -69,9 +69,9 @@ model:
   
 
 optim:
-  max_epochs: 300
+  max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.0005
+  lr: 0.0002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -79,7 +79,7 @@ optim:
     # loss_type: ForceStressLoss
     # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
     loss_type: "ForceLoss"
-    loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    loss_args: {weight_energy: 0.01, weight_force: 50.0}
   clip_grad_norm: 10
          
   batch_size: 8
@@ -136,7 +136,7 @@ dataset:
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 20
+    n_neighbors : 100
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
@@ -155,6 +155,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cuda
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.1
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1

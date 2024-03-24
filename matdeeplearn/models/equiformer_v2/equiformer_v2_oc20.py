@@ -2,8 +2,10 @@ import logging
 import math
 from typing import List, Optional
 
+
 import torch
 import torch.nn as nn
+import torch_geometric
 
 from matdeeplearn.common.registry import registry
 # from ocpmodels.common.utils import conditional_grad
@@ -523,7 +525,8 @@ class EquiformerV2_OC20(BaseModel):
             dtype=node_energy.dtype,
         )
         energy.index_add_(0, data.batch, node_energy.view(-1))
-        energy = energy / self.avg_num_nodes
+        energy = energy.view(-1, 1)
+        #energy = energy / self.avg_num_nodes
 
         # Add the per-atom linear references to the energy.
         if self.use_energy_lin_ref and self.load_energy_lin_ref:

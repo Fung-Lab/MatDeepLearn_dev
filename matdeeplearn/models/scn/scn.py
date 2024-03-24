@@ -100,7 +100,7 @@ class SphericalChannelNetwork(BaseModel):
         direct_forces=True,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
 
         import sys
 
@@ -248,19 +248,6 @@ class SphericalChannelNetwork(BaseModel):
 
     @conditional_grad(torch.enable_grad())
     def forward(self, data):
-
-        if self.otf_edge_index == True:
-            #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
-            data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
-            if self.otf_edge_attr == True:
-                data.edge_attr = self.distance_expansion(data.edge_weight)
-            else:
-                logging.warning("Edge attributes should be re-computed for otf edge indices.")
-                
-        if self.otf_edge_index == False:
-            if self.otf_edge_attr == True:
-                data.edge_attr = self.distance_expansion(data.edge_weight) 
-
         self.device = data.pos.device
         self.num_atoms = len(data.batch)
         self.batch_size = len(data.n_atoms)
@@ -304,10 +291,6 @@ class SphericalChannelNetwork(BaseModel):
         #    _,  # cell offset distances
         #    neighbors,
         #) = self.generate_graph(data)
-        # edge_index = data.edge_index
-        # edge_distance = data.edge_weight
-        # edge_distance_vec = data.edge_vec
-
         edge_index = data.edge_index
         sorted_indices = torch.argsort(edge_index[1])
         data.edge_index = edge_index[:, sorted_indices]
@@ -434,6 +417,7 @@ class SphericalChannelNetwork(BaseModel):
         node_energy = torch.sum(node_energy, dim=1) / self.num_sphere_samples
         energy = torch.zeros(len(data.n_atoms), device=pos.device)
         energy.index_add_(0, data.batch, node_energy.view(-1))
+        energy = energy.view(-1, 1)
 
         # Force estimation
         if self.regress_forces:
@@ -555,7 +539,6 @@ class SphericalChannelNetwork(BaseModel):
         )
 
         num_atoms = torch.max(edge_index) + 1
-        num_atoms = num_atoms.item()
         distance_sort = torch.full(
             [num_atoms * max_num_neighbors], np.inf, device=device
         )
@@ -584,6 +567,10 @@ class SphericalChannelNetwork(BaseModel):
     @property
     def num_params(self):
         return sum(p.numel() for p in self.parameters())
+    
+    @property
+    def target_attr(self):
+        return "y"
 
 
 class EdgeBlock(torch.nn.Module):
