@@ -9,11 +9,11 @@ task:
   # Defaults to run directory if not specified
   save_dir:
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: ./results/2024-03-14-19-29-10-051-try4_equiformer_200vns/checkpoint/checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -90,7 +90,7 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../dataset/try4/data_try4.json
+  src: {'test': '../dataset/try4_split/test/data.json', 'train': '../dataset/try4_split/train/data.json', 'val': '../dataset/try4_split/val/data.json'}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
