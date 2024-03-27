@@ -95,7 +95,7 @@ dataset:
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/try4/
+  pt_path: ../dataset/try4_split/
   # Either "node" or "graph"
   prediction_level: virtual
 

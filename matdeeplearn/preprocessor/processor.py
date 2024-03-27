@@ -197,7 +197,7 @@ class DataProcessor:
 
     def chg_wrap(self):
         dict_structures = []
-        if ".json" in self.root_path_dict:
+        if ".json" in self.root_path:
             logging.info("Reading one JSON file for multiple structures.")
 
             f = open(self.root_path)
