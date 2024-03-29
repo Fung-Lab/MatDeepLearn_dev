@@ -10,3 +10,17 @@
             (fingerprints, Tanimoto coeffs, etc.),
             - deletes all .xyz files.
 """
+
+
+class MoleculeProcessor:
+    def __init__(self, molList):
+        pass
+
+    def toXYZ(self):
+        pass
+
+    def computeMetrics(self):
+        pass
+
+    def teardownXYZ(self):
+        pass

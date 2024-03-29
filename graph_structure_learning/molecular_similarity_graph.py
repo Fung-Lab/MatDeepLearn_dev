@@ -9,3 +9,16 @@
         into PyTorch Geometric graph data.
         - (optional) networkx visualization of molecular similarity graph
 """
+
+class MolecularSimilarityGraph:
+    def __init__(self, moleculeData):
+        pass
+    
+    def constructAdjacencyMatrix(self):
+        pass
+    
+    def toGraphData(self):
+        pass
+    
+    def visualize(self):
+        pass
