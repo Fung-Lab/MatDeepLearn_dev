@@ -118,6 +118,7 @@ class PropertyTrainer(BaseTrainer):
                     out = out_list[0]
                     # Perform a readout operation on the atomic node embeddings
                     # to obtain a representation of the entire molecule.
+                    
                     # TODO: We need to extract this vector somehow
                     readout = torch.exp(torch.mean(torch.log(out), dim=1))
                     loss = self._compute_loss(out_list, batch)
