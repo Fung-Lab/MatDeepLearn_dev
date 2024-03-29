@@ -36,6 +36,7 @@ class PropertyTrainer(BaseTrainer):
         save_dir,
         checkpoint_path,
         use_amp,
+        use_gsl=False  # if true, run with graph structure learning
     ):
         super().__init__(
             model,
@@ -118,9 +119,9 @@ class PropertyTrainer(BaseTrainer):
                     out = out_list[0]
                     # Perform a readout operation on the atomic node embeddings
                     # to obtain a representation of the entire molecule.
-                    
                     # TODO: We need to extract this vector somehow
                     readout = torch.exp(torch.mean(torch.log(out), dim=1))
+
                     loss = self._compute_loss(out_list, batch)
 
                 # print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))
@@ -212,7 +213,7 @@ class PropertyTrainer(BaseTrainer):
             if "test" in self.write_output and self.data_loader[0].get("test_loader"):
                 self.predict(self.data_loader[0]["test_loader"], "test")
 
-        return self.best_model_state
+        return self.best_model_state, readout
 
     @torch.no_grad()
     def validate(self, split="val"):
