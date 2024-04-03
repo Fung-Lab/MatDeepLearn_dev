@@ -1,3 +1,4 @@
+import copy
 import logging
 import time
 
@@ -163,6 +164,7 @@ class PropertyTrainer(BaseTrainer):
 
             torch.cuda.empty_cache()
 
+        self.best_model_state = copy.deepcopy(self.model.state_dict())
         if self.best_model_state:
             if str(self.rank) in "0":
                 self.model.module.load_state_dict(self.best_model_state)
@@ -176,10 +178,10 @@ class PropertyTrainer(BaseTrainer):
             if self.model_save_frequency != -1:
                 self.save_model("best_checkpoint.pt", metric, True)
             logging.info("Final Losses: ")
-            if "train" in self.write_output:
-                self.predict(self.data_loader["train_loader"], "train")
-            if "val" in self.write_output and self.data_loader.get("val_loader"):
-                self.predict(self.data_loader["val_loader"], "val")
+            # if "train" in self.write_output:
+            #     self.predict(self.data_loader["train_loader"], "train")
+            # if "val" in self.write_output and self.data_loader.get("val_loader"):
+            #     self.predict(self.data_loader["val_loader"], "val")
             if "test" in self.write_output and self.data_loader.get("test_loader"):
                 self.predict(self.data_loader["test_loader"], "test")
 
