@@ -27,12 +27,30 @@ import numpy as np
 
 class MoleculeProcessor:
     def __init__(self, molList):
+        """
+            A list of raw JSON molecules from the QM9 dataset. These will be processed
+            into ASE 'Atom' objects for the individual atoms, which will allow us to
+            construct 'XYZ' files. The XYZ files can be converted into 'Mol' objects,
+            from which the similarity metrics will be computed.
+        """
         self.rawMols = molList
+
+        """
+            Will hold the 'Mol' objects that have beeen constructed from the JSON 
+            molecules.
+        """
         self.processedMols = []
+
+        """
+            Holds the Tanimoto coefficient similarity metrics for each molecule;
+            constructed as an adjacency matrix, where A(i,j) gives the similarity
+            between molecule i and j. 
+        """
         self.metrics = []
 
     def getMolObjects(self):
         self.processedMols = []
+        # TODO: make sure the 'structure_id', 'atomic_numbers', and 'positions' are extracted properly
         for entry in dataset:
             structure_id = entry["structure_id"]
             atomic_numbers = entry["atomic_numbers"]
