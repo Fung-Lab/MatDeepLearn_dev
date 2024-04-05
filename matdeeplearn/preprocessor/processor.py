@@ -222,46 +222,35 @@ class DataProcessor:
                 charge_density = torch.tensor(s["charge_density"], device=self.device, dtype=torch.float)
 
                 num_virtual_nodes = len(charge_density)
-                num_half = num_virtual_nodes // 2
-                random_indices = torch.randperm(num_virtual_nodes)[:num_half]
-                charge_density_first = charge_density[random_indices]
+                # num_half = num_virtual_nodes // 2
+                random_indices = torch.randperm(num_virtual_nodes)
+                indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
+                           range(0, num_virtual_nodes, 200)]
 
-                pos_vn = charge_density_first[:, :3]
-                vn_labels = charge_density_first[:, -1].view(-1, 1)
-                atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
+                for sub_indices in indices:
+                    charge_density_part = charge_density[sub_indices]
 
-                pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-                if "cell" in s:
-                    cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
-                    if cell.shape[0] != 1:
-                        cell = cell.view(1, 3, 3)
-                else:
-                    cell = torch.zeros((3, 3)).unsqueeze(0)
-                atomic_numbers = torch.LongTensor(s["atomic_numbers"])
+                    pos_vn = charge_density_part[:, :3]
+                    vn_labels = charge_density_part[:, -1].view(-1, 1)
+                    atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
 
-                d["positions"] = torch.cat((pos, pos_vn), dim=0)
-                d["cell"] = cell
-                d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
-                d["structure_id"] = s["structure_id"]
-                d["y"] = vn_labels
-                # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
+                    pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
+                    if "cell" in s:
+                        cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+                        if cell.shape[0] != 1:
+                            cell = cell.view(1, 3, 3)
+                    else:
+                        cell = torch.zeros((3, 3)).unsqueeze(0)
+                    atomic_numbers = torch.LongTensor(s["atomic_numbers"])
 
-                dict_structures.append(d)
+                    d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                    d["cell"] = cell
+                    d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                    d["structure_id"] = s["structure_id"]
+                    d["y"] = vn_labels
+                    # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
 
-                random_indices = torch.randperm(num_virtual_nodes)[num_half:]
-                charge_density_second = charge_density[random_indices]
-                pos_vn = charge_density_second[:, :3]
-                vn_labels = charge_density_second[:, -1].view(-1, 1)
-                atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
-
-                d["positions"] = torch.cat((pos, pos_vn), dim=0)
-                d["cell"] = cell
-                d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
-                d["structure_id"] = s["structure_id"]
-                d["y"] = vn_labels
-                # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
-
-                dict_structures.append(d)
+                    dict_structures.append(d)
 
         else:
             # if isinstance(self.root_path_dict, dict):

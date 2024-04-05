@@ -2,16 +2,16 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_200vns_AE
+  identifier: try4_equiformer_infer
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir:
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: ./results/2024-03-14-19-21-39-187-try4_equiformer_200vns/checkpoint/best_checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
@@ -70,7 +70,7 @@ optim:
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: TorchLossWrapper
-    loss_args: {loss_fn: l1_loss, reduction: 'sum'}
+    loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 100
   batch_size: 16
@@ -88,14 +88,14 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../dataset/try4/data_try4.json
+  src: ../dataset/Charge_density_inference/data_inference.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/try4/
+  pt_path: ../dataset/Charge_density_inference
   # Either "node" or "graph"
   prediction_level: virtual
 

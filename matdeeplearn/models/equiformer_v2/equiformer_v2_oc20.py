@@ -391,20 +391,6 @@ class EquiformerV2_OC20(BaseModel):
             lmax=max(self.lmax_list),
             num_channels=self.sphere_channels,
         )
-        '''
-        self.energy_block = FeedForwardNetwork(
-            self.sphere_channels,
-            self.ffn_hidden_channels,
-            1,
-            self.lmax_list,
-            self.mmax_list,
-            self.SO3_grid,
-            self.ffn_activation,
-            self.use_gate_act,
-            self.use_grid_mlp,
-            self.use_sep_s2_act,
-        )
-        '''
 
         self.density_block = FeedForwardNetwork(
             self.sphere_channels,
@@ -418,38 +404,6 @@ class EquiformerV2_OC20(BaseModel):
             self.use_grid_mlp,
             self.use_sep_s2_act,
         )
-        '''
-        if self.regress_forces:
-            self.force_block = SO2EquivariantGraphAttention(
-                self.sphere_channels,
-                self.attn_hidden_channels,
-                self.num_heads,
-                self.attn_alpha_channels,
-                self.attn_value_channels,
-                1,
-                self.lmax_list,
-                self.mmax_list,
-                self.SO3_rotation,
-                self.mappingReduced,
-                self.SO3_grid,
-                self.max_num_elements,
-                self.edge_channels_list,
-                self.block_use_atom_edge_embedding,
-                self.use_m_share_rad,
-                self.attn_activation,
-                self.use_s2_act_attn,
-                self.use_attn_renorm,
-                self.use_gate_act,
-                self.use_sep_s2_act,
-                alpha_drop=0.0,
-            )
-
-        if self.load_energy_lin_ref:
-            self.energy_lin_ref = nn.Parameter(
-                torch.zeros(self.max_num_elements),
-                requires_grad=False,
-            )
-        '''
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
 
