@@ -26,7 +26,6 @@ class TorchLossWrapper(nn.Module):
                 print(target.y)
         elif self.reduction == 'sum':
             loss = self.loss_fn(predictions["output"], target.y, reduction=self.reduction) / torch.sum(target.y)
-            print(loss)
         return loss
 
 
