@@ -40,15 +40,15 @@ model:
   act: relu
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
-  otf_edge_index: False 
+  otf_edge_index: True # mdl: False 
   # Compute edge attributes on the fly in the model forward
-  otf_edge_attr: False  
+  otf_edge_attr: True # mdl: False  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
   # 1 indicates normal behavior, larger numbers indicate the number of models to be used
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
-  gradient: False
+  gradient: True # mdl: False
 
 optim:
   max_epochs: 50
@@ -104,11 +104,11 @@ dataset:
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: mdl 
+    edge_calc_method: ocp # mdl: mdl 
     # determine if edges are computed, if false, then they need to be computed on the fly   
-    preprocess_edges: True
+    preprocess_edges: False # mdl: True
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_edge_features: True
+    preprocess_edge_features: False # mdl: True
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
     preprocess_node_features: True
     # distance cutoff to determine if two atoms are connected by an edge

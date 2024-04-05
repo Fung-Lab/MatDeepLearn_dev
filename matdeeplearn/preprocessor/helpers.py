@@ -14,8 +14,10 @@ import torch.nn.functional as F
 from ase import Atoms
 from torch_geometric.data.data import Data
 from torch_geometric.utils import add_self_loops, degree, dense_to_sparse
-from torch_scatter import scatter_min, segment_coo, segment_csr
+from torch_scatter import scatter, scatter_min, segment_coo, segment_csr
 from torch_sparse import SparseTensor
+
+from torch_geometric.utils import segment, to_torch_coo_tensor
 
 def calculate_edges_master(
     method: Literal["ase", "ocp", "mdl"],
@@ -644,14 +646,25 @@ def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_thres
     """
     device = natoms.device
     num_atoms = natoms.sum()
+    num_atoms = num_atoms.item()
 
-    # sort index
-    index = index.sort()[0]
+    index, _ = index.sort()
+    # np.savetxt('index.txt', index.cpu().numpy())
 
     # Get number of neighbors
     # segment_coo assumes sorted index
     ones = index.new_ones(1).expand_as(index)
-    num_neighbors = segment_coo(ones, index, dim_size=num_atoms)
+    # np.savetxt('ones.txt', ones.cpu().numpy())
+
+    # unique_indices, counts = index.unique(return_counts=True)
+    # ptr = torch.cat([torch.zeros(1, dtype=torch.long).to(device), counts.cumsum(dim=0)[:-1]], dim=0)
+
+    num_neighbors = scatter(ones, index, dim_size=num_atoms).to(device)
+    # num_neighbors = segment_coo(ones.to('cpu'), index.to('cpu'), dim_size=num_atoms).to(device)
+    # print(num_neighbors, num_neighbors.shape)
+    # num_neighbors = segment(ones.to(device), ptr.to(device), reduce="sum")[:num_atoms+2]
+    # print(num_neighbors, num_neighbors.shape)
+
     max_num_neighbors = num_neighbors.max()
     num_neighbors_thresholded = num_neighbors.clamp(max=max_num_neighbors_threshold)
 

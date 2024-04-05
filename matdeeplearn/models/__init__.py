@@ -1,4 +1,4 @@
-__all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "TorchMD_ET_early"]
+__all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "TorchMD_ET_Early"]
 
 from .base_model import BaseModel
 from .cgcnn import CGCNN
