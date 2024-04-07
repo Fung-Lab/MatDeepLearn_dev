@@ -9,16 +9,43 @@
         into PyTorch Geometric graph data.
         - (optional) networkx visualization of molecular similarity graph
 """
+import numpy as np
+import torch
+from torch_geometric.data import Data
+import torch_geometric.utils as pyg_utils
+import networkx as nx
+import matplotlib.pyplot as plt
+
 
 class MolecularSimilarityGraph:
-    def __init__(self, moleculeData):
-        pass
-    
-    def constructAdjacencyMatrix(self):
-        pass
-    
+    def __init__(
+            self,
+            similarityMap,
+            tanimotoThreshold,
+            embeddings):
+        self.initialAdj = similarityMap
+        self.tanimotoThreshold = tanimotoThreshold
+        self.filteredInitialAdj = np.dot(
+            self.initialAdj, (self.initialAdj >= self.tanimotoThreshold).T)
+        self.embeddings = embeddings
+        self.graphData = None
+
     def toGraphData(self):
-        pass
-    
+        # Convert adjacency matrix to edge_index format
+        edge_index = torch.transpose(torch.tensor(
+            np.argwhere(self.filteredInitialAdj > 0), dtype=torch.long), 0, 1)
+
+        # Extract edge weights from the adjacency matrix
+        edge_weights = torch.tensor(
+            self.filteredInitialAdj[self.filteredInitialAdj > 0], dtype=torch.float)
+
+        # Convert node embeddings to PyTorch tensor
+        x = torch.tensor(self.embeddings, dtype=torch.float)
+
+        # Create a PyTorch Geometric Data object with edge weights
+        data = Data(x=x, edge_index=edge_index, edge_attr=edge_weights)
+
+        self.graphData = data
+
     def visualize(self):
         pass

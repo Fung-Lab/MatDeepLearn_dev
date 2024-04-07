@@ -46,7 +46,7 @@ class MoleculeProcessor:
             constructed as an adjacency matrix, where A(i,j) gives the similarity
             between molecule i and j. 
         """
-        self.metrics = []
+        self.similarityMap = []
 
     def getMolObjects(self):
         self.processedMols = []
@@ -94,4 +94,4 @@ class MoleculeProcessor:
                     ecfp_bitvectors[i], ecfp_bitvectors[j]))
             similarity_map.append([i_sims])
 
-        self.metrics = np.array(similarity_map)
+        self.similarityMap = np.array(similarity_map)
