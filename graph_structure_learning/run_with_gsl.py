@@ -16,10 +16,9 @@ processor = MoleculeProcessor()
 # testing
 with open('../data/QM9.json') as f:
     data = json.load(f)
-    processor.rawMols = data
-    # print(data)
+    processor.rawMols = data[:1000]
     processor.processMolObjects()
     print(processor.rawMols == None)
-    print(processor.processedMols)
+    print("PROCESSED MOLS: ", processor.processedMols)
     processor.computeMetrics()
     print(processor.similarityMap)
