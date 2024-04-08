@@ -14,7 +14,7 @@ from molecular_similarity_graph import *
 
 processor = MoleculeProcessor()
 # testing
-with open('data/QM9.json') as f:
+with open('../data/QM9.json') as f:
     data = json.load(f)
     processor.rawMols = data
     # print(data)

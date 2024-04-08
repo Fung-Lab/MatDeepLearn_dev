@@ -71,6 +71,11 @@ class MoleculeProcessor:
 
                 # Convert XYZ file to Mol oject & store it in list
                 raw_mol = Chem.MolFromXYZFile(f"{structure_id}.xyz")
+                #TODO (BUG):
+                # BREAKPOINT. '-9.999999747378752e-05'cannot be converted into double. It must be converted into float. 
+                print(raw_mol)
+                if raw_mol is None:
+                    print("ERROR!!!:", raw_mol)
                 mol = Chem.Mol(raw_mol)
                 rdDetermineBonds.DetermineBonds(mol)
                 self.processedMols += [(structure_id, mol)]
