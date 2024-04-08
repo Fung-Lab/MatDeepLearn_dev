@@ -82,7 +82,16 @@ class MoleculeProcessor:
                 #     Chem.SanitizeFlags.SANITIZE_SETHYBRIDIZATION |
                 #     Chem.SanitizeFlags.SANITIZE_SYMMRINGS,
                 #     catchErrors=True)
-
+                
+                """
+                    TODO: bug-fix
+                    The function 'DetermineBonds()' does not work with molecules containing
+                    certain elements (ex. Platinum). A possible fix is simply excluding the
+                    uncompatible atoms and finding out what about them does not work.
+                    
+                    But, we should be careful about excluding certain atoms, as this may result
+                    in worse predictions.
+                """
                 rdDetermineBonds.DetermineBonds(mol)
 
                 self.processedMols += [(structure_id, mol)]
