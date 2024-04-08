@@ -11,12 +11,11 @@ import json
 from xyz_processor import *
 from molecular_similarity_graph import *
 
-
 processor = MoleculeProcessor()
 # testing
 with open('../data/QM9.json') as f:
     data = json.load(f)
-    processor.rawMols = data[:1000]
+    processor.rawMols = data
     processor.processMolObjects()
     print(processor.rawMols == None)
     print("PROCESSED MOLS: ", processor.processedMols)
