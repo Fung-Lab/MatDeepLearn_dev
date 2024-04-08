@@ -184,3 +184,6 @@ checkpoints/
 .pylintrc
 **/wandb/
 *.out
+
+# other
+data/QM9.json

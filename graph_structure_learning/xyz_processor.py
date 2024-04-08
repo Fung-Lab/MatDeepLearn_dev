@@ -72,28 +72,7 @@ class MoleculeProcessor:
                 # Convert XYZ file to Mol oject & store it in list
                 raw_mol = Chem.MolFromXYZFile(f"{structure_id}.xyz")
                 mol = Chem.Mol(raw_mol)
-
-                # mol.UpdatePropertyCache(strict=False)
-                # Chem.SanitizeMol(
-                #     mol, Chem.SanitizeFlags.SANITIZE_FINDRADICALS |
-                #     Chem.SanitizeFlags.SANITIZE_KEKULIZE |
-                #     Chem.SanitizeFlags.SANITIZE_SETAROMATICITY |
-                #     Chem.SanitizeFlags.SANITIZE_SETCONJUGATION |
-                #     Chem.SanitizeFlags.SANITIZE_SETHYBRIDIZATION |
-                #     Chem.SanitizeFlags.SANITIZE_SYMMRINGS,
-                #     catchErrors=True)
-                
-                """
-                    TODO: bug-fix
-                    The function 'DetermineBonds()' does not work with molecules containing
-                    certain elements (ex. Platinum). A possible fix is simply excluding the
-                    uncompatible atoms and finding out what about them does not work.
-                    
-                    But, we should be careful about excluding certain atoms, as this may result
-                    in worse predictions.
-                """
                 rdDetermineBonds.DetermineBonds(mol)
-
                 self.processedMols += [(structure_id, mol)]
 
                 # Delete XYZ file
