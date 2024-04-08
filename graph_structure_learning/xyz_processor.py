@@ -26,7 +26,7 @@ import numpy as np
 
 
 class MoleculeProcessor:
-    def __init__(self, molList):
+    def __init__(self, molList=None):
         """
             A list of raw JSON molecules from the QM9 dataset. These will be processed
             into ASE 'Atom' objects for the individual atoms, which will allow us to
@@ -48,34 +48,47 @@ class MoleculeProcessor:
         """
         self.similarityMap = []
 
-    def getMolObjects(self):
-        self.processedMols = []
-        # TODO: make sure the 'structure_id', 'atomic_numbers', and 'positions' are extracted properly
-        for entry in dataset:
-            structure_id = entry["structure_id"]
-            atomic_numbers = entry["atomic_numbers"]
-            positions = entry["positions"]
+    def processMolObjects(self):
+        if self.rawMols != None:
+            # self.processedMols = []
+            # TODO: make sure the 'structure_id', 'atomic_numbers', and 'positions' are extracted properly
+            for entry in self.rawMols:
+                structure_id = entry["structure_id"]
+                atomic_numbers = entry["atomic_numbers"]
+                positions = entry["positions"]
 
-            # Map atomic numbers to symbols using ASE Atoms/symbols
-            atomic_symbols = symbols.Symbols(atomic_numbers)
-            atoms = Atoms(symbols=atomic_symbols, positions=positions)
+                # Map atomic numbers to symbols using ASE Atoms/symbols
+                atomic_symbols = symbols.Symbols(atomic_numbers)
+                atoms = Atoms(symbols=atomic_symbols, positions=positions)
 
-            # Write Atoms object to XYZ file
-            xyz_filename = f"{structure_id}.xyz"
-            with open(xyz_filename, "w") as f:
-                f.write(f"{len(atoms)}\n")
-                f.write("XYZ file generated from dataset\n")
-                for symbol, pos in zip(atomic_symbols, positions):
-                    f.write(f"{symbol} {' '.join(map(str, pos))}\n")
+                # Write Atoms object to XYZ file
+                xyz_filename = f"{structure_id}.xyz"
+                with open(xyz_filename, "w") as f:
+                    f.write(f"{len(atoms)}\n")
+                    f.write("XYZ file generated from dataset\n")
+                    for symbol, pos in zip(atomic_symbols, positions):
+                        f.write(f"{symbol} {' '.join(map(str, pos))}\n")
 
-            # Convert XYZ file to Mol oject & store it in list
-            raw_mol = Chem.MolFromXYZFile(f"{structure_id}.xyz")
-            mol = Chem.Mol(raw_mol)
-            rdDetermineBonds.DetermineBonds(mol)
-            self.processedMols += [(structure_id, mol)]
+                # Convert XYZ file to Mol oject & store it in list
+                raw_mol = Chem.MolFromXYZFile(f"{structure_id}.xyz")
+                mol = Chem.Mol(raw_mol)
 
-            # Delete XYZ file
-            os.remove(xyz_filename)
+                # mol.UpdatePropertyCache(strict=False)
+                # Chem.SanitizeMol(
+                #     mol, Chem.SanitizeFlags.SANITIZE_FINDRADICALS |
+                #     Chem.SanitizeFlags.SANITIZE_KEKULIZE |
+                #     Chem.SanitizeFlags.SANITIZE_SETAROMATICITY |
+                #     Chem.SanitizeFlags.SANITIZE_SETCONJUGATION |
+                #     Chem.SanitizeFlags.SANITIZE_SETHYBRIDIZATION |
+                #     Chem.SanitizeFlags.SANITIZE_SYMMRINGS,
+                #     catchErrors=True)
+
+                rdDetermineBonds.DetermineBonds(mol)
+
+                self.processedMols += [(structure_id, mol)]
+
+                # Delete XYZ file
+                os.remove(xyz_filename)
 
     def computeMetrics(self):
         n = len(self.processedMols)
@@ -84,7 +97,7 @@ class MoleculeProcessor:
         # compute ECFPs
         for i in range(n):
             ecfp_bitvectors.append(AllChem.GetMorganFingerprintAsBitVect(
-                mols[i][1], radius=2, nBits=2048))
+                self.processedMols[i][1], radius=2, nBits=2048))
 
         # compute Tanimoto similarities
         for i in range(n):
