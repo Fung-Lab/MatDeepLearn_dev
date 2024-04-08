@@ -1,9 +1,9 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: results/torchmd/checkpoint/best_checkpoint.pt
+  checkpoint_path: results/2024-03-16-20-13-52-662-torchmd_silica_late/checkpoint_0/best_checkpoint.pt
 
 model:
-  name: TorchMD_ET
+  name: torchmd_etEarly
   # model attributes
   hidden_channels: 128
   num_layers: 8

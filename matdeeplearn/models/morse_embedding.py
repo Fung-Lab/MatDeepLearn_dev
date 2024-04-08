@@ -6,8 +6,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch_geometric
-from torch import Tensor
-from torch.nn import BatchNorm1d, Linear, Sequential
+from torch import Tensor, nn
+from torch.nn import BatchNorm1d, Linear, Sequential, Embedding
 from torch.nn import Parameter, ParameterList
 from torch_geometric.nn import (
     CGConv,
@@ -22,8 +22,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("Morse_Old")
-class Morse_Old(BaseModel):
+@registry.register_model("Morse")
+class Morse(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -42,15 +42,20 @@ class Morse_Old(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(Morse_Old, self).__init__(**kwargs)
+        super(Morse, self).__init__(**kwargs)
 
         self.combination_method = kwargs.get('combination_method', 'average')
         self.with_coefs = kwargs.get("with_coefs", False)
 
-        self.rm = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.D = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.rm = Embedding(100, 1).to('cuda:0')
+        self.sigmas = Embedding(100, 1).to('cuda:0')
+        self.D = Embedding(100, 1).to('cuda:0')
+        self.base_atomic_energy = Embedding(100, 1).to('cuda:0')
+        
+        nn.init.constant_(self.rm.weight, 1.0)
+        nn.init.constant_(self.sigmas.weight, 1.5)
+        nn.init.constant_(self.D.weight, 1.0)
+        nn.init.constant_(self.base_atomic_energy.weight, -1.5)
         
         if self.with_coefs:
             self.coef_e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
@@ -124,29 +129,12 @@ class Morse_Old(BaseModel):
     def morse_potential(self, data):
         atoms = data.z[data.edge_index] - 1
         
-        atomic_rm = torch.zeros((len(self.rm), 1)).to('cuda:0')
-        atomic_D = torch.zeros((len(self.D), 1)).to('cuda:0')
-        atomic_sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        
-        if self.with_coefs:
-            coef_e = torch.zeros((len(self.coef_e), 1)).to('cuda:0')
-            coef_2e = torch.zeros((len(self.coef_2e), 1)).to('cuda:0')
-    
-        for z in np.unique(data.z.cpu()):
-            atomic_sigmas[z - 1] = self.sigmas[z - 1]
-            atomic_rm[z - 1] = self.rm[z - 1]
-            atomic_D[z - 1] = self.D[z - 1]
-            
-            if self.with_coefs:
-                coef_e[z - 1] = self.coef_e[z - 1]
-                coef_2e[z - 1] = self.coef_2e[z - 1]
-            
-            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            
-        if self.with_coefs:
-            coef_e = (coef_e[atoms[0]] + coef_e[atoms[1]]).squeeze() / 2
-            coef_2e = (coef_2e[atoms[0]] + coef_2e[atoms[1]]).squeeze() / 2
+        # unique_atoms = torch.unique(data.z).to('cuda:0') - 1
+        # atomic_rm = self.rm(unique_atoms)
+        # atomic_D = self.D(unique_atoms)
+        # atomic_sigmas = self.sigmas(unique_atoms)
+        # print(atomic_rm.shape, atomic_D.shape, atomic_sigmas.shape)
+        base_atomic_energy = self.base_atomic_energy(data.z - 1).reshape(1, -1)
         
         rc = self.cutoff_radius
         ro = 0.66 * rc
@@ -154,27 +142,26 @@ class Morse_Old(BaseModel):
         d = data.edge_weight
         fc = self.cutoff_function(d, ro, rc)
         
-        rm_i, rm_j = atomic_rm[atoms[0]], atomic_rm[atoms[1]]
-        sigma_i, sigma_j = atomic_sigmas[atoms[0]], atomic_sigmas[atoms[1]]
-        D_i, D_j = atomic_D[atoms[0]], atomic_D[atoms[1]]
+        rm_i, rm_j = self.rm(atoms[0]), self.rm(atoms[1])
+        sigma_i, sigma_j = self.sigmas(atoms[0]), self.sigmas(atoms[1])
+        D_i, D_j = self.D(atoms[0]), self.D(atoms[1])
 
         rm = (rm_i + rm_j).squeeze() / 2
         sigma = (sigma_i + sigma_j).squeeze() / 2
         D = (D_i + D_j).squeeze() / 2
         
-        if self.with_coefs:
-            E = D * (coef_e - coef_2e * torch.exp(-sigma * (d - rm))) ** 2
-        else:
-            E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
+        E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
         
         pairwise_energies = 0.5 * (E * fc)
-        # pairwise_energies[data]
-        pairwise_energies[data.edge_index[0] == data.edge_index[1]] = 0
-        print(data.edge_weight[data.edge_index[0] == data.edge_index[1]])
+        pairwise_energies[data.edge_index[0] == data.edge_index[1]] = 0.0
+        
+        print(data.edge_index[:, data.edge_index[0] == data.edge_index[1]])
+        print(data.edge_weight[data.edge_index[0] == data.edge_index[1]].mean())
+
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
     
-        base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
+        # base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
         base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
         
         return morse_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)

@@ -22,8 +22,24 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("CGCNN_Morse_Old")
-class CGCNN_Morse_Old(BaseModel):
+
+class EdgeGatedBlock(torch.nn.Module):
+    def __init__(self, edge_dim, hidden_dim):
+        super(EdgeGatedBlock, self).__init__()
+        self.edge_mlp = Sequential(
+            Linear(edge_dim, hidden_dim),
+            torch.nn.ReLU(),
+            Linear(hidden_dim, hidden_dim),
+            torch.nn.Sigmoid()
+        )
+
+    def forward(self, edge_attr, morse_potential):
+        gate = self.edge_mlp(edge_attr)
+        updated_edge_attr = gate * morse_potential + (1 - gate) * edge_attr
+        return updated_edge_attr
+
+@registry.register_model("CGCNN_pre_Morse")
+class CGCNN_pre_Morse(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -42,7 +58,7 @@ class CGCNN_Morse_Old(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN_Morse_Old, self).__init__(**kwargs)
+        super(CGCNN_pre_Morse, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -62,7 +78,7 @@ class CGCNN_Morse_Old(BaseModel):
 
         self.combination_method = kwargs.get('combination_method', 'average')
         self.with_coefs = kwargs.get("with_coefs", False)
-        self.ratio = kwargs.get("gnn_potential_ratio", [0.1, 1.])
+        self.ratio = kwargs.get("gnn_potential_ratio", [1., 1.])
 
         self.rm = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
@@ -83,6 +99,7 @@ class CGCNN_Morse_Old(BaseModel):
             self.gc_dim, self.post_fc_dim = dim1, dim1
 
         # setup layers
+        self.edge_gated_block = EdgeGatedBlock(self.edge_dim, self.edge_dim)
         self.pre_lin_list = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
         self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
@@ -170,10 +187,14 @@ class CGCNN_Morse_Old(BaseModel):
                 
         if self.otf_edge_index == False:
             if self.otf_edge_attr == True:
-                data.edge_attr = self.distance_expansion(data.edge_weight) 
+                data.edge_attr = self.distance_expansion(data.edge_weight)
                 
         if self.otf_node_attr == True:
-            data.x = node_rep_one_hot(data.z).float()        
+            data.x = node_rep_one_hot(data.z).float() 
+            
+        morse_potential = self.morse_potential(data)
+        updated_edge_attr = self.edge_gated_block(data.edge_attr, morse_potential)
+        data.edge_attr = updated_edge_attr       
             
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
@@ -238,8 +259,8 @@ class CGCNN_Morse_Old(BaseModel):
                 out = getattr(F, self.act)(out)
             out = self.lin_out(out)
 
-        morse = self.morse_potential(data)
-        return self.ratio[0] * out + self.ratio[1] * morse
+        # morse = self.morse_potential(data)
+        return out
     
     def forward(self, data):
         
@@ -286,26 +307,11 @@ class CGCNN_Morse_Old(BaseModel):
         atomic_rm = torch.zeros((len(self.rm), 1)).to('cuda:0')
         atomic_D = torch.zeros((len(self.D), 1)).to('cuda:0')
         atomic_sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
-        
-        if self.with_coefs:
-            coef_e = torch.zeros((len(self.coef_e), 1)).to('cuda:0')
-            coef_2e = torch.zeros((len(self.coef_2e), 1)).to('cuda:0')
-    
+
         for z in np.unique(data.z.cpu()):
             atomic_sigmas[z - 1] = self.sigmas[z - 1]
             atomic_rm[z - 1] = self.rm[z - 1]
             atomic_D[z - 1] = self.D[z - 1]
-            
-            if self.with_coefs:
-                coef_e[z - 1] = self.coef_e[z - 1]
-                coef_2e[z - 1] = self.coef_2e[z - 1]
-            
-            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            
-        if self.with_coefs:
-            coef_e = (coef_e[atoms[0]] + coef_e[atoms[1]]).squeeze() / 2
-            coef_2e = (coef_2e[atoms[0]] + coef_2e[atoms[1]]).squeeze() / 2
         
         rc = self.cutoff_radius
         ro = 0.66 * rc
@@ -321,17 +327,7 @@ class CGCNN_Morse_Old(BaseModel):
         sigma = (sigma_i + sigma_j).squeeze() / 2
         D = (D_i + D_j).squeeze() / 2
         
-        if self.with_coefs:
-            E = D * (coef_e - coef_2e * torch.exp(-sigma * (d - rm))) ** 2 - D
-        else:
-            E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
+        E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
         
         pairwise_energies = 0.5 * (E * fc)
-
-        edge_idx_to_graph = data.batch[data.edge_index[0]]
-        morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
-    
-        base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
-        base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
-        
-        return morse_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
+        return pairwise_energies.reshape(-1, 1)

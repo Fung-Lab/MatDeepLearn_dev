@@ -1,8 +1,8 @@
-trainer: hybrid
+trainer: property
 ?
 task:
   run_mode: train
-  identifier: morse_sio2
+  identifier: CGCNN_pre_morse_sio2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: Morse
+  name: CGCNN_pre_Morse 
   # model attributes
   dim1: 100
   dim2: 150
@@ -47,12 +47,6 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: False
-  # method to combine atomic parameters: average (default), Berthelot
-  combination_method: average
-  clamped_params: []
 ?
 optim:
   max_epochs: 200
@@ -68,7 +62,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 128
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -78,7 +72,7 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
   name: silica_data

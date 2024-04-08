@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-01-31-19-48-23-555-silica_torch_400/checkpoint_0/checkpoint.pt
+  checkpoint_path: results/2024-03-16-20-13-52-662-torchmd_silica_late/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -50,7 +50,7 @@ model:
   gradient: True
 
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.00005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper

@@ -1,11 +1,26 @@
 from ase import Atoms
 import numpy as np
+import pandas as pd
+import torch
 import json
 from ase.geometry import Cell
 import os
 from scipy.stats import norm
 from pymatgen.optimization.neighbors import find_points_in_spheres
 
+
+def get_test_structures(test_pred_csv_path, data_pt_path):
+    df = pd.read_csv(test_pred_csv_path)
+    structure_ids = df['structure_id'].tolist()
+    structure_ids = set(map(lambda x: str(x), structure_ids))
+    
+    data = torch.load(data_pt_path)[0]
+    selected_idxs = []
+
+    for i in range(len(data.structure_id)):
+        if data.structure_id[i][0] in structure_ids:
+            selected_idxs.append(i)
+    return selected_idxs
 
 def get_rdf(structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
     rmax = max_r + 3 * σ + dr

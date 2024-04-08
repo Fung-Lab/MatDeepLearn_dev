@@ -1,4 +1,4 @@
-trainer: hybrid
+trainer: property
 ?
 task:
   run_mode: train
@@ -17,9 +17,9 @@ task:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
@@ -47,13 +47,9 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  n_trail: 1
-  n_lead: 1
-  n_intervals: 25
-
 ?
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper

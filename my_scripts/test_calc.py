@@ -3,20 +3,23 @@ from matdeeplearn.common.ase_utils import MDLCalculator
 from ase.build import make_supercell
 from ase import Atoms
 import numpy as np
-import psutil
 from tqdm import tqdm
 
 
 if __name__ == '__main__':
-    dta = torch.load('data/force_data/data.pt')
+    dta = torch.load('data/Silica_data/data.pt')
     atoms_list = MDLCalculator.data_to_atoms_list(dta[0])
-    calc_str = './configs/calculator/config_torchmd.yml'
+    calc_str = './configs/silica/config_hybrid_edge_torchmd.yml'
+    # calc_str = './configs/silica/config_cgcnn_hybrid_new.yml'
     calculator = MDLCalculator(config=calc_str)
     
     for a in atoms_list:
-        if a.structure_id == 'mp-772822-0-2':
+        if a.get_positions().shape[0] < 20:
+            print('structure:', a.structure_id)
             calculator.calculate(a)
-            print(calculator.results)
+            print(calculator.results['energy'])
+            # print(calculator.results['forces'])
+            break
 
     
     

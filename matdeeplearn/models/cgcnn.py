@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -227,7 +228,7 @@ class CGCNN(BaseModel):
         
         output = {}
         out = self._forward(data)
-        output["output"] = out
+        output["output"] =  out
 
         if self.gradient == True and out.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
@@ -235,7 +236,7 @@ class CGCNN(BaseModel):
                     out,
                     [data.pos, data.displacement],
                     grad_outputs=torch.ones_like(out),
-                    create_graph=self.training)   
+                    create_graph=self.training) 
             forces = -1 * grad[0]
             stress = grad[1]
             stress = stress / volume.view(-1, 1, 1)             
@@ -245,5 +246,5 @@ class CGCNN(BaseModel):
         else:
             output["pos_grad"] =  None
             output["cell_grad"] =  None    
-         
+                  
         return output

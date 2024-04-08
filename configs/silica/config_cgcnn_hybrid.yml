@@ -1,8 +1,8 @@
-trainer: hybrid
+trainer: property
 ?
 task:
   run_mode: train
-  identifier: morse_sio2
+  identifier: hybrid_cgcnn_morse
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: results/2024-03-11-11-35-18-231-hybrid_cgcnn_morse_first50/checkpoint_0/best_checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: Morse
+  name: Hybrid_CGCNN
   # model attributes
   dim1: 100
   dim2: 150
@@ -47,12 +47,7 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: False
-  # method to combine atomic parameters: average (default), Berthelot
-  combination_method: average
-  clamped_params: []
+  potential_type: LJ
 ?
 optim:
   max_epochs: 200
@@ -68,7 +63,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 128
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -78,7 +73,7 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
   name: silica_data

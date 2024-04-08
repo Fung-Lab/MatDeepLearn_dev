@@ -1,31 +1,31 @@
-trainer: hybrid
+trainer: property
 ?
 task:
   run_mode: train
-  identifier: morse_sio2
+  identifier: cgcnn_spline_mp
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: results/2024-03-04-16-35-07-531-cgcnn_spline_mp/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
 ?
 model:
-  name: Morse
+  name: CGCNN_Spline  
   # model attributes
   dim1: 100
   dim2: 150
@@ -44,18 +44,13 @@ model:
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
   otf_node_attr: False
-  model_ensemble: 1
-  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: False
-  # method to combine atomic parameters: average (default), Berthelot
-  combination_method: average
-  clamped_params: []
+  model_ensemble: 1
+  degree: 3
+  n_trail: 3
 ?
 optim:
-  max_epochs: 200
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -68,7 +63,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 128
+  batch_size: 256
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -78,18 +73,18 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
-  name: silica_data
+  name: mpforce_data
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
+  src: data/force_data/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica_data/
+  pt_path: data/force_data/
   # Either "node" or "graph"
   prediction_level: graph
   

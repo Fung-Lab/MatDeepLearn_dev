@@ -1,6 +1,6 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: results/Raw_cgcnn_late/checkpoint/best_checkpoint.pt
+  checkpoint_path: results/2024-04-07-18-53-41-711-cgcnn_sam_rho_0_005_sio2/checkpoint_0/best_checkpoint.pt
 
 model:
   # Model used by the calculator
@@ -25,6 +25,7 @@ model:
   otf_node_attr: False
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  model_ensemble: 1
 
 dataset:  
   preprocess_params:

@@ -55,7 +55,6 @@ class MDLCalculator(Calculator):
         
         if isinstance(config, str):
             logging.info(f'MDLCalculator instantiated from config: {config}')
-            logging.info(f'MDLCalculator instantiated from config: {config}')
             with open(config, "r") as yaml_file:
                 config = yaml.safe_load(yaml_file)
         elif isinstance(config, dict):
@@ -69,8 +68,6 @@ class MDLCalculator(Calculator):
         self.otf_node_attr = config["model"].get("otf_node_attr", False)
         assert otf_edge_index and otf_edge_attr and gradient, "To use this calculator to calculate forces and stress, you should set otf_edge_index, oft_edge_attr and gradient to True."
         
-        self.device = rank if torch.cuda.is_available() else 'cpu'
-        self.models = MDLCalculator._load_model(config, self.device)
         self.device = rank if torch.cuda.is_available() else 'cpu'
         self.models = MDLCalculator._load_model(config, self.device)
         self.n_neighbors = config['dataset']['preprocess_params'].get('n_neighbors', 250)
@@ -115,21 +112,7 @@ class MDLCalculator(Calculator):
         batch = next(loader_iter).to(self.device)
         
         out_list = []
-        for model in self.models:      
-            out_list.append(model(batch))
-
-        energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)
-        forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
-        stresses = torch.stack([entry["cell_grad"] for entry in out_list]).mean(dim=0)
-        
-        self.results['energy'] = energy.detach().cpu().numpy().squeeze()
-        self.results['forces'] = forces.detach().cpu().numpy().squeeze()
-        self.results['stress'] = stresses.squeeze().detach().cpu().numpy().squeeze()
-        loader_iter = iter(loader)
-        batch = next(loader_iter).to(self.device)
-        
-        out_list = []
-        for model in self.models:      
+        for model in self.models:   
             out_list.append(model(batch))
 
         energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)
@@ -166,6 +149,7 @@ class MDLCalculator(Calculator):
                         cell=Cell(cells[i])) for i in range(len(data.structure_id))]
         for i in range(len(data.structure_id)):
             atoms_list[i].structure_id = data.structure_id[i][0]
+        return atoms_list
     
     @staticmethod
     def _load_model(config: dict, rank: str) -> List[BaseModel]:

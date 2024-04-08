@@ -1,14 +1,13 @@
 import logging
-from time import time
-import math
+import copy
 
 import numpy as np
 import torch
+import torch.nn.init as init
 import torch.nn.functional as F
 import torch_geometric
 from torch import Tensor
-from torch.nn import BatchNorm1d, Linear, Sequential
-from torch.nn import Parameter, ParameterList
+from torch.nn import BatchNorm1d, Linear, Sequential, Parameter, ParameterList
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
@@ -22,8 +21,8 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-@registry.register_model("CGCNN_Morse_Old")
-class CGCNN_Morse_Old(BaseModel):
+@registry.register_model("Hybrid_CGCNN")
+class Hybrid_CGCNN(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -42,7 +41,7 @@ class CGCNN_Morse_Old(BaseModel):
         dropout_rate=0.0,
         **kwargs
     ):
-        super(CGCNN_Morse_Old, self).__init__(**kwargs)
+        super(Hybrid_CGCNN, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -59,19 +58,20 @@ class CGCNN_Morse_Old(BaseModel):
         self.edge_dim = edge_dim
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
-
-        self.combination_method = kwargs.get('combination_method', 'average')
-        self.with_coefs = kwargs.get("with_coefs", False)
-        self.ratio = kwargs.get("gnn_potential_ratio", [0.1, 1.])
-
-        self.rm = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0') 
-        self.sigmas = ParameterList([Parameter(1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.D = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
-        if self.with_coefs:
-            self.coef_e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
-            self.coef_2e = ParameterList([Parameter(torch.ones(1, 1), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.num_elements = kwargs.get('num_elements', 100)
+        self.param_init_method = kwargs.get('param_init_method', None)
+        self.param_post_fc_count = kwargs.get('param_post_fc_count', 3)
+        self.use_atomic_energy = kwargs.get('use_atomic_energy', True)
+        
+        self.potential_type = kwargs.get("potential_type", "LJ")
+        if self.potential_type == 'LJ':
+            self.n_params = 2
+        elif self.potential_type == 'Morse':
+            self.n_params = 3
+            
+        if self.use_atomic_energy:
+            self.base_atomic_energy = ParameterList([Parameter(-1.5 * torch.ones(1, 1), requires_grad=True) for _ in range(self.num_elements)]).to('cuda:0')
         
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 
@@ -85,7 +85,7 @@ class CGCNN_Morse_Old(BaseModel):
         # setup layers
         self.pre_lin_list = self._setup_pre_gnn_layers()
         self.conv_list, self.bn_list = self._setup_gnn_layers()
-        self.post_lin_list, self.lin_out = self._setup_post_gnn_layers()
+        self.post_lin_list, self.lin_out, self.post_lin_lists_for_potential = self._setup_post_gnn_layers()
         
         # set up output layer
         if self.pool_order == "early" and self.pool == "set2set":
@@ -134,6 +134,20 @@ class CGCNN_Morse_Old(BaseModel):
     def _setup_post_gnn_layers(self):
         """Sets up post-GNN dense layers (NOTE: in v0.1 there was a minimum of 2 dense layers, and fc_count(now post_fc_count) added to this number. In the current version, the minimum is zero)."""
         post_lin_list = torch.nn.ModuleList()
+        post_lin_lists_for_potential = []
+        
+        for _ in range(self.n_params):
+            param_post_lin_list = torch.nn.ModuleList()
+            for i in range(self.param_post_fc_count):
+                if i == 0:
+                    lin_pot = torch.nn.Linear(self.post_fc_dim, self.dim2).to('cuda')
+                else:
+                    lin_pot = torch.nn.Linear(self.dim2, self.dim2).to('cuda')
+                param_post_lin_list.append(lin_pot)
+            lin_pot_out = torch.nn.Linear(self.dim2, self.num_elements).to('cuda')
+            param_post_lin_list.append(lin_pot_out)
+            post_lin_lists_for_potential.append(param_post_lin_list)
+            
         if self.post_fc_count > 0:
             for i in range(self.post_fc_count):
                 if i == 0:
@@ -146,16 +160,16 @@ class CGCNN_Morse_Old(BaseModel):
                     lin = torch.nn.Linear(self.dim2, self.dim2)
                 post_lin_list.append(lin)
             lin_out = torch.nn.Linear(self.dim2, self.output_dim)
-            # Set up set2set pooling (if used)
-
         # else post_fc_count is 0
         else:
             if self.pool_order == "early" and self.pool == "set2set":
                 lin_out = torch.nn.Linear(self.post_fc_dim * 2, self.output_dim)
+                lin_pot_out = torch.nn.Linear(self.post_fc_dim * 2, self.potential_head_out_dim)
             else:
                 lin_out = torch.nn.Linear(self.post_fc_dim, self.output_dim)
+                lin_pot_out = torch.nn.Linear(self.post_fc_dim, self.potential_head_out_dim)
 
-        return post_lin_list, lin_out
+        return post_lin_list, lin_out, post_lin_lists_for_potential
 
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
@@ -209,6 +223,8 @@ class CGCNN_Morse_Old(BaseModel):
                     # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
+        out_param = out
+
         # Post-GNN dense layers
         if self.prediction_level == "graph":
             if self.pool_order == "early":
@@ -220,40 +236,72 @@ class CGCNN_Morse_Old(BaseModel):
                     out = self.post_lin_list[i](out)
                     out = getattr(F, self.act)(out)
                 out = self.lin_out(out)
-    
+                
+                # Param heads
+                params = []
+                out_param = getattr(torch_geometric.nn, self.pool)(out_param, data.batch)
+                for i in range(len(self.post_lin_lists_for_potential)):
+                    out_param_i = out_param
+                    for j in range(len(self.post_lin_lists_for_potential[i])):
+                        out_param_i = self.post_lin_lists_for_potential[i][j](out_param_i)
+                        out_param_i = getattr(F, self.act)(out_param_i)
+                    params.append(out_param_i)
+                        
             elif self.pool_order == "late":
+                
                 for i in range(0, len(self.post_lin_list)):
                     out = self.post_lin_list[i](out)
                     out = getattr(F, self.act)(out)
                 out = self.lin_out(out)
+                
                 if self.pool == "set2set":
                     out = self.set2set(out, data.batch)
                     out = self.lin_out_2(out)
                 else:
                     out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
                     
+                # Param heads
+                params = []
+                for i in range(len(self.post_lin_lists_for_potential)):
+                    out_param_i = out_param
+                    for j in range(len(self.post_lin_lists_for_potential[i])):
+                        out_param_i = self.post_lin_lists_for_potential[i][j](out_param_i)
+                        out_param_i = getattr(F, self.act)(out_param_i)
+                    out_param_i = getattr(torch_geometric.nn, self.pool)(out_param_i, data.batch)
+                    params.append(out_param_i)
+                    
         elif self.prediction_level == "node":
             for i in range(0, len(self.post_lin_list)):
                 out = self.post_lin_list[i](out)
                 out = getattr(F, self.act)(out)
-            out = self.lin_out(out)
-
-        morse = self.morse_potential(data)
-        return self.ratio[0] * out + self.ratio[1] * morse
-    
+            out = self.lin_out(out)                
+        
+        params = [torch.clamp(params[i], max=3) for i in range(len(params))]
+        
+        # print(params[0].shape, params[1].shape, len(params))
+        if self.potential_type == 'LJ':
+            # potential_out = self.lj_potential(params[0], params[1], params[2], data)
+            potential_out = self.lj_potential(params[0], params[1], data)
+        elif self.potential_type == 'Morse':
+            potential_out = self.morse_potential(params[0], params[1], params[2], data)
+        
+        return potential_out + out 
+        
+        
     def forward(self, data):
         
         output = {}
         out = self._forward(data)
+        
         output["output"] = out
-
+        
         if self.gradient == True and out.requires_grad == True:         
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                      
             grad = torch.autograd.grad(
-                    out,
+                    output["output"],
                     [data.pos, data.displacement],
                     grad_outputs=torch.ones_like(out),
-                    create_graph=self.training)
+                    create_graph=self.training)   
             forces = -1 * grad[0]
             stress = grad[1]
             stress = stress / volume.view(-1, 1, 1)             
@@ -262,76 +310,97 @@ class CGCNN_Morse_Old(BaseModel):
             output["cell_grad"] =  stress
         else:
             output["pos_grad"] =  None
-            output["cell_grad"] =  None 
-
+            output["cell_grad"] =  None    
+         
         return output
     
-    def cutoff_function(self, r, rc, ro):
-        """
-        Piecewise quintic C^{2,1} regular polynomial for use as a smooth cutoff.
-        Ported from JuLIP.jl, https://github.com/JuliaMolSim/JuLIP.jl
-
-        Parameters
-        ----------
-        rc - inner cutoff radius
-        ro - outder cutoff radius
-        """""
+    def lj_cutoff_function(self, r, rc, ro):
+        return torch.where(
+            r < ro,
+            1.0,
+            torch.where(r < rc, (rc - r) ** 2 * (rc + 2 *
+                    r - 3 * ro) / (rc - ro) ** 3, 0.0),
+        )
+        
+    def morse_cutoff_function(self, r, rc, ro):
         s = 1.0 - (r - rc) / (ro - rc)
         return (s >= 1.0) + (((0.0 < s) & (s < 1.0)) *
                             (6.0 * s**5 - 15.0 * s**4 + 10.0 * s**3))
     
-    def morse_potential(self, data):
+    # def lj_potential(self, sigmas, epsilons, base_atomic_energy, data):
+    def lj_potential(self, sigmas, epsilons, data):
+        # sigmas, epsilons, base_atomic_energy should all be length 100 tensors
+        # print(data.batch.shape)
         atoms = data.z[data.edge_index] - 1
+        edge_idx_to_graph = data.batch[data.edge_index[0]]
         
-        atomic_rm = torch.zeros((len(self.rm), 1)).to('cuda:0')
-        atomic_D = torch.zeros((len(self.D), 1)).to('cuda:0')
-        atomic_sigmas = torch.zeros((len(self.sigmas), 1)).to('cuda:0')
-        base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+        if self.use_atomic_energy:
+            base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+            for z in np.unique(data.z.cpu()):
+                base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
         
-        if self.with_coefs:
-            coef_e = torch.zeros((len(self.coef_e), 1)).to('cuda:0')
-            coef_2e = torch.zeros((len(self.coef_2e), 1)).to('cuda:0')
+        rc = self.cutoff_radius
+        ro = 0.66 * rc
+        r2 = data.edge_weight ** 2
+        cutoff_fn = self.lj_cutoff_function(r2, rc**2, ro**2)
+        
+        sigma_i = sigmas[edge_idx_to_graph, atoms[0]]
+        sigma_j = sigmas[edge_idx_to_graph, atoms[1]]
+        epsilon_i = epsilons[edge_idx_to_graph, atoms[0]]
+        epsilon_j = epsilons[edge_idx_to_graph, atoms[1]]
+
+        # print(sigma_i.grad_fn, epsilon_i.grad_fn, sigma_j.grad_fn, epsilon_j.grad_fn)
+
+        sigma = (sigma_i + sigma_j).squeeze() / 2
+        epsilon = (epsilon_i + epsilon_j).squeeze() / 2
+        
+        c6 = (sigma ** 2 / r2) ** 3
+        c6[r2 > rc ** 2] = 0.0
+        c12 = c6 ** 2
+        
+        pairwise_energies = 4 * epsilon * (c12 - c6)
+        pairwise_energies *= cutoff_fn
+
+        lennard_jones_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
     
-        for z in np.unique(data.z.cpu()):
-            atomic_sigmas[z - 1] = self.sigmas[z - 1]
-            atomic_rm[z - 1] = self.rm[z - 1]
-            atomic_D[z - 1] = self.D[z - 1]
-            
-            if self.with_coefs:
-                coef_e[z - 1] = self.coef_e[z - 1]
-                coef_2e[z - 1] = self.coef_2e[z - 1]
-            
-            base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
-            
-        if self.with_coefs:
-            coef_e = (coef_e[atoms[0]] + coef_e[atoms[1]]).squeeze() / 2
-            coef_2e = (coef_2e[atoms[0]] + coef_2e[atoms[1]]).squeeze() / 2
+        if self.use_atomic_energy:
+            base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
+            base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
+               
+        out = lennard_jones_out.reshape(-1, 1)
+        return out if not self.use_atomic_energy else out + base_atomic_energy.reshape(-1, 1)
+    
+    def morse_potential(self, rm, sigma, D, data):
+        atoms = data.z[data.edge_index] - 1
+        edge_idx_to_graph = data.batch[data.edge_index[0]]
         
+        if self.use_atomic_energy:
+            base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')
+            for z in np.unique(data.z.cpu()):
+                base_atomic_energy[z - 1] = self.base_atomic_energy[z - 1]
+
         rc = self.cutoff_radius
         ro = 0.66 * rc
 
         d = data.edge_weight
-        fc = self.cutoff_function(d, ro, rc)
+        fc = self.morse_cutoff_function(d, ro, rc)
         
-        rm_i, rm_j = atomic_rm[atoms[0]], atomic_rm[atoms[1]]
-        sigma_i, sigma_j = atomic_sigmas[atoms[0]], atomic_sigmas[atoms[1]]
-        D_i, D_j = atomic_D[atoms[0]], atomic_D[atoms[1]]
+        rm_i, rm_j = rm[edge_idx_to_graph, atoms[0]], rm[edge_idx_to_graph, atoms[1]]
+        sigma_i, sigma_j = sigma[edge_idx_to_graph, atoms[0]], sigma[edge_idx_to_graph, atoms[1]]
+        D_i, D_j = D[edge_idx_to_graph, atoms[0]], D[edge_idx_to_graph, atoms[1]]
 
         rm = (rm_i + rm_j).squeeze() / 2
         sigma = (sigma_i + sigma_j).squeeze() / 2
         D = (D_i + D_j).squeeze() / 2
         
-        if self.with_coefs:
-            E = D * (coef_e - coef_2e * torch.exp(-sigma * (d - rm))) ** 2 - D
-        else:
-            E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
+        E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
         
         pairwise_energies = 0.5 * (E * fc)
-
-        edge_idx_to_graph = data.batch[data.edge_index[0]]
         morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
-    
-        base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
-        base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
+
+        if self.use_atomic_energy:
+            base_atomic_energy = base_atomic_energy[data.z - 1].squeeze()  
+            base_atomic_energy = scatter_add(base_atomic_energy, index=data.batch)
         
-        return morse_out.reshape(-1, 1) + base_atomic_energy.reshape(-1, 1)
+        out = morse_out.reshape(-1, 1)
+        return out if not self.use_atomic_energy else out + base_atomic_energy.reshape(-1, 1)
