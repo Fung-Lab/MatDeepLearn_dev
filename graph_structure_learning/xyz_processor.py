@@ -10,6 +10,7 @@ from ase import symbols
 import subprocess
 import os
 import numpy as np
+import logging
 
 """
     Use Atomic Simulation Environment (ASE) to process the molecules
@@ -72,11 +73,17 @@ class MoleculeProcessor:
                             print(type(p))
                         f.write(f"{symbol} {' '.join(map(str, pos))}\n")
 
-                # Convert XYZ file to Mol oject & store it in list
-                raw_mol = Chem.MolFromXYZFile(f"{structure_id}.xyz")
-                mol = Chem.Mol(raw_mol)
-                rdDetermineBonds.DetermineBonds(mol)
-                self.processedMols += [(structure_id, mol)]
+                # Convert XYZ file to Mol object & store it in list
+                try:
+                    raw_mol = Chem.MolFromXYZFile(f"{structure_id}.xyz")
+                    mol = Chem.Mol(raw_mol)
+                    rdDetermineBonds.DetermineBonds(mol)
+                    self.processedMols += [(structure_id, mol)]
+                    print(f"Successful: {raw_mol}, {structure_id}")
+                # By-pass molecules causing error
+                except:
+                    print("ERROR", structure_id)
+                    self.logError(structure_id)
 
                 # Delete XYZ file
                 os.remove(xyz_filename)
@@ -99,3 +106,11 @@ class MoleculeProcessor:
             similarity_map.append([i_sims])
 
         self.similarityMap = np.array(similarity_map)
+    
+    # Helper function that logs errors to logs.log
+    def logError(self, structure_id):
+        logging.basicConfig(filename="logs.log", format="%(message)s", filemode="a")
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        logger.info(f"{structure_id} could not be converted into Mol from the XYZ File")
+

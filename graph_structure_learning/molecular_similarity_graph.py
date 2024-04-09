@@ -16,7 +16,6 @@ import torch_geometric.utils as pyg_utils
 import networkx as nx
 import matplotlib.pyplot as plt
 
-
 class MolecularSimilarityGraph:
     def __init__(
             self,

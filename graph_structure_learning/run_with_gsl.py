@@ -13,12 +13,12 @@ from molecular_similarity_graph import *
 
 
 # testing
-with open('data/QM9.json') as f:
+with open('../data/QM9.json') as f:
     data = json.load(f)
     processor = MoleculeProcessor(molList=data)
     print(data[:100])
     processor.processMolObjects()
     print(processor.rawMols == None)
-    print(processor.processedMols)
+    print("PROCESSED MOLS: ", processor.processedMols)
     processor.computeMetrics()
     print(processor.similarityMap)
