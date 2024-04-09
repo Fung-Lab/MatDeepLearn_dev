@@ -109,7 +109,7 @@ class BaseTrainer(ABC):
                 logging.debug(self.dataset["train"][0].y[0])
             else:
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0])
-                logging.debug(self.dataset[list(self.dataset.keys())[0]][0].x[0])
+                logging.debug(self.dataset[list(self.dataset.keys())[0]][0].z[0])
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
             if str(self.rank) not in ("cpu", "cuda"):
@@ -592,6 +592,13 @@ class BaseTrainer(ABC):
         print(model_state.keys())
         for name, param in load_state.items():
             #if name not in model_state or name.split('.')[0] in "post_lin_list":
+            if name[:6] == "blocks":
+                layer_num = int(name[7])
+                if layer_num % 2 == 1:
+                    logging.debug('NOT loaded: %s', name)
+                    continue
+                else:
+                    name = name[:7] + str(layer_num // 2) + name[8:]
             if name not in model_state:
                 logging.debug('NOT loaded: %s', name)
                 continue
