@@ -16,35 +16,44 @@ import torch_geometric.utils as pyg_utils
 import networkx as nx
 import matplotlib.pyplot as plt
 
+
 class MolecularSimilarityGraph:
     def __init__(
             self,
             similarityMap,
             tanimotoThreshold,
             embeddings):
-        self.initialAdj = similarityMap
+        self.initialAdj = similarityMap.squeeze()
         self.tanimotoThreshold = tanimotoThreshold
-        self.filteredInitialAdj = np.dot(
-            self.initialAdj, (self.initialAdj >= self.tanimotoThreshold).T)
+
+        # filter elements under the threshold
+        self.initialAdj[self.initialAdj < self.tanimotoThreshold] = 0
+
         self.embeddings = embeddings
         self.graphData = None
 
     def toGraphData(self):
         # Convert adjacency matrix to edge_index format
         edge_index = torch.transpose(torch.tensor(
-            np.argwhere(self.filteredInitialAdj > 0), dtype=torch.long), 0, 1)
+            np.argwhere(self.initialAdj > 0), dtype=torch.long), 0, 1)
 
         # Extract edge weights from the adjacency matrix
         edge_weights = torch.tensor(
-            self.filteredInitialAdj[self.filteredInitialAdj > 0], dtype=torch.float)
+            self.initialAdj, dtype=torch.float)
 
         # Convert node embeddings to PyTorch tensor
         x = torch.tensor(self.embeddings, dtype=torch.float)
 
         # Create a PyTorch Geometric Data object with edge weights
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_weights)
+        # data = Data(x=x, edge_index=edge_index, edge_attr=edge_weights)
+        data = Data(x=x, edge_index=edge_index)
 
         self.graphData = data
 
-    def visualize(self):
-        pass
+    def visualize(self, n):
+        g = pyg_utils.to_networkx(self.graphData, to_undirected=True)
+
+        # Draw the graph using NetworkX and matplotlib
+        plt.figure(3, figsize=(12, 12))
+        nx.draw(g, node_size=70)
+        plt.savefig(f'sim_graph_networkx{n}.png')
