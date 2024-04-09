@@ -56,6 +56,7 @@ class MoleculeProcessor:
                 structure_id = entry["structure_id"]
                 atomic_numbers = entry["atomic_numbers"]
                 positions = entry["positions"]
+                positions = [[float(p) for p in pos] for pos in positions]
 
                 # Map atomic numbers to symbols using ASE Atoms/symbols
                 atomic_symbols = symbols.Symbols(atomic_numbers)
@@ -67,6 +68,8 @@ class MoleculeProcessor:
                     f.write(f"{len(atoms)}\n")
                     f.write("XYZ file generated from dataset\n")
                     for symbol, pos in zip(atomic_symbols, positions):
+                        for p in pos:
+                            print(type(p))
                         f.write(f"{symbol} {' '.join(map(str, pos))}\n")
 
                 # Convert XYZ file to Mol oject & store it in list
