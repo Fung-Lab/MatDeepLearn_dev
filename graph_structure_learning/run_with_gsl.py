@@ -12,13 +12,21 @@ from xyz_processor import *
 from molecular_similarity_graph import *
 
 
-# testing
-with open('../data/QM9.json') as f:
+data = []
+processor = None
+
+# testing molecule processing
+with open('data/QM9.json') as f:
     data = json.load(f)
+    data = data[:1000]
     processor = MoleculeProcessor(molList=data)
-    print(data[:100])
     processor.processMolObjects()
-    print(processor.rawMols == None)
-    print("PROCESSED MOLS: ", processor.processedMols)
     processor.computeMetrics()
+
+    print("PROCESSED MOLS: ", processor.processedMols)
     print(processor.similarityMap)
+    print(type(processor.similarityMap))
+    f.close()
+
+# testing molecular similarity graph generation
+simGraph = None
