@@ -146,6 +146,9 @@ class PropertyTrainer(BaseTrainer):
                     else:
                         self._log_metrics()
 
+                if epoch + 1 in [12, 25, 50, 100, 200]:
+                    self.predict(self.data_loader["test_loader"], "test")
+
                 # Update best val metric and model, and save best model and predicted outputs
                 if metric[type(self.loss_fn).__name__]["metric"] < self.best_metric:
                     if self.output_frequency == 0:

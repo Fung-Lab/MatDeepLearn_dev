@@ -1,0 +1,149 @@
+trainer: property
+
+task:
+  run_mode: finetune
+  identifier: KVRH_ft
+  parallel: False
+  # If seed is not set, then it will be random every time
+  seed: 12345678
+  # Defaults to run directory if not specified
+  save_dir: ./results/ft/
+  # continue from a previous job
+  continue_job: False
+  # spefcify if the training state is loaded: epochs, learning rate, etc
+  load_training_state: False
+  # Path to the checkpoint.pt file
+  checkpoint_path: ./results/density/checkpoint/best_checkpoint.pt
+  # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
+  write_output: [train, val, test]
+  # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
+  output_frequency: 0
+  # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
+  model_save_frequency: -1
+  # Specify if labels are provided for the predict task
+  # labels: True
+  # Use amp mixed precision
+  use_amp: True  
+
+model:
+  name: equiformer_v2_ft
+  # model attributes
+  use_pbc: True
+  regress_forces: False
+  otf_graph: True
+  max_neighbors: 250
+  max_radius: 4.0
+  max_num_elements: 101
+  pool: "global_add_pool"
+  num_layers: 3
+  sphere_channels: 64
+  attn_hidden_channels: 64              # [64, 96] This determines the hidden size of message passing. Do not necessarily use 96.
+  num_heads: 8
+  attn_alpha_channels: 64              # Not used when `use_s2_act_attn` is True.
+  attn_value_channels: 16
+  ffn_hidden_channels: 64
+  norm_type: 'layer_norm_sh'    # ['rms_norm_sh', 'layer_norm', 'layer_norm_sh']
+  lmax_list: [ 4 ]
+  mmax_list: [ 2 ]
+  grid_resolution: 18              # [18, 16, 14, None] For `None`, simply comment this line.
+  num_sphere_samples: 128
+  edge_channels: 64
+  use_atom_edge_embedding: True
+  share_atom_edge_embedding: False         # If `True`, `use_atom_edge_embedding` must be `True` and the atom edge embedding will be shared across all blocks.
+  distance_function: 'gaussian'
+  num_distance_basis: 512           # not used
+  attn_activation: 'silu'
+  use_s2_act_attn: False       # [False, True] Switch between attention after S2 activation or the original EquiformerV1 attention.
+  use_attn_renorm: True        # Attention re-normalization. Used for ablation study.
+  ffn_activation: 'silu'      # ['silu', 'swiglu']
+  use_gate_act: False       # [True, False] Switch between gate activation and S2 activation
+  use_grid_mlp: True        # [False, True] If `True`, use projecting to grids and performing MLPs for FFNs.
+  use_sep_s2_act: True        # Separable S2 activation. Used for ablation study.
+  alpha_drop: 0.1         # [0.0, 0.1]
+  drop_path_rate: 0.05        # [0.0, 0.05]
+  proj_drop: 0.0
+  weight_init: 'uniform'    # ['uniform', 'normal']
+
+optim:
+  max_epochs: 200
+  max_checkpoint_epochs: 0
+  lr: 0.0005
+  # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
+  loss:
+    loss_type: TorchLossWrapper
+    loss_args: {loss_fn: l1_loss}
+  # gradient clipping value
+  clip_grad_norm: 6
+  batch_size: 64
+  optimizer:
+    optimizer_type: AdamW
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: ReduceLROnPlateau
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
+  #Training print out frequency (print per n number of epochs)
+  verbosity: 10
+  # tdqm progress bar per batch in the epoch
+  batch_tqdm: False
+
+dataset:
+  name: KVRH
+  # Whether the data has already been processed and a data.pt file is present from a previous run
+  processed: False
+  # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
+  src: data/KVRH/data_log_kvrh.json
+  # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
+  # Example: target_path: "data/raw_graph_scalar/targets.csv"
+  target_path:
+  # Path to save processed data.pt file
+  pt_path: data/KVRH/processed/
+  # Either "node" or "graph" level
+  prediction_level: graph
+
+  transforms:
+    - name: GetY
+      args:
+        # index specifies the index of a target vector to predict, which is useful when there are multiple property labels for a single dataset
+        # For example, an index: 0 (default) will use the first entry in the target vector
+        # if all values are to be predicted simultaneously, then specify index: -1
+        index: -1
+      otf_transform: True # Optional parameter, default is True
+  # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
+  data_format: json
+  # specify if additional attributes to be loaded into the dataset from the .json file; e.g. additional_attributes: [forces, stress]
+  additional_attributes:
+  # Print out processing info
+  verbose: True
+  # Index of target column in targets.csv
+  # graph specific settings
+  preprocess_params:
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: ocp
+    # determine if edges are computed, if false, then they need to be computed on the fly
+    preprocess_edges: False
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly
+    preprocess_edge_features: False
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
+    preprocess_node_features: False
+    # distance cutoff to determine if two atoms are connected by an edge
+    cutoff_radius : 8.0
+    # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
+    n_neighbors : 250
+    # number of pbc offsets to consider when determining neighbors (usually not changed)
+    num_offsets: 2
+    # dimension of node attributes
+    node_dim : 100
+    # dimension of edge attributes
+    edge_dim : 50
+    # whether or not to add self-loops
+    self_loop: True
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: onehot
+  # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
+  num_workers: 0
+  # Where the dataset is loaded; either "cpu" or "cuda"
+  dataset_device: cpu
+  # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
+  train_ratio: 0.6
+  val_ratio: 0.2
+  test_ratio: 0.2

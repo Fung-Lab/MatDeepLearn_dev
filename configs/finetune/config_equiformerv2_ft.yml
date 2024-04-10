@@ -7,7 +7,7 @@ task:
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
-  save_dir: ./ft/
+  save_dir: ./results/ft/
   # continue from a previous job
   continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
@@ -19,14 +19,14 @@ task:
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: -1
   # Specify if labels are provided for the predict task
   # labels: True
   # Use amp mixed precision
   use_amp: True
 
 model:
-  name: equiformer_v2
+  name: equiformer_v2_ft
   # model attributes
   use_pbc: True
   regress_forces: False
@@ -34,7 +34,8 @@ model:
   max_neighbors: 250
   max_radius: 4.0
   max_num_elements: 101
-  num_layers: 6
+  pool: "global_add_pool"
+  num_layers: 3
   sphere_channels: 64
   attn_hidden_channels: 64              # [64, 96] This determines the hidden size of message passing. Do not necessarily use 96.
   num_heads: 8
@@ -81,7 +82,7 @@ optim:
     scheduler_type: ReduceLROnPlateau
     scheduler_args: { mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002 }
   #Training print out frequency (print per n number of epochs)
-  verbosity: 1
+  verbosity: 10
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
 
