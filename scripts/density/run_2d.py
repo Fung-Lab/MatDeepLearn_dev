@@ -13,22 +13,22 @@ if __name__ == '__main__':
     for i in range(num_runs):
         seed = str(seeds[i])
 
-        command = "python scripts/main.py --config_path=configs/density/config_2D.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_2D.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/density/config_2D_scratch.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_2D_scratch.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/density/config_MOF.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_MOF.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/density/config_MOF_scratch.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_MOF_scratch.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/density/config_Surface.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_Surface.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/density/config_Surface_scratch.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_Surface_scratch.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
         # 记录本次运行的开始时间
