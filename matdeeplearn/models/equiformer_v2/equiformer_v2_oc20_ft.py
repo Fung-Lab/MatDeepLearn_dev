@@ -312,7 +312,7 @@ class EquiformerV2_OC20(BaseModel):
             self.sphere_channels,
             self.lmax_list,
             self.mmax_list,
-            self.SO3_rotation_all,
+            self.SO3_rotation_rn,
             self.mappingReduced,
             self.max_num_elements,
             self.edge_channels_list,
