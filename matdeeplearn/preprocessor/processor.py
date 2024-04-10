@@ -184,8 +184,9 @@ class DataProcessor:
         self.device = device
         self.transforms = transforms
         self.disable_tqdm = logging.root.level > logging.INFO
-        self.num_samples = virtual_params["num_samples"]
-        self.sub_batch = virtual_params["num_sub_batch"]
+        if virtual_params:
+            self.num_samples = virtual_params["num_samples"]
+            self.sub_batch = virtual_params["num_sub_batch"]
 
     def src_check(self):
         if self.prediction_level == "virtual":
