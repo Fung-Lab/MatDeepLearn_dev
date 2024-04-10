@@ -34,8 +34,8 @@ model:
   max_neighbors: 250
   max_radius: 4.0
   max_num_elements: 101
-  pool: "global_add_pool"
-  num_layers: 3
+  pool: "global_mean_pool"
+  num_layers: 6
   sphere_channels: 64
   attn_hidden_channels: 64              # [64, 96] This determines the hidden size of message passing. Do not necessarily use 96.
   num_heads: 8
