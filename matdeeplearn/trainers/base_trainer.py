@@ -589,21 +589,24 @@ class BaseTrainer(ABC):
         
         model_state = self.model.state_dict()
 
-        print(model_state.keys())
+        # print(model_state.keys())
+        loaded, not_loaded = set(), set()
         for name, param in load_state.items():
             #if name not in model_state or name.split('.')[0] in "post_lin_list":
+            state_name = str(name)
+            block_layer_name = ".".join(state_name.split('.')[:2])
             if name[:6] == "blocks":
                 layer_num = int(name[7])
                 if layer_num % 2 == 1:
-                    logging.debug('NOT loaded: %s', name)
+                    logging.debug('NOT loaded: %s', block_layer_name) if block_layer_name not in not_loaded else not_loaded.add(block_layer_name)
                     continue
                 else:
                     name = name[:7] + str(layer_num // 2) + name[8:]
             if name not in model_state:
-                logging.debug('NOT loaded: %s', name)
+                logging.debug('NOT loaded: %s', block_layer_name) if block_layer_name not in not_loaded else not_loaded.add(block_layer_name)
                 continue
             else:
-                logging.debug('loaded: %s', name)
+                logging.debug('loaded: %s', block_layer_name) if block_layer_name not in not_loaded else not_loaded.add(block_layer_name)
             if isinstance(param, torch.nn.parameter.Parameter):
                 # backwards compatibility for serialized parameters
                 param = param.data
