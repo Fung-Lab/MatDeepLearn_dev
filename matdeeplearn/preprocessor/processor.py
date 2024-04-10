@@ -409,7 +409,7 @@ class DataProcessor:
             dict_structures.append(d)
 
             # check y types
-            _y = s["y"][13]
+            _y = s["y"]
             if isinstance(_y, list) == False:
                 _y = np.array([_y], dtype=np.float32)
             else:
