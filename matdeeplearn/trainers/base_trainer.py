@@ -598,15 +598,22 @@ class BaseTrainer(ABC):
             if name[:6] == "blocks":
                 layer_num = int(name[7])
                 if layer_num % 2 == 1:
-                    logging.debug('NOT loaded: %s', block_layer_name) if block_layer_name not in not_loaded else not_loaded.add(block_layer_name)
+                    if block_layer_name not in not_loaded:
+                        logging.debug('NOT loaded: %s', block_layer_name)
+                        not_loaded.add(block_layer_name)
                     continue
                 else:
                     name = name[:7] + str(layer_num // 2) + name[8:]
             if name not in model_state:
-                logging.debug('NOT loaded: %s', block_layer_name) if block_layer_name not in not_loaded else not_loaded.add(block_layer_name)
+                if block_layer_name not in not_loaded:
+                    logging.debug('NOT loaded: %s', block_layer_name)
+                    not_loaded.add(block_layer_name)
                 continue
             else:
-                logging.debug('loaded: %s', block_layer_name) if block_layer_name not in not_loaded else not_loaded.add(block_layer_name)
+                if block_layer_name not in loaded:
+                    logging.debug('NOT loaded: %s', block_layer_name)
+                    loaded.add(block_layer_name)
+                # logging.debug('loaded: %s', block_layer_name)
             if isinstance(param, torch.nn.parameter.Parameter):
                 # backwards compatibility for serialized parameters
                 param = param.data
