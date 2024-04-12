@@ -74,7 +74,7 @@ optim:
     loss_args: { weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0 }
   # gradient clipping value
   clip_grad_norm: 6
-  batch_size: 8
+  batch_size: 6
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {weight_decay: 0.001}

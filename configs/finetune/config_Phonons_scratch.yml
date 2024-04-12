@@ -74,7 +74,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 6
-  batch_size: 64
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
