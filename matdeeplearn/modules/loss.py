@@ -40,7 +40,11 @@ class ForceStressLoss(nn.Module):
         self.weight_stress = weight_stress
 
     def forward(self, predictions: torch.Tensor, target: Batch):  
-        combined_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y) + self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces) + self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
+        combined_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y) +\
+            self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
+
+        if hasattr(target, 'stress'):
+            combined_loss += self.weight_stress*F.l1_loss(predictions["cell_grad"], target.stress)
         return combined_loss
         
 
@@ -133,9 +137,11 @@ class DistillationLoss(nn.Module):
             self.attention_weight = attention_weight
 
     def forward(self, predictions: torch.Tensor, target: Batch):  
-        total_loss = self.weight_energy*F.l1_loss(predictions["s_out"]["output"], target.y) + \
-                     self.weight_force*F.l1_loss(predictions["s_out"]["pos_grad"], target.forces) + \
-                     self.weight_stress*F.l1_loss(predictions["s_out"]["cell_grad"], target.stress)
+        total_loss = self.weight_energy * F.l1_loss(predictions["s_out"]["output"], target.y) + \
+                 self.weight_force * F.l1_loss(predictions["s_out"]["pos_grad"], target.forces)
+
+        if hasattr(target, 'stress'):
+            total_loss += self.weight_stress * F.l1_loss(predictions["s_out"]["cell_grad"], target.stress)
 
         distill_fns = self.distill_fns.split("_")
         if self.attention_weight:
@@ -209,6 +215,48 @@ class DistillationLoss(nn.Module):
     #     if reduction == 'none':
     #         current_loss = torch.mean(current_loss, dim=1)
     #     return current_loss
+
+    def _ls_distill_loss(self, out_batch, target):
+        loss_list = []
+        if self.preprocess_teacher_features:
+            target = target.embedding
+            #local_structures =  [[] for _ in range(len(out_batch['s_out']['local_structure']))]
+            local_structures = []
+
+            for batch in target:
+                for item in batch:
+                    local_structure = item['local_structure']
+                    if local_structure[0].device.type == 'cuda':
+                        for i in range(len(local_structure)):
+                            local_structures.append(local_structure[i])
+                    else:
+                        for i in range(len(local_structure)):
+                            local_structures.append(local_structure[i].to('cuda'))
+            
+            target = torch.cat(local_structures, dim=0)
+        else:
+            target = out_batch["t_out"]["local_structure"]
+
+        reduction = 'none' if self.attention_weight else 'mean'
+
+        student_local_structures = out_batch["s_out"]["local_structure"]
+     
+        for student_mapping, teacher_mapping in zip(student_local_structures, target):
+            student_mapping = student_mapping.float()
+            teacher_mapping = teacher_mapping.float()
+
+            if self.use_mae:
+                current_loss = F.l1_loss(student_mapping, teacher_mapping, reduction=reduction)
+            elif self.use_huber:
+                current_loss = F.huber_loss(student_mapping, teacher_mapping, delta=self.huber_delta, reduction=reduction)
+            else:  
+                current_loss = F.mse_loss(student_mapping, teacher_mapping, reduction=reduction)
+
+            loss_list.append(current_loss)
+
+        total_loss = torch.mean(torch.stack(loss_list))
+
+        return total_loss
     
     def _node2node_distill_loss(self, out_batch, target):
         loss_list = []

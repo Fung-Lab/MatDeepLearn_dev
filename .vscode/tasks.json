@@ -6,6 +6,12 @@
             "type": "shell",
             "command": "module load python && conda activate matdeeplearn",
             "problemMatcher": []
-        }
-    ]
+        },
+        {
+            "label": "loadModuleAndActivateScn",
+            "type": "shell",
+            "command": "module load python && conda activate scn",
+            "problemMatcher": []
+        },
+    ],
 }

@@ -2,7 +2,7 @@ trainer: property
 
 task:
   run_mode: train
-  identifier: torch_md_128
+  identifier: torch_md_128_nostress
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -56,10 +56,10 @@ optim:
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: ForceStressLoss
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: "ForceLoss"
+    loss_args: {weight_energy: 0.01, weight_force: 50.0}
   clip_grad_norm: 10
          
   batch_size: 32
@@ -98,7 +98,7 @@ dataset:
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
   #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
   #additional_attributes:
   # Print out processing info
   verbose: True
@@ -130,6 +130,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.8
-  val_ratio: 0.1
-  test_ratio: 0.1
+  train_ratio: 0.9
+  val_ratio: 0.05
+  test_ratio: 0.05

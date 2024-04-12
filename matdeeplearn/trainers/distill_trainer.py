@@ -243,7 +243,7 @@ class DistillForcesTrainer(BaseTrainer):
             teacher_edge_dim = teacher_dim["edge_dim"], 
             teacher_vec_dim = teacher_dim["vec_dim"],
             attention_dim = loss_config['attention_dim'],
-            multiple_layer = loss_config['multiple_layer']
+            #multiple_layer = loss_config['multiple_layer']
         )
         attention_model = attention_model.to(rank)
         # model = torch_geometric.compile(model)

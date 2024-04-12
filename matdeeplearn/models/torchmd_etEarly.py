@@ -388,7 +388,7 @@ class TorchMD_ET_Early(BaseModel):
             vec = vec + dvec
             if distill_layer == ("a", i+1):
                 local_structure = self.distance_net(x, data.edge_index)
-                local_structure_feature.append(local_structure.clone)
+                local_structure_feature.append(local_structure.clone())
                 node_feature.append(x.clone())
                 vec_feature.append(vec.clone())
                 edge_feature.append(data.edge_attr.clone())
