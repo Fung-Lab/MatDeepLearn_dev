@@ -46,10 +46,9 @@ class MolecularSimilarityGraph:
         x = torch.tensor(self.embeddings, dtype=torch.float)
 
         # Create a PyTorch Geometric Data object with edge weights
-        # data = Data(x=x, edge_index=edge_index, edge_attr=edge_weights)
-        data = Data(x=x, edge_index=edge_index)
-
-        self.graphData = data
+        self.graphData = Data(x=x, edge_index=edge_index,
+                              edge_attr=edge_weights)
+        # data = Data(x=x, edge_index=edge_index)
 
     def visualize(self, n):
         g = pyg_utils.to_networkx(self.graphData, to_undirected=True)
