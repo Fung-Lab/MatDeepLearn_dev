@@ -69,9 +69,8 @@ class MoleculeProcessor:
                     f.write(f"{len(atoms)}\n")
                     f.write("XYZ file generated from dataset\n")
                     for symbol, pos in zip(atomic_symbols, positions):
-                        for p in pos:
-                            print(type(p))
-                        f.write(f"{symbol} {' '.join(map(str, pos))}\n")
+                        # f.write(f"{symbol} {' '.join(map(str, pos))}\n")
+                        f.write(f"{symbol} {' '.join(map(lambda x: '{:.20f}'.format(x), pos))}\n")
 
                 # Convert XYZ file to Mol object & store it in list
                 try:
@@ -106,11 +105,12 @@ class MoleculeProcessor:
             similarity_map.append([i_sims])
 
         self.similarityMap = np.array(similarity_map)
-    
+
     # Helper function that logs errors to logs.log
     def logError(self, structure_id):
-        logging.basicConfig(filename="logs.log", format="%(message)s", filemode="a")
+        logging.basicConfig(filename="logs.log",
+                            format="%(message)s", filemode="a")
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        logger.info(f"{structure_id} could not be converted into Mol from the XYZ File")
-
+        logger.info(
+            f"{structure_id} could not be converted into Mol from the XYZ File")

@@ -24,9 +24,9 @@ with open('data/QM9.json') as f:
     processor.processMolObjects()
     processor.computeMetrics()
 
-    print("PROCESSED MOLS: ", processor.processedMols)
-    print(processor.similarityMap)
-    print(type(processor.similarityMap))
+    # print("PROCESSED MOLS: ", processor.processedMols)
+    # print(processor.similarityMap)
+    # print(type(processor.similarityMap))
     f.close()
 
 # Testing molecular similarity graph generation
@@ -43,5 +43,5 @@ simGraph = MolecularSimilarityGraph(
     embeddings=embeddings)
 
 simGraph.toGraphData()
-print(simGraph.initialAdj)
+# print(simGraph.initialAdj)
 simGraph.visualize(n)
