@@ -28,6 +28,7 @@ class MolecularSimilarityGraph:
 
         # filter elements under the threshold
         self.initialAdj[self.initialAdj < self.tanimotoThreshold] = 0
+        np.fill_diagonal(self.initialAdj, 0)  # remove self-edges
 
         self.embeddings = embeddings
         self.graphData = None
@@ -55,5 +56,5 @@ class MolecularSimilarityGraph:
 
         # Draw the graph using NetworkX and matplotlib
         plt.figure(3, figsize=(12, 12))
-        nx.draw(g, node_size=70)
+        nx.draw(g, node_size=100)
         plt.savefig(f'sim_graph_networkx{n}.png')
