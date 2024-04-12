@@ -377,7 +377,7 @@ class EquiformerV2_OC20(BaseModel):
         self.apply(self._uniform_init_rad_func_linear_weights)
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
         self.batch_size = len(data.n_atoms)
         self.dtype = data.pos.dtype
         self.device = data.pos.device
@@ -494,10 +494,35 @@ class EquiformerV2_OC20(BaseModel):
         out = out.embedding.narrow(1, 0, 1).squeeze()
         out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
         out = out.view(-1, 1)
-        outputs["output"] = out
-        return outputs
+        return out
 
-    # Initialize the edge rotation matrics
+    def forward(self, data):
+
+        output = {}
+        out = self._forward(data)
+        output["output"] = out
+
+        if self.gradient == True and out.requires_grad == True:
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :],
+                                  torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)
+            grad = torch.autograd.grad(
+                out,
+                [data.pos, data.displacement],
+                grad_outputs=torch.ones_like(out),
+                create_graph=self.training)
+            forces = -1 * grad[0]
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)
+
+            output["pos_grad"] = forces
+            output["cell_grad"] = stress
+        else:
+            output["pos_grad"] = None
+            output["cell_grad"] = None
+
+        return output
+
+        # Initialize the edge rotation matrics
     def _init_edge_rot_mat(self, data, edge_index, edge_distance_vec):
         return init_edge_rot_mat(edge_distance_vec)
 

@@ -147,7 +147,7 @@ class PropertyTrainer(BaseTrainer):
                     else:
                         self._log_metrics()
 
-                if epoch + 1 in [12, 25, 50, 100, 200]:
+                if epoch + 1 in [12, 25, 50, 100, 200, 300, 400]:
                     current_state = copy.deepcopy(self.model.state_dict())
                     self.model.load_state_dict(self.best_model_state)
                     self.predict(self.data_loader["test_loader"], "test")
