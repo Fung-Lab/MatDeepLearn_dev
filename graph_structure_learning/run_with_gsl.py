@@ -10,6 +10,7 @@ import json
 
 from xyz_processor import *
 from molecular_similarity_graph import *
+import numpy as np
 
 
 data = []
@@ -28,5 +29,19 @@ with open('data/QM9.json') as f:
     print(type(processor.similarityMap))
     f.close()
 
-# testing molecular similarity graph generation
-simGraph = None
+# Testing molecular similarity graph generation
+
+# Generate random embeddings for testing purposes.
+# The jth vector in this array corresponds to the
+# embedding of molecule j.
+n = 1000
+embeddings = np.array([np.random.standard_normal(5) for i in range(n)])
+threshold = 0
+simGraph = MolecularSimilarityGraph(
+    similarityMap=processor.similarityMap,
+    tanimotoThreshold=threshold,
+    embeddings=embeddings)
+
+simGraph.toGraphData()
+print(simGraph.initialAdj)
+simGraph.visualize(n)
