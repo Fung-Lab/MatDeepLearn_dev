@@ -31,8 +31,8 @@ model:
   use_pbc: True
   regress_forces: False
   otf_graph: True
-  max_neighbors: 250
-  max_radius: 4.0
+  max_neighbors: 20
+  max_radius: 8.0
   max_num_elements: 101
   num_layers: 6
   sphere_channels: 64
@@ -74,7 +74,7 @@ optim:
     loss_args: { weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0 }
   # gradient clipping value
   clip_grad_norm: 6
-  batch_size: 6
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {weight_decay: 0.001}
@@ -128,7 +128,7 @@ dataset:
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 8.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 250
+    n_neighbors : 20
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
