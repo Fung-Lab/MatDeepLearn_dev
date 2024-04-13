@@ -13,11 +13,11 @@ if __name__ == '__main__':
     for i in range(num_runs):
         seed = str(seeds[i])
 
-        command = "python scripts/main.py --config_path=configs/finetune/config_2D.yml --seed=" + seed
-        subprocess.run(command, shell=True)
-
-        command = "python scripts/main.py --config_path=configs/finetune/config_2D_scratch.yml --seed=" + seed
-        subprocess.run(command, shell=True)
+        # command = "python scripts/main.py --config_path=configs/finetune/config_2D.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
+        #
+        # command = "python scripts/main.py --config_path=configs/finetune/config_2D_scratch.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
 
         command = "python scripts/main.py --config_path=configs/finetune/config_MOF.yml --seed=" + seed
         subprocess.run(command, shell=True)
