@@ -1,6 +1,6 @@
 from matdeeplearn.common.ase_utils import MDLCalculator, MDSimulator
 from time import time
-from helpers import build_atoms_list, evaluate, get_test_structures
+from helpers import build_atoms_list, evaluate, get_test_structures, get_rdf
 import logging
 import copy
 import random
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     for i, atoms_idx in enumerate(idx):
         cols['structure_id'].append(relaxed[atoms_idx].structure_id)
         relaxed[atoms_idx].set_calculator(calculator)
-        cols['Starting energy'].append(relaxed[atoms_idx].get_potential_energy())
+        cols['Starting rdf'].append(relaxed[atoms_idx])
         to_optim = copy.deepcopy(relaxed[atoms_idx])
         final_atoms, time_per_step, h, l = simulator.run_simulation(to_optim, num_steps=num_steps)
         cols['Highest energy'].append(h)

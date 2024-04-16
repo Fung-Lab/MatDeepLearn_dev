@@ -1,7 +1,10 @@
-from typing import List
+from typing import List, Literal, Tuple
 import logging
+import os
+from time import time
 
 import numpy as np
+from scipy.stats import norm
 import torch
 import yaml
 from ase import Atoms, units
@@ -11,20 +14,18 @@ from matdeeplearn.preprocessor.helpers import generate_node_features
 from matdeeplearn.models.base_model import BaseModel
 from torch_geometric.data.data import Data
 from torch_geometric.loader import DataLoader
-import logging
-from typing import List, Tuple
 from matdeeplearn.common.registry import registry
 from ase.io.trajectory import Trajectory
 from ase.optimize import FIRE
 from ase.constraints import ExpCellFilter
 from ase.io import read, write
 from ase.md.langevin import Langevin
-from ase.md.verlet  import VelocityVerlet
+from ase.md.verlet import VelocityVerlet
 from ase.md.npt import NPT
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-import os
-from time import time
-from ase import units
+
+from pymatgen.optimization.neighbors import find_points_in_spheres
+
 
 
 logging.basicConfig(level=logging.INFO)
@@ -304,12 +305,38 @@ class MDSimulator:
         self.timestep = timestep
         self.temperature = temperature
         self.calculator = calculator
+        
+    def get_rdf(self, structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
+        rmax = max_r + 3 * σ + dr
+        rs = np.arange(0.5, rmax + dr, dr)
+        nr = len(rs) - 1
+        natoms = len(structure)
+
+        normalization = 4 / structure.get_cell().volume * np.pi
+        normalization *= (natoms * rs[0:-1]) ** 2
+
+        lattice_matrix = np.array(structure.get_cell(), dtype=float)
+        cart_coords = np.array(structure.get_positions(), dtype=float)
+
+        rdf = sum(np.histogram(find_points_in_spheres(
+                all_coords = cart_coords,
+                center_coords = np.array([cart_coords[i]], dtype=float),
+                r = rmax,
+                pbc = np.array([1, 1, 1], dtype=int),
+                lattice = lattice_matrix,
+                tol = 1e-8,
+            )[3], rs)[0] for i in range(natoms))
+
+        return np.convolve(rdf / normalization,
+                            norm.pdf(np.arange(-3 * σ, 3 * σ + dr, dr), 0.0, σ),
+                            mode="same")[0:(nr - int((3 * σ) / dr) - 1)]
 
     def run_simulation(self,
                        atoms: Atoms,
                        num_steps: int,
                        log_console: int = 0,
                        save_energy: bool = False,
+                       metric: Literal['energy', 'mae_rdf', 'min_dist'] = 'energy',
                        **kwargs) -> None:
         """
         This method runs a molecular dynamics simulation for the specified number of steps using the chosen ensemble.
@@ -350,19 +377,46 @@ class MDSimulator:
             raise ValueError(f"Invalid parameter(s): {', '.join(invalid_params)}")
 
         dyn = simulation_class(atoms, timestep=self.timestep * units.fs, **kwargs)
-
-        starting = atoms.get_potential_energy()
-        highest_e = starting
-        lowest_e = starting
         
-        def calc_energy(a=atoms):
-            nonlocal highest_e, lowest_e
-            epot = a.get_potential_energy()
-            ekin = a.get_kinetic_energy()
-            etotal = epot + ekin
-            highest_e = max(highest_e, etotal) 
-            lowest_e = min(lowest_e, etotal)
-        dyn.attach(calc_energy, interval=1)
+        if metric == 'energy':
+            starting = atoms.get_potential_energy()
+            highest_e = starting
+            lowest_e = starting
+        
+            def calc_energy(a=atoms):
+                nonlocal highest_e, lowest_e
+                epot = a.get_potential_energy()
+                ekin = a.get_kinetic_energy()
+                etotal = epot + ekin
+                highest_e = max(highest_e, etotal) 
+                lowest_e = min(lowest_e, etotal)
+            dyn.attach(calc_energy, interval=1)
+        elif metric == 'mae_rdf':
+            starting = self.get_rdf(atoms)
+            curr_rdf = starting
+            highest_rdf_mae = 0
+            
+            def calc_rdf_mae(a=atoms):
+                nonlocal curr_rdf, highest_rdf_mae
+                new_rdf = self.get_rdf(a)
+                rdf_mae = np.mean(np.abs(new_rdf - curr_rdf))
+                highest_rdf_mae = max(highest_rdf_mae, rdf_mae)
+                curr_rdf = new_rdf
+            dyn.attach(calc_rdf_mae, interval=1)
+        elif metric == 'min_dist':
+            starting = get_min_interatomic_distance(atoms)
+            curr_min_dist = starting
+            min_min_dist = starting
+            max_min_dist = starting
+            
+            def get_min_interatomic_distance(a=atoms):
+                nonlocal curr_min_dist, min_min_dist, max_min_dist
+                all_dist = a.get_all_distances()
+                np.fill_diagonal(all_dist, np.inf)
+                curr_min_dist = all_dist.min().min()
+                min_min_dist = min(min_min_dist, curr_min_dist)
+                max_min_dist = max(max_min_dist, curr_min_dist)
+            dyn.attach(get_min_interatomic_distance, interval=1)
         
         if log_console:
             def printenergy(a=atoms):
@@ -384,8 +438,11 @@ class MDSimulator:
         
         if log_console:
             logging.info(f"Time: {end-start:.4f}")
-            
-        return atoms, (end - start) / num_steps, highest_e, lowest_e
+        
+        if metric == 'energy':
+            return atoms, (end - start) / num_steps, highest_e, lowest_e
+        elif metric == 'mae_rdf':
+            return atoms, (end - start) / num_steps, highest_rdf_mae
 
 
 def traj_to_xdatcar(traj_file) -> None:

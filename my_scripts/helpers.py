@@ -31,19 +31,17 @@ def get_rdf(structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
     normalization = 4 / structure.get_cell().volume * np.pi
     normalization *= (natoms * rs[0:-1]) ** 2
 
-    rdf = np.zeros(nr, dtype = int)
     lattice_matrix = np.array(structure.get_cell(), dtype=float)
     cart_coords = np.array(structure.get_positions(), dtype=float)
 
-    for i in range(natoms):
-        rdf += np.histogram(find_points_in_spheres(
+    rdf = sum(np.histogram(find_points_in_spheres(
             all_coords = cart_coords,
             center_coords = np.array([cart_coords[i]], dtype=float),
             r = rmax,
             pbc = np.array([1, 1, 1], dtype=int),
             lattice = lattice_matrix,
             tol = 1e-8,
-        )[3], rs)[0]
+        )[3], rs)[0] for i in range(natoms))
 
     return np.convolve(rdf / normalization,
                         norm.pdf(np.arange(-3 * σ, 3 * σ + dr, dr), 0.0, σ),

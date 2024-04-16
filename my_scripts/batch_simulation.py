@@ -1,201 +1,53 @@
-import logging
-import json
-import yaml
-from tqdm import tqdm
+from matdeeplearn.common.ase_utils import MDLCalculator, MDSimulator
 from time import time
-import math
-
-import numpy as np
-
+from helpers import build_atoms_list, evaluate, get_test_structures
+import logging
+import copy
+import random
+import pandas as pd
 import torch
+
 from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader
-
-from matdeeplearn.models import BaseModel
-from matdeeplearn.common.registry import registry
-
+from matdeeplearn.common.batch_langevin import Langevin
 
 logging.basicConfig(level=logging.INFO)
 
-
-def load_structures(file_path, num_structures=-1, device='cpu'):
-    logging.info("Reading JSON file for structures.")
-
-    f = open(file_path)
-    original_structures = json.load(f)
-    f.close()
-
-    n_structures = len(original_structures) if num_structures == -1 else num_structures
-    data_list = [Data() for _ in range(n_structures)]
-    
-    original_energy, target_energy = [], []
-
-    for i, s in enumerate(tqdm(original_structures[:n_structures])):
-        data = data_list[i]
-
-        pos = torch.tensor(s["unrelaxed_positions"], device=device, dtype=torch.float)
-        cell = torch.tensor(s["unrelaxed_cell"], device=device, dtype=torch.float).unsqueeze(0)
-        atomic_numbers = torch.LongTensor(s["atomic_numbers"])
-        structure_id = s["structure_id"]
-                
-        data.n_atoms = len(atomic_numbers)
-        data.pos = pos
-        data.cell = cell   
-        data.structure_id = [structure_id]  
-        data.z = atomic_numbers
-        data.u = torch.Tensor(np.zeros((3))[np.newaxis, ...])
-        
-        original_energy.append(s['unrelaxed_energy'])
-        target_energy.append(s['relaxed_energy'])
-
-    return data_list, original_energy, target_energy
-
-@staticmethod
-def load_model(config: dict, rank: str) -> BaseModel:
-    """
-    This static method loads a machine learning model based on the provided configuration.
-
-    Parameters:
-    - config (dict): Configuration dictionary containing model and dataset parameters.
-    - rank: Rank information for distributed training.
-
-    Returns:
-    - model: Loaded model for further calculations.
-
-    Raises:
-    - ValueError: If the 'checkpoint.pt' file is not found, the method issues a warning and uses an untrained model for prediction.
-    """
-    if isinstance(config, str):
-        with open(config, "r") as yaml_file:
-            config = yaml.safe_load(yaml_file)
-    
-    graph_config = config['dataset']['preprocess_params']
-    model_config = config['model']
-    node_dim = graph_config["node_dim"]
-    edge_dim = graph_config["edge_dim"]   
-
-    model_name = 'matdeeplearn.models.' + model_config["name"]
-    logging.info(f'Setting up {model_name} for calculation')
-    model_cls = registry.get_model_class(model_name)
-    model = model_cls(
-                node_dim=node_dim, 
-                edge_dim=edge_dim, 
-                output_dim=1, 
-                cutoff_radius=graph_config["cutoff_radius"], 
-                n_neighbors=graph_config["n_neighbors"], 
-                graph_method=graph_config["edge_calc_method"], 
-                num_offsets=graph_config["num_offsets"], 
-                **model_config
-            )
-    model = model.to(rank)
-    
-    try:
-        checkpoint = torch.load(config['task']["checkpoint_path"])
-        model.load_state_dict(checkpoint["state_dict"])
-        logging.info(f'Model weights loaded from {config["task"]["checkpoint_path"]}')
-    except ValueError:
-        logging.warning("No checkpoint.pt file is found, and an untrained model is used for prediction.")
-
-    return model
-
-
-def langevin_random_force(pos: torch.Tensor, temperature: float, dt:float, gamma:float):
-    """
-    Generate a random force vector for each atom for Langevin dynamics.
-
-    Parameters:
-    - pos: tensor of particle positions
-    - temperature: simulation temperature 
-    - dt: timestep
-    - gamma: friction coefficient
-    
-    Returns:
-    - random_forces: random force vectors for each atom
-    """
-    num_particles, dim = pos.shape
-    device = pos.device  
-    sigma = math.sqrt(2 * gamma * temperature * dt)
-    random_forces = torch.normal(0, sigma, size=(num_particles, dim), device=device)
-    return random_forces
-
-def step(pos, vels, forces, mass, dt):
-    """
-    One step of simulation
-
-    Parameters:
-    - pos: tensor of particle positions
-    - vels: velocities of atoms
-    - forces: tensor of forces of atoms
-    - mass: mass of atoms
-    - dt: timestep
-    
-    Returns:
-    - random_forces: random force vectors for each atom
-    """
-    pos += vels * dt
-    vels += forces * dt / mass
-    return pos, vels
-
-def simulation(file_path, config, steps, log_per, learning_rate, num_structures=-1, batch_size=4, device='cpu'):
-    data_list, original_energy, target_energy = \
-        load_structures(file_path, num_structures=num_structures, device=device)
-    model = load_model(config, rank=device)
-    
-    original_energy_per_batch = [sum(original_energy[i:i+batch_size]) for i in range(0, len(data_list), batch_size)]
-    target_energy_per_batch = [sum(target_energy[i:i+batch_size]) for i in range(0, len(data_list), batch_size)]
-    
-    # Created a data list
-    loader = DataLoader(data_list, batch_size=batch_size)
-    loader_iter = iter(loader)
-    for i in range(len(loader_iter)):
-        batch = next(loader_iter).to(device)
-        pos, cell = batch.pos, batch.cell
-        
-        print(langevin_random_force(pos, 1000, 0.5, 0.1).shape)
-        
-        opt = torch.optim.LBFGS([pos, cell], lr=learning_rate)
-
-        pos.requires_grad_(True)
-        cell.requires_grad_(True)
-
-        def closure(step):
-            opt.zero_grad()
-            energy = model(batch.to(device))['output'].sum()
-            energy.backward(retain_graph=True)
-            if log_per > 0 and step[0] % log_per == 0:
-                print("{0:4d}   {1: 3.6f}".format(step[0], energy.item()))
-            step[0] += 1
-            batch.pos, batch.cell = pos, cell
-            return energy
-        
-        print(f"Batch {i}:\nOriginal Energy: {original_energy_per_batch[i]:.4f}\
-              \nTarget Energy: {target_energy_per_batch[i]:.4f}")
-        
-        step = [0]
-        for _ in range(steps):
-            opt.step(lambda: closure(step))
-            
-        
+                         
 if __name__ == '__main__':
-    logging.info("Batch original/target energies are ground truth energies.")
-    
-    # Configurations
-    data_path = './data/optimization_data/data.json'
-    model_config = './configs/calculator/config_torchmd.yml'
-    steps = 25
-    log_per = 50
-    num_structures = 50
-    batch_size = 8
-    learning_rate = 0.05
+    # unrelaxed_ids, relaxed_ids, unrelaxed, relaxed, dft,\
+    #     unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json', 1)
     device = 'cuda:0'
+    dyn = Langevin(
+        timestep=5.,
+        config_str='configs/calculator/config_cgcnn.yml',
+        temperature_K=2500,
+        friction=0.1,
+        rank=device
+    )
     
+    data = torch.load('data/Silica_data/data.pt')[0]
+    atoms_list = MDLCalculator.data_to_atoms_list(data)
+    data_list = []
+    
+    for atoms in atoms_list:
+        cell = torch.tensor(atoms.cell.array, dtype=torch.float32, device=device)
+        pos = torch.tensor(atoms.positions, dtype=torch.float32, device=device)
+        atomic_numbers = torch.LongTensor(atoms.get_atomic_numbers())
+        data = Data(n_atoms=len(atomic_numbers), pos=pos, cell=cell.unsqueeze(dim=0),
+            z=atomic_numbers)
+        
+        data_list.append(data)
+
+    # random.seed(42)
+    test_pred_csv_path = 'results/2024-04-06-17-34-58-184-cgcnn_sam_sio2/train_results/test_predictions.csv'
+    data_pt_path = './data/Silica_data/data.pt'
+    idx = get_test_structures(test_pred_csv_path, data_pt_path)
+    data_list = [data_list[i] for i in idx]
+
+    num_steps = 1000
     start = time()
-    simulation(data_path,
-             model_config,
-             steps=steps,
-             log_per=log_per,
-             learning_rate=learning_rate,
-             num_structures=num_structures,
-             batch_size=batch_size,
-             device=device)
-    logging.info(f"Optimize {num_structures} structures took {time() - start:.4} seconds.")
+    max_energies, min_energies = dyn.run_simulation(data_list[:8], num_steps, batch_size=1)
+    end = time()
+    print(max_energies, min_energies)
+    print(f"Time elapsed: {end - start:.3f}")
+    
