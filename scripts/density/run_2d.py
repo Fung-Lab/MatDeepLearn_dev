@@ -25,11 +25,17 @@ if __name__ == '__main__':
         command = "python scripts/main.py --config_path=configs/finetune/config_MOF_scratch.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/finetune/config_Surface.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_Dielectric.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/finetune/config_Surface_scratch.yml --seed=" + seed
+        command = "python scripts/main.py --config_path=configs/finetune/config_Dielectric_scratch.yml --seed=" + seed
         subprocess.run(command, shell=True)
+
+        # command = "python scripts/main.py --config_path=configs/finetune/config_Surface.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
+        #
+        # command = "python scripts/main.py --config_path=configs/finetune/config_Surface_scratch.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
 
         # 记录本次运行的开始时间
         # current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
