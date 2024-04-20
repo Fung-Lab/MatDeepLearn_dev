@@ -1,0 +1,13 @@
+simulation_type: NVT
+timstep: 2
+temperature: 2000
+calculator_config_path: configs/calculator/config_cgcnn.yml
+total_steps: 1_000_000
+log_console: True
+save_metrics_per: 50_000
+continue_simulation: False
+state_path: train_outs/sim_records_107/one_mill_sim_cgcnn/atoms_state_at_step_1000.npz
+save_metrics_folder: train_outs/sim_records_107/one_mill_sim_cgcnn
+save_atomic_state_folder: train_outs/sim_records_107/one_mill_sim_cgcnn
+
+device: cuda:7

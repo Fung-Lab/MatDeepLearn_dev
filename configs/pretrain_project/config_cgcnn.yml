@@ -1,8 +1,8 @@
-trainer: sam
-
+trainer: property
+?
 task:
   run_mode: train
-  identifier: torchmd_silica_sam_1e_05
+  identifier: pretrain_cgcnn_sio2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,31 +13,30 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-03-16-20-13-52-662-torchmd_silica_late/checkpoint_0/checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: True  
-
+  use_amp: False  
+?
 model:
-  name: torchmd_etEarly
+  name: CGCNN 
   # model attributes
-  hidden_channels: 128
-  num_layers: 8
-  num_rbf: 50
-  activation: "silu"
-  attn_activation: "silu"
-  num_heads: 8
-  num_post_layers: 1
-  post_hidden_channels: 64
-  pool: "global_add_pool"
-  pool_order: "late"
-  aggr: "add"
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: global_add_pool
+  pool_order: late
+  batch_norm: False
+  batch_track_stats: True
+  act: silu
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True 
@@ -48,11 +47,11 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-
+?
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.00005
+  lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -63,7 +62,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 2
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -73,18 +72,18 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
-  name: silica_data
-  processed: True
+  name: perturbed_silica_data
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
+  src: data/perturbed_silica/raw.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica_data/
+  pt_path: data/perturbed_silica/
   # Either "node" or "graph"
   prediction_level: graph
   

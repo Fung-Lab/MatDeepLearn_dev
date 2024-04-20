@@ -1,79 +1,59 @@
-import torch
-from typing import List
+import json
+
 import numpy as np
 import matplotlib.pyplot as plt
-from time import time
-from scipy.stats import norm
-from pymatgen.optimization.neighbors import find_points_in_spheres
+import pandas as pd
+import torch
 
-import ase
-from ase import Atoms
-from ase.md import Langevin as LangevinASE
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-
-from torch_geometric.data import Data
-from matdeeplearn.common.batch_langevin import Langevin
-from matdeeplearn.common.ase_utils import MDLCalculator
-
-
-def get_rdf(structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
-    rmax = max_r + 3 * σ + dr
-    rs = np.arange(0.5, rmax + dr, dr)
-    nr = len(rs) - 1
-    natoms = len(structure)
-
-    normalization = 4 / structure.get_cell().volume * np.pi
-    normalization *= (natoms * rs[0:-1]) ** 2
-
-    rdf = np.zeros(nr, dtype = int)
-    lattice_matrix = np.array(structure.get_cell(), dtype=float)
-    cart_coords = np.array(structure.get_positions(), dtype=float)
-
-    for i in range(natoms):
-        rdf += np.histogram(find_points_in_spheres(
-            all_coords = cart_coords,
-            center_coords = np.array([cart_coords[i]], dtype=float),
-            r = rmax,
-            pbc = np.array([1, 1, 1], dtype=int),
-            lattice = lattice_matrix,
-            tol = 1e-8,
-        )[3], rs)[0]
-        
-    return np.convolve(rdf / normalization,
-                        norm.pdf(np.arange(-3 * σ, 3 * σ + dr, dr), 0.0, σ),
-                        mode="same")[0:(nr - int((3 * σ) / dr) - 1)]
+def get_structures_idx(test_pred_csv_path, data_pt_path):
+    df = pd.read_csv(test_pred_csv_path)
+    structure_ids = df['structure_id'].tolist()
+    structure_ids = set(map(lambda x: str(x), structure_ids))
     
+    data = torch.load(data_pt_path)[0]
+    selected_idxs = []
+
+    for i in range(len(data.structure_id)):
+        if data.structure_id[i][0] in structure_ids:
+            selected_idxs.append(i)
+    return selected_idxs
+
+if __name__ == '__main__':
+    json_path = 'data/Silica_data/raw/data.json'
+    forces = []
     
-def get_rdf_test(structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
-    rmax = max_r + 3 * σ + dr
-    rs = np.arange(0.5, rmax + dr, dr)
-    nr = len(rs) - 1
-    natoms = len(structure)
-
-    normalization = 4 / structure.get_cell().volume * np.pi
-    normalization *= (natoms * rs[0:-1]) ** 2
-
-    lattice_matrix = np.array(structure.get_cell(), dtype=float)
-    cart_coords = np.array(structure.get_positions(), dtype=float)
-
-    rdf = sum(np.histogram(find_points_in_spheres(
-            all_coords = cart_coords,
-            center_coords = np.array([cart_coords[i]], dtype=float),
-            r = rmax,
-            pbc = np.array([1, 1, 1], dtype=int),
-            lattice = lattice_matrix,
-            tol = 1e-8,
-        )[3], rs)[0] for i in range(natoms))
-
-    return np.convolve(rdf / normalization,
-                        norm.pdf(np.arange(-3 * σ, 3 * σ + dr, dr), 0.0, σ),
-                        mode="same")[0:(nr - int((3 * σ) / dr) - 1)]
-
-
-if __name__ == '__main__':    
     data = torch.load('data/Silica_data/data.pt')[0]
-    atoms_list = MDLCalculator.data_to_atoms_list(data)
-    data_list = []
+    test_pred_csv_path = 'results/2024-04-06-10-48-11-973-cgcnn_sio2/train_results/test_predictions.csv'
+    val_pred_csv_path = 'results/2024-04-06-10-48-11-973-cgcnn_sio2/train_results/val_predictions.csv'
+    silica_dataset = 'data/Silica_data/data.pt'
     
-    atoms = atoms_list[0]
-    print(np.allclose(get_rdf(atoms), get_rdf_test(atoms)))
+    test_indices = set(get_structures_idx(test_pred_csv_path, silica_dataset))
+    val_indices = set(get_structures_idx(val_pred_csv_path, silica_dataset))
+    
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+
+    for i in range(len(data)):
+        if i not in test_indices and i not in val_indices:
+            forces.append(data[i]['forces'])
+    
+    print(len(forces))
+    forces = np.vstack(forces)
+    force_magnitute = np.linalg.norm(forces, axis=1)
+
+    plt.figure(figsize=(10, 6))
+    plt.hist(force_magnitute, bins=100, color='blue', alpha=0.7)
+    plt.title('Distribution of Force Magnitude')
+    plt.xlabel('Force Magnitude')
+    plt.xlim(left=0, right=20)
+    plt.ylabel('Frequency')
+    plt.grid(True)
+    plt.show()
+    print(force_magnitute.shape)
+    print(f"Mean force magnitude: {np.mean(force_magnitute):.4f}")
+    print(f"Force magnitude std: {np.std(force_magnitute):.4f}")
+    
+    # print(f"Mean force magnitude on each dimension: {np.mean(forces, axis=0)}")
+    print(f"Force magnitude std on each dimension: {np.std(forces, axis=0)}")
+    
+    

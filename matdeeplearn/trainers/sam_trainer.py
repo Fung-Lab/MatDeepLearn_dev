@@ -93,7 +93,7 @@ class SamTrainer(BaseTrainer):
         # start_epoch = self.step // len(self.train_loader)
         start_epoch = int(self.epoch)
         
-        print(self.optimizer)
+        logging.info(repr(self.optimizer))
 
         if str(self.rank) not in ("cpu", "cuda"):
             dist.barrier()

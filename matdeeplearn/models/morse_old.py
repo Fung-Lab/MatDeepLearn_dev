@@ -168,9 +168,6 @@ class Morse_Old(BaseModel):
             E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
         
         pairwise_energies = 0.5 * (E * fc)
-        # pairwise_energies[data]
-        pairwise_energies[data.edge_index[0] == data.edge_index[1]] = 0
-        print(data.edge_weight[data.edge_index[0] == data.edge_index[1]])
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))
     

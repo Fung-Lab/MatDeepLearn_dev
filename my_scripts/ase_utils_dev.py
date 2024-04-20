@@ -120,12 +120,16 @@ class MDLCalculator(Calculator):
             out_list.append(model(batch))
 
         energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)
-        forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
-        stresses = torch.stack([entry["cell_grad"] for entry in out_list]).mean(dim=0)
         
+        if 'pos_grad' in out_list[0].keys():
+            forces = torch.stack([entry["pos_grad"] for entry in out_list]).mean(dim=0)
+            self.results['forces'] = forces.detach().cpu().numpy().squeeze()
+          
+        if 'cell_grad' in out_list[0].keys():
+            stresses = torch.stack([entry["cell_grad"] for entry in out_list]).mean(dim=0)
+            self.results['stress'] = stresses.squeeze().detach().cpu().numpy().squeeze()
+
         self.results['energy'] = energy.detach().cpu().numpy().squeeze()
-        self.results['forces'] = forces.detach().cpu().numpy().squeeze()
-        self.results['stress'] = stresses.squeeze().detach().cpu().numpy().squeeze()
         
     @staticmethod
     def data_to_atoms_list(data: Data) -> List[Atoms]:
@@ -289,12 +293,7 @@ class MDSimulator:
     This class provides a simple interface for running molecular dynamics simulations.
     It currently supports microcanonical ('NVE'), canonical ('NVT'), or isothermal-isobaric ('NPT') simulations.
     """
-    def __init__(self,
-                 simulation_constant_type: str,
-                 timestep: float,
-                 temperature: float,
-                 calculator: Calculator
-                 ):
+    def __init__(self, config_path: str):
         """
         Initialize a Molecular Dynamics Simulator.
 
@@ -304,10 +303,37 @@ class MDSimulator:
         - temperature (float): Initial temperature for the simulation in Kelvin.
         - calculator (Calculator): A calculator object for energy and force calculations.
         """
-        self.simulation = simulation_constant_type
-        self.timestep = timestep
-        self.temperature = temperature
-        self.calculator = calculator
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        self.simulation = config['simulation_type']
+        self.timestep = config['timstep']
+        self.temperature = config['temperature']
+        self.device = config.get('device', 'cpu')
+        self.calculator = MDLCalculator(config['calculator_config_path'], self.device)
+        self.total_steps = config['total_steps']
+        self.log_console = config.get('log_console', False)
+        self.save_metrics_per = config.get('save_metrics_per', self.total_steps // 5)
+        self.continue_simulation = config.get('continue_simulation', False)
+        self.state_path = config.get('state_path', None)
+        
+        self.additional_args = config.get('additional_args', {})
+        force_n_std = config.get('force_n_std', 5)
+        force_mean = config.get('force_mean', 2.7553)
+        force_std = config.get('force_std', 2.1227)
+        self.force_threshold = force_mean + force_n_std * force_std
+        self.save_atomic_state_folder = config.get('save_atomic_state_folder', None)
+        self.save_metrics_folder = config.get('save_metrics_folder', None)
+        
+        os.makedirs(self.save_atomic_state_folder, exist_ok=True)
+        os.makedirs(self.save_metrics_folder, exist_ok=True)
+        
+        if self.save_metrics_per != 0:
+            assert self.save_metrics_folder is not None, "Path to save metrics must be provided."
+            assert self.save_atomic_state_folder is not None, "Path to save atomic state must be provided."
+        
+        if self.continue_simulation and self.state_path is None:
+            raise ValueError("Path must be provided to continue simulation.")
         
     @staticmethod
     def get_rdf(structure: Atoms, σ = 0.05, dr = 0.01, max_r = 12.0):
@@ -338,11 +364,7 @@ class MDSimulator:
                             mode="same")[0:(nr - int((3 * σ) / dr) - 1)]
 
     def run_simulation(self,
-                       atoms: Atoms,
-                       num_steps: int,
-                       log_console: int = 0,
-                       save_energy: bool = False,
-                       **kwargs) -> None:
+                       atoms: Atoms):
         """
         This method runs a molecular dynamics simulation for the specified number of steps using the chosen ensemble.
         It currently supports the 'NVE', 'NVT', and 'NPT' ensembles. Energy information can be logged to the console and saved.
@@ -355,7 +377,6 @@ class MDSimulator:
         - **kwargs: Additional parameters specific to the chosen simulation ensemble.
         """
         atoms.set_calculator(self.calculator)
-        MaxwellBoltzmannDistribution(atoms, temperature_K=self.temperature)
         
         common_valid_params = ['trajectory', 'logfile', 'loginterval', 'append_trajectory', 'temperature_K']
         valid_params = common_valid_params
@@ -365,28 +386,23 @@ class MDSimulator:
             simulation_class = VelocityVerlet
         elif self.simulation == 'NVT':
             valid_params += ['friction', 'fixcm', 'communicator', 'rng']
-            kwargs.setdefault('friction', 0.001 / units.fs)
-            kwargs.setdefault('temperature_K', self.temperature)
+            self.additional_args.setdefault('friction', 0.001 / units.fs)
+            self.additional_args.setdefault('temperature_K', self.temperature)
             simulation_class = Langevin
         elif self.simulation == 'NPT':
             valid_params += ['externalstress', 'ttime', 'pfactor', 'mask']
-            kwargs.setdefault('externalstress', 0.01623)
-            kwargs.setdefault('pfactor', 0.6)
-            kwargs.setdefault('temperature_K', self.temperature)
+            self.additional_args.setdefault('externalstress', 0.01623)
+            self.additional_args.setdefault('pfactor', 0.6)
+            self.additional_args.setdefault('temperature_K', self.temperature)
             simulation_class = NPT
         else:
             raise NotImplementedError("Currently unimplemented simulation type")
 
-        invalid_params = [key for key in kwargs.keys() if key not in valid_params]
+        invalid_params = [key for key in self.additional_args.keys() if key not in valid_params]
         if invalid_params:
             raise ValueError(f"Invalid parameter(s): {', '.join(invalid_params)}")
 
-        dyn = simulation_class(atoms, timestep=self.timestep * units.fs, **kwargs)
-
-        starting = atoms.get_potential_energy()
-        starting_rdf = MDSimulator.get_rdf(atoms)
-        highest_e = starting
-        lowest_e = starting
+        dyn = simulation_class(atoms, timestep=self.timestep * units.fs, **self.additional_args)
         
         def calc_energy(a=atoms):
             # nonlocal highest_e, lowest_e
@@ -394,57 +410,106 @@ class MDSimulator:
             ekin = a.get_kinetic_energy()
             etotal = epot + ekin
             return etotal
-            # highest_e = max(highest_e, etotal) 
-            # lowest_e = min(lowest_e, etotal)
-        # dyn.attach(calc_energy, interval=1)
         
         def get_min_interatomic_distance(a=atoms):
             all_dist = a.get_all_distances()
             np.fill_diagonal(all_dist, np.inf)
             return all_dist.min().min()
-        
-        # if log_console:
-        #     def printenergy(a=atoms):
-        #         epot = a.get_potential_energy()
-        #         ekin = a.get_kinetic_energy()
-        #         temperature = 2 * ekin / (3 * len(a) * units.kB)
-        #         etotal = epot + ekin
-            
-                # if save_energy:
-                #     self.results.append({'time': time_ps, 'Etot': epot + ekin,
-                #                          'Epot': epot, 'Ekin': ekin, 'T': temperature})
-            #     logging.info('Energy of system: Epot = %.3feV  Ekin = %.3feV (T=%3.0fK)  '
-            #         'Etot = %.3feV' % (epot, ekin, temperature, etotal))
-            # dyn.attach(printenergy, interval=log_console)
 
+        energy, rdf_changes, min_dists, forces_gt_threshold = [], [], [], []
+        rolling_rdf = MDSimulator.get_rdf(atoms)
+        
+        if not self.continue_simulation:
+            MaxwellBoltzmannDistribution(atoms, temperature_K=self.temperature)
+            starting_step = 1
+        else:
+            logging.info("Loading atoms state from " + self.state_path)
+            curr_step = self.load_atoms_state(atoms, self.state_path)
+            assert self.total_steps > curr_step, "Total steps must be greater than the current step."
+            starting_step = curr_step + 1
+            logging.info(f"Have already run {curr_step} steps. Continuing for {self.total_steps - curr_step} more steps.")
+        
         start = time()
-        prev_energy = starting
-        
-        energy_changes, rdf_changes, min_dists = [], [], []
-        
-        for i in range(num_steps):
-            
+        for i in range(starting_step, self.total_steps + 1, 1):
             e_total = calc_energy()
             current_rdf = MDSimulator.get_rdf(atoms)
+            if rolling_rdf.shape[0] != 10:
+                rolling_rdf = np.vstack((rolling_rdf, current_rdf))
+                rdf_changes.append(0)
+            else:
+                mean_prev_10_rdf = np.mean(rolling_rdf, axis=0)
+                rdf_change = np.mean(np.abs(current_rdf - mean_prev_10_rdf))
+                rdf_changes.append(rdf_change)
+                rolling_rdf[0] = current_rdf
+                rolling_rdf = np.roll(rolling_rdf, -1, axis=0)
+                
             min_dist = get_min_interatomic_distance()
-            rdf_change = np.mean(np.abs(current_rdf - starting_rdf))
-            # if np.abs(e_total - prev_energy) > 200:
-            #     logging.info(f"Step {i}: energy fluctuation is {np.abs(e_total - prev_energy):.4f}")
-            #     logging.info(f"RDF fluctuation at step {i} is {rdf_change:.4f}")   
-            #     logging.info(f"Min interatomic distance: {get_min_interatomic_distance():.4f}")
-            energy_changes.append(e_total)
-            rdf_changes.append(rdf_change)
+            energy.append(e_total)
             min_dists.append(min_dist)
-            prev_energy = e_total
-            starting_rdf = current_rdf
             dyn.step()
+            
+            forces = atoms.get_calculator().results['forces']
+            force_magnitute = np.linalg.norm(forces, axis=1)
+            if len(forces_gt_threshold) == 0:
+                forces_gt_threshold.append(any(force_magnitute > self.force_threshold))
+            else:
+                forces_gt_threshold.append(
+                    forces_gt_threshold[-1] + any(force_magnitute > self.force_threshold)
+                )
+            
+            if self.save_metrics_per != 0 and i != starting_step and i % self.save_metrics_per == 0:
+                logging.info(f"Step: {i} out of {self.total_steps}. Time taken: {time() - start:.3f}")
+                start = time()
+                metrics = {
+                    'energy': energy,
+                    'rolling_rdf': rolling_rdf,
+                    'num_gt_force_threshold': forces_gt_threshold[-1],
+                }
+                self.save_info_to_npz(energy, rdf_changes, min_dists, forces_gt_threshold, i)
+                self.save_atoms_state(atoms, i)
+                for i in [energy, rdf_changes, min_dists]:
+                    i.clear()
+                last_thres = forces_gt_threshold[-1]
+                forces_gt_threshold.clear()
+                forces_gt_threshold.append(last_thres)
         end = time()
         
-        if log_console:
+        if self.log_console:
             logging.info(f"Time: {end-start:.4f}")
             
-        return energy_changes, rdf_changes, min_dists
-        # return atoms, (end - start) / num_steps, highest_e, lowest_e
+        return energy, rdf_changes, min_dists, forces_gt_threshold
+        
+    def save_info_to_npz(self, energy, rdf_changes, min_dists, forces_gt_threshold, curr_step):
+        """
+        This method saves the energy, RDF changes, and minimum interatomic distances to a .npz file.
+
+        Parameters:
+        - energy (list): List of energy values.
+        - rdf_changes (list): List of RDF changes.
+        - min_dists (list): List of minimum interatomic distances.
+        - file_name (str): Name of the .npz file to save the information.
+        """
+        if len(forces_gt_threshold) == self.save_metrics_per + 1:
+            forces_gt_threshold = forces_gt_threshold[1:]
+        np.savez(os.path.join(self.save_atomic_state_folder,
+                              f'metrics_at_step_{curr_step}.npz'),
+                 energy=energy, rdf_changes=rdf_changes,
+                 min_dists=min_dists, num_gt_force_threshold=forces_gt_threshold)
+        
+    def save_atoms_state(self, atoms, curr_step):
+        np.savez(os.path.join(self.save_metrics_folder, f'atoms_state_at_step_{curr_step}.npz'), curr_step=curr_step,
+                 positions=atoms.get_positions(), momenta=atoms.get_momenta(),
+                 velocities=atoms.get_velocities())
+        
+    def load_atoms_state(self, atoms, file_name):
+        """
+        This method loads the state of the atoms from a .npz file and returns the current step.
+        """
+        state = np.load(file_name)
+        atoms.set_positions(state['positions'])
+        atoms.set_momenta(state['momenta'])
+        atoms.set_velocities(state['velocities'])
+        return state['curr_step']
 
 
 def traj_to_xdatcar(traj_file) -> None:

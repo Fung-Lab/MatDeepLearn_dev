@@ -114,6 +114,7 @@ class MDLCalculator(Calculator):
         
         out_list = []
         for model in self.models:   
+            model.eval()
             out_list.append(model(batch))
 
         energy = torch.stack([entry["output"] for entry in out_list]).mean(dim=0)

@@ -52,7 +52,7 @@ class Morse(BaseModel):
         self.D = Embedding(100, 1).to('cuda:0')
         self.base_atomic_energy = Embedding(100, 1).to('cuda:0')
         
-        nn.init.constant_(self.rm.weight, 1.0)
+        nn.init.constant_(self.rm.weight, 1.62)
         nn.init.constant_(self.sigmas.weight, 1.5)
         nn.init.constant_(self.D.weight, 1.0)
         nn.init.constant_(self.base_atomic_energy.weight, -1.5)
@@ -153,10 +153,7 @@ class Morse(BaseModel):
         E = D * (1 - torch.exp(-sigma * (d - rm))) ** 2 - D
         
         pairwise_energies = 0.5 * (E * fc)
-        pairwise_energies[data.edge_index[0] == data.edge_index[1]] = 0.0
-        
-        print(data.edge_index[:, data.edge_index[0] == data.edge_index[1]])
-        print(data.edge_weight[data.edge_index[0] == data.edge_index[1]].mean())
+        # pairwise_energies[data.edge_index[0] == data.edge_index[1]] = 0.0
 
         edge_idx_to_graph = data.batch[data.edge_index[0]]
         morse_out = 0.5 * scatter_add(pairwise_energies, index=edge_idx_to_graph, dim_size=len(data))

@@ -1,10 +1,10 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: results/2024-04-06-10-48-11-973-cgcnn_sio2/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: ../results/2024-04-20-11-54-23-475-morse_sio2/checkpoint_0/best_checkpoint.pt
 
 model:
   # Model used by the calculator
-  name: CGCNN    
+  name: Morse 
   # model attributes
   dim1: 100
   dim2: 150
