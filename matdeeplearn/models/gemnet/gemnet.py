@@ -20,7 +20,7 @@ from matdeeplearn.models.utils import (
     get_pbc_distances,
     radius_graph_pbc,
 )
-from matdeeplearn.models.ocpbase import BaseModel
+from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.models.gemnet.layers.compat import load_scales_compat
 
 from .layers.atom_update_block import OutputBlock
@@ -434,7 +434,7 @@ class GemNetT(BaseModel):
             cell_offsets,
             _,  # cell offset distances
             neighbors,
-        ) = self.generate_graph(data)
+        ) = self.generate_graph(data, self.cutoff, self.max_neighbors)
         # These vectors actually point in the opposite direction.
         # But we want to use col as idx_t for efficient aggregation.
         V_st = -distance_vec / D_st[:, None]
@@ -491,7 +491,7 @@ class GemNetT(BaseModel):
         )
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def _forward(self, data):
         print(data.cell.size())
         pos = data.pos
         batch = data.batch
@@ -599,6 +599,31 @@ class GemNetT(BaseModel):
             if E_t.shape[1] == 1:
                 return E_t.view(-1)
             return E_t
+        
+    @conditional_grad(torch.enable_grad())
+    def forward(self, data):
+        output = {}
+        out = self._forward(data)
+        output["output"] =  out
+
+        if self.gradient == True and out.requires_grad == True:         
+            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+            grad = torch.autograd.grad(
+                    out,
+                    [data.pos, data.displacement],
+                    grad_outputs=torch.ones_like(out),
+                    create_graph=self.training) 
+            forces = -1 * grad[0]
+            stress = grad[1]
+            stress = stress / volume.view(-1, 1, 1)         
+
+            output["pos_grad"] = forces
+            output["cell_grad"] = stress
+        else:
+            output["pos_grad"] = None
+            output["cell_grad"] = None  
+                  
+        return output
 
     @property
     def target_attr(self):
