@@ -224,7 +224,8 @@ class DataProcessor:
 
                 num_virtual_nodes = len(charge_density)
                 # num_half = num_virtual_nodes // 2
-                random_indices = torch.randperm(num_virtual_nodes)
+                # random_indices = torch.randperm(num_virtual_nodes)
+                random_indices = torch.range(num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
                            range(0, num_virtual_nodes, 200)]
 

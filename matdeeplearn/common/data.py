@@ -146,7 +146,8 @@ def get_dataloader(
         loader = DataLoader(
             dataset,
             batch_size=batch_size,
-            shuffle=(sampler is None),
+            # shuffle=(sampler is None),
+            shuffle=shuffle,
             num_workers=0,
             pin_memory=False,
             sampler=sampler,
@@ -155,7 +156,8 @@ def get_dataloader(
         loader = DataLoader(
             dataset,
             batch_size=batch_size,
-            shuffle=(sampler is None),
+            # shuffle=(sampler is None),
+            shuffle=shuffle,
             num_workers=num_workers,
             pin_memory=True,
             sampler=sampler,

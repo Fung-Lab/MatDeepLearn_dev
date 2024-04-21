@@ -405,7 +405,7 @@ class BaseTrainer(ABC):
             )
         if run_mode == "predict" and dataset.get("predict"):
             data_loader["predict_loader"] = get_dataloader(
-                dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
+                dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, shuffle=False
             )
 
         return data_loader
