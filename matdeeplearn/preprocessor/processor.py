@@ -218,18 +218,18 @@ class DataProcessor:
 
             logging.info("Converting data to standardized form for downstream processing.")
             for i, s in enumerate(tqdm(original_structures, disable=self.disable_tqdm)):
-                d = {}
 
                 charge_density = torch.tensor(s["charge_density"], device=self.device, dtype=torch.float)
 
                 num_virtual_nodes = len(charge_density)
                 # num_half = num_virtual_nodes // 2
                 # random_indices = torch.randperm(num_virtual_nodes)
-                random_indices = torch.range(num_virtual_nodes)
+                random_indices = torch.arange(0, num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
                            range(0, num_virtual_nodes, 200)]
 
                 for sub_indices in indices:
+                    d = {}
                     charge_density_part = charge_density[sub_indices]
 
                     pos_vn = charge_density_part[:, :3]

@@ -21,7 +21,7 @@ task:
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
-  # labels: True
+  labels: True
   # Use amp mixed precision
   use_amp: True
 
