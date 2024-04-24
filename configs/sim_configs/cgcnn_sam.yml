@@ -1,5 +1,5 @@
 simulation_type: NVT
-timstep: 2
+timestep: 2
 temperature: 2000
 calculator_config_path: configs/calculator/config_cgcnn_sam.yml
 total_steps: 1_000_000
