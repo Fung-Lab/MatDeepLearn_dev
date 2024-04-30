@@ -4,7 +4,7 @@ __all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "LRM",
            "CGCNN_Morse_Old", "Morse_Old", "Spline", "CGCNN_Spline", "Spline_New", "Spline_Si",
            "CGCNN_Spline_Si", "Morse_Old_Si", "Spline_New_Si", "Hybrid_CGCNN", "Hybrid_CGCNN_New",
            "Hybrid_TorchMD_ET_Early", "Hybrid_CGCNN_Edge_Readout", "hybrid_torchmd_edge_etEarly",
-           "CGCNN_pre_Morse"]
+           "CGCNN_pre_Morse", "TorchMD_EquivariantScalar"]
 from .base_model import BaseModel
 from .cgcnn import CGCNN
 from .mpnn import MPNN
@@ -27,6 +27,7 @@ from .b_spline_new import Spline_New
 from .b_spline_new_si import Spline_New_Si
 from .hybrid_cgcnn import Hybrid_CGCNN
 from .torchmd_et import TorchMD_ET
+from .torchmd_equivariant_scalar import TorchMD_EquivariantScalar
 from .torchmd_etEarly import TorchMD_ET_Early
 from .hybrid_cgcnn_new import Hybrid_CGCNN_New
 from .hybrid_torchmd_etEarly import Hybrid_TorchMD_ET_Early

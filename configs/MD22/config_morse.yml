@@ -1,8 +1,8 @@
-trainer: property
+trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: pretrain_cgcnn_sio2
+  identifier: morse_md22_clamped_f
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: CGCNN 
+  name: Morse
   # model attributes
   dim1: 100
   dim2: 150
@@ -47,22 +47,23 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
+  clamped_params: ['D', 'sigmas', 'rm']
 ?
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.1
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: ForceStressLoss
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: "ForceLoss"
+    loss_args: {weight_energy: 0.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 32
+  batch_size: 128
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -72,18 +73,18 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
-  name: perturbed_silica_data
-  processed: False
+  name: md22
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/perturbed_silica/raw.json
+  src: data/MD22/raw/raw.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/perturbed_silica/
+  pt_path: data/MD22/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -97,8 +98,8 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
+  # additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
   verbose: True
@@ -115,12 +116,12 @@ dataset:
     preprocess_node_features: True
     cutoff_radius : 8.0
     n_neighbors : 250
-    num_offsets: 2
+    num_offsets: 0
     # dimension of node attributes
     node_dim : 100
     # dimension of edge attributes
     edge_dim : 50
-    self_loop: True
+    self_loop: False
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot    
     all_neighbors: True

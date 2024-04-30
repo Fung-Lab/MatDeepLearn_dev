@@ -2,7 +2,7 @@ trainer: property
 ?
 task:
   run_mode: train
-  identifier: cgcnn_ft_sio2
+  identifier: cgcnn_pt
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-04-20-11-43-09-757-pretrain_cgcnn_sio2/checkpoint_0/best_checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -56,13 +56,13 @@ optim:
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: ForceStressLoss
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: "ForceLoss"
+    loss_args: {weight_energy: 1.0, weight_force: 50.0}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 64
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -72,10 +72,10 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
-  name: silica_data
+  name: pt_data
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
@@ -83,7 +83,7 @@ dataset:
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica_data/
+  pt_path: data/pt_force_data/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -97,8 +97,8 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
+  # additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
   verbose: True
@@ -130,6 +130,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.05
+  val_ratio: 0.001
+  test_ratio: 0.001

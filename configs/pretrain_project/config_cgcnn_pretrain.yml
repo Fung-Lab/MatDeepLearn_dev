@@ -2,7 +2,7 @@ trainer: property
 ?
 task:
   run_mode: train
-  identifier: cgcnn_ft_sio2
+  identifier: pretrain_cgcnn_sio2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-04-20-11-43-09-757-pretrain_cgcnn_sio2/checkpoint_0/best_checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -62,7 +62,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -72,18 +72,18 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
-  name: silica_data
+  name: perturbed_silica_data
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
+  src: data/perturbed_silica/raw.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica_data/
+  pt_path: data/perturbed_silica/
   # Either "node" or "graph"
   prediction_level: graph
   

@@ -13,11 +13,11 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-03-16-20-13-52-662-torchmd_silica_late/checkpoint_0/checkpoint.pt
+  checkpoint_path: results/2024-04-26-17-57-31-910-torchmd_md22_late/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
@@ -52,7 +52,7 @@ model:
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.00005
+  lr: 0.00001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -60,7 +60,7 @@ optim:
     # loss_type: ForceStressLoss
     # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
     loss_type: "ForceLoss"
-    loss_args: {weight_energy: 1.0, weight_force: 50.0}
+    loss_args: {weight_energy: 0.0, weight_force: 1.0}
   clip_grad_norm: 10
          
   batch_size: 8
@@ -69,22 +69,22 @@ optim:
     optimizer_args: {}
   scheduler:
     scheduler_type: ReduceLROnPlateau
-    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.000001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
   batch_tqdm: False
   
 dataset:
-  name: mp22
+  name: md22
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../../../global/cfs/projectdirs/m3641/Shared/Materials_datasets/Silica_data_forces/data.json
+  src: data/MD22/raw/raw.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica_data/
+  pt_path: data/MD22/
   # Either "node" or "graph"
   prediction_level: graph
   
