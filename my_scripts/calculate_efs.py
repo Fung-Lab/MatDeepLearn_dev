@@ -41,8 +41,8 @@ def get_efs_error(folder_name, ratio=(0.01, 50, 50), split='test'):
 
 if __name__ == '__main__':
     #result_path = './results/silica_tests/2024-01-25-13-56-30-293-lj_sio2/train_results'
-    result_path = './results/2024-04-19-22-58-06-113-morse_sio2/train_results'
-    result = get_efs_error(result_path, ratio=(0.01, 50, 50), split='test')
+    result_path = './results/2024-04-29-16-47-11-646-morse_md22_both_ef/train_results'
+    result = get_efs_error(result_path, ratio=(1, 50, 0), split='test')
     
     for key in result.keys():
         print(f"{key}: {result[key]:.6f}")

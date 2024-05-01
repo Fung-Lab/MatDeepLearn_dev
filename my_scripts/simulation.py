@@ -28,12 +28,13 @@ if __name__ == '__main__':
     #         idx = i
 
     # Configurations below
-    calc_str = './configs/calculator/config_torchmd.yml'
+    calc_str = './configs/calculator/config_cgcnn_sam.yml'
     simulation_type = 'NVT'
     num_steps = 8000
     temperature = 2000
+    step_size = 5
     
-    save_to = 'train_outs/torchmd_si.csv'
+    save_to = 'cgcnn_sam_si.csv'
     save = True
     # Configurations above
     
@@ -41,11 +42,11 @@ if __name__ == '__main__':
     
     if save:
         logging.info(f"Saving simulation results to: {save_to}")
-        logging.info(f"Simulation type: {simulation_type}, num_steps: {num_steps}, temperature: {temperature} K")
+        logging.info(f"Simulation type: {simulation_type}, num_steps: {num_steps}, temperature: {temperature} K, step size: {step_size}fs")
 
     original_atoms, optimized_atoms = [], []
     
-    simulator = MDSimulator(simulation_type, 5., temperature=temperature, calculator=calculator)
+    simulator = MDSimulator(simulation_type, step_size, temperature=temperature, calculator=calculator)
     start = time()
     times = []
     startings, lows, highs = [], [], []

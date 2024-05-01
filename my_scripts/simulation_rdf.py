@@ -21,20 +21,20 @@ if __name__ == '__main__':
     # random.seed(42)
     test_pred_csv_path = 'results/2024-04-10-15-17-44-421-torchmd_silica_batch_2/train_results/test_predictions.csv'
     data_pt_path = './data/Silica_data/data.pt'
-    idx = get_test_structures(test_pred_csv_path, data_pt_path)
+    idx = get_test_structures(test_pred_csv_path, data_pt_path)[:5]
     
     # for i, atoms in enumerate(relaxed):
     #     if atoms.structure_id == 'mp-18929':
     #         idx = i
 
     # Configurations below
-    calc_str = './configs/calculator/config_torchmd.yml'
+    calc_str = './configs/calculator/config_cgcnn_pretrained.yml'
     simulation_type = 'NVT'
     num_steps = 8000
     temperature = 2000
     
-    save_to = 'train_outs/torchmd_si.csv'
-    save = True
+    save_to = 'train_outs/cgcnn_pretrained.csv'
+    save = False
     # Configurations above
     
     calculator = MDLCalculator(config=calc_str)
