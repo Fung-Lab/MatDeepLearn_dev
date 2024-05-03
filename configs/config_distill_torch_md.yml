@@ -2,7 +2,7 @@ trainer: distill
 
 task:
   #run_mode: train
-  identifier: torch_md_distill_128_mp2ocp_nv
+  identifier: torch_md_distill_mpfull2mp_16
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,9 +13,9 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-04-09-09-55-24-692-torch_md_distill_128_nv_ocp/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: results/2024-04-28-15-51-02-343-torch_md_distill_6l/checkpoint_0/best_checkpoint.pt
   # E.g. [train, val, test]
-  write_output: [train, val, test]
+  write_output: [train, val]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
@@ -25,7 +25,7 @@ task:
   use_amp: False  
 
 teacher_model:
-  name: torchmd_etEarly
+  name: torchmd_et
   # model attributes
   hidden_channels: 128
   num_layers: 8
@@ -36,6 +36,7 @@ teacher_model:
   num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_add_pool"
+  pool_order: "late"
   aggr: "add"
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
@@ -51,14 +52,14 @@ teacher_model:
   # Train teacher model at the same time
   trainable: False
   # Load teacher model from a checkpoint path.
-  teacher_checkpoint_path: results/torchmd_teacher/checkpoint_0/best_checkpoint.pt
+  teacher_checkpoint_path: results/torchmd_teacher_full/checkpoint_0/best_checkpoint.pt
   # 1 indicates normal behavior, larger numbers indicate the number of models to be used
   model_ensemble: 1
 
 model:
-  name: torchmd_etEarly
+  name: torchmd_et
   # model attributes
-  hidden_channels: 128
+  hidden_channels: 16
   num_layers: 8
   num_rbf: 50
   activation: "silu"
@@ -67,6 +68,7 @@ model:
   num_post_layers: 1
   post_hidden_channels: 64
   pool: "global_add_pool"
+  pool_order: "late"
   aggr: "add"
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
@@ -105,7 +107,7 @@ optim:
     attention_dim: 32
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {"weight_decay": 0.0001}
@@ -118,16 +120,18 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: test_data
+  name: distill_mp_subset
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/OCP20_S2EF_data/train_raw_20K/data.json
-  #src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
+  #src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/OCP20_S2EF_data/train_raw_20K/data.json
+  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
+  #src: data/dataset/data_truncated.json
+  #src: data/dataset/data_phosphorous.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/force_data/
+  pt_path: data/force_data/distill
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -142,7 +146,7 @@ dataset:
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
   #additional_attributes: [forces]
-  additional_attributes: [forces]
+  additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
   verbose: True
