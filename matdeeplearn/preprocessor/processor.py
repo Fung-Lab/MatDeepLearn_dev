@@ -254,7 +254,6 @@ class DataProcessor:
 
                     dict_structures.append(d)
         elif "singlet" in self.root_path or "triplet" in self.root_path:
-            d = {}
             try:
                 # densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                 df = pd.read_csv(self.root_path + "/densities.csv", header=0).to_numpy()
@@ -267,6 +266,7 @@ class DataProcessor:
                            range(0, num_virtual_nodes, 200)]
 
                 for sub_indices in indices:
+                    d = {}
                     pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
                     atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
                     # d["positions_vn"] = vn_coords[indices, :]
