@@ -3,6 +3,7 @@ import subprocess
 import os
 import random
 import shutil
+import yaml
 from tqdm import tqdm
 
 # 运行次数
@@ -40,14 +41,33 @@ def split_files(train_num):
             # elif i < train_len + valid_len + test_len:
             #     shutil.copytree(os.path.join(original_data_folder, dir_name), os.path.join(original_data_folder, "test", dir_name))
 
+def change_sample(file_name):
+    with open("configs/config_torchmd.yml", "r") as file:
+        data = yaml.safe_load(file)
+
+    # Modify value
+    data["dataset"]["src"] = os.path.join(folder, "test", file_name)
+    data["dataset"]["pt_path"] = folder
+    data["task"]["identifier"] = file_name
+
+    # Write updated data back to YAML file
+    with open("configs/config_torchmd.yml", "w") as file:
+        yaml.dump(data, file)
 
 if __name__ == '__main__':
 
-    # 循环执行
-    for i in range(num_runs):
-        split_files(train_nums[i])
+    folder = "../data_qm9_qmc/data_qm9_qmc/"
+    dirs = [d for d in os.listdir(os.path.join(folder, "test")) if os.path.isdir(os.path.join(folder, "test", d))]
 
-        command = "python scripts/main.py --run_mode=train --config_path=configs/config_torchmd.yml"
+    for dir in dirs:
+        change_sample(dir)
+        command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
         subprocess.run(command, shell=True, check=True)
+
+    # for i in range(num_runs):
+    #     split_files(train_nums[i])
+    #
+    #     command = "python scripts/main.py --run_mode=train --config_path=configs/config_torchmd.yml"
+    #     subprocess.run(command, shell=True, check=True)
 
 

@@ -268,9 +268,10 @@ class PropertyTrainer(BaseTrainer):
                     node_ids = torch.index_select(batch.z, 0, virtual_mask).cpu().numpy()
                     # node_ids = batch.z.cpu().numpy()
                     # print(batch.n_atoms.cpu().numpy())
-                    structure_ids = np.repeat(
-                        batch.structure_id, [len(batch.y) // len(batch.structure_id)] * len(batch), axis=0
-                    )
+                    virtual_batch = torch.index_select(batch.batch, 0, virtual_mask).cpu().numpy()
+                    structure_id_np = np.array(batch.structure_id)
+                    structure_ids = structure_id_np[virtual_batch]
+
                 else:
                     node_ids = batch.z.cpu().numpy()
                     structure_ids = np.repeat(

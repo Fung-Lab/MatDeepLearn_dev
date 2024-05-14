@@ -253,7 +253,44 @@ class DataProcessor:
                     # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
 
                     dict_structures.append(d)
+        elif "singlet" in self.root_path or "triplet" in self.root_path:
+            d = {}
+            try:
+                # densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
+                df = pd.read_csv(self.root_path + "/densities.csv", header=0).to_numpy()
+                vn_coords = df[:, 0:3]
+                vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
 
+                num_virtual_nodes = len(vn_labels)
+                random_indices = torch.arange(0, num_virtual_nodes)
+                indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
+                           range(0, num_virtual_nodes, 200)]
+
+                for sub_indices in indices:
+                    pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
+                    atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
+                    # d["positions_vn"] = vn_coords[indices, :]
+                    # d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
+                    d["y"] = vn_labels[sub_indices, :]
+
+                    ase_structure = io.read(self.root_path + "/structure.xsf")
+                    pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
+                    cell = torch.tensor(
+                        np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
+                    ).view(1, 3, 3)
+                    if (np.array(cell) == np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])).all():
+                        cell = torch.zeros((3, 3)).unsqueeze(0)
+                    atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
+
+                    d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                    d["cell"] = cell
+                    d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                    str_root_path_list = str(self.root_path).split("/")
+                    d["structure_id"] = str_root_path_list[-1] if str_root_path_list[-1] else str_root_path_list[-2]
+                    dict_structures.append(d)
+                # print(dir_name, df.shape, pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3], ase_structure)
+            except Exception as e:
+                pass
         else:
             # if isinstance(self.root_path_dict, dict):
             #     self.root_path_dict = self.root_path_dict["train"]
@@ -268,10 +305,16 @@ class DataProcessor:
                         vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
-                        indices = get_sampling_indices(vn_labels, self.num_samples) \
-                            if self.num_samples != -1 else np.arange(len(vn_labels))
-                        np.random.shuffle(indices)
-                        indices = [indices[i: min(i + self.sub_batch, len(indices))] for i in range(0, len(indices), self.sub_batch)]
+                        if "predict" not in self.root_path:
+                            indices = get_sampling_indices(vn_labels, self.num_samples) \
+                                if self.num_samples != -1 else np.arange(len(vn_labels))
+                            np.random.shuffle(indices)
+                            indices = [indices[i: min(i + self.sub_batch, len(indices))] for i in range(0, len(indices), self.sub_batch)]
+                        else:
+                            num_virtual_nodes = len(vn_labels)
+                            random_indices = torch.arange(0, num_virtual_nodes)
+                            indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
+                                       range(0, num_virtual_nodes, 200)]
 
                         for sub_indices in indices:
                             pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
