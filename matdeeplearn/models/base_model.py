@@ -85,6 +85,11 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
 
         return str_representation
 
+    def get_modules(self):
+        print(self.children())
+        print(self._modules())
+        return self._modules().items()
+
     @abstractmethod
     def forward(self):
         """The forward method for the model."""

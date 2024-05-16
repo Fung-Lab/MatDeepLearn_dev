@@ -37,11 +37,11 @@ class Runner:  # submitit.helpers.Checkpointable):
 
             tic = time.perf_counter() # time.perf_counter() / time.process_time()
             tic_ptime = time.process_time()
-
+            
             torch.cuda.reset_peak_memory_stats(device=None)
             self.task.run()
             print(f"gpu used {torch.cuda.max_memory_allocated(device=None) * 1e-9} GB")
-
+            
             toc = time.perf_counter()
             toc_ptime = time.process_time()
             logging.debug(f"Time taken (perf_counter): {toc - tic}")
@@ -60,6 +60,8 @@ class Runner:  # submitit.helpers.Checkpointable):
 
 
 if __name__ == "__main__":
+
+
     # setup_logging()
     # local_rank = os.environ.get('LOCAL_RANK', None)
     # print("Local Rank: ", local_rank)
@@ -82,25 +84,16 @@ if __name__ == "__main__":
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     
-    timestamp = datetime.now().timestamp()
-    timestamp_id = datetime.fromtimestamp(timestamp).strftime(
-        "%Y-%m-%d-%H-%M-%S-%f"
-    )[:-3]    
-    fh = logging.FileHandler('log_'+timestamp_id+'.txt', 'w+')        
-    fh.setLevel(logging.DEBUG)  
-    root_logger.addHandler(fh)  
-            
     sh = logging.StreamHandler(sys.stdout)
     sh.setLevel(logging.DEBUG)                               
     root_logger.addHandler(sh)
-        
+
     parser = flags.get_parser()
     args, override_args = parser.parse_known_args()
     config = build_config(args, override_args)
     # if local_rank == None or int(local_rank) == 0:
     #     config["task"]["log_id"] = timestamp_id
     # else:
-    config["task"]["log_id"] = timestamp_id
     
     if not config["dataset"]["processed"]:
         process_data(config["dataset"])

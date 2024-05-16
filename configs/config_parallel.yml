@@ -3,7 +3,7 @@ trainer: property
 task:
   #run_mode: train
   identifier: my_train_job
-  parallel: True
+  parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
@@ -51,7 +51,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 50
+  max_epochs: 5
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -77,12 +77,12 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /lustre/orion/mat265/scratch/akaashrp/Matbench/data_perovskites.json
+  src: /lustre/orion/mat265/scratch/akaashrp/Materials_datasets/Matbench/data_phonons.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: # /autofs/nccs-svm1_home2/akaashrp/Surface_data_npj/targets.csv
   # Path to save processed data.pt file
-  pt_path: /lustre/orion/mat265/scratch/akaashrp/MatDeepLearn_dev/data/processed/perovskites/
+  pt_path: /lustre/orion/mat265/scratch/akaashrp/MatDeepLearn_dev/data/processed/phonons/
   # Either "node" or "graph" level
   prediction_level: graph
   

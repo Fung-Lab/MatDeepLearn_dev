@@ -48,6 +48,7 @@ class BaseTrainer(ABC):
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
+        # num_segments: int = 1, # gradient checkpointing
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model

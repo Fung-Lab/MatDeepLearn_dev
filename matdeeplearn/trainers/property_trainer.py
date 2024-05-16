@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import distributed as dist
 from torch.cuda.amp import autocast
+import torch.utils.checkpoint as checkpoint
 
 from tqdm import tqdm
 from matdeeplearn.common.data import get_dataloader
@@ -36,6 +37,7 @@ class PropertyTrainer(BaseTrainer):
         save_dir,
         checkpoint_path,
         use_amp,
+        # num_segments,
     ):
         super().__init__(
             model,
@@ -57,6 +59,7 @@ class PropertyTrainer(BaseTrainer):
             save_dir,
             checkpoint_path,          
             use_amp,
+            # num_segments,
         )
 
     def train(self):
@@ -85,7 +88,12 @@ class PropertyTrainer(BaseTrainer):
                 logging.info(
                     f"Running for {end_epoch - start_epoch} epochs on {type(self.model[0]).__name__} model"
                 )
-     
+
+        print("Module list:")
+        print(self.model)
+        # self.model.get_modules()
+        # modules = [module for k, module in self.model._modules.items()]
+
         for epoch in range(start_epoch, end_epoch):            
             epoch_start_time = time.time()
             if self.train_sampler:
@@ -453,6 +461,8 @@ class PropertyTrainer(BaseTrainer):
         return results
 
     def _forward(self, batch_data):
+        # out = checkpoint_sequential(self.model[i], num_segments, batch_data[i])
+
         if len(batch_data) > 1:
             output = []
             for i in range(len(self.model)):
