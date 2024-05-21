@@ -18,6 +18,17 @@ class TorchLossWrapper(nn.Module):
     def forward(self, predictions: torch.Tensor, target: Batch):    
         return self.loss_fn(predictions["output"], target.y)
 
+@registry.register_loss("MaskedTorchLossWrapper")
+class MaskedTorchLossWrapper(nn.Module):
+    def __init__(self, loss_fn="l1_loss", mask = None):
+        super().__init__()
+        self.loss_fn = getattr(F, loss_fn)
+        assert mask != None, "Use TorchLossWrapper if there is no mask" 
+        self.mask = self.mask
+
+    def forward(self, predictions: torch.Tensor, target: Batch):    
+        return self.loss_fn(predictions["output"][self.mask], target.y[self.mask])
+
 
 @registry.register_loss("ForceLoss")
 class ForceLoss(nn.Module):
