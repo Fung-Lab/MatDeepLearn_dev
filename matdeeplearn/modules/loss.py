@@ -27,7 +27,6 @@ class MaskedTorchLossWrapper(nn.Module):
         self.mask = torch.tensor(mask, dtype = torch.bool)
 
     def forward(self, predictions: torch.Tensor, target: Batch):
-        print(target.y[self.mask.repeat(target.batch_size)])
         return self.loss_fn(predictions["output"][self.mask.repeat(target.batch_size)], 
                             target.y[self.mask.repeat(target.batch_size)])
 
