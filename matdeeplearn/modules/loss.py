@@ -24,7 +24,7 @@ class MaskedTorchLossWrapper(nn.Module):
         super().__init__()
         self.loss_fn = getattr(F, loss_fn)
         assert mask != None, "Use TorchLossWrapper if there is no mask" 
-        self.mask = torch.Tensor(mask)
+        self.mask = torch.Tensor(mask, dtype = torch.bool)
 
     def forward(self, predictions: torch.Tensor, target: Batch):    
         return self.loss_fn(predictions["output"][self.mask], target.y[self.mask])
