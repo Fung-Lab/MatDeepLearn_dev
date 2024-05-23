@@ -26,8 +26,10 @@ class MaskedTorchLossWrapper(nn.Module):
         assert mask != None, "Use TorchLossWrapper if there is no mask" 
         self.mask = torch.tensor(mask, dtype = torch.bool)
 
-    def forward(self, predictions: torch.Tensor, target: Batch):    
-        return self.loss_fn(predictions["output"][self.mask], target.y[self.mask])
+    def forward(self, predictions: torch.Tensor, target: Batch):
+        print(target.y[self.mask.repeat(target.batch_size)])
+        return self.loss_fn(predictions["output"][self.mask.repeat(target.batch_size)], 
+                            target.y[self.mask.repeat(target.batch_size)])
 
 
 @registry.register_loss("ForceLoss")
