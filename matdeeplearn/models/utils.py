@@ -8,6 +8,9 @@ from torch_cluster import radius_graph
 from functools import wraps
 import warnings
 import numpy as np
+from mendeleev.fetch import fetch_table
+from matdeeplearn.preprocessor.helpers import GaussianSmearing as Gaussian
+
 from torch_scatter import scatter, segment_coo, segment_csr
 
 
@@ -413,6 +416,54 @@ class NeighborEmbedding(MessagePassing):
         W = self.distance_proj(edge_attr) * C.view(-1, 1)
 
         x_neighbors = self.embedding(z)
+        # propagate_type: (x: Tensor, W: Tensor)
+        x_neighbors = self.propagate(edge_index, x=x_neighbors, W=W, size=None)
+        x_neighbors = self.combine(torch.cat([x, x_neighbors], dim=1))
+        return x_neighbors
+
+    def message(self, x_j, W):
+        return x_j * W
+
+
+class NeighborEmbeddingGaussian(MessagePassing):
+    def __init__(self, hidden_channels, num_rbf, cutoff_lower, cutoff_upper):
+        super(NeighborEmbeddingGaussian, self).__init__(aggr="add")
+        atom_data = fetch_table('elements')
+        self.mend_nums = torch.tensor(list(atom_data['mendeleev_number']))
+        self.mend_nums = self.mend_nums - min(self.mend_nums)
+        self.z_layer = nn.Linear(118, hidden_channels)        
+        self.distance_proj = nn.Linear(num_rbf, hidden_channels)
+        self.combine = nn.Linear(hidden_channels * 2, hidden_channels)
+        self.cutoff = CosineCutoff(cutoff_lower, cutoff_upper)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.z_layer.bias.data.fill_(0)
+        nn.init.xavier_uniform_(self.distance_proj.weight)
+        nn.init.xavier_uniform_(self.combine.weight)
+        self.distance_proj.bias.data.fill_(0)
+        self.combine.bias.data.fill_(0)
+
+    def forward(self, z, x, edge_index, edge_weight, edge_attr):
+        # remove self loops
+        mask = edge_index[0] != edge_index[1]
+        if not mask.all():
+            edge_index = edge_index[:, mask]
+            edge_weight = edge_weight[mask]
+            edge_attr = edge_attr[mask]
+
+        C = self.cutoff(edge_weight)
+        W = self.distance_proj(edge_attr) * C.view(-1, 1)
+        
+        temp = z - 1
+        self.mend_nums = self.mend_nums.to(z.device)
+        mend_nums_for_z = self.mend_nums[temp]
+        gauss = Gaussian(0, 117, 118, .01, device=z.device)
+        x_neighbors = gauss(mend_nums_for_z)
+        x_neighbors = x_neighbors[:, self.mend_nums]
+        x_neighbors = self.z_layer(x_neighbors)
+
         # propagate_type: (x: Tensor, W: Tensor)
         x_neighbors = self.propagate(edge_index, x=x_neighbors, W=W, size=None)
         x_neighbors = self.combine(torch.cat([x, x_neighbors], dim=1))

@@ -5,8 +5,10 @@ from torch import Tensor, nn
 import torch_geometric.nn
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import scatter
+from mendeleev.fetch import fetch_table
 from matdeeplearn.models.utils import (
     NeighborEmbedding,
+    NeighborEmbeddingGaussian,
     CosineCutoff,
     Distance,
     rbf_class_mapping,
@@ -15,7 +17,7 @@ from matdeeplearn.models.utils import (
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.models.torchmd_output_modules import Scalar, EquivariantScalar
 from matdeeplearn.common.registry import registry
-from matdeeplearn.preprocessor.helpers import node_rep_one_hot
+from matdeeplearn.preprocessor.helpers import node_rep_one_hot, GaussianSmearing
 @registry.register_model("torchmd_et")
 
 
@@ -71,6 +73,7 @@ class TorchMD_ET(BaseModel):
         activation="silu",
         attn_activation="silu",
         neighbor_embedding=True,
+        gaussian_z_embedding=False,
         num_heads=8,
         distance_influence="both",
         max_z=100,
@@ -106,6 +109,7 @@ class TorchMD_ET(BaseModel):
         self.activation = activation
         self.attn_activation = attn_activation
         self.neighbor_embedding = neighbor_embedding
+        self.gaussian_z_embedding = gaussian_z_embedding
         self.num_heads = num_heads
         self.distance_influence = distance_influence
         self.max_z = max_z
@@ -117,7 +121,13 @@ class TorchMD_ET(BaseModel):
 
         act_class = act_class_mapping[activation]
 
-        self.embedding = nn.Embedding(self.max_z, hidden_channels)
+        if self.gaussian_z_embedding == True:
+            atom_data = fetch_table('elements')
+            self.mend_nums = torch.tensor(list(atom_data['mendeleev_number']))
+            self.mend_nums = self.mend_nums - min(self.mend_nums)
+            self.z_layer = nn.Linear(118, hidden_channels)
+        else:
+            self.embedding = nn.Embedding(self.max_z, hidden_channels)
 
         self.distance = Distance(
             cutoff_lower,
@@ -129,13 +139,21 @@ class TorchMD_ET(BaseModel):
         self.distance_expansion = rbf_class_mapping[rbf_type](
             cutoff_lower, self.cutoff_radius, num_rbf, trainable_rbf
         )
-        self.neighbor_embedding = (
-            NeighborEmbedding(
-                hidden_channels, num_rbf, cutoff_lower, self.cutoff_radius, self.max_z
-            ).jittable()
-            if neighbor_embedding
-            else None
-        )
+        if self.gaussian_z_embedding:
+            self.neighbor_embedding = self.neighbor_embedding = (
+                NeighborEmbeddingGaussian(
+                    hidden_channels, num_rbf, cutoff_lower, self.cutoff_radius).jittable()
+                if neighbor_embedding
+                else None
+            )
+        else:
+            self.neighbor_embedding = (
+                NeighborEmbedding(
+                    hidden_channels, num_rbf, cutoff_lower, self.cutoff_radius, self.max_z
+                ).jittable()
+                if neighbor_embedding
+                else None
+            )
 
         self.attention_layers = nn.ModuleList()
         for _ in range(num_layers):
@@ -167,18 +185,35 @@ class TorchMD_ET(BaseModel):
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.embedding.reset_parameters()
+        if not self.gaussian_z_embedding:
+            self.embedding.reset_parameters()
         self.distance_expansion.reset_parameters()
         if self.neighbor_embedding is not None:
             self.neighbor_embedding.reset_parameters()
         for attn in self.attention_layers:
             attn.reset_parameters()
         self.out_norm.reset_parameters()
+
+        # for p in self.parameters():
+        #     if p.dim() > 1:
+        #         nn.init.xavier_uniform_(p)
         
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
+        x = None
+        if self.gaussian_z_embedding:
+            temp = data.z - 1
+            if self.mend_nums.device != data.z.device:
+                self.mend_nums = self.mend_nums.to(data.z.device)
+            mend_nums_for_z = self.mend_nums[temp]
+            gauss = GaussianSmearing(0, 117, 118, .01, device=data.z.device)
+            x = gauss(mend_nums_for_z)
+            x = x[:, self.mend_nums]
+            x = self.z_layer(x)
+            del gauss
 
-        x = self.embedding(data.z)
+        else:
+            x = self.embedding(data.z)
 
         #edge_index, edge_weight, edge_vec = self.distance(data.pos, data.batch)
         #assert (
@@ -193,11 +228,14 @@ class TorchMD_ET(BaseModel):
         #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
         data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
         
-        if self.otf_node_attr == True:
-            data.x = node_rep_one_hot(data.z).float()          
+        if self.otf_node_attr == True and not self.gaussian_z_embedding:
+            data.x = node_rep_one_hot(data.z).float()
+        elif self.otf_node_attr:
+            data.x = x.clone()    
         
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
+
 
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
@@ -206,10 +244,12 @@ class TorchMD_ET(BaseModel):
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
+        x_embed = None
         
         if self.prediction_level == "graph":
+            x_embed = getattr(torch_geometric.nn, self.pool)(x, data.batch)
             if self.pool_order == 'early':
-                x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+                x = x_embed
             for i in range(0, len(self.post_lin_list) - 1):
                 x = self.post_lin_list[i](x)
                 x = getattr(F, self.activation)(x)
@@ -224,15 +264,16 @@ class TorchMD_ET(BaseModel):
                 x = getattr(F, self.activation)(x)
             x = self.post_lin_list[-1](x) 
                     
-        return x
+        return x, x_embed
         
     def forward(self, data):
     
         output = {}
-        out = self._forward(data)
+        out, embedding = self._forward(data)
         output["output"] =  out
+        output["embedding"] =  embedding
 
-        if self.gradient == True and out.requires_grad == True:         
+        if self.gradient == True and out.requires_grad == True:       
             volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
             grad = torch.autograd.grad(
                     out,
@@ -262,6 +303,7 @@ class TorchMD_ET(BaseModel):
             f"activation={self.activation}, "
             f"attn_activation={self.attn_activation}, "
             f"neighbor_embedding={self.neighbor_embedding}, "
+            f"gaussian_z_embedding={self.gaussian_z_embedding}, "
             f"num_heads={self.num_heads}, "
             f"distance_influence={self.distance_influence}, "
             f"cutoff_lower={self.cutoff_lower}, "
