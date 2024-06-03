@@ -48,7 +48,9 @@ class BaseTrainer(ABC):
         save_dir: str = None,
         checkpoint_path: str = None,
         use_amp: bool = False,
-        # num_segments: int = 1, # gradient checkpointing
+        # gradient_checkpointing: bool = False,
+        # use_reentrant: bool = False,
+        # preserve_rng_state: bool = False,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
@@ -81,6 +83,10 @@ class BaseTrainer(ABC):
 
         if self.use_amp:
             logging.info("Using PyTorch automatic mixed-precision")
+
+        # self.gradient_checkpointing = gradient_checkpointing
+        # self.use_reentrant = use_reentrant
+        # self.preserve_rng_state = preserve_rng_state
 
         self.scaler = GradScaler(enabled=self.use_amp and self.device.type == "cuda")
 
@@ -193,6 +199,10 @@ class BaseTrainer(ABC):
         save_dir = config["task"].get("save_dir", None)
         checkpoint_path = config["task"].get("checkpoint_path", None)
 
+        # gradient_checkpointing = config["model"]["gc"]["gradient_checkpointing"]
+        # use_reentrant = config["model"]["gc"]["use_reentrant"]
+        # preserve_rng_state = config["model"]["gc"]["preserve_rng_state"]
+
         if world_size > 1:
             dist.barrier()
             
@@ -216,6 +226,9 @@ class BaseTrainer(ABC):
             save_dir=save_dir,
             checkpoint_path=checkpoint_path,
             use_amp=config["task"].get("use_amp", False),
+            # gradient_checkpointing=gradient_checkpointing,
+            # use_reentrant=use_reentrant,
+            # preserve_rng_state=preserve_rng_state,
         )
 
     @staticmethod
@@ -347,7 +360,7 @@ class BaseTrainer(ABC):
                     graph_method=graph_config["edge_calc_method"], 
                     num_offsets=graph_config["num_offsets"], 
                     **model_config
-                    )
+                )
             model = model.to(rank)
             
             # model = torch_geometric.compile(model)

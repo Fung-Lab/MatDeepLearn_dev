@@ -174,7 +174,12 @@ class TorchMD_ET(BaseModel):
         for attn in self.attention_layers:
             attn.reset_parameters()
         self.out_norm.reset_parameters()
-        
+    
+    def run_function(self, module):
+        def custom_forward(*inputs):
+            return module(*inputs)
+        return custom_forward
+
     @conditional_grad(torch.enable_grad())
     def _forward(self, data):
 
@@ -202,27 +207,52 @@ class TorchMD_ET(BaseModel):
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
-            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec, (self.gradient_checkpointing, self.preserve_rng_state, self.use_reentrant)) # gradient checkpointing in EMHA forward
             x = x + dx
             vec = vec + dvec
-        x = self.out_norm(x)
+        if self.gradient_checkpointing:
+            x = torch.utils.checkpoint.checkpoint(self.run_function(self.out_norm), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+        else:
+            x = self.out_norm(x)
         
         if self.prediction_level == "graph":
             if self.pool_order == 'early':
-                x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+                if self.gradient_checkpointing:
+                    x = torch.utils.checkpoint.checkpoint(self.run_function(getattr(torch_geometric.nn, self.pool)), x, data.batch, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                else:
+                    x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+            
             for i in range(0, len(self.post_lin_list) - 1):
-                x = self.post_lin_list[i](x)
-                x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x)
+                if self.gradient_checkpointing:
+                    x = torch.utils.checkpoint.checkpoint(self.run_function(self.post_lin_list[i]), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                    x = torch.utils.checkpoint.checkpoint(self.run_function(getattr(F, self.activation)), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                else:
+                    x = self.post_lin_list[i](x)
+                    x = getattr(F, self.activation)(x)
+            if self.gradient_checkpointing:
+                x = torch.utils.checkpoint.checkpoint(self.run_function(self.post_lin_list[-1]), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+            else:
+                x = self.post_lin_list[-1](x)
+            
             if self.pool_order == 'late':
-                x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+                if self.gradient_checkpointing:
+                    x = torch.utils.checkpoint.checkpoint(self.run_function(getattr(torch_geometric.nn, self.pool)), x, data.batch, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                else:
+                    x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
             #x = self.pool.pre_reduce(x, vec, data.z, data.pos, data.batch)
             #x = self.pool.reduce(x, data.batch)
         elif self.prediction_level == "node":
             for i in range(0, len(self.post_lin_list) - 1):
-                x = self.post_lin_list[i](x)
-                x = getattr(F, self.activation)(x)
-            x = self.post_lin_list[-1](x) 
+                if self.gradient_checkpointing:
+                    x = torch.utils.checkpoint.checkpoint(self.run_function(self.post_lin_list[i]), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                    x = torch.utils.checkpoint.checkpoint(self.run_function(getattr(F, self.activation)), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                else:
+                    x = self.post_lin_list[i](x)
+                    x = getattr(F, self.activation)(x)
+            if self.gradient_checkpointing:
+                x = torch.utils.checkpoint.checkpoint(self.run_function(self.post_lin_list[-1]), x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+            else:
+                x = self.post_lin_list[-1](x)
                     
         return x
         
@@ -337,8 +367,17 @@ class EquivariantMultiHeadAttention(MessagePassing):
             nn.init.xavier_uniform_(self.dv_proj.weight)
             self.dv_proj.bias.data.fill_(0)
 
-    def forward(self, x, vec, edge_index, r_ij, f_ij, d_ij):
-        x = self.layernorm(x)
+    def run_function(self, module):
+        def custom_forward(*inputs):
+            return module(*inputs)
+        return custom_forward
+
+    def forward(self, x, vec, edge_index, r_ij, f_ij, d_ij, gc_info):
+        if gc_info[0]:
+            x = torch.utils.checkpoint.checkpoint(self.run_function(self.layernorm), x, preserve_rng_state=gc_info[1], use_reentrant=gc_info[2])
+        else:
+            x = self.layernorm(x)
+        
         q = self.q_proj(x).reshape(-1, self.num_heads, self.head_dim)
         k = self.k_proj(x).reshape(-1, self.num_heads, self.head_dim)
         v = self.v_proj(x).reshape(-1, self.num_heads, self.head_dim * 3)
@@ -347,17 +386,28 @@ class EquivariantMultiHeadAttention(MessagePassing):
         vec = vec.reshape(-1, 3, self.num_heads, self.head_dim)
         vec_dot = (vec1 * vec2).sum(dim=1)
 
-        dk = (
-            self.act(self.dk_proj(f_ij)).reshape(-1, self.num_heads, self.head_dim)
-            if self.dk_proj is not None
-            else None
-        )
-        dv = (
-            self.act(self.dv_proj(f_ij)).reshape(-1, self.num_heads, self.head_dim * 3)
-            if self.dv_proj is not None
-            else None
-        )
-        
+        if gc_info[0]:
+            dk = (
+                torch.utils.checkpoint.checkpoint(self.run_function(self.act), self.dk_proj(f_ij), preserve_rng_state=gc_info[1], use_reentrant=gc_info[2]).reshape(-1, self.num_heads, self.head_dim)
+                if self.dk_proj is not None
+                else None
+            )
+            dv = (
+                torch.utils.checkpoint.checkpoint(self.run_function(self.act), self.dv_proj(f_ij), preserve_rng_state=gc_info[1], use_reentrant=gc_info[2]).reshape(-1, self.num_heads, self.head_dim * 3)
+                if self.dv_proj is not None
+                else None
+            )
+        else:
+            dk = (
+                self.act(self.dk_proj(f_ij)).reshape(-1, self.num_heads, self.head_dim)
+                if self.dk_proj is not None
+                else None
+            )
+            dv = (
+                self.act(self.dv_proj(f_ij)).reshape(-1, self.num_heads, self.head_dim * 3)
+                if self.dv_proj is not None
+                else None
+            )
 
         # propagate_type: (q: Tensor, k: Tensor, v: Tensor, vec: Tensor, dk: Tensor, dv: Tensor, r_ij: Tensor, d_ij: Tensor)
         x, vec = self.propagate(

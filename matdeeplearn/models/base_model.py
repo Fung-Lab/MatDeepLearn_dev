@@ -30,8 +30,11 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         gradient=False,
         cutoff_radius=8,
         n_neighbors=None,
-        edge_dim=50,        
-        num_offsets=1,        
+        edge_dim=50,
+        num_offsets=1,
+        gradient_checkpointing=False,
+        use_reentrant=False,
+        preserve_rng_state=False,        
         **kwargs
         ) -> None:
         super(BaseModel, self).__init__()
@@ -46,6 +49,9 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         self.edge_dim = edge_dim
         self.graph_method = graph_method
         self.num_offsets = num_offsets
+        self.gradient_checkpointing = gradient_checkpointing
+        self.use_reentrant = use_reentrant
+        self.preserve_rng_state = preserve_rng_state
         
     @property
     @abstractmethod
@@ -84,11 +90,6 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         )
 
         return str_representation
-
-    def get_modules(self):
-        print(self.children())
-        print(self._modules())
-        return self._modules().items()
 
     @abstractmethod
     def forward(self):

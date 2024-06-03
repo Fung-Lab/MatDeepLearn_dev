@@ -1,3 +1,5 @@
+# TODO: make sure that parameters are same for both checkpointed and non-checkpointed runs
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -16,6 +18,8 @@ from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
+
+import logging
 
 @registry.register_model("CGCNN")
 class CGCNN(BaseModel):
@@ -106,9 +110,14 @@ class CGCNN(BaseModel):
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
             if self.batch_norm:
-                bn = BatchNorm1d(
-                    self.gc_dim, track_running_stats=self.batch_track_stats
-                )
+                if self.gradient_checkpointing:
+                    bn = BatchNorm1d(
+                        self.gc_dim, track_running_stats=self.batch_track_stats
+                    )
+                else:
+                    bn = BatchNorm1d(
+                        self.gc_dim, track_running_stats=self.batch_track_stats
+                    )
                 bn_list.append(bn)
 
         return conv_list, bn_list
@@ -139,9 +148,30 @@ class CGCNN(BaseModel):
 
         return post_lin_list, lin_out
 
+    # Pre-GNN dense layers
+    def pre_run_function(self, module):
+        def custom_forward(*inputs):
+            out = module(*inputs)
+            out = getattr(F, self.act)(out)
+            return out
+        return custom_forward
+
+    # GNN layers
+    def run_function(self, module):
+        def custom_forward(*inputs):
+            return module(*inputs)
+        return custom_forward
+
+    # Post-GNN dense layers
+    def post_run_function(self, module):
+        def custom_forward(*inputs):
+            out = module(*inputs)
+            out = getattr(F, self.act)(out)
+            return out
+        return custom_forward
+
     @conditional_grad(torch.enable_grad())
-    def _forward(self, data):
-        
+    def _forward(self, data):    
         if self.otf_edge_index == True:
             #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
             data.edge_index, data.edge_weight, _, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
@@ -159,36 +189,56 @@ class CGCNN(BaseModel):
             
         # Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
-            if i == 0:
-                out = self.pre_lin_list[i](data.x)
-                out = getattr(F, self.act)(out)
+            if self.gradient_checkpointing:
+                if i == 0:
+                    out = torch.utils.checkpoint.checkpoint(self.pre_run_function(self.pre_lin_list[i]), data.x, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                else:
+                    out = torch.utils.checkpoint.checkpoint(self.pre_run_function(self.pre_lin_list[i]), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
             else:
-                out = self.pre_lin_list[i](out)
-                out = getattr(F, self.act)(out)
+                if i == 0:
+                    out = self.pre_lin_list[i](data.x)
+                    out = getattr(F, self.act)(out)
+                else:
+                    out = self.pre_lin_list[i](out)
+                    out = getattr(F, self.act)(out)
 
         # GNN layers
         for i in range(0, len(self.conv_list)):
-            if len(self.pre_lin_list) == 0 and i == 0:
-                if self.batch_norm:
-                    out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr
-                    )
-                    out = self.bn_list[i](out)
+            if self.gradient_checkpointing:
+                if len(self.pre_lin_list) == 0 and i == 0:
+                    if self.batch_norm:
+                        out = torch.utils.checkpoint.checkpoint(self.run_function(self.conv_list[i]), data.x, data.edge_index, data.edge_attr, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                        out = torch.utils.checkpoint.checkpoint(self.bn_list[i], out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                    else:
+                        out = torch.utils.checkpoint.checkpoint(self.run_function(self.conv_list[i]), data.x, data.edge_index, data.edge_attr, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
                 else:
-                    out = self.conv_list[i](
-                        data.x, data.edge_index, data.edge_attr
-                    )
+                    if self.batch_norm:  
+                        out = torch.utils.checkpoint.checkpoint(self.run_function(self.conv_list[i]), out, data.edge_index, data.edge_attr, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                        out = torch.utils.checkpoint.checkpoint(self.bn_list[i], out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                    else:
+                        out = torch.utils.checkpoint.checkpoint(self.run_function(self.conv_list[i]), out, data.edge_index, data.edge_attr, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
             else:
-                if self.batch_norm:  
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr
-                    )
-                    out = self.bn_list[i](out)
+                if len(self.pre_lin_list) == 0 and i == 0:
+                    if self.batch_norm:
+                        out = self.conv_list[i](
+                            data.x, data.edge_index, data.edge_attr
+                        )
+                        out = self.bn_list[i](out)
+                    else:
+                        out = self.conv_list[i](
+                            data.x, data.edge_index, data.edge_attr
+                        )
                 else:
-                    out = self.conv_list[i](
-                        out, data.edge_index, data.edge_attr
-                    )
-                    # out = getattr(F, self.act)(out)
+                    if self.batch_norm:  
+                        out = self.conv_list[i](
+                            out, data.edge_index, data.edge_attr
+                        )
+                        out = self.bn_list[i](out)
+                    else:
+                        out = self.conv_list[i](
+                            out, data.edge_index, data.edge_attr
+                        )
+                        # out = getattr(F, self.act)(out)
             out = F.dropout(out, p=self.dropout_rate, training=self.training)
 
         # Post-GNN dense layers
@@ -199,26 +249,35 @@ class CGCNN(BaseModel):
                 else:
                     out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
                 for i in range(0, len(self.post_lin_list)):
-                    out = self.post_lin_list[i](out)
-                    out = getattr(F, self.act)(out)
-                out = self.lin_out(out)
+                    if self.gradient_checkpointing:
+                        out = torch.utils.checkpoint.checkpoint(self.post_run_function(self.post_lin_list[i]), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                    else:
+                        out = self.post_lin_list[i](out)
+                        out = getattr(F, self.act)(out)
+                out = torch.utils.checkpoint.checkpoint(self.run_function(self.lin_out), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
     
             elif self.pool_order == "late":
                 for i in range(0, len(self.post_lin_list)):
-                    out = self.post_lin_list[i](out)
-                    out = getattr(F, self.act)(out)
-                out = self.lin_out(out)
+                    if self.gradient_checkpointing:
+                        out = torch.utils.checkpoint.checkpoint(self.post_run_function(self.post_lin_list[i]), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                    else:
+                        out = self.post_lin_list[i](out)
+                        out = getattr(F, self.act)(out)
+                out = torch.utils.checkpoint.checkpoint(self.run_function(self.lin_out), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
                 if self.pool == "set2set":
                     out = self.set2set(out, data.batch)
-                    out = self.lin_out_2(out)
+                    out = torch.utils.checkpoint.checkpoint(self.run_function(self.lin_out_2), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
                 else:
                     out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
                     
         elif self.prediction_level == "node":
             for i in range(0, len(self.post_lin_list)):
-                out = self.post_lin_list[i](out)
-                out = getattr(F, self.act)(out)
-            out = self.lin_out(out)                
+                if self.gradient_checkpointing:
+                    out = torch.utils.checkpoint.checkpoint(self.post_run_function(self.post_lin_list[i]), out, preserve_rng_state=self.preserve_rng_state, use_reentrant=self.use_reentrant)
+                else:
+                    out = self.post_lin_list[i](out)
+                    out = getattr(F, self.act)(out)
+            out = self.lin_out(out) # gc here?             
                      
         return out   
         

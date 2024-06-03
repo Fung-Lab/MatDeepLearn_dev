@@ -37,7 +37,9 @@ class PropertyTrainer(BaseTrainer):
         save_dir,
         checkpoint_path,
         use_amp,
-        # num_segments,
+        # gradient_checkpointing,
+        # use_reentrant,
+        # preserve_rng_state,
     ):
         super().__init__(
             model,
@@ -59,7 +61,9 @@ class PropertyTrainer(BaseTrainer):
             save_dir,
             checkpoint_path,          
             use_amp,
-            # num_segments,
+            # gradient_checkpointing,
+            # use_reentrant,
+            # preserve_rng_state,
         )
 
     def train(self):
@@ -89,10 +93,8 @@ class PropertyTrainer(BaseTrainer):
                     f"Running for {end_epoch - start_epoch} epochs on {type(self.model[0]).__name__} model"
                 )
 
-        print("Module list:")
-        print(self.model)
-        # self.model.get_modules()
-        # modules = [module for k, module in self.model._modules.items()]
+        # print("Module list:")
+        # print(self.model)
 
         for epoch in range(start_epoch, end_epoch):            
             epoch_start_time = time.time()
@@ -461,8 +463,6 @@ class PropertyTrainer(BaseTrainer):
         return results
 
     def _forward(self, batch_data):
-        # out = checkpoint_sequential(self.model[i], num_segments, batch_data[i])
-
         if len(batch_data) > 1:
             output = []
             for i in range(len(self.model)):
