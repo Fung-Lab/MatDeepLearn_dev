@@ -47,7 +47,7 @@ def change_sample(file_name):
 
     # Modify value
     data["dataset"]["src"] = os.path.join(folder, "test", file_name)
-    data["dataset"]["pt_path"] = folder
+    data["dataset"]["pt_path"] = os.path.join(folder, "test", file_name)
     data["task"]["identifier"] = file_name
 
     # Write updated data back to YAML file
@@ -59,8 +59,8 @@ if __name__ == '__main__':
     folder = "../data_qm9_qmc/data_qm9_qmc/"
     dirs = [d for d in os.listdir(os.path.join(folder, "test")) if os.path.isdir(os.path.join(folder, "test", d))]
 
-    for dir in dirs:
-        change_sample(dir)
+    for dr in dirs:
+        change_sample(dr)
         command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
         subprocess.run(command, shell=True, check=True)
 

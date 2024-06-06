@@ -298,7 +298,6 @@ class DataProcessor:
             dirs = [d for d in os.listdir(self.root_path) if os.path.isdir(os.path.join(self.root_path, d))]
             for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
                 if "singlet" in dir_name:
-                    d = {}
                     try:
                         #densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                         df = pd.read_csv(self.root_path+dir_name+"/densities.csv", header=0).to_numpy()
@@ -306,18 +305,13 @@ class DataProcessor:
                         vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
-                        if "predict" not in self.root_path:
-                            indices = get_sampling_indices(vn_labels, self.num_samples) \
-                                if self.num_samples != -1 else np.arange(len(vn_labels))
-                            np.random.shuffle(indices)
-                            indices = [indices[i: min(i + self.sub_batch, len(indices))] for i in range(0, len(indices), self.sub_batch)]
-                        else:
-                            num_virtual_nodes = len(vn_labels)
-                            random_indices = torch.arange(0, num_virtual_nodes)
-                            indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
-                                       range(0, num_virtual_nodes, 200)]
+                        indices = get_sampling_indices(vn_labels, self.num_samples) \
+                            if self.num_samples != -1 else np.arange(len(vn_labels))
+                        np.random.shuffle(indices)
+                        indices = [indices[i: min(i + self.sub_batch, len(indices))] for i in range(0, len(indices), self.sub_batch)]
 
                         for sub_indices in indices:
+                            d = {}
                             pos_vn = torch.tensor(vn_coords[sub_indices, :], device=self.device, dtype=torch.float)
                             atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
                             #d["positions_vn"] = vn_coords[indices, :]
