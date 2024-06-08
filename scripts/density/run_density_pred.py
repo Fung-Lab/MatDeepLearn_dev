@@ -48,7 +48,7 @@ def change_sample(file_name):
     # Modify value
     data["dataset"]["src"] = os.path.join(folder, "test", file_name)
     data["dataset"]["pt_path"] = os.path.join(folder, "test", file_name)
-    data["task"]["identifier"] = file_name
+    data["task"]["identifier"] = file_name + "_hs"
 
     # Write updated data back to YAML file
     with open("configs/config_torchmd.yml", "w") as file:
