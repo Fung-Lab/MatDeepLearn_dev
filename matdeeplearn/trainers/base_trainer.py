@@ -24,6 +24,13 @@ from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
 
+from torch.distributed.fsdp import (
+   FullyShardedDataParallel,
+   CPUOffload,
+)
+# from torch.distributed.fsdp.wrap import (
+#    default_auto_wrap_policy,
+# )
 
 @registry.register_trainer("base")
 class BaseTrainer(ABC):
@@ -371,6 +378,11 @@ class BaseTrainer(ABC):
             if world_size > 1:
                 model = DistributedDataParallel(
                     model, device_ids=[rank], find_unused_parameters=False
+                )
+                model = FullyShardedDataParallel(
+                    model,
+                    auto_wrap_policy=None,
+                    cpu_offload=CPUOffload(offload_params=True),
                 )
 
             model_list.append(model)
