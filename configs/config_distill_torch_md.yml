@@ -2,7 +2,7 @@ trainer: distill
 
 task:
   #run_mode: train
-  identifier: torch_md_distill_mpfull2mp_16
+  identifier: torch_md_subset_late_16
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,9 +13,9 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-04-28-15-51-02-343-torch_md_distill_6l/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: results/2024-06-11-09-00-26-412-torch_md_mpull2P_16/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
-  write_output: [train, val]
+  write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
@@ -52,7 +52,7 @@ teacher_model:
   # Train teacher model at the same time
   trainable: False
   # Load teacher model from a checkpoint path.
-  teacher_checkpoint_path: results/torchmd_teacher_full/checkpoint_0/best_checkpoint.pt
+  teacher_checkpoint_path: results/2024-06-07-20-01-20-943-late_P_128/checkpoint_0/best_checkpoint.pt
   # 1 indicates normal behavior, larger numbers indicate the number of models to be used
   model_ensemble: 1
 
@@ -89,7 +89,7 @@ model:
 optim:
   max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.001
+  lr: 0.0001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -102,12 +102,12 @@ optim:
     weight_energy: 0.01
     weight_force: 50.0
     weight_stress: 50.0
-    weight_distillation: 1.0
+    weight_distillation: 5.0
     attention_weight: False
     attention_dim: 32
   clip_grad_norm: 10
          
-  batch_size: 16
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {"weight_decay": 0.0001}
@@ -120,13 +120,13 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: distill_mp_subset
+  name: distill_p
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   #src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/OCP20_S2EF_data/train_raw_20K/data.json
-  src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
+  #src: /global/cfs/projectdirs/m3641/Shared/Materials_datasets/MP_data_forces/raw/data_subset.json
   #src: data/dataset/data_truncated.json
-  #src: data/dataset/data_phosphorous.json
+  src: data/dataset/data_phosphorous.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 

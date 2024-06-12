@@ -1,5 +1,6 @@
 import logging
 import time
+import os
 
 import numpy as np
 import torch
@@ -414,6 +415,64 @@ class PropertyTrainer(BaseTrainer):
         torch.cuda.empty_cache()
         
         return predictions
+    
+    @torch.no_grad()
+    def save_features(self, loader, split, results_dir="feature_results", write_output=True):        
+        for mod in self.model:
+            mod.eval()
+        
+        if str(self.rank) not in ("cpu", "cuda"):
+            loader = get_dataloader(
+                loader.dataset, batch_size=loader.batch_size, sampler=None
+            )
+
+        loader_iter = iter(loader)        
+        all_pooled_output = []
+        all_pooled_vec = []
+        all_energy = []
+        #all_force = []
+        all_ids = []
+
+        for i in range(len(loader_iter)):
+            batch = next(loader_iter).to(self.rank)
+            out = self.model[0].extract_last_layer_feature(batch)
+            
+            x_pooled = out["pooled_output"].cpu().numpy()
+            vec_pooled = out["pooled_vec"].cpu().numpy()
+            
+            energy = batch.y.cpu().numpy()
+            #force = batch.forces.cpu().numpy()
+            ids = np.array(batch.structure_id)
+            
+            all_pooled_output.append(x_pooled)
+            all_pooled_vec.append(vec_pooled)
+            all_energy.append(energy)
+            
+            #all_force.append(force)
+            all_ids.append(ids)
+        
+        all_pooled_output = np.concatenate(all_pooled_output, axis=0)
+        all_pooled_vec = np.concatenate(all_pooled_vec, axis=0)
+        all_energy = np.concatenate(all_energy, axis=0)
+        #all_force = np.concatenate(all_force, axis=0)
+        all_ids = np.concatenate(all_ids, axis=0)
+        
+        if write_output:
+        # 确保目录存在
+            if not os.path.exists(results_dir):
+                os.makedirs(results_dir)
+            
+            output_data = np.column_stack((all_ids, all_pooled_output, all_pooled_vec, all_energy)).astype(str)
+            output_file = os.path.join(results_dir, f"{split}_features.csv")
+            np.savetxt(output_file, output_data, delimiter=",", header="ID,Pooled_Output,Pooled_Vec,Energy", comments='', fmt='%s')
+            print(f"Features saved to {output_file}")
+                
+        return {
+            "pooled_output": all_pooled_output,
+            "pooled_vec": all_pooled_vec,
+            "energy": all_energy,
+            "ids": all_ids
+        }
         
     def predict_by_calculator(self, loader):        
         for x, mod in self.model:

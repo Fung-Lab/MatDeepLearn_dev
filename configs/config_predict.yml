@@ -1,0 +1,85 @@
+task:
+  run_mode: predict
+  identifier: torch_md_predict
+  parallel: False
+  seed: 12345678
+  save_dir: 
+  continue_job: True
+  load_training_state: True
+  checkpoint_path: results/torchmd_teacher/checkpoint_0/best_checkpoint.pt
+  write_output: [predict]
+  output_frequency: 0
+  model_save_frequency: -1
+  labels: True
+  use_amp: True  
+
+model:
+  name: torchmd_et
+  hidden_channels: 128
+  num_layers: 8
+  num_rbf: 50
+  activation: "silu"
+  attn_activation: "silu"
+  num_heads: 8
+  num_post_layers: 1
+  post_hidden_channels: 64
+  pool: "global_add_pool"
+  aggr: "add"
+  dropout_rate: 0.0
+  otf_edge_index: True 
+  otf_edge_attr: True  
+  otf_node_attr: False
+  gradient: True
+  model_ensemble: 1
+
+optim:
+  max_epochs: 400
+  max_checkpoint_epochs: 0
+  lr: 0.0000
+  loss:
+    loss_type: ForceStressLoss
+    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+  clip_grad_norm: 10
+  batch_size: 16
+  optimizer:
+    optimizer_type: AdamW
+    optimizer_args: {}
+  scheduler:
+    scheduler_type: ReduceLROnPlateau
+    scheduler_args: {mode: min, factor: 0.7, patience: 10, min_lr: 0.00000, threshold: 0.0002}
+  verbosity: 1
+  batch_tqdm: False
+  
+dataset:
+  name: predict_data
+  processed: False
+  src: data/dataset/data_phosphorous.json
+  target_path: 
+  pt_path: data/force_data/
+  prediction_level: graph
+  transforms:
+    - name: GetY
+      args:
+        index: -1
+      otf: True
+  data_format: json
+  additional_attributes: [forces, stress]
+  verbose: True
+  preprocess_params:
+    edge_calc_method: ocp 
+    preprocess_edges: False
+    preprocess_edge_features: False
+    preprocess_node_features: True
+    cutoff_radius : 8.0
+    n_neighbors : 250
+    num_offsets: 2
+    node_dim : 100
+    edge_dim : 50
+    self_loop: True
+    node_representation: onehot    
+    all_neighbors: True
+  num_workers: 0
+  dataset_device: cpu
+  train_ratio: 0.9
+  val_ratio: 0.05
+  test_ratio: 0.05

@@ -70,11 +70,11 @@ class PredictTask(BaseTask):
             # assert (
                 # self.trainer.data_loader.get("predict_loader") is not None
             # ),  "Predict dataset is required for making predictions"
-        results_dir = f"predictions/{self.config['dataset']['name']}"
+        results_dir = f"train_results"
         try:
             # if isinstance(self.trainer.data_loader, list):
             self.trainer.predict(
-                loader=self.trainer.data_loader, split="predict", results_dir=results_dir, labels=self.config["task"]["labels"],
+                loader=self.trainer.data_loader[0]["predict_loader"], split="predict", results_dir=results_dir, labels=self.config["task"]["labels"],
             )
             # else:
                 # self.trainer.predict(
@@ -102,4 +102,27 @@ class FineTuneTask(BaseTask):
             
         except RuntimeError as e:
             self._process_error(e)
+            raise e
+
+@registry.register_task("save_features")
+class SaveFeaturesTask(BaseTask):
+    def setup(self, trainer):
+        self.trainer = trainer       
+        assert self.config["task"]["checkpoint_path"], "Specify checkpoint directory for loading the model"         
+        logging.info("Attempting to load checkpoint...")
+        self.trainer.load_checkpoint(self.config["task"].get("load_training_state", True))
+        logging.info("Recent checkpoint loaded successfully.")
+
+    def run(self):
+        assert (
+            self.trainer.data_loader[0].get("predict_loader") is not None
+        ), "Feature dataset is required for saving features"
+        
+        results_dir = "feature_results"
+        try:
+            self.trainer.save_features(
+                loader=self.trainer.data_loader[0]["predict_loader"], split="predict", results_dir=results_dir
+            )
+        except RuntimeError as e:
+            logging.warning("Errors in save_features task")
             raise e

@@ -241,7 +241,14 @@ class BaseTrainer(ABC):
                 )
 
         else:
-            if task != "predict":
+            if task == "save_features":
+                dataset["predict"] = get_dataset(
+                    dataset_path,
+                    processed_file_name="data.pt",
+                    transform_list=dataset_config.get("transforms", []),
+                    dataset_device=dataset_config.get("dataset_device", "cpu"),
+                )
+            elif task != "predict":
                 dataset_full = get_dataset(
                     dataset_path,
                     processed_file_name="data.pt",
@@ -430,6 +437,10 @@ class BaseTrainer(ABC):
                     dataset["test"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
             )
             if run_mode == "predict" and dataset.get("predict"):
+                data_loader[i]["predict_loader"] = get_dataloader(
+                    dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, shuffle=True
+            )
+            if run_mode == "save_features" and dataset.get("predict"):
                 data_loader[i]["predict_loader"] = get_dataloader(
                     dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, shuffle=True
             )

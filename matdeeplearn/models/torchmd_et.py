@@ -214,8 +214,8 @@ class TorchMD_ET(BaseModel):
                 code[1] <= (num_layers) for code in distill_layers
             ), "Distill layer number in torchmd net is large than num_layers"
             assert all(
-                code[0] in ["a"] for code in distill_layers
-            ), "Distill layer type in Painn not in a(attention)"
+                code[0] in ["a","p"] for code in distill_layers
+            ), "Distill layer type in Painn not in a(attention) p(post linear)"
             self.distill_layers = distill_layers
             self.num_distill_layers = len(self.distill_layers)
     
@@ -404,7 +404,14 @@ class TorchMD_ET(BaseModel):
                 x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
             for i in range(0, len(self.post_lin_list) - 1):
                 x = self.post_lin_list[i](x)
+                if distill_layer == ("p", i+2):
+                    node_feature.append(x.clone())
+                    distill_layer = next(distill_layers_iter, (None, None))
                 x = getattr(F, self.activation)(x)
+            if distill_layer == ("p", 1):
+                node_feature.append(x.clone())
+                vec_feature.append(vec.clone())
+                distill_layer = next(distill_layers_iter, (None, None))
             x = self.post_lin_list[-1](x)
             if self.pool_order == 'late':
                 x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
@@ -413,8 +420,14 @@ class TorchMD_ET(BaseModel):
         elif self.prediction_level == "node":
             for i in range(0, len(self.post_lin_list) - 1):
                 x = self.post_lin_list[i](x)
+                if distill_layer == ("p", i+2):
+                    node_feature.append(x.clone())
+                    distill_layer = next(distill_layers_iter, (None, None))
                 x = getattr(F, self.activation)(x)
             x = self.post_lin_list[-1](x) 
+            if distill_layer == ("p", 1):
+                node_feature.append(x.clone())
+                distill_layer = next(distill_layers_iter, (None, None))
 
         output["output"] =  x
         assert distill_layer == (None, None)
@@ -452,9 +465,11 @@ class TorchMD_ET(BaseModel):
                   
         return output       
     
-    def extract_feature_dimensions(self):
-        num_distill_layer = len(self.distill_layers)
-        node_feature_dim = self.hidden_channels
+    def extract_feature_dimensions(self): 
+        if self.distill_layers[0][0] == "p":
+            node_feature_dim = self.post_hidden_channels
+        else:
+            node_feature_dim = self.hidden_channels
         edge_feature_dim =  self.num_rbf
         vec_feature_dim = 3 * self.hidden_channels
         return {"node_dim":node_feature_dim, "edge_dim":edge_feature_dim, "vec_dim":vec_feature_dim}
@@ -463,7 +478,44 @@ class TorchMD_ET(BaseModel):
         self.teacher_edge_dim = teacher_dim.get("edge_dim", 1)
         self.teacher_node_dim = teacher_dim.get("node_dim",1)
         self.teacher_vec_dim = teacher_dim.get("vec_dim",1)
- 
+
+    @conditional_grad(torch.enable_grad())
+    def extract_last_layer_feature(self, data):
+
+        output = {}
+
+        x = self.embedding(data.z)
+
+        if self.otf_edge_index:
+            data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
+        data.edge_attr = self.distance_expansion(data.edge_weight) 
+
+        data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
+        
+        if self.otf_node_attr:
+            data.x = node_rep_one_hot(data.z).float()          
+        
+        if self.neighbor_embedding is not None:
+            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
+
+        vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
+
+        for i in range(len(self.attention_layers)):
+            attn = self.attention_layers[i]
+            dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
+            x = x + dx
+            vec = vec + dvec
+
+        x = self.out_norm(x)
+
+        x_pooled = getattr(torch_geometric.nn, self.pool)(x, data.batch)
+        vec_pooled = getattr(torch_geometric.nn, self.pool)(vec.view(vec.size(0), -1), data.batch)
+
+        output["pooled_output"] = x_pooled
+        output["pooled_vec"] = vec_pooled
+
+        return output
+    
 
 class EquivariantMultiHeadAttention(MessagePassing):
     def __init__(

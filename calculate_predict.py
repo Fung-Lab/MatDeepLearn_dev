@@ -8,7 +8,7 @@ def get_efs_error(folder_name, ratio=(0.01, 50, 50)):
     result = {}
 
     # energy loss
-    energy_file = 'test_predictions.csv'
+    energy_file = 'predict_predictions.csv'
     if energy_file in files:
         df = pd.read_csv(os.path.join(folder_name, energy_file))
         preds = torch.tensor(df[['prediction']].values)
@@ -19,7 +19,7 @@ def get_efs_error(folder_name, ratio=(0.01, 50, 50)):
         e_error = 0
 
     # force loss
-    force_file = 'test_predictions_pos_grad.csv'
+    force_file = 'predict_predictions_pos_grad.csv'
     if force_file in files:
         df = pd.read_csv(os.path.join(folder_name, force_file))
         preds = torch.tensor(df[['prediction', 'prediction.1', 'prediction.2']].values)
@@ -31,7 +31,7 @@ def get_efs_error(folder_name, ratio=(0.01, 50, 50)):
     else:
         f_error = 0
 
-    stress_file = 'test_predictions_cell_grad.csv'
+    stress_file = 'predict_predictions_cell_grad.csv'
     if stress_file in files:
         df = pd.read_csv(os.path.join(folder_name, stress_file))
         target_cols = ['target', 'target.1', 'target.2']
@@ -51,6 +51,6 @@ def get_efs_error(folder_name, ratio=(0.01, 50, 50)):
     return result
 
 if __name__ == '__main__':
-    result = get_efs_error('./results/2024-06-11-20-18-08-664-torch_md_mpull2P_128/train_results')
+    result = get_efs_error('./results/2024-05-19-22-53-08-597-torch_md_predict/train_results')
     for key in result.keys():
         print(f"{key}: {result[key]:.4f}")
