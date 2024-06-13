@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_random_sample
+  identifier: qm9_hs
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,13 +13,13 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: ./results/2024-06-06-22-37-15-978-qm9_random_sample/checkpoint/best_checkpoint.pt
+  checkpoint_path: ./results/2024-06-11-00-49-32-580-qm9_high/checkpoint/checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   labels: True
   # Use amp mixed precision

@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_random_sample
+  identifier: qm9_rs
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,13 +13,13 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: ./results/2024-06-07-00-09-46-864-qm9_random_sample/checkpoint/best_checkpoint.pt
+  checkpoint_path: ./results/2024-06-10-09-59-23-645-qm9_random_sample/checkpoint/checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   labels: True
   # Use amp mixed precision
@@ -48,7 +48,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 200
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper

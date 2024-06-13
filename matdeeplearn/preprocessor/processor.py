@@ -265,6 +265,14 @@ class DataProcessor:
                 random_indices = torch.arange(0, num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
                            range(0, num_virtual_nodes, 200)]
+                ase_structure = io.read(self.root_path + "/structure.xsf")
+                pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
+                cell = torch.tensor(
+                    np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
+                ).view(1, 3, 3)
+                if (np.array(cell) == np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])).all():
+                    cell = torch.zeros((3, 3)).unsqueeze(0)
+                atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
 
                 for sub_indices in indices:
                     d = {}
@@ -273,16 +281,6 @@ class DataProcessor:
                     # d["positions_vn"] = vn_coords[indices, :]
                     # d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
                     d["y"] = vn_labels[sub_indices, :]
-
-                    ase_structure = io.read(self.root_path + "/structure.xsf")
-                    pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
-                    cell = torch.tensor(
-                        np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
-                    ).view(1, 3, 3)
-                    if (np.array(cell) == np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])).all():
-                        cell = torch.zeros((3, 3)).unsqueeze(0)
-                    atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
-
                     d["positions"] = torch.cat((pos, pos_vn), dim=0)
                     d["cell"] = cell
                     d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
@@ -309,6 +307,14 @@ class DataProcessor:
                             if self.num_samples != -1 else np.arange(len(vn_labels))
                         np.random.shuffle(indices)
                         indices = [indices[i: min(i + self.sub_batch, len(indices))] for i in range(0, len(indices), self.sub_batch)]
+                        ase_structure = io.read(self.root_path + dir_name + "/structure.xsf")
+                        pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
+                        cell = torch.tensor(
+                            np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
+                        ).view(1, 3, 3)
+                        if (np.array(cell) == np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])).all():
+                            cell = torch.zeros((3, 3)).unsqueeze(0)
+                        atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
 
                         for sub_indices in indices:
                             d = {}
@@ -317,16 +323,6 @@ class DataProcessor:
                             #d["positions_vn"] = vn_coords[indices, :]
                             #d["atomic_numbers_vn"] = torch.LongTensor([100] * df.shape[0])
                             d["y"] = vn_labels[sub_indices, :]
-
-                            ase_structure = io.read(self.root_path+dir_name+"/structure.xsf")
-                            pos = torch.tensor(ase_structure.get_positions(), device=self.device, dtype=torch.float)
-                            cell = torch.tensor(
-                                np.array(ase_structure.get_cell()), device=self.device, dtype=torch.float
-                            ).view(1, 3, 3)
-                            if (np.array(cell) == np.array([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 0.0, 0.0]])).all():
-                                cell = torch.zeros((3,3)).unsqueeze(0)
-                            atomic_numbers = torch.LongTensor(ase_structure.get_atomic_numbers())
-
                             d["positions"] = torch.cat((pos, pos_vn), dim=0)
                             d["cell"] = cell
                             d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
