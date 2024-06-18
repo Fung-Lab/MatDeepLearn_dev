@@ -253,7 +253,13 @@ class TorchMD_ET(BaseModel):
         indices_vn_to_vn = (data.edge_mask == 0) & (data.edge_weight <= self.cutoff_radius_vn_vn)
 
         if self.neighbor_embedding is not None:
-            x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
+            x = self.neighbor_embedding(
+                data.z,
+                x,
+                data.edge_index[:, indices_rn_to_rn | indices_rn_to_vn],
+                data.edge_weight[indices_rn_to_rn | indices_rn_to_vn],
+                data.edge_attr[indices_rn_to_rn | indices_rn_to_vn, :]
+            )
 
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
