@@ -137,6 +137,7 @@ class PropertyTrainer(BaseTrainer):
                     self.metrics[n] = self.evaluator.update("loss", loss[n].item(), out_list[n]["output"].shape[0], _metrics[n])
 
             self.epoch = epoch + 1
+            self.epoch_time = time.time() - epoch_start_time
 
             if str(self.rank) not in ("cpu", "cuda"):
                 dist.barrier()
@@ -156,7 +157,7 @@ class PropertyTrainer(BaseTrainer):
                     metric = self.metrics
 
                 # Train loop timings
-                self.epoch_time = time.time() - epoch_start_time
+                # self.epoch_time = time.time() - epoch_start_time
                 # Log metrics
                 if epoch % self.train_verbosity == 0:
                     if self.data_loader[0].get("val_loader"):

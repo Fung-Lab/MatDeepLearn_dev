@@ -388,7 +388,7 @@ class BaseTrainer(ABC):
         optim_list = []
         for i in range(len(model)):
             if world_size > 1:
-                optim_config["lr"] = optim_config["lr"] * world_size
+                optim_config["lr"] = optim_config["lr"] * world_size # should be optim_config["lr"] * sqrt(world_size)
 
             optimizer = getattr(optim, optim_config["optimizer"]["optimizer_type"])(
                 model[i].parameters(),
