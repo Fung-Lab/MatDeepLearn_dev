@@ -223,9 +223,11 @@ class DataProcessor:
                 charge_density = torch.tensor(s["charge_density"], device=self.device, dtype=torch.float)
 
                 num_virtual_nodes = len(charge_density)
-                # num_half = num_virtual_nodes // 2
-                # random_indices = torch.randperm(num_virtual_nodes)
-                random_indices = torch.arange(0, num_virtual_nodes)
+                # Training with 200 per structure
+                num_half = num_virtual_nodes // 2
+                random_indices = torch.randperm(num_virtual_nodes)[:num_half]
+                # Full grid inference
+                # random_indices = torch.arange(0, num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
                            range(0, num_virtual_nodes, 200)]
 

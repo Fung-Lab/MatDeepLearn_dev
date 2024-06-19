@@ -20,10 +20,6 @@ class TorchLossWrapper(nn.Module):
         loss = None
         if self.reduction == 'mean':
             loss = self.loss_fn(predictions["output"], target.y, reduction=self.reduction)
-            if torch.isnan(loss).any():
-                print(loss)
-                print(predictions["output"])
-                print(target.y)
         elif self.reduction == 'sum':
             loss = self.loss_fn(predictions["output"], target.y, reduction=self.reduction) / torch.sum(target.y)
         return loss
