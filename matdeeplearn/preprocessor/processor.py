@@ -229,7 +229,7 @@ class DataProcessor:
                 # Full grid inference
                 # random_indices = torch.arange(0, num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
-                           range(0, num_virtual_nodes, 200)]
+                           range(0, num_half, 200)]
 
                 for sub_indices in indices:
                     d = {}
@@ -261,7 +261,12 @@ class DataProcessor:
                 # densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                 df = pd.read_csv(self.root_path + "/densities.csv", header=0).to_numpy()
                 vn_coords = df[:, 0:3]
-                vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
+                # Only predict density values
+                # vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
+                # Predict both density values and difference
+                vn_labels = np.concatenate(
+                    (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)), axis=1
+                )
 
                 num_virtual_nodes = len(vn_labels)
                 random_indices = torch.arange(0, num_virtual_nodes)
