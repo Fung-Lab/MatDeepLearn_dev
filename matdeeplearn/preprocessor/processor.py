@@ -307,7 +307,13 @@ class DataProcessor:
                         #densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                         df = pd.read_csv(self.root_path+dir_name+"/densities.csv", header=0).to_numpy()
                         vn_coords = df[:,0:3]
-                        vn_labels = np.expand_dims((df[:,5] + df[:,6]), 1)
+                        # Only predict density values
+                        # vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
+                        # Predict both density values and difference
+                        vn_labels = np.concatenate(
+                            (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)),
+                            axis=1
+                        )
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
