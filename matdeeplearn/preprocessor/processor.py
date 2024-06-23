@@ -262,11 +262,11 @@ class DataProcessor:
                 df = pd.read_csv(self.root_path + "/densities.csv", header=0).to_numpy()
                 vn_coords = df[:, 0:3]
                 # Only predict density values
-                # vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
+                vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
                 # Predict both density values and difference
-                vn_labels = np.concatenate(
-                    (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)), axis=1
-                )
+                # vn_labels = np.concatenate(
+                #     (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)), axis=1
+                # )
 
                 num_virtual_nodes = len(vn_labels)
                 random_indices = torch.arange(0, num_virtual_nodes)
@@ -308,12 +308,12 @@ class DataProcessor:
                         df = pd.read_csv(self.root_path+dir_name+"/densities.csv", header=0).to_numpy()
                         vn_coords = df[:,0:3]
                         # Only predict density values
-                        # vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
+                        vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
                         # Predict both density values and difference
-                        vn_labels = np.concatenate(
-                            (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)),
-                            axis=1
-                        )
+                        # vn_labels = np.concatenate(
+                        #     (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)),
+                        #     axis=1
+                        # )
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
