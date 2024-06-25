@@ -26,7 +26,9 @@ from matdeeplearn.modules.scheduler import LRScheduler
 
 from torch.distributed.fsdp import (
    FullyShardedDataParallel,
+   ShardingStrategy,
    CPUOffload,
+   BackwardPrefetch,
 )
 # from torch.distributed.fsdp.wrap import (
 #    default_auto_wrap_policy,
@@ -178,7 +180,7 @@ class BaseTrainer(ABC):
             world_size = 1
             torch.cuda.set_device("cuda:0")
         dataset = cls._load_dataset(config["dataset"], config["task"]["run_mode"]) if "src" in config["dataset"] else None
-        model = cls._load_model(config["model"], config["dataset"]["preprocess_params"], dataset, world_size, local_rank)
+        model = cls._load_model(config, config["model"], config["dataset"]["preprocess_params"], dataset, world_size, local_rank)
         optimizer = cls._load_optimizer(config["optim"], model, world_size)
         sampler = cls._load_sampler(config["optim"], dataset, world_size, local_rank) if "src" in config["dataset"] else None
         data_loader = cls._load_dataloader(
@@ -307,7 +309,7 @@ class BaseTrainer(ABC):
         return dataset
 
     @staticmethod
-    def _load_model(model_config, graph_config, dataset, world_size, rank):
+    def _load_model(config, model_config, graph_config, dataset, world_size, rank):
         """Loads the model if from a config file."""
 
         if not (dataset is None):
@@ -375,15 +377,39 @@ class BaseTrainer(ABC):
             #    checkpoint = torch.load(model_config["model_path"])
             #    model.load_state_dict(checkpoint["state_dict"])
             
-            if world_size > 1:
-                model = DistributedDataParallel(
-                    model, device_ids=[rank], find_unused_parameters=False
-                )
-                model = FullyShardedDataParallel(
-                    model,
-                    auto_wrap_policy=None,
-                    cpu_offload=CPUOffload(offload_params=True),
-                )
+            def custom_auto_wrap_policy(
+                module: nn.Module,
+                recurse: bool,
+                nonwrapped_numel: int,
+                # Additional custom arguments
+                min_num_params: int = int(1e8),
+            ) -> bool:
+                return nonwrapped_numel >= min_num_params
+            
+            if config["task"]["parallel"]:
+                if config["task"]["use_fsdp"]:
+                    model = FullyShardedDataParallel(
+                        model,
+                        process_group=None,
+                        sharding_strategy=ShardingStrategy.FULL_SHARD,
+                        cpu_offload=None,
+                        auto_wrap_policy=None,
+                        backward_prefetch=BackwardPrefetch.BACKWARD_POST,
+                        mixed_precision=None,
+                        ignored_modules=None,
+                        param_init_fn=None,
+                        device_id=rank,
+                        sync_module_states=True,
+                        forward_prefetch=False,
+                        limit_all_gathers=True,
+                        use_orig_params=False,
+                        ignored_states=None,
+                        device_mesh=None,
+                    )
+                else: # equivalent to sharding_strategy=ShardingStrategy.NO_SHARD
+                    model = DistributedDataParallel(
+                        model, device_ids=[rank], find_unused_parameters=False
+                    )
 
             model_list.append(model)
 
@@ -556,7 +582,7 @@ class BaseTrainer(ABC):
             os.makedirs(curr_checkpt_dir, exist_ok=True)
             filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
-            torch.save(state, filename)
+            torch.save(state, filename) # modify state dict saving here
             del state
         else:
             state = []
@@ -600,7 +626,7 @@ class BaseTrainer(ABC):
                 os.makedirs(curr_checkpt_dir, exist_ok=True)
                 filename = os.path.join(curr_checkpt_dir, checkpoint_file)
 
-                torch.save(state[x], filename)
+                torch.save(state[x], filename) # modify state dict saving here
             del state
         
         return filename

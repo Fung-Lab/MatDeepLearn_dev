@@ -49,6 +49,10 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: False
+  # gradient checkpointing
+  gradient_checkpointing: False
+  use_reentrant: False
+  preserve_rng_state: True
 
 optim:
   max_epochs: 5
