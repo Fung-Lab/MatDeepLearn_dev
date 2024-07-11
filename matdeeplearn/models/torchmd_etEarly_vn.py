@@ -243,7 +243,7 @@ class TorchMD_ET(BaseModel):
 
         # mask = data.edge_index[0] != data.edge_index[1]
         # data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
-        data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
+        # data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
 
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()

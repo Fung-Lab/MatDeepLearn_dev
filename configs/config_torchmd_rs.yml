@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_rs
+  identifier: qm9_neighbor_test
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -111,7 +111,7 @@ dataset:
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 12.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 250
+    n_neighbors : 999
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
