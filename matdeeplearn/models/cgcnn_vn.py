@@ -37,6 +37,8 @@ class CGCNN(BaseModel):
             batch_track_stats=True,
             act="relu",
             dropout_rate=0.0,
+            cutoff_radius_rn_vn=8,
+            cutoff_radius_vn_vn=4,
             **kwargs
     ):
         super(CGCNN, self).__init__(**kwargs)
@@ -56,6 +58,9 @@ class CGCNN(BaseModel):
         self.edge_dim = edge_dim
         self.output_dim = output_dim
         self.dropout_rate = dropout_rate
+        self.cutoff_radius_rn_vn = cutoff_radius_rn_vn
+        self.cutoff_radius_vn_vn = cutoff_radius_vn_vn
+        print("rn_vn radius:", self.cutoff_radius_rn_vn)
 
         if isinstance(self.cutoff_radius, dict):
             self.rn_rn_radius = self.cutoff_radius['rn-rn']
@@ -187,8 +192,8 @@ class CGCNN(BaseModel):
             edge_mask[(data.z[data.edge_index[0]] != 100) & (
                         data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
 
-            indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= self.cutoff_radius)
-            indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= self.cutoff_radius_rn_vn)
+            indices_rn_to_rn = (edge_mask == 3) & (data.edge_weight <= self.cutoff_radius)
+            indices_rn_to_vn = (edge_mask == 1) & (data.edge_weight <= self.cutoff_radius_rn_vn)
             # indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
             indices_to_keep = indices_rn_to_rn | indices_rn_to_vn  # | indices_vn_to_vn
             indices_rn_to_rn = indices_rn_to_rn[indices_to_keep]
