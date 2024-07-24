@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_epoch500_cgcnn
+  identifier: qm9_cgcnn_neighbor3000
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -26,7 +26,7 @@ task:
   use_amp: True  
 
 model:
-  name: CGCNN
+  name: CGCNN_VN
   # model attributes
   dim1: 100
   dim2: 150
@@ -49,7 +49,7 @@ model:
   gradient: False
 
 optim:
-  max_epochs: 500
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -58,7 +58,7 @@ optim:
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
   clip_grad_norm: 10       
-  batch_size: 16
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -75,14 +75,14 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: { train : ../data_qm9_qmc/train/ , test : ../data_qm9_qmc/test/ , val : ../data_qm9_qmc/val/}
+  src: {'test': '../data_qm9_qmc/data_qm9_qmc/test/', 'train': '../data_qm9_qmc/data_qm9_qmc/train/', 'val': '../data_qm9_qmc/data_qm9_qmc/val/'}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../data_qm9_qmc/
+  pt_path: ../data_qm9_qmc/data_qm9_qmc/
   # Either "node" or "graph"
-  prediction_level: node
+  prediction_level: virtual
 
   transforms:
     - name: GetY
@@ -110,9 +110,9 @@ dataset:
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly
     preprocess_node_features: False
     # distance cutoff to determine if two atoms are connected by an edge
-    cutoff_radius : 6.0
+    cutoff_radius : 12.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 250
+    n_neighbors : 3000
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes
@@ -123,12 +123,19 @@ dataset:
     self_loop: True
     # Method of obtaining atom dictionary: available: (onehot)
     node_representation: onehot
+    # virtual node settings
+    virtual_params:
+      cutoff_radius_rn_vn: 12.0
+      cutoff_radius_vn_vn: 4.0
+      rn_vn_aggr: "add"
+      vn_vn_aggr: "mean"
+      num_samples: 10000
+      num_sub_batch: 500
   # Number of workers for dataloader, see https://pytorch.org/docs/stable/data.html
   num_workers: 0
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
   train_ratio: 0.9
-  num_samples: 10000
   val_ratio: 0.05
   test_ratio: 0.05

@@ -187,8 +187,8 @@ class CGCNN(BaseModel):
             edge_mask[(data.z[data.edge_index[0]] != 100) & (
                         data.z[data.edge_index[1]] != 100)] = 3  # regular node to regular node
 
-            indices_rn_to_rn = (edge_mask == 3) & (data.edge_weight <= self.rn_rn_radius)
-            indices_rn_to_vn = (edge_mask == 1) & (data.edge_weight <= self.rn_vn_radius)
+            indices_rn_to_rn = (data.edge_mask == 3) & (data.edge_weight <= self.cutoff_radius)
+            indices_rn_to_vn = (data.edge_mask == 1) & (data.edge_weight <= self.cutoff_radius_rn_vn)
             # indices_vn_to_vn = (edge_mask == 0) & (edge_weights <= 4)
             indices_to_keep = indices_rn_to_rn | indices_rn_to_vn  # | indices_vn_to_vn
             indices_rn_to_rn = indices_rn_to_rn[indices_to_keep]
