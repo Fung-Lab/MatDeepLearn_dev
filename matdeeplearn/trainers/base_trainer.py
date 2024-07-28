@@ -521,11 +521,11 @@ class BaseTrainer(ABC):
             id_headers += ["node_id"]
             
         if labels==True:
-            num_cols = (shape[1] - len(id_headers)) // 2
-            headers = id_headers + ["target"] * num_cols + ["prediction"] * num_cols
+            num_cols = (shape[1] - len(id_headers) - 3) // 2
+            headers = id_headers + ["x", "y", "z"] + ["target"] * num_cols + ["prediction"] * num_cols
         else:
-            num_cols = (shape[1] - len(id_headers))
-            headers = id_headers + ["prediction"] * num_cols        
+            num_cols = (shape[1] - len(id_headers) - 3)
+            headers = id_headers + ["x", "y", "z"] + ["prediction"] * num_cols
         
         with open(filename, "w") as f:
             csvwriter = csv.writer(f)

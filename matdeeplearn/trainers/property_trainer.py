@@ -269,6 +269,7 @@ class PropertyTrainer(BaseTrainer):
                     # node_ids = batch.z.cpu().numpy()
                     # print(batch.n_atoms.cpu().numpy())
                     virtual_batch = torch.index_select(batch.batch, 0, virtual_mask).cpu().numpy()
+                    virtual_pos = torch.index_select(batch.pos, 0, virtual_mask).cpu().numpy()
                     structure_id_np = np.array(batch.structure_id)
                     structure_ids = structure_id_np[virtual_batch]
 
@@ -318,11 +319,11 @@ class PropertyTrainer(BaseTrainer):
         if write_output == True:
             if labels == True:
                 self.save_results(
-                    np.column_stack((ids, target, predict)), results_dir, f"{split}_predictions.csv", node_level
+                    np.column_stack((ids,virtual_pos, target, predict)), results_dir, f"{split}_predictions.csv", node_level
                 )
             else:
                 self.save_results(
-                    np.column_stack((ids, predict)), results_dir, f"{split}_predictions.csv", node_level
+                    np.column_stack((ids,virtual_pos, predict)), results_dir, f"{split}_predictions.csv", node_level
                 )
 
             # if out.get("pos_grad") != None:
