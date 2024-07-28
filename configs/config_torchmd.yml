@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: ./results/2024-06-11-00-49-32-580-qm9_high/checkpoint/checkpoint.pt
+  checkpoint_path: ./results/2024-07-18-12-19-05-734-qm9_neighbor_test_2000/checkpoint/best_checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -74,12 +74,12 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: {'test': '../data_qm9_qmc/data_qm9_qmc/test/', 'train': '../data_qm9_qmc/data_qm9_qmc/train/', 'val': '../data_qm9_qmc/data_qm9_qmc/val/'}
+  src: ../data_qm9_qmc/data_qm9_qmc/test/071248_singlet/
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../data_qm9_qmc/data_qm9_qmc/
+  pt_path: ../data_qm9_qmc/data_qm9_qmc/test/071248_singlet/
   # Either "node" or "graph"
   prediction_level: virtual
 

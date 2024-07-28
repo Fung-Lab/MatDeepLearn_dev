@@ -233,6 +233,7 @@ class PropertyTrainer(BaseTrainer):
 
         evaluator, metrics = Evaluator(), {}
         predict, target = None, None
+        virtual_pos = None
         ids = []
         ids_pos_grad = []
         target_pos_grad = None
@@ -269,7 +270,8 @@ class PropertyTrainer(BaseTrainer):
                     # node_ids = batch.z.cpu().numpy()
                     # print(batch.n_atoms.cpu().numpy())
                     virtual_batch = torch.index_select(batch.batch, 0, virtual_mask).cpu().numpy()
-                    virtual_pos = torch.index_select(batch.pos, 0, virtual_mask).cpu().numpy()
+                    batch_virtual_pos = torch.index_select(batch.pos, 0, virtual_mask).cpu().numpy()
+                    virtual_pos = batch_virtual_pos if i == 0 else np.concatenate((virtual_pos, batch_virtual_pos), axis=0)
                     structure_id_np = np.array(batch.structure_id)
                     structure_ids = structure_id_np[virtual_batch]
 
