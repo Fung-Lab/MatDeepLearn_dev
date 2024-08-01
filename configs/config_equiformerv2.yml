@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_edge_fix
+  identifier: try4_equiformer_neighbor3000
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -127,7 +127,7 @@ dataset:
     # distance cutoff to determine if two atoms are connected by an edge
     cutoff_radius : 4.0
     # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
-    n_neighbors : 250
+    n_neighbors : 3000
     # number of pbc offsets to consider when determining neighbors (usually not changed)
     num_offsets: 2
     # dimension of node attributes

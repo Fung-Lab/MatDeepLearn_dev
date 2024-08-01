@@ -312,7 +312,7 @@ class EquiformerV2_OC20(BaseModel):
             self.sphere_channels,
             self.lmax_list,
             self.mmax_list,
-            self.SO3_rotation_rn,
+            self.SO3_rotation_all,
             self.mappingReduced,
             self.max_num_elements,
             self.edge_channels_list,
@@ -526,7 +526,7 @@ class EquiformerV2_OC20(BaseModel):
 
         # Edge-degree embedding
         edge_degree = self.edge_degree_embedding(
-            atomic_numbers, edge_distance[indices_rn_to_rn], edge_index[:, indices_rn_to_rn]
+            atomic_numbers, edge_distance, edge_index
         )
         x.embedding = x.embedding + edge_degree.embedding
 

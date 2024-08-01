@@ -2,7 +2,7 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: qm9_neighbor_test
+  identifier: qm9_neighbor_norm
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -72,7 +72,7 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: {'test': '../data_qm9_qmc/data_qm9_qmc/test/', 'train': '../data_qm9_qmc/data_qm9_qmc/train/', 'val': '../data_qm9_qmc/data_qm9_qmc/val/'}
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
