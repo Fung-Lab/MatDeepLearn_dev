@@ -1,8 +1,8 @@
-trainer: hybrid
+trainer: property
 ?
 task:
   run_mode: train
-  identifier: mp_morse_clamp
+  identifier: pretrain_cgcnn_mp_0.15_0.75_5_aug
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -17,15 +17,15 @@ task:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
 ?
 model:
-  name: Morse
+  name: CGCNN 
   # model attributes
   dim1: 100
   dim2: 150
@@ -47,15 +47,9 @@ model:
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: False
-  # method to combine atomic parameters: average (default), Berthelot
-  combination_method: average
-  clamped_params: ['D', 'sigmas', 'rm']
 ?
 optim:
-  max_epochs: 50
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.002
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
@@ -68,7 +62,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 128
+  batch_size: 64
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -81,15 +75,15 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: mp_forces
-  processed: True
+  name: perturbed_mp_data
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/mp_forces/data.json
+  src: data/mp_0.15_0.75_5_aug/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/mp_forces/
+  pt_path: data/mp_0.15_0.75_5_aug/
   # Either "node" or "graph"
   prediction_level: graph
   

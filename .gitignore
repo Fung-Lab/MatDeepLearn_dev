@@ -184,6 +184,7 @@ checkpoints/
 
 # logs
 log*
+*.out
 
 # data
 data/
