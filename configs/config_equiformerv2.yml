@@ -2,18 +2,18 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_neighbor3000
+  identifier: try4_equiformer_neighbor3000_continue
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir:
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path: ./results/density/checkpoint/best_checkpoint.pt
+  checkpoint_path: .//results/2024-08-02-00-10-33-281-try4_equiformer_neighbor3000/checkpoint/checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
   write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -88,7 +88,7 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: ../dataset/try4/data_try4.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
