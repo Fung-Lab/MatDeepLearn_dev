@@ -464,7 +464,6 @@ class HybridTrainer(BaseTrainer):
                 param_base_name = name.split('.')[0]
                 if param_base_name in self.clamped_params.keys():
                     clamp_value = self.clamped_params[param_base_name]
-                    print(f"Param {param_base_name} clamped to {clamp_value}")
                     param.data.clamp_(min=clamp_value)
         
         self.scaler.step(self.optimizer[index])
