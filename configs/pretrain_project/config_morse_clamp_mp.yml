@@ -52,7 +52,7 @@ model:
   with_exp_coefs: False
   # method to combine atomic parameters: average (default), Berthelot
   combination_method: average
-  clamped_params: ['D', 'sigmas', 'rm']
+  clamped_params: {'D': 0, 'sigmas', 0, 'rm': 0.5}
 ?
 optim:
   max_epochs: 50

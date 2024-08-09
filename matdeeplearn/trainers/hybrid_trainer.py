@@ -461,10 +461,11 @@ class HybridTrainer(BaseTrainer):
         
         for model in self.model:
             for name, param in model.named_parameters():
-                if name.split('.')[0] in self.clamped_params:
-                    # if name.split('.')[1] == '13' or name.split('.')[1] == '7':
-                    #     print(name, torch.any(param.data < 0))
-                    param.data.clamp_(min=0.1)
+                param_base_name = name.split('.')[0]
+                if param_base_name in self.clamped_params.keys():
+                    clamp_value = self.clamped_params[param_base_name]
+                    print(f"Param {param_base_name} clamped to {clamp_value}")
+                    param.data.clamp_(min=clamp_value)
         
         self.scaler.step(self.optimizer[index])
         self.scaler.update()
