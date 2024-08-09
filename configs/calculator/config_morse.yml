@@ -1,6 +1,6 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: ../results/morse_models/2024-08-03-06-11-56-618-mp_morse_clamp/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: ../results/morse_models/2024-08-08-17-12-39-533-mp_morse_clamp_rm_0.5/checkpoint_0/best_checkpoint.pt
 
 model:
   # Model used by the calculator

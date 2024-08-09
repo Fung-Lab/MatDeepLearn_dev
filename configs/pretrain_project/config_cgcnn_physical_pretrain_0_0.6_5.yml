@@ -2,16 +2,16 @@ trainer: property
 ?
 task:
   run_mode: train
-  identifier: pretrain_cgcnn_mp_0.15_0.75_5_aug
+  identifier: pretrain_cgcnn_mp_0_0.6_5_aug
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: ./results/2024-08-03-15-37-22-040-pretrain_cgcnn_mp_0.15_0.75_5_aug/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
@@ -76,14 +76,14 @@ optim:
   
 dataset:
   name: perturbed_mp_data
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/mp_0.15_0.75_5_aug/data.json
+  src: data/mp_physical_0_0.6_5_aug/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/mp_0.15_0.75_5_aug/
+  pt_path: data/mp_physical_0_0.6_5_aug/
   # Either "node" or "graph"
   prediction_level: graph
   
