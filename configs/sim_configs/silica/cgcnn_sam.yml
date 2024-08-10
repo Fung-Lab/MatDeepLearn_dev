@@ -1,8 +1,8 @@
 simulation_type: NVT
 timestep: 4
 temperature: 2000
-calculator_config_path: configs/calculator/config_pretrained_cgcnn.yml
-total_steps: 50000
+calculator_config_path: configs/calculator/Silica/config_cgcnn_sam.yml
+total_steps: 100_000
 log_console: False
 save_metrics_per: 50_000
 continue_simulation: False
@@ -10,7 +10,7 @@ state_path: train_outs/sim_records_107/one_mill_sim_cgcnn_sam/atoms_state_at_ste
 save_metrics_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam
 save_atomic_state_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam
 
-device: cuda:3
+device: cuda:0
 
 # alarms:
 #   energy_diff: 0.4

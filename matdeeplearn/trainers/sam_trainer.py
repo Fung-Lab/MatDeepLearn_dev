@@ -74,11 +74,12 @@ class SamTrainer(BaseTrainer):
             # if world_size > 1:
             #     optim_config["lr"] = optim_config["lr"] * world_size
             base_optimizer = getattr(optim, optim_config["optimizer"]["optimizer_type"])
-            
+            rho = optim_config.get("rho", 0.0001)
             optimizer = SAM(
                 trainer_cls.model[i].parameters(),
                 base_optimizer,
                 lr=optim_config["lr"],
+                rho=rho,
                 **optim_config["optimizer"].get("optimizer_args", {})
             )
             optim_list.append(optimizer)
