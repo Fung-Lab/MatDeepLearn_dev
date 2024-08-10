@@ -25,7 +25,7 @@ task:
   use_amp: False  
 ?
 model:
-  name: Morse
+  name: Morse_Old
   # model attributes
   dim1: 100
   dim2: 150
@@ -52,7 +52,7 @@ model:
   with_exp_coefs: False
   # method to combine atomic parameters: average (default), Berthelot
   combination_method: average
-  clamped_params: {'D': 0, 'alphas': 0, 'rm': 0.5}
+  clamped_params: {'D': 0, 'alphas': 0, 'rm': 0}
 ?
 optim:
   max_epochs: 200
