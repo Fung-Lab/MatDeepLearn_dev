@@ -1,0 +1,54 @@
+task:
+  # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
+  checkpoint_path: results/cgcnn/2024-08-08-13-32-18-407-cgcnn/checkpoint_0/best_checkpoint.pt
+
+model:
+  # Model used by the calculator
+  name: CGCNN
+  # model attributes
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: global_add_pool
+  pool_order: late
+  batch_norm: False
+  batch_track_stats: True
+  act: silu
+  dropout_rate: 0.0
+  # Compute edge indices on the fly in the model forward
+  otf_edge_index: True 
+  # Compute edge attributes on the fly in the model forward
+  otf_edge_attr: True  
+  # Compute node attributes on the fly in the model forward
+  otf_node_attr: False
+  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
+  gradient: True
+  model_ensemble: 1
+
+dataset:  
+  preprocess_params:
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: ocp 
+    # determine if edges are computed, if false, then they need to be computed on the fly   
+    preprocess_edges: False
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
+    preprocess_edge_features: False
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
+    preprocess_node_features: False
+    # distance cutoff to determine if two atoms are connected by an edge
+    cutoff_radius : 8.0
+    # maximum number of neighbors to consider (usually an arbitrarily high number to consider all neighbors)
+    n_neighbors : 250
+    # number of pbc offsets to consider when determining neighbors (usually not changed)
+    num_offsets: 2
+    # dimension of node attributes
+    node_dim : 100
+    # dimension of edge attributes
+    edge_dim : 50
+    # whether or not to add self-loops
+    self_loop: True
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: onehot    
+    all_neighbors: True

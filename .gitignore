@@ -185,6 +185,7 @@ checkpoints/
 # logs
 log*
 *.out
+*.csv
 
 # data
 data/

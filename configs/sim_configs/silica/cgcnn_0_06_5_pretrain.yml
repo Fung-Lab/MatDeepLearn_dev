@@ -1,20 +1,16 @@
-# MP
 simulation_type: NVT
-timestep: 3
-temperature: 1000
-calculator_config_path: configs/calculator/config_cgcnn_vat.yml
+timestep: 4
+temperature: 2000
+calculator_config_path: configs/calculator/Silica/config_cgcnn_0_06_5_pretrain.yml
 total_steps: 100_000
 log_console: False
-save_metrics_per: 50_000
+save_metrics_per: 100_000
 continue_simulation: False
 state_path: train_outs/sim_records_107/one_mill_sim_cgcnn_sam/atoms_state_at_step_1000.npz
 save_metrics_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam
 save_atomic_state_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam
 
-force_mean: 0.5
-force_std: 2
-
-device: cuda:5
+device: cuda:0
 
 # alarms:
 #   energy_diff: 0.4

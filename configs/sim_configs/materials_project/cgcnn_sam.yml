@@ -24,7 +24,7 @@ save_metrics_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam
 save_atomic_state_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam
 
 force_mean: 0.5
-force_std: 1.5
+force_std: 2
 
 device: cuda:0
 

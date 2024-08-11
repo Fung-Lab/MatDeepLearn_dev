@@ -48,7 +48,7 @@ if __name__ == '__main__':
             unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json')
     
         np.random.seed(123)
-        idx = np.random.choice(len(relaxed), 400, replace=False)
+        idx = np.random.choice(len(relaxed), 200, replace=False)
         atoms_list = relaxed
         atoms_list = [a for i, a in enumerate(atoms_list) if i in idx]
     
