@@ -1,7 +1,7 @@
 simulation_type: NVT
 timestep: 3
 temperature: 1000
-calculator_config_path: configs/calculator/config_pretrained_cgcnn.yml
+calculator_config_path: configs/calculator/mp/config_cgcnn_unphysical_0_06_5aug.yml
 total_steps: 100_000
 log_console: False
 save_metrics_per: 50_000
@@ -10,7 +10,7 @@ state_path: train_outs/sim_records_107/one_mill_sim_cgcnn/atoms_state_at_step_10
 save_metrics_folder: train_outs/sim_records_107/one_mill_sim_cgcnn
 save_atomic_state_folder: train_outs/sim_records_107/one_mill_sim_cgcnn
 
-device: cuda:3
+device: cuda:2
 
 force_mean: 0.5
 force_std: 2
