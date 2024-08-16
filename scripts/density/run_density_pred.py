@@ -41,13 +41,13 @@ def split_files(train_num):
             # elif i < train_len + valid_len + test_len:
             #     shutil.copytree(os.path.join(original_data_folder, dir_name), os.path.join(original_data_folder, "test", dir_name))
 
-def change_sample(file_name):
+def change_sample(folder, file_name):
     with open("configs/config_torchmd.yml", "r") as file:
         data = yaml.safe_load(file)
 
     # Modify value
-    data["dataset"]["src"] = os.path.join(folder, "test", file_name)
-    data["dataset"]["pt_path"] = os.path.join(folder, "test", file_name)
+    data["dataset"]["src"] = os.path.join(folder, file_name)
+    data["dataset"]["pt_path"] = os.path.join(folder, file_name)
     data["task"]["identifier"] = file_name
 
     # Write updated data back to YAML file
@@ -56,11 +56,18 @@ def change_sample(file_name):
 
 if __name__ == '__main__':
 
-    folder = "../data_qm9_qmc/data_qm9_qmc/"
-    dirs = [d for d in os.listdir(os.path.join(folder, "test")) if os.path.isdir(os.path.join(folder, "test", d))]
+    folder1 = "../dataset/Charge_density_inference/C2_data/"
+    folder2 = "../dataset/Charge_density_inference/CH4_data/"
 
+    dirs = [d for d in os.listdir(os.path.join(folder1)) if os.path.isdir(os.path.join(folder1, d))]
     for dr in dirs:
-        change_sample(dr)
+        change_sample(folder1, dr)
+        command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
+        subprocess.run(command, shell=True, check=True)
+
+    dirs = [d for d in os.listdir(os.path.join(folder2)) if os.path.isdir(os.path.join(folder2, d))]
+    for dr in dirs:
+        change_sample(folder2, dr)
         command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
         subprocess.run(command, shell=True, check=True)
 

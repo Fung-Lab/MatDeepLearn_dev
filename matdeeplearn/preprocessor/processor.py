@@ -256,7 +256,8 @@ class DataProcessor:
                     # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
 
                     dict_structures.append(d)
-        elif "singlet" in self.root_path or "triplet" in self.root_path:
+        elif "singlet" in self.root_path or "triplet" in self.root_path or \
+                "C2_data" in self.root_path or "CH4_data" in self.root_path:
             try:
                 # densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                 df = pd.read_csv(self.root_path + "/densities.csv", header=0).to_numpy()
