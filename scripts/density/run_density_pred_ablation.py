@@ -9,6 +9,7 @@ from tqdm import tqdm
 # 运行次数
 num_runs = 5
 train_nums = [50, 100, 300, 500, -1]
+sample_nums = [10, 50, 200, 500, 1000, 5000]
 
 def split_files(train_num):
 
@@ -41,14 +42,12 @@ def split_files(train_num):
             # elif i < train_len + valid_len + test_len:
             #     shutil.copytree(os.path.join(original_data_folder, dir_name), os.path.join(original_data_folder, "test", dir_name))
 
-def change_sample(file_name):
+def change_sample(sample_num):
     with open("configs/config_torchmd_rs.yml", "r") as file:
         data = yaml.safe_load(file)
 
     # Modify value
-    data["dataset"]["src"] = os.path.join(folder, "test", file_name)
-    data["dataset"]["pt_path"] = os.path.join(folder, "test", file_name)
-    data["task"]["identifier"] = file_name + "_rs"
+    data["dataset"]["preprocess_params"]["virtual_params"]["num_samples"] = sample_num
 
     # Write updated data back to YAML file
     with open("configs/config_torchmd_rs.yml", "w") as file:
@@ -56,18 +55,18 @@ def change_sample(file_name):
 
 if __name__ == '__main__':
 
-    folder = "../data_qm9_qmc/data_qm9_qmc/"
-    dirs = [d for d in os.listdir(os.path.join(folder, "test")) if os.path.isdir(os.path.join(folder, "test", d))]
-
-    for dr in dirs:
-        change_sample(dr)
-        command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd_rs.yml"
-        subprocess.run(command, shell=True, check=True)
-
-    # for i in range(num_runs):
-    #     split_files(train_nums[i])
+    # folder = "../data_qm9_qmc/data_qm9_qmc/"
+    # dirs = [d for d in os.listdir(os.path.join(folder, "test")) if os.path.isdir(os.path.join(folder, "test", d))]
     #
-    #     command = "python scripts/main.py --run_mode=train --config_path=configs/config_torchmd_rs.yml"
+    # for dr in dirs:
+    #     change_sample(dr)
+    #     command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd_rs.yml"
     #     subprocess.run(command, shell=True, check=True)
+
+    for sample_n in sample_nums:
+        change_sample(sample_n)
+
+        command = "python scripts/main.py --run_mode=train --config_path=configs/config_torchmd_rs.yml"
+        subprocess.run(command, shell=True, check=True)
 
 

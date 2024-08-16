@@ -112,10 +112,10 @@ class BaseTrainer(ABC):
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].z[0])
                 logging.debug(self.dataset[list(self.dataset.keys())[0]][0].y[0])
 
-            if str(self.rank) not in ("cpu", "cuda"):
-                logging.debug(self.model.module)
-            else:
-                logging.debug(self.model)
+            # if str(self.rank) not in ("cpu", "cuda"):
+            #     logging.debug(self.model.module)
+            # else:
+            #     logging.debug(self.model)
 
     @classmethod
     def from_config(cls, config):
