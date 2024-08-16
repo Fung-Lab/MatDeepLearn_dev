@@ -48,6 +48,7 @@ def change_sample(sample_num):
 
     # Modify value
     data["dataset"]["preprocess_params"]["virtual_params"]["num_samples"] = sample_num
+    data["task"]["identifier"] = "qm9_sample_" + sample_num
 
     # Write updated data back to YAML file
     with open("configs/config_torchmd_rs.yml", "w") as file:

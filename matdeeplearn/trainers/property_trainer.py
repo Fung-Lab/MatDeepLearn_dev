@@ -262,7 +262,7 @@ class PropertyTrainer(BaseTrainer):
                 # )
 
             # Node level prediction
-            if batch_p.shape[0] > loader.batch_size:
+            if batch_p.shape[0] > loader.batch_size or self.model.prediction_level == "virtual":
                 node_level = True
                 if self.model.prediction_level == "virtual":
                     virtual_mask = torch.argwhere(batch.z == 100).squeeze(1)
