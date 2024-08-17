@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 # 运行次数
 num_runs = 5
-train_nums = [50, 100, 300, 500, -1]
+train_nums = [50, 100, 300, 500]
 sample_nums = [10, 50, 200, 500, 1000, 5000]
 
 def split_files(train_num):
