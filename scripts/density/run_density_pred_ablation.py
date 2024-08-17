@@ -13,12 +13,13 @@ sample_nums = [10, 50, 200, 500, 1000, 5000]
 
 def split_files(train_num):
 
-    original_data_folder = "../data_qm9_qmc/data_qm9_qmc/train/"
+    original_data_folder = "../data_qm9_qmc/data_qm9_qmc/"
 
     shutil.rmtree(os.path.join(original_data_folder, "train_alb"))
     os.makedirs(os.path.join(original_data_folder, "train_alb"))
 
-    dirs = [d for d in os.listdir(original_data_folder) if os.path.isdir(os.path.join(original_data_folder, d)) and "singlet" in d]
+    dirs = [d for d in os.listdir(os.path.join(original_data_folder, "train"))
+            if os.path.isdir(os.path.join(original_data_folder, "train", d)) and "singlet" in d]
     random.seed(20)
     random.shuffle(dirs)
     full_train_size = len(dirs)
@@ -29,7 +30,7 @@ def split_files(train_num):
 
     for i in range(train_num):
         dir_name = dirs[i]
-        shutil.copytree(os.path.join(original_data_folder, dir_name),
+        shutil.copytree(os.path.join(original_data_folder, "train", dir_name),
                         os.path.join(original_data_folder, "train_alb", dir_name))
 
     # for i, dir_name in enumerate(tqdm(dirs)):
