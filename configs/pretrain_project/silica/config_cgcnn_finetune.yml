@@ -1,8 +1,8 @@
-trainer: property
+trainer: vat
 ?
 task:
   run_mode: finetune
-  identifier: finetune_cgcnn_silica_0_0.6_5_aug
+  identifier: vat_finetune_cgcnn_silica_0_0.6_5_aug
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678

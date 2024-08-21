@@ -1,8 +1,8 @@
-trainer: property
+trainer: vat
 ?
 task:
   run_mode: train
-  identifier: pretrain_cgcnn_silica_0_0.6_5_aug
+  identifier: pretrain_cgcnn_filtered_silica_0_0.6_5_aug
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -78,12 +78,12 @@ dataset:
   name: silica
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/Silica/silica_0_0.6_5_aug/data.json
+  src: data/Silica/silica_filtered_0_06_5_aug/data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica/silica_0_0.6_5_aug/
+  pt_path: data/Silica/silica_filtered_0_06_5_aug/
   # Either "node" or "graph"
   prediction_level: graph
   

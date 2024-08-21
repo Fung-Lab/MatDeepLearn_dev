@@ -132,7 +132,7 @@ class Morse_Old(BaseModel):
         if self.with_coefs:
             coef_e = torch.zeros((len(self.coef_e), 1)).to('cuda:0')
             coef_2e = torch.zeros((len(self.coef_2e), 1)).to('cuda:0')
-    
+
         for z in np.unique(data.z.cpu()):
             atomic_alphas[z - 1] = self.alphas[z - 1]
             atomic_rm[z - 1] = self.rm[z - 1]

@@ -47,7 +47,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     #result_path = './results/silica_tests/2024-01-25-13-56-30-293-lj_sio2/train_results'
-    result = get_efs_error(args.result_path, ratio=(1, 50, 0), split='test')
+    result = get_efs_error(args.result_path, ratio=(0.01, 50, 50), split='test')
     
     for key in result.keys():
         print(f"{key}: {result[key]:.6f}")
