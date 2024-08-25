@@ -13,8 +13,8 @@ if __name__ == '__main__':
     for i in range(num_runs):
         seed = str(seeds[i])
 
-        # command = "python scripts/main.py --config_path=configs/finetune/config_2D.yml --seed=" + seed
-        # subprocess.run(command, shell=True)
+        command = "python scripts/main.py --config_path=configs/finetune/config_2D.yml --seed=" + seed
+        subprocess.run(command, shell=True)
         #
         # command = "python scripts/main.py --config_path=configs/finetune/config_2D_scratch.yml --seed=" + seed
         # subprocess.run(command, shell=True)
@@ -22,17 +22,17 @@ if __name__ == '__main__':
         command = "python scripts/main.py --config_path=configs/finetune/config_MOF.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/finetune/config_MOF_scratch.yml --seed=" + seed
-        subprocess.run(command, shell=True)
+        # command = "python scripts/main.py --config_path=configs/finetune/config_MOF_scratch.yml --seed=" + seed
+        # subprocess.run(command, shell=True)
 
         command = "python scripts/main.py --config_path=configs/finetune/config_Dielectric.yml --seed=" + seed
         subprocess.run(command, shell=True)
 
-        command = "python scripts/main.py --config_path=configs/finetune/config_Dielectric_scratch.yml --seed=" + seed
-        subprocess.run(command, shell=True)
-
-        # command = "python scripts/main.py --config_path=configs/finetune/config_Surface.yml --seed=" + seed
+        # command = "python scripts/main.py --config_path=configs/finetune/config_Dielectric_scratch.yml --seed=" + seed
         # subprocess.run(command, shell=True)
+
+        command = "python scripts/main.py --config_path=configs/finetune/config_Surface.yml --seed=" + seed
+        subprocess.run(command, shell=True)
         #
         # command = "python scripts/main.py --config_path=configs/finetune/config_Surface_scratch.yml --seed=" + seed
         # subprocess.run(command, shell=True)
