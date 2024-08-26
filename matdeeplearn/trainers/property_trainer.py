@@ -320,12 +320,11 @@ class PropertyTrainer(BaseTrainer):
 
         if write_output == True:
             if labels == True:
+                # self.save_results(
+                #     np.column_stack((ids,virtual_pos, target, predict)), results_dir, f"{split}_predictions.csv", node_level
+                # )
                 self.save_results(
-                    np.column_stack((ids,virtual_pos, target, predict)), results_dir, f"{split}_predictions.csv", node_level
-                )
-                self.save_results(
-                    np.column_stack((ids, target, predict)), results_dir, f"{split}_predictions.csv",
-                    node_level
+                    np.column_stack((ids, target, predict)), results_dir, f"{split}_predictions.csv", node_level
                 )
             else:
                 self.save_results(
