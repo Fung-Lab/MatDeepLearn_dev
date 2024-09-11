@@ -121,5 +121,28 @@ class Flags:
         # TODO: add checkpoint arg
         # TODO: timestamp id arg?
 
+        self.parser.add_argument(
+            "--use_fsdp",
+            required=False,
+            default="False",
+            type=str,
+            help="Use FSDP for distributed training",
+        )
+
+        self.parser.add_argument(
+            "--dim1",
+            required=False,
+            default=100,
+            type=int,
+            help="CGCNN dimension 1",
+        )
+
+        self.parser.add_argument(
+            "--dim2",
+            required=False,
+            default=150,
+            type=int,
+            help="CGCNN dimension 2",
+        )
 
 flags = Flags()

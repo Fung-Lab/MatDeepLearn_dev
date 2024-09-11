@@ -104,6 +104,12 @@ def build_config(args, args_override):
         config["task"]["run_mode"] = args.run_mode
     if args.seed != None:    
         config["task"]["seed"] = args.seed
+
+    config["task"]["use_fsdp"] = True if args.use_fsdp == "True" else False
+
+    config["model"]["dim1"] = args.dim1
+    config["model"]["dim2"] = args.dim2
+
     #
     # Submit
     config["submit"] = args.submit
