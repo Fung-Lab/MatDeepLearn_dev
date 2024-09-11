@@ -120,6 +120,9 @@ class MDLCalculator(Calculator):
         data = Data(n_atoms=len(atomic_numbers), pos=pos, cell=cell.unsqueeze(dim=0),
             z=atomic_numbers, structure_id=atoms.info.get('structure_id', None))
         
+        for key, val in atoms.info.items():
+            setattr(data, key, torch.tensor(val, dtype=torch.float32))
+            
         # Generate node features
         if not self.otf_node_attr:
             generate_node_features(data, self.n_neighbors, device=self.device)
@@ -128,7 +131,7 @@ class MDLCalculator(Calculator):
         return data
     
     @staticmethod
-    def data_to_atoms_list(data: Data) -> List[Atoms]:
+    def data_to_atoms_list(data: Data, labels: List=None) -> List[Atoms]:
         """
         This helper method takes a 'torch_geometric.data.Data' object containing information about atomic structures
         and converts it into a list of 'ase.Atoms' objects. Each 'Atoms' object represents an atomic structure
@@ -142,15 +145,30 @@ class MDLCalculator(Calculator):
             with positions and associated properties.
         """
         cells = data.cell.numpy()
-        
         split_indices = np.cumsum(data.n_atoms)[:-1]
         positions_per_structure = np.split(data.pos.numpy(), split_indices)
-        symbols_per_structure = np.split(data.z.numpy(), split_indices)
+        symbols_per_structure = np.split(data.z.numpy(), split_indices) 
         
         atoms_list = [Atoms(
-                        symbols=symbols_per_structure[i],
-                        positions=positions_per_structure[i],
-                        cell=Cell(cells[i])) for i in range(len(data.structure_id))]
+                symbols=symbols_per_structure[i],
+                positions=positions_per_structure[i],
+                cell=Cell(cells[i]),
+            ) for i in range(len(data.structure_id))]
+        
+        if labels is not None:
+            label_dict = {}
+            for label in labels:
+                dt = getattr(data, label).numpy()
+                if dt.shape[0] == len(data.structure_id): # graph-level property
+                    if len(dt.shape) != 1: # Stress
+                        dt = dt[:, np.newaxis, :]
+                    label_dict[label] = dt
+                else: # node-level property
+                    label_dict[label] = np.split(dt, split_indices)
+            for k, v in label_dict.items():
+                for i in range(len(data.structure_id)):
+                    atoms_list[i].info[k] = v[i]
+
         for i in range(len(data.structure_id)):
             atoms_list[i].structure_id = data.structure_id[i][0]
         return atoms_list

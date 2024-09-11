@@ -1,7 +1,7 @@
 simulation_type: NVT
 timestep: 4
 temperature: 2000
-calculator_config_path: configs/calculator/Silica/config_cgcnn_0_05_2_pretrain.yml
+calculator_config_path: configs/calculator/Silica/config_cgcnn_filtered_0_05_2_pretrain.yml
 total_steps: 100_000
 log_console: False
 save_metrics_per: 100_000

@@ -1,10 +1,10 @@
 simulation_type: NVT
 timestep: 4
 temperature: 2000
-calculator_config_path: configs/calculator/Silica/config_cgcnn_filtered_0_06_5_pretrain.yml
+calculator_config_path: configs/calculator/Silica/config_cgcnn_vat_0_05_2_pretrain.yml
 total_steps: 100_000
 log_console: False
-save_metrics_per: 100_000
+save_metrics_per: 50_000
 continue_simulation: False
 state_path: train_outs/sim_records_107/one_mill_sim_cgcnn_sam/atoms_state_at_step_1000.npz
 save_metrics_folder: train_outs/sim_records_107/one_mill_sim_cgcnn_sam

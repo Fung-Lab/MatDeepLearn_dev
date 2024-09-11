@@ -37,20 +37,21 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.dataset == "silica":
-        data = torch.load('data/Silica/original/data.pt', map_location='cpu')[0]
-        test_pred_csv_path = 'results/cgcnn/2024-06-14-09-41-25-357-cgcnn_sio2/train_results/test_predictions.csv'
-        dataset = 'data/Silica/original/data.pt'
-        idx = get_test_structures_from_pt(test_pred_csv_path, dataset)
+        pt_path = "/net/csefiles/coc-fung-cluster/Qianyu/data/Silica/original/data.pt"
+        data = torch.load(pt_path, map_location='cpu')[0]
+        test_pred_csv_path = 'results/finetuned/2024-08-21-12-08-21-040-finetune_filtered_silica_0_0.5_2_aug/train_results/test_predictions.csv'
+        idx = get_test_structures_from_pt(test_pred_csv_path, pt_path)
         atoms_list = MDLCalculator.data_to_atoms_list(data)
         atoms_list = [a for i, a in enumerate(atoms_list) if i in idx]
     else:
         unrelaxed_ids, relaxed_ids, unrelaxed, relaxed, dft_unrelaxed,\
-            unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('./data/optimization_data/data.json')
+            unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('/net/csefiles/coc-fung-cluster/Qianyu/data//optimization_data/data.json')
     
-        np.random.seed(123)
+        np.random.seed(42)
         idx = np.random.choice(len(relaxed), 200, replace=False)
         atoms_list = relaxed
         atoms_list = [a for i, a in enumerate(atoms_list) if i in idx]
+        print([a.structure_id for a in atoms_list[:5]])
     
     simulator = MetricMDSimulator(args.config_path)
     save_to = args.save

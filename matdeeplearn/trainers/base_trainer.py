@@ -50,6 +50,7 @@ class BaseTrainer(ABC):
         use_amp: bool = False,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
         self.model = model
         self.dataset = dataset
         self.optimizer = optimizer
