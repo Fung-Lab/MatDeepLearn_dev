@@ -2,7 +2,7 @@ trainer: property
 
 task:
   run_mode: train
-  identifier: my_train_job
+  identifier: graphormer_silica
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -67,7 +67,7 @@ optim:
     loss_type: TorchLossWrapper
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
-  clip_grad_norm: 10       
+  clip_grad_norm: 5       
   batch_size: 2
   optimizer:
     optimizer_type: AdamW
@@ -83,14 +83,14 @@ optim:
 dataset:
   name: test_data
   # Whether the data has already been processed and a data.pt file is present from a previous run
-  processed: False
+  processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: /net/csefiles/coc-fung-cluster/Qianyu/data/test_data/data_graph_scalar.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: /net/csefiles/coc-fung-cluster/Qianyu/data/test_data/
+  pt_path: /global/cfs/projectdirs/m3641/Qianyu/gt/stable_md/MatDeepLearn_dev/data/Silica/original/
   # Either "node" or "graph" level
   prediction_level: graph
   

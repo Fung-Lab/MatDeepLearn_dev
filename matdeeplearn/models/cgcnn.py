@@ -245,5 +245,5 @@ class CGCNN(BaseModel):
         else:
             output["pos_grad"] =  None
             output["cell_grad"] =  None    
-                  
+
         return output

@@ -4,7 +4,7 @@ from typing_extensions import NotRequired
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
-from torch_geometric.data import Data as TorchGeoData
+from torch_geometric.data import Data as TorchGeoData, Batch as TorchGeoBatch
 
 # fmt: off
 atom_list = list(range(1, 101))
@@ -41,7 +41,7 @@ class Data:
     pos: torch.Tensor  # (N, 3)
     atoms: torch.Tensor  # (N,)
     # tags: torch.Tensor  # (N,)
-    # real_mask: torch.Tensor  # (N,)
+    real_mask: torch.Tensor  # (N,)
     # pos_relaxed: torch.Tensor  # (N, 3)
     # y_relaxed: torch.Tensor  # (N, 3)
     # fixed: torch.Tensor  # (N,)
@@ -53,7 +53,7 @@ class Data:
             pos=self.pos.to(device),
             atoms=self.atoms.to(device),
             # tags=self.tags.to(device),
-            # real_mask=self.real_mask.to(device),
+            real_mask=self.real_mask.to(device),
             # pos_relaxed=self.pos_relaxed.to(device),
             # y_relaxed=self.y_relaxed.to(device),
             # fixed=self.fixed.to(device),
@@ -66,7 +66,7 @@ class Data:
             pos=self.pos.clone(),
             atoms=self.atoms.clone(),
             # tags=self.tags.clone(),
-            # real_mask=self.real_mask.clone(),
+            real_mask=self.real_mask.clone(),
             # pos_relaxed=self.pos_relaxed.clone(),
             # y_relaxed=self.y_relaxed.clone(),
             # fixed=self.fixed.clone(),
@@ -110,19 +110,18 @@ class Data:
         # )  # not copy ads
         used_expand_pos = expand_pos[used_mask]
         # used_expand_pos_relaxed = expand_pos_relaxed[used_mask]
-
         # used_expand_tags = tags.repeat(n_cells)[used_mask]
         # used_expand_fixed = fixed.repeat(n_cells)[used_mask]
         return cls(
             pos=torch.cat([pos, used_expand_pos], dim=0),
             atoms=torch.cat([atoms, atoms.repeat(n_cells)[used_mask]]),
             # tags=torch.cat([tags, used_expand_tags]),
-            # real_mask=torch.cat(
-            #     [
-            #         torch.ones_like(tags, dtype=torch.bool),
-            #         torch.zeros_like(used_expand_tags, dtype=torch.bool),
-            #     ]
-            # ),
+            real_mask=torch.cat(
+                [
+                    torch.ones(pos.shape[0], dtype=torch.bool),
+                    torch.zeros(used_expand_pos.shape[0], dtype=torch.bool),
+                ]
+            ),
             # pos_relaxed=torch.cat(
             #     [pos_relaxed, used_expand_pos_relaxed], dim=0
             # ),
@@ -149,7 +148,7 @@ class Batch:
     pos: torch.Tensor
     atoms: torch.Tensor
     # tags: torch.Tensor
-    # real_mask: torch.Tensor
+    real_mask: torch.Tensor
     # pos_relaxed: torch.Tensor
     # y_relaxed: torch.Tensor
     # fixed: torch.Tensor
@@ -161,7 +160,7 @@ class Batch:
             pos=self.pos.to(device),
             atoms=self.atoms.to(device),
             # tags=self.tags.to(device),
-            # real_mask=self.real_mask.to(device),
+            real_mask=self.real_mask.to(device),
             # pos_relaxed=self.pos_relaxed.to(device),
             # y_relaxed=self.y_relaxed.to(device),
             # fixed=self.fixed.to(device),
@@ -170,12 +169,15 @@ class Batch:
         )
 
     @classmethod
-    def from_data_list(cls, data_list: List[Data]):
+    def from_batch(cls, batch: TorchGeoBatch):
+        
+        data_list = batch.to_data_list()
+        data_list = [Data.from_torch_geometric_data(data.to("cpu")) for data in data_list]
         batch = cls(
             pos=_pad(data_list, "pos"),
             atoms=_pad(data_list, "atoms"),
             # tags=_pad(data_list, "tags"),
-            # real_mask=_pad(data_list, "real_mask"),
+            real_mask=_pad(data_list, "real_mask"),
             # pos_relaxed=_pad(data_list, "pos_relaxed"),
             # y_relaxed=torch.cat([d.y_relaxed for d in data_list], dim=0),
             # fixed=_pad(data_list, "fixed"),
@@ -189,7 +191,7 @@ class Batch:
             pos=self.pos.clone(),
             atoms=self.atoms.clone(),
             # tags=self.tags.clone(),
-            # real_mask=self.real_mask.clone(),
+            real_mask=self.real_mask.clone(),
             # pos_relaxed=self.pos_relaxed.clone(),
             # y_relaxed=self.y_relaxed.clone(),
             # fixed=self.fixed.clone(),

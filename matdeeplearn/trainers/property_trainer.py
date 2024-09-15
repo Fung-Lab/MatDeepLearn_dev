@@ -4,7 +4,8 @@ import time
 import numpy as np
 import torch
 from torch import distributed as dist
-from torch.cuda.amp import autocast
+# from torch.cuda.amp import autocast
+from torch.amp import autocast
 
 from tqdm import tqdm
 from matdeeplearn.common.data import get_dataloader
@@ -111,7 +112,7 @@ class PropertyTrainer(BaseTrainer):
                 # batch = next(train_loader_iter).to(self.rank) 
                 # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
                 # Compute forward, loss, backward    
-                with autocast(enabled=self.use_amp):
+                with autocast("cuda", dtype=torch.bfloat16, enabled=self.use_amp):
                     out_list = self._forward(batch)                                            
                     loss = self._compute_loss(out_list, batch) 
                 #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
