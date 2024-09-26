@@ -303,18 +303,18 @@ class DataProcessor:
             #     self.root_path_dict = self.root_path_dict["train"]
             dirs = [d for d in os.listdir(self.root_path) if os.path.isdir(os.path.join(self.root_path, d))]
             for i, dir_name in enumerate(tqdm(dirs, disable=self.disable_tqdm)):
-                if "singlet" in dir_name:
+                if "triplet" in dir_name:
                     try:
                         #densities = np.genfromtxt(self.root_path+dir_name+"/densities.csv", skip_header=1, delimiter=',')
                         df = pd.read_csv(self.root_path+dir_name+"/densities.csv", header=0).to_numpy()
                         vn_coords = df[:,0:3]
                         # Only predict density values
-                        vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
+                        # vn_labels = np.expand_dims((df[:, 5] + df[:, 6]), 1)
                         # Predict both density values and difference
-                        # vn_labels = np.concatenate(
-                        #     (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)),
-                        #     axis=1
-                        # )
+                        vn_labels = np.concatenate(
+                            (np.expand_dims(df[:, 5] + df[:, 6], 1), np.expand_dims(np.abs(df[:, 5] - df[:, 6]), 1)),
+                            axis=1
+                        )
 
                         # indices = random.sample(range(0, df.shape[0]), 200)
                         indices = get_sampling_indices(vn_labels, self.num_samples) \
