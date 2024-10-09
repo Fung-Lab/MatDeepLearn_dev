@@ -114,7 +114,7 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
             symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
             print(".")
             print(data.pos.requires_grad)
-            data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)
+            data.pos += torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)
             print(data.pos.requires_grad)
             print(".")
             data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
