@@ -205,7 +205,7 @@ class TorchMD_ET_Early(BaseModel):
             vec = vec + dvec
         print(x.requires_grad)
         x = self.out_norm(x)
-	print(x.requires_grad)
+		print(x.requires_grad)
         
         if self.prediction_level == "graph":
             x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
