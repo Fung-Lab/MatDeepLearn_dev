@@ -204,7 +204,7 @@ class TorchMD_ET_Early(BaseModel):
             x = x + dx
             vec = vec + dvec
         print(x.requires_grad)
-	x = self.out_norm(x)
+        x = self.out_norm(x)
 	print(x.requires_grad)
         
         if self.prediction_level == "graph":
