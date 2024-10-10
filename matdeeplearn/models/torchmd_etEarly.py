@@ -196,13 +196,20 @@ class TorchMD_ET_Early(BaseModel):
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
+	print(x.requires_grad)
+
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
             dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
             x = x + dx
             vec = vec + dvec
-        x = self.out_norm(x)
+
+	print(x.requires_grad)
+	    
+	x = self.out_norm(x)
+
+	print(x.requires_grad)
         
         if self.prediction_level == "graph":
             x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
