@@ -2,7 +2,7 @@ trainer: property
 
 task:
   run_mode: train
-  identifier: graphormer
+  identifier: geomformer
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -26,7 +26,7 @@ task:
   use_amp: True  
 
 model:
-  name: graphormer3d_direct_force
+  name: geomformer
   # model attributes
   atom_types: 100    
   # n_layers: 8
@@ -61,24 +61,24 @@ model:
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.0003
+  lr: 0.00005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     loss_type: TorchLossWrapper
     loss_args: {loss_fn: l1_loss}
   # gradient clipping value
-  clip_grad_norm: 5       
+  clip_grad_norm: False      
   batch_size: 2
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
   scheduler:
     scheduler_type: ReduceLROnPlateau
-    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.0000001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
   name: test_data
@@ -138,6 +138,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1 (0.8 corresponds to 80% of the data)
-  train_ratio: 0.002
-  val_ratio: 0.0005
-  test_ratio: 0.005
+  train_ratio: 0.8
+  val_ratio: 0.05
+  test_ratio: 0.15

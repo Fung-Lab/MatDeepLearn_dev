@@ -1,7 +1,7 @@
 simulation_type: NVT
 timestep: 4
 temperature: 2000
-calculator_config_path: configs/calculator/Silica/config_cgcnn.yml
+calculator_config_path: configs/calculator/Silica/config_torchmd.yml
 total_steps: 500
 log_console: False
 save_metrics_per: 100_000

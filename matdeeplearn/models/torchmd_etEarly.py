@@ -1,4 +1,5 @@
 from typing import Optional, Tuple
+from time import time
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -83,7 +84,6 @@ class TorchMD_ET_Early(BaseModel):
         **kwargs
     ):
         super(TorchMD_ET_Early, self).__init__(**kwargs)
-
         assert distance_influence in ["keys", "values", "both", "none"]
         assert rbf_type in rbf_class_mapping, (
             f'Unknown RBF type "{rbf_type}". '
@@ -358,7 +358,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
             else None
         )
         
-
+        s_time = time()
         # propagate_type: (q: Tensor, k: Tensor, v: Tensor, vec: Tensor, dk: Tensor, dv: Tensor, r_ij: Tensor, d_ij: Tensor)
         x, vec = self.propagate(
             edge_index,
@@ -372,6 +372,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
             d_ij=d_ij,
             size=None,
         )
+        print("propagate time: ", (time() - s_time) * 100)
         x = x.reshape(-1, self.hidden_channels)
         vec = vec.reshape(-1, 3, self.hidden_channels)
 
@@ -382,11 +383,12 @@ class EquivariantMultiHeadAttention(MessagePassing):
 
     def message(self, q_i, k_j, v_j, vec_j, dk, dv, r_ij, d_ij):
         # attention mechanism
+        s_time = time()
         if dk is None:
             attn = (q_i * k_j).sum(dim=-1)
         else:
             attn = (q_i * k_j * dk).sum(dim=-1)
-
+        print("attn time: ", (time() - s_time) * 100)
         # attention activation function
         attn = self.attn_activation(attn) * self.cutoff(r_ij).unsqueeze(1)
 

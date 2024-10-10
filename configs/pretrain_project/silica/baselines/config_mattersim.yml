@@ -1,10 +1,11 @@
 trainer: property
-
 ?
 task:
   run_mode: train
-  identifier: cgcnn_si
+  identifier: mattersim
   parallel: False
+  # world_size: 2
+  # rank: 0
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
@@ -14,7 +15,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: /net/csefiles/coc-fung-cluster/Qianyu/stable_md/MatDeepLearn_dev/results/2024-09-23-00-03-48-578-graphormer_si_autodiff_all_dropout_0.2/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -23,28 +24,28 @@ task:
   model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: False  
+  use_amp: True  
 ?
 model:
-  name: CGCNN 
+  name: mattersim 
   # model attributes
-  dim1: 100
-  dim2: 150
-  pre_fc_count: 1
-  gc_count: 4
-  post_fc_count: 3
-  pool: global_add_pool
-  pool_order: late
-  batch_norm: False
-  batch_track_stats: True
-  act: silu
-  dropout_rate: 0.0
+  # dim1: 100
+  # dim2: 150
+  # pre_fc_count: 1
+  # gc_count: 4
+  # post_fc_count: 3
+  # pool: global_add_pool
+  # pool_order: late
+  # batch_norm: False
+  # batch_track_stats: True
+  # act: silu
+  # dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
-  otf_edge_index: True 
-  # Compute edge attributes on the fly in the model forward
-  otf_edge_attr: True  
-  # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  # otf_edge_index: True 
+  # # Compute edge attributes on the fly in the model forward
+  # otf_edge_attr: True  
+  # # Compute node attributes on the fly in the model forward
+  # otf_node_attr: False
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
@@ -52,28 +53,28 @@ model:
 optim:
   max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.00005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    # loss_type: "TorchLossWrapper"
-    # loss_args: {loss_fn: l1_loss}
+    #loss_type: "TorchLossWrapper"
+    #loss_args: {loss_fn: l1_loss}
     # loss_type: ForceStressLoss
-    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    # loss_args: {weight_energy: 0.01, weight_force: 500.0, weight_stress: 500.0}
     loss_type: "ForceLoss"
-    loss_args: {weight_energy: 0.01, weight_force: 50.}
+    loss_args: {weight_energy: 0.01, weight_force: 50.0}
   clip_grad_norm: 10
          
-  batch_size: 16
+  batch_size: 2
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
   scheduler:
     scheduler_type: ReduceLROnPlateau
-    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.0000001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
   name: silica
@@ -99,7 +100,7 @@ dataset:
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
   #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
   #additional_attributes:
   # Print out processing info
   verbose: True

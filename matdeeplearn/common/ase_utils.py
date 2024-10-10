@@ -119,7 +119,6 @@ class MDLCalculator(Calculator):
 
         data = Data(n_atoms=len(atomic_numbers), pos=pos, cell=cell.unsqueeze(dim=0),
             z=atomic_numbers, structure_id=atoms.info.get('structure_id', None))
-        
         for key, val in atoms.info.items():
             setattr(data, key, torch.tensor(val, dtype=torch.float32))
             
@@ -155,19 +154,19 @@ class MDLCalculator(Calculator):
                 cell=Cell(cells[i]),
             ) for i in range(len(data.structure_id))]
         
-        if labels is not None:
-            label_dict = {}
-            for label in labels:
-                dt = getattr(data, label).numpy()
-                if dt.shape[0] == len(data.structure_id): # graph-level property
-                    if len(dt.shape) != 1: # Stress
-                        dt = dt[:, np.newaxis, :]
-                    label_dict[label] = dt
-                else: # node-level property
-                    label_dict[label] = np.split(dt, split_indices)
-            for k, v in label_dict.items():
-                for i in range(len(data.structure_id)):
-                    atoms_list[i].info[k] = v[i]
+        # if labels is not None:
+        #     label_dict = {}
+        #     for label in labels:
+        #         dt = getattr(data, label).numpy()
+        #         if dt.shape[0] == len(data.structure_id): # graph-level property
+        #             if len(dt.shape) != 1: # Stress
+        #                 dt = dt[:, np.newaxis, :]
+        #             label_dict[label] = dt
+        #         else: # node-level property
+        #             label_dict[label] = np.split(dt, split_indices)
+        #     for k, v in label_dict.items():
+        #         for i in range(len(data.structure_id)):
+        #             atoms_list[i].info[k] = v[i]
 
         for i in range(len(data.structure_id)):
             atoms_list[i].structure_id = data.structure_id[i][0]
@@ -217,7 +216,7 @@ class MDLCalculator(Calculator):
         else:
             for i in range(len(checkpoints)):
                 try:
-                    checkpoint = torch.load(checkpoints[i], map_location=rank)
+                    checkpoint = torch.load(checkpoints[i], map_location=rank, weights_only=True)
                     model_list[i].load_state_dict(checkpoint["state_dict"])
                     logging.info(f'MDLCalculator: weights for model No.{i+1} loaded from {checkpoints[i]}')
                 except ValueError:

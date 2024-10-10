@@ -8,8 +8,8 @@ import torch.nn.functional as F
 
 def get_efs_error(folder_name, ratio=(0.01, 50, 50), split='test'):
     assert len(ratio) == 3
-    files = [f'{split}_predictions.csv', f'{split}_predictions_cell_grad.csv', f'{split}_predictions_pos_grad.csv']
-    assert all(f in os.listdir(folder_name) for f in files)
+    #files = [f'{split}_predictions.csv', f'{split}_predictions_cell_grad.csv', f'{split}_predictions_pos_grad.csv']
+    #assert all(f in os.listdir(folder_name) for f in files)
 
     result = {}
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     #result_path = './results/silica_tests/2024-01-25-13-56-30-293-lj_sio2/train_results'
-    result = get_efs_error(args.result_path, ratio=(0.01, 50, 50), split='test')
+    result = get_efs_error(args.result_path, ratio=(0.01, 50, 0.), split='test')
     
     for key in result.keys():
         print(f"{key}: {result[key]:.6f}")

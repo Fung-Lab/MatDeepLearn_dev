@@ -30,7 +30,7 @@ model:
 dataset:  
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
-    edge_calc_method: ocp 
+    edge_calc_method: mdl 
     # determine if edges are computed, if false, then they need to be computed on the fly   
     preprocess_edges: False
     # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   

@@ -1,5 +1,15 @@
 import torch
+from torch.optim.lr_scheduler import LambdaLR
 
+
+def warmup_poly_decay_lr(warmup_steps, total_steps, poly_power=0.5):
+    def lr_lambda(current_step):
+        if current_step < warmup_steps:
+            return float(current_step) / float(max(1, warmup_steps))
+        else:
+            return (1.0 - float(current_step - warmup_steps) / float(max(1, total_steps - warmup_steps))) ** poly_power
+    
+    return lr_lambda
 
 class LRScheduler:
     """wrapper around torch.optim.lr_scheduler._LRScheduler"""
@@ -8,9 +18,13 @@ class LRScheduler:
         self.optimizer = optimizer
         self.scheduler_type = scheduler_type
 
-        self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
-            optimizer, **model_parameters
-        )
+        if scheduler_type == "LambdaLR":
+            assert "lr_lambda" in model_parameters
+            self.scheduler = LambdaLR(optimizer, lr_lambda=warmup_poly_decay_lr(**model_parameters['lr_lambda']))
+        else:
+            self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
+                optimizer, **model_parameters
+            )
 
         self.lr = self.optimizer.param_groups[0]["lr"]
 

@@ -1,10 +1,11 @@
 trainer: property
-
 ?
 task:
   run_mode: train
-  identifier: graphormer_si_direct_force
+  identifier: graphormer_si_autodiff
   parallel: False
+  # world_size: 2
+  # rank: 0
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
@@ -14,19 +15,20 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: /net/csefiles/coc-fung-cluster/Qianyu/stable_md/MatDeepLearn_dev/results/2024-09-23-00-03-48-578-graphormer_si_autodiff_all_dropout_0.2/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: True  
 ?
 model:
-  name: graphormer3d 
+  name: graphormer3d_direct_force 
+  # n_layers: 6
   # model attributes
   # dim1: 100
   # dim2: 150
@@ -50,20 +52,20 @@ model:
   gradient: True
 ?
 optim:
-  max_epochs: 200
+  max_epochs: 400
   max_checkpoint_epochs: 0
-  lr: 0.00005
+  lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
     #loss_args: {loss_fn: l1_loss}
     # loss_type: ForceStressLoss
-    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 500.0}
     loss_type: "ForceLoss"
     loss_args: {weight_energy: 0.01, weight_force: 50.0}
-  clip_grad_norm: 10
+  clip_grad_norm: False
          
-  batch_size: 2
+  batch_size: 1
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -84,7 +86,7 @@ dataset:
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica/original/
+  pt_path: /net/csefiles/coc-fung-cluster/Qianyu/data/Silica/original/
   # Either "node" or "graph"
   prediction_level: graph
   

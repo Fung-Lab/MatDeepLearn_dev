@@ -479,9 +479,15 @@ class PropertyTrainer(BaseTrainer):
                 self.model[index].parameters(),
                 max_norm=self.clip_grad_norm,
             )
+        else:
+            grad_norm = torch.tensor(0.)
+            for p in self.model[index].parameters():
+                if p.grad is not None:
+                    param_norm = p.grad.detach().data.norm(2)
+                    grad_norm += param_norm.item() ** 2
+            grad_norm = grad_norm ** 0.5
         self.scaler.step(self.optimizer[index])
         self.scaler.update()
-            
         return grad_norm
 
 

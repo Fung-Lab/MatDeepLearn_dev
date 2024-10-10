@@ -42,7 +42,7 @@ if __name__ == '__main__':
         test_pred_csv_path = 'results/finetuned/2024-08-21-12-08-21-040-finetune_filtered_silica_0_0.5_2_aug/train_results/test_predictions.csv'
         idx = get_test_structures_from_pt(test_pred_csv_path, pt_path)
         atoms_list = MDLCalculator.data_to_atoms_list(data)
-        atoms_list = [a for i, a in enumerate(atoms_list) if i in idx]
+        atoms_list = [a for i, a in enumerate(atoms_list) if i in idx][:5]
     else:
         unrelaxed_ids, relaxed_ids, unrelaxed, relaxed, dft_unrelaxed,\
             unrelaxed_energy, relaxed_energy, dft_unrelaxed_energy = build_atoms_list('/net/csefiles/coc-fung-cluster/Qianyu/data//optimization_data/data.json')

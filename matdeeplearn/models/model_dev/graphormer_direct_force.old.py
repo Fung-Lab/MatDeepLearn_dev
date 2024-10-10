@@ -14,13 +14,11 @@ from torch import Tensor
 #     register_model_architecture,
 # )
 
-import torch_geometric
 from torch_geometric.data import Batch as TorchGeoBatch
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.preprocessor.helpers import node_rep_one_hot
-from matdeeplearn.models.model_dev.utils import Batch, Data
+from matdeeplearn.models.model_dev.utils import Batch
 
 torch._C._jit_set_profiling_mode(False)
 torch._C._jit_set_profiling_executor(False)
@@ -80,7 +78,6 @@ class SelfMultiheadAttention(nn.Module):
         attn = self.out_proj(attn)
         return attn
 
-
 class Graphormer3DEncoderLayer(nn.Module):
     """
     Implements a Graphormer-3D Encoder Layer.
@@ -94,7 +91,6 @@ class Graphormer3DEncoderLayer(nn.Module):
         dropout: float = 0.1,
         attention_dropout: float = 0.1,
         activation_dropout: float = 0.1,
-        act: str = "gelu",
     ) -> None:
         super().__init__()
 
@@ -102,7 +98,6 @@ class Graphormer3DEncoderLayer(nn.Module):
         self.embedding_dim = embedding_dim
         self.num_attention_heads = num_attention_heads
         self.attention_dropout = attention_dropout
-        self.act = getattr(F, act)
 
         self.dropout = dropout
         self.activation_dropout = activation_dropout
@@ -134,52 +129,44 @@ class Graphormer3DEncoderLayer(nn.Module):
 
         residual = x
         x = self.final_layer_norm(x)
-        x = self.act(self.fc1(x))
+        x = F.gelu(self.fc1(x))
         x = F.dropout(x, p=self.activation_dropout, training=self.training)
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = residual + x
         return x
 
-@torch.jit.script
-def gaussian(x, mean, std):
-    pi = 3.14159
-    a = (2*pi) ** 0.5
-    return torch.exp(-0.5 * (((x - mean) / std) ** 2)) / (a * std)
-
-class GaussianLayer(nn.Module):
-    def __init__(self, K=128, edge_types=1024):
+class RBF(nn.Module):
+    def __init__(self, K, edge_types):
         super().__init__()
         self.K = K
-        self.means = nn.Embedding(1, K)
-        self.stds = nn.Embedding(1, K)
-        self.mul = nn.Embedding(edge_types, 1)
-        self.bias = nn.Embedding(edge_types, 1)
-        nn.init.uniform_(self.means.weight, 0, 3)
-        nn.init.uniform_(self.stds.weight, 0, 3)
+        self.means = nn.parameter.Parameter(torch.empty(K))
+        self.temps = nn.parameter.Parameter(torch.empty(K))
+        self.mul: Callable[..., Tensor] = nn.Embedding(edge_types, 1)
+        self.bias: Callable[..., Tensor] = nn.Embedding(edge_types, 1)
+        nn.init.uniform_(self.means, 0, 3)
+        nn.init.uniform_(self.temps, 0.1, 10)
         nn.init.constant_(self.bias.weight, 0)
         nn.init.constant_(self.mul.weight, 1)
 
-    def forward(self, x, edge_types):
+    def forward(self, x: Tensor, edge_types):
         mul = self.mul(edge_types)
         bias = self.bias(edge_types)
         x = mul * x.unsqueeze(-1) + bias
-        x = x.expand(-1, -1, -1, self.K)
-        mean = self.means.weight.float().view(-1)
-        std = self.stds.weight.float().view(-1).abs() + 1e-5
-        return gaussian(x.float(), mean, std).type_as(self.means.weight)
+        mean = self.means.float()
+        temp = self.temps.float().abs()
+        return ((x - mean).square() * (-temp)).exp().type_as(self.means)
 
 class NonLinear(nn.Module):
-    def __init__(self, input, output_size, act='gelu', hidden=None):
+    def __init__(self, input, output_size, hidden=None):
         super(NonLinear, self).__init__()
         if hidden is None:
             hidden = input
         self.layer1 = nn.Linear(input, hidden)
         self.layer2 = nn.Linear(hidden, output_size)
-        self.act = getattr(F, act)
 
     def forward(self, x):
-        x = self.act(self.layer1(x))
+        x = F.gelu(self.layer1(x))
         x = self.layer2(x)
         return x
 
@@ -229,26 +216,24 @@ class NodeTaskHead(nn.Module):
         cur_force = torch.cat([f1, f2, f3], dim=-1).float()
         return cur_force
 
-
-@registry.register_model("graphormer3d")
-class Graphormer3D(BaseModel):
+@registry.register_model("graphormer3d_direct_force")
+class Graphormer3D_force(BaseModel):
     def __init__(
         self,
         atom_types=20,
         n_blocks=1,
-        n_layers=8,
-        emb_dim=192,
-        ffn_dim=192,
+        n_layers=6,
+        emb_dim=768,
+        ffn_dim=768,
         n_attn_heads=48,
         input_droput=0.0,
         dropout=0.0,
         attn_dropout=0.0,
         act_dropout=0.0,
         n_kernel=128,
-        act='silu',
         **kwargs,
     ):
-        super(Graphormer3D, self).__init__(**kwargs)
+        super(Graphormer3D_force, self).__init__(**kwargs)
         self.atom_types = atom_types
         self.edge_types = atom_types ** 2
         self.n_blocks = n_blocks
@@ -261,7 +246,6 @@ class Graphormer3D(BaseModel):
         self.attn_dropout = attn_dropout
         self.act_dropout = act_dropout
         self.n_kernel = n_kernel
-        self.act = getattr(F, act)
         
         self.atom_encoder = nn.Embedding(
             self.atom_types, self.emb_dim, padding_idx=0
@@ -275,7 +259,6 @@ class Graphormer3D(BaseModel):
                     dropout=self.dropout,
                     attention_dropout=self.attn_dropout,
                     activation_dropout=self.act_dropout,
-                    act=act
                 )
                 for _ in range(self.n_layers)
             ]
@@ -286,14 +269,14 @@ class Graphormer3D(BaseModel):
         self.engergy_proj: Callable[[Tensor], Tensor] = NonLinear(
             self.emb_dim, 1
         )
-        self.energe_agg_factor: Callable[[Tensor], Tensor] = nn.Embedding(3, 1)
-        nn.init.normal_(self.energe_agg_factor.weight, 0, 0.01)
+        # self.energe_agg_factor: Callable[[Tensor], Tensor] = nn.Embedding(3, 1)
+        # nn.init.normal_(self.energe_agg_factor.weight, 0, 0.01)
 
         K = self.n_kernel
 
-        self.gbf: Callable[[Tensor, Tensor], Tensor] = GaussianLayer(K, self.edge_types)
+        self.gbf: Callable[[Tensor, Tensor], Tensor] = RBF(K, self.edge_types)
         self.bias_proj: Callable[[Tensor], Tensor] = NonLinear(
-            K, self.n_attn_heads, act=act
+            K, self.n_attn_heads
         )
         self.edge_proj: Callable[[Tensor], Tensor] = nn.Linear(K, self.emb_dim)
         self.node_proc: Callable[[Tensor, Tensor, Tensor], Tensor] = NodeTaskHead(
@@ -307,64 +290,41 @@ class Graphormer3D(BaseModel):
     # def set_num_updates(self, num_updates):
     #     self.num_updates = num_updates
     #     return super().set_num_updates(num_updates)
-    def forward(self, data: TorchGeoBatch):
     
+    def forward(self, data: TorchGeoBatch):
         output = {}
         out = self._forward(data)
-        output["output"] = out
-        
-        if self.gradient == True and out.requires_grad == True:         
-            volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-            
-            grad = torch.autograd.grad(
-                    out,
-                    [data.pos, data.displacement],
-                    grad_outputs=torch.ones_like(out),
-                    create_graph=self.training)
-            forces = -1 * grad[0]
-            stress = grad[1]
-            stress = stress / volume.view(-1, 1, 1)         
+        output["output"] = out[0]
+        output["pos_grad"] = out[1]
 
-            output["pos_grad"] =  forces
-            output["cell_grad"] =  stress
-        else:
-            output["pos_grad"] =  None
-            output["cell_grad"] =  None  
-                  
         return output 
     
     @conditional_grad(torch.enable_grad())
     def _forward(self, data: TorchGeoBatch):
-        if self.gradient:
-            data.pos.requires_grad_(True)
-            data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
-            data.displacement.requires_grad_(True)
-            symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
-            data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
-            data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
-        
         device = data.pos.device
-        batch: Batch = Batch.from_batch(data, pbc=2)[0].to(device)
+        batch: Batch = Batch.from_batch(data)[0].to(device)
+        # print(f"Original pos: {data.pos}")
         data = data.to(device)
-                
+        
         atoms, pos, real_mask = (
             batch.atoms,
             batch.pos,
             batch.real_mask,
         )
-        padding_mask = atoms == 0
+        
+        padding_mask = atoms.eq(0)
 
         n_graph, n_node = atoms.size()
         delta_pos = pos.unsqueeze(1) - pos.unsqueeze(2)
         dist: Tensor = delta_pos.norm(dim=-1)
-        delta_pos = delta_pos / (dist.unsqueeze(-1) + 1e-5)
+        delta_pos /= dist.unsqueeze(-1) + 1e-5
 
         edge_type = atoms.view(
             n_graph, n_node, 1
         ) * self.atom_types + atoms.view(n_graph, 1, n_node)
 
-        rbf_feature = self.gbf(dist, edge_type)
-        edge_features = rbf_feature.masked_fill(
+        gbf_feature = self.gbf(dist, edge_type)
+        edge_features = gbf_feature.masked_fill(
             padding_mask.unsqueeze(1).unsqueeze(-1), 0.0
         )
 
@@ -380,7 +340,7 @@ class Graphormer3D(BaseModel):
         output = output.transpose(0, 1).contiguous()
 
         graph_attn_bias = (
-            self.bias_proj(rbf_feature).permute(0, 3, 1, 2).contiguous()
+            self.bias_proj(gbf_feature).permute(0, 3, 1, 2).contiguous()
         )
         graph_attn_bias.masked_fill_(
             padding_mask.unsqueeze(1).unsqueeze(2), float("-inf")
@@ -394,34 +354,18 @@ class Graphormer3D(BaseModel):
         output = self.final_ln(output)
         output = output.transpose(0, 1)
 
-        eng_output = F.dropout(output, p=0.1, training=self.training)
+        eng_output = F.dropout(output, p=0.0, training=self.training)
         eng_output = (
             self.engergy_proj(eng_output)
         ).flatten(-2)
-        output_mask = real_mask  # no need to consider padding, since padding has tag 0, real_mask False
+        output_mask = real_mask # no need to consider padding, since padding has tag 0, real_mask False
 
-        eng_output = eng_output * output_mask
-        eng_output = eng_output.sum(dim=-1, keepdim=True)
+        eng_output *= output_mask
+        eng_output = eng_output.sum(dim=-1)
 
-        # node_output = self.node_proc(output, graph_attn_bias, delta_pos)
+        node_output = self.node_proc(output, graph_attn_bias, delta_pos)
 
-        # node_target_mask = output_mask
-        # force_output = node_output * node_target_mask
-        return eng_output#, force_output #node_output, node_target_mask
-
-
-# @register_model_architecture("graphormer3d", "graphormer3d_base")
-# def base_architecture(args):
-#     args.blocks = getattr(args, "blocks", 4)
-#     args.layers = getattr(args, "layers", 12)
-#     args.embed_dim = getattr(args, "embed_dim", 768)
-#     args.ffn_embed_dim = getattr(args, "ffn_embed_dim", 768)
-#     args.attention_heads = getattr(args, "attention_heads", 48)
-#     args.input_dropout = getattr(args, "input_dropout", 0.0)
-#     args.dropout = getattr(args, "dropout", 0.1)
-#     args.attention_dropout = getattr(args, "attention_dropout", 0.1)
-#     args.activation_dropout = getattr(args, "activation_dropout", 0.0)
-#     args.node_loss_weight = getattr(args, "node_loss_weight", 15)
-#     args.min_node_loss_weight = getattr(args, "min_node_loss_weight", 1)
-#     args.eng_loss_weight = getattr(args, "eng_loss_weight", 1)
-#     args.num_kernel = getattr(args, "num_kernel", 128)
+        node_target_mask = output_mask
+        expanded_mask = node_target_mask.unsqueeze(-1).expand_as(node_output)
+        force_output = node_output[expanded_mask.bool()].reshape(-1, 3)
+        return eng_output.unsqueeze(-1), force_output
