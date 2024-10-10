@@ -120,7 +120,9 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
 
         #Can differ from non-otf if amp=True for a very small percentage of edges ~0.01%                    
         if self.graph_method == "ocp":
-            edge_index, cell_offsets, neighbors = radius_graph_pbc(
+            print("OCP Calculation")
+            print(data.pos.requires_grad)
+            edge_index2, cell_offsets, neighbors = radius_graph_pbc(
                 cutoff_radius,
                 n_neighbors,
                 data.pos,
@@ -129,20 +131,25 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
                 [True, True, True],
                 self.num_offsets,
             )
+            print(data.pos.requires_grad)
                                   
             edge_gen_out = get_pbc_distances(
                 data.pos,
-                edge_index,
+                edge_index2,
                 data.cell,
                 cell_offsets,
                 neighbors,
                 return_offsets=True,
                 return_distance_vec=True,
             )
+            print(data.pos.requires_grad)
             edge_index = edge_gen_out["edge_index"]
+            print(edge_index.requires_grad)
             edge_weights = edge_gen_out["distances"]
+            print(edge_weights.requires_grad)
             offset_distance = edge_gen_out["offsets"]                
             edge_vec = edge_gen_out["distance_vec"]
+            print(edge_vec.requires_grad)
             if(edge_vec.dim() > 2):
                 edge_vec = edge_vec[edge_indices[0], edge_indices[1]]      
 
