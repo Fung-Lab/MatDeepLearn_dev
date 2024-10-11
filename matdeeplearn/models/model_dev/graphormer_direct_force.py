@@ -260,7 +260,7 @@ class NodeTaskHead(nn.Module):
         return cur_force
 
 
-@registry.register_model("graphormer")
+@registry.register_model("graphormer_force")
 class Graphormer3D_Force(BaseModel):
     def __init__(
         self,
@@ -329,48 +329,19 @@ class Graphormer3D_Force(BaseModel):
     def target_attr(self):
         return "y"
 
-    # def set_num_updates(self, num_updates):
-    #     self.num_updates = num_updates
-    #     return super().set_num_updates(num_updates)
     def forward(self, data: TorchGeoBatch):
     
         output = {}
         out = self._forward(data)
         output["output"] = out[0]
         output["pos_grad"] = out[1]
-
-        # if self.gradient == True and out.requires_grad == True:         
-        #     volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
-            
-        #     grad = torch.autograd.grad(
-        #             out,
-        #             [data.pos, data.displacement],
-        #             grad_outputs=torch.ones_like(out),
-        #             create_graph=self.training)
-        #     forces = -1 * grad[0]
-        #     stress = grad[1]
-        #     stress = stress / volume.view(-1, 1, 1)         
-
-        #     output["pos_grad"] =  forces
-        #     output["cell_grad"] =  stress
-        # else:
-        #     output["pos_grad"] =  None
-        #     output["cell_grad"] =  None  
                   
         return output 
     
     @conditional_grad(torch.enable_grad())
     def _forward(self, data: TorchGeoBatch):
-        # if self.gradient:
-        #     data.pos.requires_grad_(True)
-        #     data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
-        #     data.displacement.requires_grad_(True)
-        #     symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
-        #     data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
-        #     data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
-        
         device = data.pos.device
-        batch: Batch = Batch.from_batch(data)[0].to(device)
+        batch: Batch = Batch.from_batch(data).to(device)
         data = data.to(device)
                 
         atoms, pos, real_mask = (
@@ -424,9 +395,7 @@ class Graphormer3D_Force(BaseModel):
         eng_output = (
             self.engergy_proj(eng_output)
         ).flatten(-2)
-        output_mask = real_mask  # no need to consider padding, since padding has tag 0, real_mask False
-
-        # print(eng_output.shape, output_mask.shape)
+        output_mask = real_mask
         eng_output *= output_mask
         eng_output = eng_output.sum(dim=-1)
 
@@ -435,22 +404,5 @@ class Graphormer3D_Force(BaseModel):
         node_target_mask = output_mask
         expanded_mask = node_target_mask.unsqueeze(-1).expand_as(node_output)
         force_output = node_output[expanded_mask.bool()].reshape(-1, 3)
-        # print(force_output.shape)
-        return eng_output[:, None], force_output #node_output, node_target_mask
 
-
-# @register_model_architecture("graphormer3d", "graphormer3d_base")
-# def base_architecture(args):
-#     args.blocks = getattr(args, "blocks", 4)
-#     args.layers = getattr(args, "layers", 12)
-#     args.embed_dim = getattr(args, "embed_dim", 768)
-#     args.ffn_embed_dim = getattr(args, "ffn_embed_dim", 768)
-#     args.attention_heads = getattr(args, "attention_heads", 48)
-#     args.input_dropout = getattr(args, "input_dropout", 0.0)
-#     args.dropout = getattr(args, "dropout", 0.1)
-#     args.attention_dropout = getattr(args, "attention_dropout", 0.1)
-#     args.activation_dropout = getattr(args, "activation_dropout", 0.0)
-#     args.node_loss_weight = getattr(args, "node_loss_weight", 15)
-#     args.min_node_loss_weight = getattr(args, "min_node_loss_weight", 1)
-#     args.eng_loss_weight = getattr(args, "eng_loss_weight", 1)
-#     args.num_kernel = getattr(args, "num_kernel", 128)
+        return eng_output[:, None], force_output
