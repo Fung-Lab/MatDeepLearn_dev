@@ -27,16 +27,16 @@ task:
 ?
 model:
   name: graphormer
-  layers: 6
-  blocks: 1
-  embed_dim: 768
-  ffn_embed_dim: 768
-  attention_heads: 48
-  dropout: 0.0
-  attention_dropout: 0.0
-  activation_dropout: 0.0
-  input_dropout: 0.0
-  num_kernel: 128
+  # layers: 6
+  # blocks: 1
+  # embed_dim: 768
+  # ffn_embed_dim: 768
+  # attention_heads: 48
+  # dropout: 0.0
+  # attention_dropout: 0.0
+  # activation_dropout: 0.0
+  # input_dropout: 0.0
+  # num_kernel: 128
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: False #True
@@ -54,21 +54,19 @@ optim:
     # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
     loss_type: "ForceLoss"
     loss_args: {weight_energy: 0.01, weight_force: 50.0}
-    # loss_args: {weight_energy: 1.00, weight_force: 0}
-    # loss_args: {weight_energy: 0.00, weight_force: 100}
   clip_grad_norm: False
          
   batch_size: 1
   optimizer:
     optimizer_type: AdamW
-    optimizer_args: {}
+    optimizer_args: {eps: 0.000001, weight_decay: 0.0, betas: [0.9, 0.98]}
   scheduler:
     scheduler_type: ReduceLROnPlateau
     scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.0000001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
   name: silica
@@ -126,6 +124,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.09
-  val_ratio: 0.005
-  test_ratio: 0.005
+  train_ratio: 0.9
+  val_ratio: 0.05
+  test_ratio: 0.05

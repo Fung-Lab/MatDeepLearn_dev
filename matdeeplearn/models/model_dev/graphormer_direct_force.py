@@ -1,24 +1,35 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import Callable, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
+# from fairseq.models import (
+#     BaseFairseqModel,
+#     register_model,
+#     register_model_architecture,
+# )
+
+import torch_geometric
+from torch_geometric.data import Batch as TorchGeoBatch
+
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
+from matdeeplearn.preprocessor.helpers import node_rep_one_hot
+from matdeeplearn.models.model_dev.utils import Batch, Data
 
-from .utils import Batch
-
-# Credits: https://github.com/microsoft/Graphormer/tree/main/graphormer
+torch._C._jit_set_profiling_mode(False)
+torch._C._jit_set_profiling_executor(False)
+torch._C._jit_override_can_fuse_on_cpu(True)
+torch._C._jit_override_can_fuse_on_gpu(True)
 
 
 @torch.jit.script
-def _softmax_dropout_fused(input, dropout_prob: float, is_training: bool):
+def softmax_dropout(input, dropout_prob: float, is_training: bool):
     return F.dropout(F.softmax(input, -1), dropout_prob, is_training)
 
 
@@ -62,14 +73,10 @@ class SelfMultiheadAttention(nn.Module):
         v = v.contiguous().view(_shape).transpose(0, 1)
 
         attn_weights = torch.bmm(q, k.transpose(1, 2)) + attn_bias
-        attn_probs = _softmax_dropout_fused(
-            attn_weights, self.dropout, self.training
-        )
+        attn_probs = softmax_dropout(attn_weights, self.dropout, self.training)
 
         attn = torch.bmm(attn_probs, v)
-        attn = (
-            attn.transpose(0, 1).contiguous().view(n_node, n_graph, embed_dim)
-        )
+        attn = attn.transpose(0, 1).contiguous().view(n_node, n_graph, embed_dim)
         attn = self.out_proj(attn)
         return attn
 
@@ -132,36 +139,34 @@ class Graphormer3DEncoderLayer(nn.Module):
         x = residual + x
         return x
 
+@torch.jit.script
+def gaussian(x, mean, std):
+    pi = 3.14159
+    a = (2*pi) ** 0.5
+    return torch.exp(-0.5 * (((x - mean) / std) ** 2)) / (a * std)
 
-# class RBF(nn.Module):
-#     def __init__(self, K, edge_types, enable_edge_types: bool = True):
-#         super().__init__()
-#         self.K = K
-#         self.enable_edge_types = enable_edge_types
+class GaussianLayer(nn.Module):
+    def __init__(self, K=128, edge_types=1024):
+        super().__init__()
+        self.K = K
+        self.means = nn.Embedding(1, K)
+        self.stds = nn.Embedding(1, K)
+        self.mul = nn.Embedding(edge_types, 1)
+        self.bias = nn.Embedding(edge_types, 1)
+        nn.init.uniform_(self.means.weight, 0, 3)
+        nn.init.uniform_(self.stds.weight, 0, 3)
+        nn.init.constant_(self.bias.weight, 0)
+        nn.init.constant_(self.mul.weight, 1)
 
-#         self.means = nn.parameter.Parameter(torch.empty(K))
-#         self.temps = nn.parameter.Parameter(torch.empty(K))
-#         nn.init.uniform_(self.means, 0, 30)
-#         nn.init.uniform_(self.temps, 0.1, 8.0)
+    def forward(self, x, edge_types):
+        mul = self.mul(edge_types)
+        bias = self.bias(edge_types)
+        x = mul * x.unsqueeze(-1) + bias
+        x = x.expand(-1, -1, -1, self.K)
+        mean = self.means.weight.float().view(-1)
+        std = self.stds.weight.float().view(-1).abs() + 1e-5
+        return gaussian(x.float(), mean, std).type_as(self.means.weight)
 
-#         if self.enable_edge_types:
-#             self.mul: Callable[..., Tensor] = nn.Embedding(edge_types, 1)
-#             self.bias: Callable[..., Tensor] = nn.Embedding(edge_types, 1)
-#             nn.init.constant_(self.bias.weight, 0)
-#             nn.init.constant_(self.mul.weight, 1)
-
-#     def forward(self, x: Tensor, edge_types=None):
-#         x = x.unsqueeze(-1)
-#         if self.enable_edge_types:
-#             assert edge_types is not None
-#             mul = self.mul(edge_types)
-#             bias = self.bias(edge_types)
-#             x = mul * x + bias
-
-#         mean = self.means.float()
-#         temp = self.temps.float().abs()
-#         return ((x - mean).square() * (-temp)).exp().type_as(self.means)
-    
 class RBF(nn.Module):
     def __init__(self, K, edge_types):
         super().__init__()
@@ -170,7 +175,7 @@ class RBF(nn.Module):
         self.temps = nn.parameter.Parameter(torch.empty(K))
         self.mul: Callable[..., Tensor] = nn.Embedding(edge_types, 1)
         self.bias: Callable[..., Tensor] = nn.Embedding(edge_types, 1)
-        nn.init.uniform_(self.means, 0, 30)
+        nn.init.uniform_(self.means, 0, 3)
         nn.init.uniform_(self.temps, 0.1, 10)
         nn.init.constant_(self.bias.weight, 0)
         nn.init.constant_(self.mul.weight, 1)
@@ -206,20 +211,24 @@ class NodeTaskHead(nn.Module):
     ):
         super().__init__()
         self.embed_dim = embed_dim
-        self.q_proj: Callable[[Tensor], Tensor] = nn.Linear(
-            embed_dim, embed_dim
-        )
-        self.k_proj: Callable[[Tensor], Tensor] = nn.Linear(
-            embed_dim, embed_dim
-        )
-        self.v_proj: Callable[[Tensor], Tensor] = nn.Linear(
-            embed_dim, embed_dim
-        )
+        self.q_proj: Callable[[Tensor], Tensor] = nn.Linear(embed_dim, embed_dim)
+        self.k_proj: Callable[[Tensor], Tensor] = nn.Linear(embed_dim, embed_dim)
+        self.v_proj: Callable[[Tensor], Tensor] = nn.Linear(embed_dim, embed_dim)
         self.num_heads = num_heads
         self.scaling = (embed_dim // num_heads) ** -0.5
         self.force_proj1: Callable[[Tensor], Tensor] = nn.Linear(embed_dim, 1)
         self.force_proj2: Callable[[Tensor], Tensor] = nn.Linear(embed_dim, 1)
         self.force_proj3: Callable[[Tensor], Tensor] = nn.Linear(embed_dim, 1)
+        self.reset_parameters()
+        
+    def reset_parameters(self):
+        nn.init.xavier_uniform_(self.q_proj.weight)
+        nn.init.xavier_uniform_(self.k_proj.weight)
+        nn.init.xavier_uniform_(self.v_proj.weight)
+        nn.init.xavier_uniform_(self.force_proj1.weight)
+        nn.init.xavier_uniform_(self.force_proj2.weight)
+        nn.init.xavier_uniform_(self.force_proj3.weight)
+    
 
     def forward(
         self,
@@ -229,28 +238,16 @@ class NodeTaskHead(nn.Module):
     ) -> Tensor:
         bsz, n_node, _ = query.size()
         q = (
-            self.q_proj(query)
-            .view(bsz, n_node, self.num_heads, -1)
-            .transpose(1, 2)
+            self.q_proj(query).view(bsz, n_node, self.num_heads, -1).transpose(1, 2)
             * self.scaling
         )
-        k = (
-            self.k_proj(query)
-            .view(bsz, n_node, self.num_heads, -1)
-            .transpose(1, 2)
-        )
-        v = (
-            self.v_proj(query)
-            .view(bsz, n_node, self.num_heads, -1)
-            .transpose(1, 2)
-        )
+        k = self.k_proj(query).view(bsz, n_node, self.num_heads, -1).transpose(1, 2)
+        v = self.v_proj(query).view(bsz, n_node, self.num_heads, -1).transpose(1, 2)
         attn = q @ k.transpose(-1, -2)  # [bsz, head, n, n]
-        attn_probs = _softmax_dropout_fused(
-            attn.view(-1, n_node, n_node) + attn_bias, 0.1, self.training
+        attn_probs = softmax_dropout(
+            attn.view(-1, n_node, n_node) + attn_bias, 0.0, self.training
         ).view(bsz, self.num_heads, n_node, n_node)
-        rot_attn_probs = attn_probs.unsqueeze(-1) * delta_pos.unsqueeze(
-            1
-        ).type_as(
+        rot_attn_probs = attn_probs.unsqueeze(-1) * delta_pos.unsqueeze(1).type_as(
             attn_probs
         )  # [bsz, head, n, n, 3]
         rot_attn_probs = rot_attn_probs.permute(0, 1, 4, 2, 3)
@@ -263,100 +260,119 @@ class NodeTaskHead(nn.Module):
         return cur_force
 
 
-@dataclass
-class Config:
-    layers: int
-    blocks: int
-    embed_dim: int
-    ffn_embed_dim: int
-    attention_heads: int
-    dropout: float
-    attention_dropout: float
-    activation_dropout: float
-    input_dropout: float
-    num_kernel: int
-    enable_edge_types: bool = True
-
-
 @registry.register_model("graphormer")
 class Graphormer3D_Force(BaseModel):
     def __init__(
         self,
+        atom_types=20,
+        n_blocks=1,
+        n_layers=6,
+        emb_dim=768,
+        ffn_dim=768,
+        n_attn_heads=48,
+        input_droput=0.0,
+        dropout=0.0,
+        attn_dropout=0.0,
+        act_dropout=0.0,
+        n_kernel=128,
         **kwargs,
     ):
-        super(Graphormer3D_Force, self).__init__()
-        self.config = Config(
-            kwargs.get("layers", 6),
-            kwargs.get("blocks", 1),
-            kwargs.get("embed_dim", 768),
-            kwargs.get("ffn_embed_dim", 768),
-            kwargs.get("attention_heads", 48),
-            kwargs.get("dropout", 0.0),
-            kwargs.get("attention_dropout", 0.0),
-            kwargs.get("activation_dropout", 0.0),
-            kwargs.get("input_dropout", 0.0),
-            kwargs.get("num_kernel", 128),
-        )
-
-        self.atom_types = 20
-        self.edge_types = 20 * 20
+        super(Graphormer3D_Force, self).__init__(**kwargs)
+        self.atom_types = atom_types
+        self.edge_types = atom_types ** 2
+        self.n_blocks = n_blocks
+        self.n_layers = n_layers
+        self.emb_dim = emb_dim
+        self.ffn_dim = ffn_dim
+        self.n_attn_heads = n_attn_heads
+        self.dropout = dropout
+        self.input_dropout = input_droput
+        self.attn_dropout = attn_dropout
+        self.act_dropout = act_dropout
+        self.n_kernel = n_kernel
+        
         self.atom_encoder = nn.Embedding(
-            self.atom_types, self.config.embed_dim, padding_idx=0
+            self.atom_types, self.emb_dim, padding_idx=0
         )
-        self.input_dropout = self.config.input_dropout
         self.layers = nn.ModuleList(
             [
                 Graphormer3DEncoderLayer(
-                    self.config.embed_dim,
-                    self.config.ffn_embed_dim,
-                    num_attention_heads=self.config.attention_heads,
-                    dropout=self.config.dropout,
-                    attention_dropout=self.config.attention_dropout,
-                    activation_dropout=self.config.activation_dropout,
+                    self.emb_dim,
+                    self.ffn_dim,
+                    num_attention_heads=self.n_attn_heads,
+                    dropout=self.dropout,
+                    attention_dropout=self.attn_dropout,
+                    activation_dropout=self.act_dropout,
                 )
-                for _ in range(self.config.layers)
+                for _ in range(self.n_layers)
             ]
         )
 
-        self.final_ln: Callable[[Tensor], Tensor] = nn.LayerNorm(
-            self.config.embed_dim
-        )
+        self.final_ln: Callable[[Tensor], Tensor] = nn.LayerNorm(self.emb_dim)
 
         self.engergy_proj: Callable[[Tensor], Tensor] = NonLinear(
-            self.config.embed_dim, 1
+            self.emb_dim, 1
         )
 
-        K = self.config.num_kernel
+        K = self.n_kernel
 
-        self.rbf: Callable[[Tensor, Tensor], Tensor] = RBF(
-            K, self.edge_types#, enable_edge_types=self.config.enable_edge_types
-        )
+        self.gbf: Callable[[Tensor, Tensor], Tensor] = GaussianLayer(K, self.edge_types)
         self.bias_proj: Callable[[Tensor], Tensor] = NonLinear(
-            K, self.config.attention_heads
+            K, self.n_attn_heads
         )
-        self.edge_proj: Callable[[Tensor], Tensor] = nn.Linear(
-            K, self.config.embed_dim
+        self.edge_proj: Callable[[Tensor], Tensor] = nn.Linear(K, self.emb_dim)
+        self.node_proc: Callable[[Tensor, Tensor, Tensor], Tensor] = NodeTaskHead(
+            self.emb_dim, self.n_attn_heads
         )
-        self.node_proc: Callable[
-            [Tensor, Tensor, Tensor], Tensor
-        ] = NodeTaskHead(self.config.embed_dim, self.config.attention_heads)
-
+        
     @property
     def target_attr(self):
-        return 'y'
+        return "y"
+
+    # def set_num_updates(self, num_updates):
+    #     self.num_updates = num_updates
+    #     return super().set_num_updates(num_updates)
+    def forward(self, data: TorchGeoBatch):
     
-    def forward(self, data):
-        result = {}
-        eng_output, force_output = self._forward(data)
-        result["output"] = eng_output
-        result["pos_grad"] = force_output
-        return result
-        
+        output = {}
+        out = self._forward(data)
+        output["output"] = out[0]
+        output["pos_grad"] = out[1]
+
+        # if self.gradient == True and out.requires_grad == True:         
+        #     volume = torch.einsum("zi,zi->z", data.cell[:, 0, :], torch.cross(data.cell[:, 1, :], data.cell[:, 2, :], dim=1)).unsqueeze(-1)                        
+            
+        #     grad = torch.autograd.grad(
+        #             out,
+        #             [data.pos, data.displacement],
+        #             grad_outputs=torch.ones_like(out),
+        #             create_graph=self.training)
+        #     forces = -1 * grad[0]
+        #     stress = grad[1]
+        #     stress = stress / volume.view(-1, 1, 1)         
+
+        #     output["pos_grad"] =  forces
+        #     output["cell_grad"] =  stress
+        # else:
+        #     output["pos_grad"] =  None
+        #     output["cell_grad"] =  None  
+                  
+        return output 
+    
     @conditional_grad(torch.enable_grad())
-    def _forward(self, data):
+    def _forward(self, data: TorchGeoBatch):
+        # if self.gradient:
+        #     data.pos.requires_grad_(True)
+        #     data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
+        #     data.displacement.requires_grad_(True)
+        #     symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
+        #     data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
+        #     data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
+        
         device = data.pos.device
-        batch: Batch = Batch.from_batch(data).to(device)
+        batch: Batch = Batch.from_batch(data)[0].to(device)
         data = data.to(device)
+                
         atoms, pos, real_mask = (
             batch.atoms,
             batch.pos,
@@ -373,8 +389,8 @@ class Graphormer3D_Force(BaseModel):
             n_graph, n_node, 1
         ) * self.atom_types + atoms.view(n_graph, 1, n_node)
 
-        rbf_feature = self.rbf(dist, edge_type)
-        edge_features = rbf_feature.masked_fill(
+        gbf_feature = self.gbf(dist, edge_type)
+        edge_features = gbf_feature.masked_fill(
             padding_mask.unsqueeze(1).unsqueeze(-1), 0.0
         )
 
@@ -390,26 +406,27 @@ class Graphormer3D_Force(BaseModel):
         output = output.transpose(0, 1).contiguous()
 
         graph_attn_bias = (
-            self.bias_proj(rbf_feature).permute(0, 3, 1, 2).contiguous()
+            self.bias_proj(gbf_feature).permute(0, 3, 1, 2).contiguous()
         )
         graph_attn_bias.masked_fill_(
             padding_mask.unsqueeze(1).unsqueeze(2), float("-inf")
         )
 
         graph_attn_bias = graph_attn_bias.view(-1, n_node, n_node)
-        for _ in range(self.config.blocks):
+        for _ in range(self.n_blocks):
             for enc_layer in self.layers:
                 output = enc_layer(output, attn_bias=graph_attn_bias)
 
         output = self.final_ln(output)
         output = output.transpose(0, 1)
 
-        eng_output = F.dropout(output, p=0.0, training=self.training)
+        eng_output = F.dropout(output, p=0.1, training=self.training)
         eng_output = (
             self.engergy_proj(eng_output)
         ).flatten(-2)
         output_mask = real_mask  # no need to consider padding, since padding has tag 0, real_mask False
 
+        # print(eng_output.shape, output_mask.shape)
         eng_output *= output_mask
         eng_output = eng_output.sum(dim=-1)
 
@@ -418,4 +435,22 @@ class Graphormer3D_Force(BaseModel):
         node_target_mask = output_mask
         expanded_mask = node_target_mask.unsqueeze(-1).expand_as(node_output)
         force_output = node_output[expanded_mask.bool()].reshape(-1, 3)
-        return eng_output.unsqueeze(-1), force_output
+        # print(force_output.shape)
+        return eng_output[:, None], force_output #node_output, node_target_mask
+
+
+# @register_model_architecture("graphormer3d", "graphormer3d_base")
+# def base_architecture(args):
+#     args.blocks = getattr(args, "blocks", 4)
+#     args.layers = getattr(args, "layers", 12)
+#     args.embed_dim = getattr(args, "embed_dim", 768)
+#     args.ffn_embed_dim = getattr(args, "ffn_embed_dim", 768)
+#     args.attention_heads = getattr(args, "attention_heads", 48)
+#     args.input_dropout = getattr(args, "input_dropout", 0.0)
+#     args.dropout = getattr(args, "dropout", 0.1)
+#     args.attention_dropout = getattr(args, "attention_dropout", 0.1)
+#     args.activation_dropout = getattr(args, "activation_dropout", 0.0)
+#     args.node_loss_weight = getattr(args, "node_loss_weight", 15)
+#     args.min_node_loss_weight = getattr(args, "min_node_loss_weight", 1)
+#     args.eng_loss_weight = getattr(args, "eng_loss_weight", 1)
+#     args.num_kernel = getattr(args, "num_kernel", 128)
