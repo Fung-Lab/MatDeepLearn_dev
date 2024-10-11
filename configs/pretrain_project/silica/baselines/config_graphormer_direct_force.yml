@@ -3,7 +3,7 @@ trainer: property
 ?
 task:
   run_mode: train
-  identifier: graphormer3d_direct_force_6layer 
+  identifier: graphormer3d_direct_force_pbc2
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -18,9 +18,9 @@ task:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: True  
@@ -42,7 +42,7 @@ model:
   gradient: False #True
 ?
 optim:
-  max_epochs: 2000
+  max_epochs: 400
   max_checkpoint_epochs: 0
   lr: 0.0005
   # lr: 5.e-4

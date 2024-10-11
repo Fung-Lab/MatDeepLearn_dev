@@ -8,18 +8,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-# from fairseq.models import (
-#     BaseFairseqModel,
-#     register_model,
-#     register_model_architecture,
-# )
-
-import torch_geometric
 from torch_geometric.data import Batch as TorchGeoBatch
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
-from matdeeplearn.preprocessor.helpers import node_rep_one_hot
 from matdeeplearn.models.model_dev.utils import Batch, Data
 
 torch._C._jit_set_profiling_mode(False)
@@ -341,7 +333,7 @@ class Graphormer3D_Force(BaseModel):
     @conditional_grad(torch.enable_grad())
     def _forward(self, data: TorchGeoBatch):
         device = data.pos.device
-        batch: Batch = Batch.from_batch(data).to(device)
+        batch: Batch = Batch.from_batch(data, pbc={'num_offsets': 2}).to(device)
         data = data.to(device)
                 
         atoms, pos, real_mask = (

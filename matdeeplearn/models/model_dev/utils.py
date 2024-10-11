@@ -15,19 +15,22 @@ atom_mapper = torch.full((128,), unk_idx)
 for idx, atom in enumerate(atom_list):
     atom_mapper[atom] = idx + 1  # reserve 0 for paddin
 
-num_offsets = 2
-cell_offsets = torch.tensor([
-    [x, y, z] for x in range(-num_offsets, num_offsets + 1)
-               for y in range(-num_offsets, num_offsets + 1)
-               for z in range(-num_offsets, num_offsets + 1)
-    if not (x == 0 and y == 0 and z == 0)
-]).float()
-n_cells = cell_offsets.size(0)
+
+def get_cell_offsets(num_offsets: int):
+    cell_offsets = torch.tensor([
+        [x, y, z] for x in range(-num_offsets, num_offsets + 1)
+                   for y in range(-num_offsets, num_offsets + 1)
+                   for z in range(-num_offsets, num_offsets + 1)
+        if not (x == 0 and y == 0 and z == 0)
+    ]).float()
+    n_cells = cell_offsets.size(0)
+    return cell_offsets, n_cells
 
 
 class ExpandPBCConfig(TypedDict):
     cutoff: NotRequired[float]
     filter_by_tag: NotRequired[bool]
+    num_offsets: NotRequired[int]
 
 
 @dataclass
@@ -69,8 +72,9 @@ class Data:
         cell = data.cell
         atoms = data.z.long()
 
-        global atom_mapper, cell_offsets, n_cells
+        global atom_mapper
         atoms = atom_mapper[atoms]
+        cell_offsets, n_cells = get_cell_offsets(pbc.get("num_offsets", 2))
         offsets = torch.matmul(cell_offsets, cell).view(n_cells, 1, 3)
         expand_pos = (pos.unsqueeze(0).expand(n_cells, -1, -1) + offsets).view(
             -1, 3
@@ -127,9 +131,9 @@ class Batch:
         )
 
     @classmethod
-    def from_batch(cls, batch: TorchGeoBatch):
+    def from_batch(cls, batch: TorchGeoBatch, pbc: ExpandPBCConfig = {}):
         data_list = batch.to_data_list()
-        data_list = [Data.from_torch_geometric_data(data.to("cpu")) for data in data_list]
+        data_list = [Data.from_torch_geometric_data(data.to("cpu"), pbc=pbc) for data in data_list]
         batch = cls(
             pos=_pad(data_list, "pos"),
             atoms=_pad(data_list, "atoms"),
