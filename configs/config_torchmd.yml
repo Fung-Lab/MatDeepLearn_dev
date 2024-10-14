@@ -74,12 +74,12 @@ dataset:
   # Whether the data has already been processed and a data.pt file is present from a previous run
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: ../dataset/QMC_data_charge_C60/normalized_spin/
+  src: ../data_qm9_qmc/data_qm9_qmc/test/021764_singlet/
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/QMC_data_charge_C60/normalized_spin/
+  pt_path: ../data_qm9_qmc/data_qm9_qmc/test/021764_singlet/
   # Either "node" or "graph"
   prediction_level: virtual
 

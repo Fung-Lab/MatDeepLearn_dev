@@ -2,16 +2,16 @@ trainer: property
 
 task:
   #run_mode: train
-  identifier: try4_equiformer_neighbor3000_continue
+  identifier: try4_equiformer_neighbor3000_infer
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir:
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: ./results/2024-08-02-00-10-33-281-try4_equiformer_neighbor3000/checkpoint/checkpoint.pt
   # Whether to write predictions to csv file. E.g. ["train", "val", "test"]
@@ -95,7 +95,7 @@ dataset:
   # Example: target_path: "data/raw_graph_scalar/targets.csv"
   target_path:
   # Path to save processed data.pt file
-  pt_path: ../dataset/try4/
+  pt_path: ../dataset/Charge_density_MP_inference/data_inference/
   # Either "node" or "graph"
   prediction_level: virtual
 

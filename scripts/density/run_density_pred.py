@@ -6,9 +6,8 @@ import shutil
 import yaml
 from tqdm import tqdm
 
-# 运行次数
-num_runs = 5
-train_nums = [50, 100, 300, 500, -1]
+# num_runs = 5
+# train_nums = [50, 100, 300, 500, -1]
 
 def split_files(train_num):
 
@@ -42,13 +41,13 @@ def split_files(train_num):
             #     shutil.copytree(os.path.join(original_data_folder, dir_name), os.path.join(original_data_folder, "test", dir_name))
 
 def change_sample(folder, file_name):
-    with open("configs/config_torchmd.yml", "r") as file:
+    with open("configs/config_equiformerv2.yml", "r") as file:
         data = yaml.safe_load(file)
 
     # Modify value
     data["dataset"]["src"] = os.path.join(folder, file_name)
-    data["dataset"]["pt_path"] = os.path.join(folder, file_name)
-    data["task"]["identifier"] = file_name
+    # data["dataset"]["pt_path"] = os.path.join(folder, file_name)
+    data["task"]["identifier"] = file_name[15: -5]
 
     # Write updated data back to YAML file
     with open("configs/config_torchmd.yml", "w") as file:
@@ -58,18 +57,19 @@ if __name__ == '__main__':
 
     folder1 = "../dataset/Charge_density_inference/C2_data/"
     folder2 = "../dataset/Charge_density_inference/CH4_data/"
+    folder_MP = "../dataset/Charge_density_MP_inference/data_inference/data_inference/"
 
-    dirs = [d for d in os.listdir(os.path.join(folder1)) if os.path.isdir(os.path.join(folder1, d))]
-    for dr in dirs:
-        change_sample(folder1, dr)
-        command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
+    files = [d for d in os.listdir(os.path.join(folder_MP))]
+    for file in files:
+        change_sample(folder_MP, file)
+        command = "python scripts/main.py --run_mode=predict --configs/config_equiformerv2.yml"
         subprocess.run(command, shell=True, check=True)
 
-    dirs = [d for d in os.listdir(os.path.join(folder2)) if os.path.isdir(os.path.join(folder2, d))]
-    for dr in dirs:
-        change_sample(folder2, dr)
-        command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
-        subprocess.run(command, shell=True, check=True)
+    # dirs = [d for d in os.listdir(os.path.join(folder2)) if os.path.isdir(os.path.join(folder2, d))]
+    # for dr in dirs:
+    #     change_sample(folder2, dr)
+    #     command = "python scripts/main.py --run_mode=predict --config_path=configs/config_torchmd.yml"
+    #     subprocess.run(command, shell=True, check=True)
 
     # for i in range(num_runs):
     #     split_files(train_nums[i])
