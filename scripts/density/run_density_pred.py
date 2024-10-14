@@ -50,7 +50,7 @@ def change_sample(folder, file_name):
     data["task"]["identifier"] = file_name[15: -5]
 
     # Write updated data back to YAML file
-    with open("configs/config_torchmd.yml", "w") as file:
+    with open("configs/config_equiformerv2.yml", "w") as file:
         yaml.dump(data, file)
 
 if __name__ == '__main__':
@@ -60,9 +60,10 @@ if __name__ == '__main__':
     folder_MP = "../dataset/Charge_density_MP_inference/data_inference/data_inference/"
 
     files = [d for d in os.listdir(os.path.join(folder_MP))]
+    files.sort()
     for file in files:
         change_sample(folder_MP, file)
-        command = "python scripts/main.py --run_mode=predict --configs/config_equiformerv2.yml"
+        command = "python scripts/main.py --run_mode=predict --config_path=configs/config_equiformerv2.yml"
         subprocess.run(command, shell=True, check=True)
 
     # dirs = [d for d in os.listdir(os.path.join(folder2)) if os.path.isdir(os.path.join(folder2, d))]

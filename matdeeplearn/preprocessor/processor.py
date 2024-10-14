@@ -224,12 +224,12 @@ class DataProcessor:
 
                 num_virtual_nodes = len(charge_density)
                 # Training with 200 per structure
-                num_half = num_virtual_nodes // 2
-                random_indices = torch.randperm(num_virtual_nodes)[:num_half]
+                # num_half = num_virtual_nodes // 2
+                random_indices = torch.randperm(num_virtual_nodes)
                 # Full grid inference
                 # random_indices = torch.arange(0, num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
-                           range(0, num_half, 200)]
+                           range(0, num_virtual_nodes, 200)]
 
                 for sub_indices in indices:
                     d = {}
