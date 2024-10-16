@@ -185,12 +185,10 @@ class TorchMD_ET_Early(BaseModel):
             #data.edge_index, edge_weight, data.edge_vec, cell_offsets, offset_distance, neighbors = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)   
             data.edge_index, data.edge_weight, data.edge_vec, _, _, _ = self.generate_graph(data, self.cutoff_radius, self.n_neighbors)  
         data.edge_attr = self.distance_expansion(data.edge_weight) 
-        print(data.edge_attr.requires_grad)
                             
         #mask = data.edge_index[0] != data.edge_index[1]        
         #data.edge_vec[mask] = data.edge_vec[mask] / torch.norm(data.edge_vec[mask], dim=1).unsqueeze(1)
         data.edge_vec = data.edge_vec / torch.norm(data.edge_vec, dim=1).unsqueeze(1)
-        print(data.edge_vec.requires_grad)
         
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()          
@@ -198,16 +196,13 @@ class TorchMD_ET_Early(BaseModel):
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
-        print(x.requires_grad)
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
             dx, dvec = attn(x, vec, data.edge_index, data.edge_weight, data.edge_attr, data.edge_vec)
             x = x + dx
             vec = vec + dvec
-        print(x.requires_grad)
         x = self.out_norm(x)
-        print(x.requires_grad)
         
         if self.prediction_level == "graph":
             x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
