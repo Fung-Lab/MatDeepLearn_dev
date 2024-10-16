@@ -109,11 +109,13 @@ class BaseModel(nn.Module, metaclass=ABCMeta):
         #Originally from: https://github.com/atomistic-machine-learning/schnetpack/issues/165                 
         if self.gradient:
             data.pos.requires_grad_(True)
+            print(data.pos.requires_grad)
             data.displacement = torch.zeros((len(data), 3, 3), dtype=data.pos.dtype, device=data.pos.device)            
             data.displacement.requires_grad_(True)
             symmetric_displacement = 0.5 * (data.displacement + data.displacement.transpose(-1, -2))
             data.pos = data.pos + torch.bmm(data.pos.unsqueeze(-2), symmetric_displacement[data.batch]).squeeze(-2)            
             data.cell = data.cell + torch.bmm(data.cell, symmetric_displacement) 
+            print(data.pos.requires_grad)
 
         if torch.sum(data.cell) == 0:
             self.graph_method = "mdl"
