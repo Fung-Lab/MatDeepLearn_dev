@@ -192,7 +192,8 @@ class TorchMD_ET_Early(BaseModel):
         
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()          
-        
+
+	print([data.z.requires_grad, data.edge_index.requires_grad, data.edge_weight.requires_grad, data.edge_attr.requires_grad])
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
