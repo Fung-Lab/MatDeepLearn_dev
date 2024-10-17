@@ -193,11 +193,9 @@ class TorchMD_ET_Early(BaseModel):
         if self.otf_node_attr == True:
             data.x = node_rep_one_hot(data.z).float()          
 
-        print([data.z.requires_grad, data.edge_index.requires_grad, data.edge_weight.requires_grad, data.edge_attr.requires_grad])
         if self.neighbor_embedding is not None:
             x = self.neighbor_embedding(data.z, x, data.edge_index, data.edge_weight, data.edge_attr)
 
-        print(x.requires_grad)
         vec = torch.zeros(x.size(0), 3, x.size(1), device=x.device)
 
         for attn in self.attention_layers:
@@ -205,7 +203,6 @@ class TorchMD_ET_Early(BaseModel):
             x = x + dx
             vec = vec + dvec
         x = self.out_norm(x)
-        print(x.requires_grad)
         
         if self.prediction_level == "graph":
             x = getattr(torch_geometric.nn, self.pool)(x, data.batch)
