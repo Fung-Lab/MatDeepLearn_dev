@@ -62,6 +62,8 @@ if __name__ == '__main__':
     files = [d for d in os.listdir(os.path.join(folder_MP))]
     files.sort()
     for file in files:
+        if "mp-1025500" not in file:
+            continue
         change_sample(folder_MP, file)
         command = "python scripts/main.py --run_mode=predict --config_path=configs/config_equiformerv2.yml"
         subprocess.run(command, shell=True, check=True)
