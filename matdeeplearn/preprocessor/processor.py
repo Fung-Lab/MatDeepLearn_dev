@@ -234,7 +234,7 @@ class DataProcessor:
                 for idx in random_indices:
                     single_vn = charge_density[idx]
                     pos_vn = single_vn[:3]
-                    if pos_vn.reshape(-1) == np.array([0, 0, 0]):
+                    if torch.equal(pos_vn.reshape(-1), torch.tensor([0, 0, 0])):
                         d = {}
                         charge_density_part = charge_density[idx].reshape(1, -1)
 
