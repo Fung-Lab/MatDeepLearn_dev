@@ -230,37 +230,37 @@ class DataProcessor:
                 random_indices = torch.arange(0, num_virtual_nodes)
                 indices = [random_indices[i: min(i + 200, num_virtual_nodes)] for i in
                            range(0, num_virtual_nodes, 200)]
-
-                for idx in random_indices:
-                    single_vn = charge_density[idx]
-                    pos_vn = single_vn[:3]
-                    if torch.equal(pos_vn.reshape(-1), torch.tensor([0, 0, 0])):
-                        d = {}
-                        charge_density_part = charge_density[idx].reshape(1, -1)
-
-                        pos_vn = charge_density_part[:, :3]
-                        vn_labels = charge_density_part[:, -1].view(-1, 1)
-                        atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
-
-                        pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
-                        if "cell" in s:
-                            cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
-                            if cell.shape[0] != 1:
-                                cell = cell.view(1, 3, 3)
-                        else:
-                            cell = torch.zeros((3, 3)).unsqueeze(0)
-                        atomic_numbers = torch.LongTensor(s["atomic_numbers"])
-
-                        d["positions"] = torch.cat((pos, pos_vn), dim=0)
-                        d["cell"] = cell
-                        d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
-                        d["structure_id"] = s["structure_id"]
-                        d["y"] = vn_labels
-                        # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
-
-                        dict_structures.append(d)
-                print(dict_structures)
-                '''
+                #
+                # for idx in random_indices:
+                #     single_vn = charge_density[idx]
+                #     pos_vn = single_vn[:3]
+                #     if torch.equal(pos_vn.reshape(-1), torch.tensor([0, 0, 0])):
+                #         d = {}
+                #         charge_density_part = charge_density[idx].reshape(1, -1)
+                #
+                #         pos_vn = charge_density_part[:, :3]
+                #         vn_labels = charge_density_part[:, -1].view(-1, 1)
+                #         atomic_numbers_vn = torch.LongTensor([100] * pos_vn.shape[0], device=self.device)
+                #
+                #         pos = torch.tensor(s["positions"], device=self.device, dtype=torch.float)
+                #         if "cell" in s:
+                #             cell = torch.tensor(s["cell"], device=self.device, dtype=torch.float)
+                #             if cell.shape[0] != 1:
+                #                 cell = cell.view(1, 3, 3)
+                #         else:
+                #             cell = torch.zeros((3, 3)).unsqueeze(0)
+                #         atomic_numbers = torch.LongTensor(s["atomic_numbers"])
+                #
+                #         d["positions"] = torch.cat((pos, pos_vn), dim=0)
+                #         d["cell"] = cell
+                #         d["atomic_numbers"] = torch.cat((atomic_numbers, atomic_numbers_vn), dim=0)
+                #         d["structure_id"] = s["structure_id"]
+                #         d["y"] = vn_labels
+                #         # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
+                #
+                #         dict_structures.append(d)
+                # print(dict_structures)
+                # '''
                 for sub_indices in indices:
                     d = {}
                     charge_density_part = charge_density[sub_indices]
@@ -286,7 +286,7 @@ class DataProcessor:
                     # print(pos_vn.shape, d["y"].shape, pos_vn[0:3], d["y"][0:3])
 
                     dict_structures.append(d)
-                '''
+                # '''
         elif "singlet" in self.root_path or "triplet" in self.root_path or \
                 "C2_data" in self.root_path or "CH4_data" in self.root_path:
             try:
