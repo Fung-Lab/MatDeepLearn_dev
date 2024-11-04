@@ -442,11 +442,6 @@ class EquiformerV2_OC20(BaseModel):
             self.n_neighbors
         )
 
-        print(data)
-        print(data.z)
-        print("edge_index:", edge_index)
-        print("edge_distance:", edge_distance)
-
         ###############################################################
         # Filter RN-RN & RN-VN edges
         ###############################################################
