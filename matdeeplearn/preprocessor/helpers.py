@@ -607,6 +607,15 @@ def get_pbc_distances(
     # this is r_ij or edge_vec
     distance_vectors = pos[row] - pos[col]
 
+    # add epsilon to 0 distance
+    epsilon = 1e-5
+
+    # Find rows where tensor[i] == [0, 0, 0]
+    mask = (distance_vectors == torch.tensor([0, 0, 0], device=distance_vectors.device)).all(dim=1)
+
+    # Add epsilon to those rows
+    distance_vectors[mask] += epsilon
+
     # correct for pbc
     neighbors = neighbors.to(cell.device)
     cell = torch.repeat_interleave(cell, neighbors, dim=0)
@@ -845,7 +854,10 @@ def radius_graph_pbc(
     # Remove pairs that are too far apart
     mask_within_radius = torch.le(atom_distance_sqr, radius * radius)
     # Remove pairs with the same atoms (distance = 0.0)
-    mask_not_same = torch.gt(atom_distance_sqr, 0.0001)
+    mask_dis_0 = torch.gt(atom_distance_sqr, 0.0001)
+    mask_rn2vn = torch.ne(index1, index2)
+    mask_not_same = torch.logical_or(mask_dis_0, mask_rn2vn)
+
     mask = torch.logical_and(mask_within_radius, mask_not_same)
     index1 = torch.masked_select(index1, mask)
     index2 = torch.masked_select(index2, mask)
