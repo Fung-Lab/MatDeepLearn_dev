@@ -1,10 +1,13 @@
 from dataclasses import dataclass, replace
+from itertools import chain
 from typing import List, Optional, TypedDict
 from typing_extensions import NotRequired
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch_geometric.data import Data as TorchGeoData, Batch as TorchGeoBatch
+import torch.autograd.profiler as profiler
+
 
 # fmt: off
 atom_list = list(range(1, 101))
@@ -37,26 +40,38 @@ class ExpandPBCConfig(TypedDict):
 class Data:
     pos: torch.Tensor  # (N, 3)
     atoms: torch.Tensor  # (N,)
+    cell: torch.Tensor # (1, 3, 3)
     real_mask: torch.Tensor  # (N,)
     y: torch.Tensor  # (1,)
-    natoms: torch.Tensor  # (1,)
+    n_atoms: torch.Tensor  # (1,)
+    structure_id: List[str] = None
+    forces: Optional[torch.Tensor] = None  # (N, 3)
+    stress: Optional[torch.Tensor] = None  # (3, 3)
 
     def to(self, device):
         return Data(
+            structure_id=self.structure_id,
             pos=self.pos.to(device),
+            cell=self.cell.to(device),
             atoms=self.atoms.to(device),
             real_mask=self.real_mask.to(device),
-            natoms=self.natoms.to(device),
+            n_atoms=self.n_atoms.to(device),
             y=self.y.to(device),
+            forces=self.forces.to(device) if self.forces is not None else None,
+            stress=self.stress.to(device) if self.stress is not None else None,
         )
 
     def clone(self):
         return Data(
+            structure_id=self.structure_id,
             pos=self.pos.clone(),
+            cell=self.cell.clone(),
             atoms=self.atoms.clone(),
             real_mask=self.real_mask.clone(),
-            natoms=self.natoms.clone(),
+            n_atoms=self.n_atoms.clone(),
             y=self.y.clone(),
+            forces=self.forces.clone() if self.forces is not None else None,
+            stress=self.stress.clone() if self.stress is not None else None,
         )
 
     @classmethod
@@ -75,20 +90,26 @@ class Data:
         global atom_mapper
         atoms = atom_mapper[atoms]
         cell_offsets, n_cells = get_cell_offsets(pbc.get("num_offsets", 2))
+        
+        # with profiler.record_function("APPLY CELL OFFSETS"):
         offsets = torch.matmul(cell_offsets, cell).view(n_cells, 1, 3)
         expand_pos = (pos.unsqueeze(0).expand(n_cells, -1, -1) + offsets).view(
             -1, 3
         )
         src_pos = pos
 
+        # with profiler.record_function("FILTER BY CUTOFF"):
         dist: torch.Tensor = (
             src_pos.unsqueeze(1) - expand_pos.unsqueeze(0)
         ).norm(dim=-1)
         used_mask = (dist < cutoff).any(dim=0)
         used_expand_pos = expand_pos[used_mask]
         
-        return cls(
+        # with profiler.record_function("CREATE DATA"):
+        result = cls(
+            structure_id=data.structure_id,
             pos=torch.cat([pos, used_expand_pos], dim=0),
+            cell=cell,
             atoms=torch.cat([atoms, atoms.repeat(n_cells)[used_mask]]),
             real_mask=torch.cat(
                 [
@@ -97,8 +118,11 @@ class Data:
                 ]
             ),
             y=torch.tensor([data.y], dtype=torch.float),
-            natoms=torch.tensor([data.num_nodes], dtype=torch.long),
+            n_atoms=torch.tensor([data.num_nodes], dtype=torch.long),
+            forces=data.forces if hasattr(data, "forces") else None,
+            stress=data.stress if hasattr(data, "stress") else None,
         )
+        return result
         
 def _pad(
     data_list: List[Data],
@@ -116,38 +140,76 @@ def _pad(
 @dataclass
 class Batch:
     pos: torch.Tensor
+    cell: torch.Tensor
     atoms: torch.Tensor
     real_mask: torch.Tensor
-    natoms: torch.Tensor
+    n_atoms: torch.Tensor
     y: torch.Tensor
+    structure_id: List[str] = None
+    forces: Optional[torch.Tensor] = None
+    stress: Optional[torch.Tensor] = None
 
     def to(self, device):
         return Batch(
+            structure_id=self.structure_id,
             pos=self.pos.to(device),
+            cell=self.cell.to(device),
             atoms=self.atoms.to(device),
             real_mask=self.real_mask.to(device),
-            natoms=self.natoms.to(device),
+            n_atoms=self.n_atoms.to(device),
             y=self.y.to(device),
+            forces=self.forces.to(device) if self.forces is not None else None,
+            stress=self.stress.to(device) if self.stress is not None else None,
         )
 
     @classmethod
     def from_batch(cls, batch: TorchGeoBatch, pbc: ExpandPBCConfig = {}):
         data_list = batch.to_data_list()
-        data_list = [Data.from_torch_geometric_data(data.to("cpu"), pbc=pbc) for data in data_list]
+        data_list = [Data.from_torch_geometric_data(data, pbc=pbc) for data in data_list]
         batch = cls(
             pos=_pad(data_list, "pos"),
+            cell=torch.cat([d.cell for d in data_list], dim=0),
             atoms=_pad(data_list, "atoms"),
             real_mask=_pad(data_list, "real_mask"),
-            natoms=_pad(data_list, "natoms"),
+            n_atoms=_pad(data_list, "n_atoms"),
             y=torch.cat([d.y for d in data_list], dim=0),
         )
         return batch
+            
+    @classmethod
+    def from_datalist(cls, data_list: List[Data]):
+        batch = cls(
+            pos=_pad(data_list, "pos"),
+            cell=torch.cat([d.cell for d in data_list], dim=0),
+            atoms=_pad(data_list, "atoms"),
+            real_mask=_pad(data_list, "real_mask"),
+            n_atoms=torch.cat([d.n_atoms for d in data_list], dim=0),
+            y=torch.cat([d.y for d in data_list], dim=0),
+        )
+        if hasattr(data_list[0], "forces"):
+            # batch.forces = _pad(data_list, "forces")
+            batch.forces = torch.cat([d.forces for d in data_list], dim=0)
+        if hasattr(data_list[0], "stress"):
+            # batch.stress = _pad(data_list, "stress")
+            batch.stress = torch.cat([d.stress for d in data_list], dim=0)
+        new_batch = TorchGeoBatch()
+        for key, value in batch.__dict__.items():
+            setattr(new_batch, key, value)
+            
+        new_batch.structure_id = list(chain(*[d.structure_id for d in data_list]))
+        new_batch.y = new_batch.y.transpose(0, 1)
+        new_batch.z = data_list[0].z
+        return new_batch
 
     def clone(self):
         return Batch(
+            structure_id=self.structure_id,
             pos=self.pos.clone(),
+            cell=self.cell.clone(),
             atoms=self.atoms.clone(),
             real_mask=self.real_mask.clone(),
-            natoms=self.natoms.clone(),
+            n_atoms=self.n_atoms.clone(),
             y=self.y.clone(),
+            forces=self.forces.clone() if self.forces is not None else None,
+            stress=self.stress.clone() if self.stress is not None else None,
         )

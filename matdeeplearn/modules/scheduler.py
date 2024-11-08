@@ -1,15 +1,5 @@
 import torch
-from torch.optim.lr_scheduler import LambdaLR
 
-
-def warmup_poly_decay_lr(warmup_steps, total_steps, poly_power=0.5):
-    def lr_lambda(current_step):
-        if current_step < warmup_steps:
-            return float(current_step) / float(max(1, warmup_steps))
-        else:
-            return (1.0 - float(current_step - warmup_steps) / float(max(1, total_steps - warmup_steps))) ** poly_power
-    
-    return lr_lambda
 
 class LRScheduler:
     """wrapper around torch.optim.lr_scheduler._LRScheduler"""
@@ -19,12 +9,19 @@ class LRScheduler:
         self.scheduler_type = scheduler_type
 
         if scheduler_type == "LambdaLR":
-            assert "lr_lambda" in model_parameters
-            self.scheduler = LambdaLR(optimizer, lr_lambda=warmup_poly_decay_lr(**model_parameters['lr_lambda']))
-        else:
-            self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
-                optimizer, **model_parameters
-            )
+            lambda_args = {
+                "warmup_steps": model_parameters["warmup_steps"],
+                "total_steps": model_parameters["total_steps"],
+                "warmup_factor": model_parameters["warmup_factor"],
+                "power": model_parameters["power"],
+            }
+            model_parameters["lr_lambda"] = lambda step: warmup_polynomial_decay_lr_lambda(step, **lambda_args)
+            for key in lambda_args.keys():
+                del model_parameters[key]
+                
+        self.scheduler = getattr(torch.optim.lr_scheduler, self.scheduler_type)(
+            optimizer, **model_parameters
+        )
 
         self.lr = self.optimizer.param_groups[0]["lr"]
 
@@ -50,3 +47,14 @@ class LRScheduler:
     def update_lr(self):
         for param_group in self.optimizer.param_groups:
             self.lr = param_group["lr"]
+
+
+def warmup_polynomial_decay_lr_lambda(current_step: int, **kwargs):
+    print(current_step)
+    if current_step <= kwargs["warmup_steps"]:
+        alpha = current_step / float(kwargs["warmup_steps"])
+        return kwargs["warmup_factor"] * (1.0 - alpha) + alpha
+    else:
+        decay_steps = kwargs["total_steps"] - kwargs["warmup_steps"]
+        decay_rate = (1 - (current_step - kwargs["warmup_steps"]) / decay_steps) ** kwargs["power"]
+        return max(0.0, decay_rate)  # Ensure learning rate doesn't go negative

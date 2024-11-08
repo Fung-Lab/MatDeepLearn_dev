@@ -31,6 +31,22 @@ class ForceLoss(nn.Module):
         f_loss = self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
         return e_loss + f_loss
 
+@registry.register_loss("ForceLossReg")
+class ForceLossWithReg(nn.Module):
+    def __init__(self, weight_energy=1.0, weight_force=0.1, weight_reg=1.):
+        super().__init__()
+        self.weight_energy = weight_energy
+        self.weight_force = weight_force
+        self.weight_reg = weight_reg
+
+    def forward(self, predictions: dict[torch.Tensor], target: Batch):  
+        e_loss = self.weight_energy*F.l1_loss(predictions["output"], target.y)
+        f_loss = self.weight_force*F.l1_loss(predictions["pos_grad"], target.forces)
+        if "reg" in predictions.keys():
+            reg_loss = self.weight_reg*predictions["reg"]
+        else:
+            reg_loss = 0
+        return e_loss + f_loss + reg_loss
 
 @registry.register_loss("ForceStressLoss")
 class ForceStressLoss(nn.Module):

@@ -5,7 +5,7 @@ from torch_geometric.data import Batch as TorchGeoBatch
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.model_dev.graphormer import GaussianLayer
-from matdeeplearn.models.model_dev.utils import Batch
+from matdeeplearn.preprocessor.pbc_transform import Batch
 from matdeeplearn.models.base_model import conditional_grad, BaseModel
 from matdeeplearn.models.utils import GaussianSmearing
 
@@ -203,7 +203,7 @@ class Geomformer(BaseModel):
         emb_n=768,
         emb_e=128,
         n_heads=32,
-        n_layers=6,
+        n_layers=4,
         
         **kwargs,
     ) -> None:
@@ -242,7 +242,7 @@ class Geomformer(BaseModel):
     @conditional_grad(torch.enable_grad())
     def _forward(self, data: TorchGeoBatch):
         device = data.pos.device
-        batch: Batch = Batch.from_batch(data)[0].to(device)
+        batch: Batch = Batch.from_batch(data).to(device)
         data = data.to(device)
                 
         atoms, pos, real_mask = (

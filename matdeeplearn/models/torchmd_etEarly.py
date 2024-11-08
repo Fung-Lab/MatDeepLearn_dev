@@ -372,7 +372,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
             d_ij=d_ij,
             size=None,
         )
-        print("propagate time: ", (time() - s_time) * 100)
+        # print("propagate time: ", (time() - s_time) * 100)
         x = x.reshape(-1, self.hidden_channels)
         vec = vec.reshape(-1, 3, self.hidden_channels)
 
@@ -388,7 +388,7 @@ class EquivariantMultiHeadAttention(MessagePassing):
             attn = (q_i * k_j).sum(dim=-1)
         else:
             attn = (q_i * k_j * dk).sum(dim=-1)
-        print("attn time: ", (time() - s_time) * 100)
+        # print("attn time: ", (time() - s_time) * 100)
         # attention activation function
         attn = self.attn_activation(attn) * self.cutoff(r_ij).unsqueeze(1)
 

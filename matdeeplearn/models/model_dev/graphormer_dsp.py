@@ -12,10 +12,8 @@ import torch.autograd.profiler as profiler
 from torch_geometric.data import Batch as TorchGeoBatch
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.models.utils import GaussianSmearing
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.pbc_transform import Batch, Data
-from .adaptive_span import AdaptiveSpan
 
 torch._C._jit_set_profiling_mode(False)
 torch._C._jit_set_profiling_executor(False)
@@ -28,7 +26,7 @@ def softmax_dropout(input, dropout_prob: float, is_training: bool):
     return F.dropout(F.softmax(input, -1), dropout_prob, is_training)
 
 
-class SelfMultiheadAttention(nn.Module):
+class DSPSelfMultiheadAttention(nn.Module):
     def __init__(
         self,
         embed_dim,
@@ -36,6 +34,7 @@ class SelfMultiheadAttention(nn.Module):
         dropout=0.0,
         bias=True,
         scaling_factor=1,
+        sparsity_ratio=0.1,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -53,33 +52,61 @@ class SelfMultiheadAttention(nn.Module):
             embed_dim, embed_dim * 3, bias=bias
         )
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        self.sparsity_ratio = sparsity_ratio
+        self.prediction_proj = nn.Linear(embed_dim, embed_dim, bias=False)
+        self.prediction_q = nn.Linear(embed_dim, embed_dim, bias=False)
+        self.prediction_k = nn.Linear(embed_dim, embed_dim, bias=False)
 
     def forward(
         self,
-        query: Tensor,
-        attn_bias: Tensor = None,
-    ) -> Tensor:
+        query: torch.Tensor,
+        attn_bias: torch.Tensor = None
+    ) -> torch.Tensor:
         n_node, n_graph, embed_dim = query.size()
+        if self.training:
+            q, k, v = self.in_proj(query).chunk(3, dim=-1)
+
+            q = q.view(n_node, n_graph * self.num_heads, self.head_dim).transpose(0, 1) * self.scaling
+            k = k.view(n_node, n_graph * self.num_heads, self.head_dim).transpose(0, 1)
+            v = v.view(n_node, n_graph * self.num_heads, self.head_dim).transpose(0, 1)
+
+            # Compute full attention scores
+            full_attn = torch.bmm(q, k.transpose(1, 2))
         
-        # with profiler.record_function("IN PROJ"):
-        q, k, v = self.in_proj(query).chunk(3, dim=-1)
+        # Prediction path
+        pred = self.prediction_proj(query)
+        pred_q = self.prediction_q(pred).view(n_node, n_graph * self.num_heads, -1).transpose(0, 1)
+        pred_k = self.prediction_k(pred).view(n_node, n_graph * self.num_heads, -1).transpose(0, 1)
 
-        _shape = (-1, n_graph * self.num_heads, self.head_dim)
-        q = q.contiguous().view(_shape).transpose(0, 1) * self.scaling
-        k = k.contiguous().view(_shape).transpose(0, 1)
-        v = v.contiguous().view(_shape).transpose(0, 1)
+        # predicted attention scores
+        pred_attn = torch.bmm(pred_q, pred_k.transpose(1, 2))        
+        approx_error = torch.sum((full_attn - pred_attn) ** 2)
 
-        # with profiler.record_function("ATTN PROBS"):
-        attn_weights = torch.bmm(q, k.transpose(1, 2)) + attn_bias
-        attn_probs = softmax_dropout(attn_weights, self.dropout, self.training)
+        if self.training:
+            attn_weights = full_attn
+        else:
+            # During inference, use sparse attention
+            k = int((1 - self.sparsity_ratio) * n_node)
+            _, top_indices = torch.topk(pred_attn, k, dim=-1)
 
-        # with profiler.record_function("APPLY ATTN"):
+            sparse_mask = torch.zeros_like(pred_attn, dtype=torch.bool)
+            sparse_mask.scatter_(-1, top_indices, True)
+
+            attn_weights = full_attn.masked_fill(~sparse_mask, float('-inf'))
+
+        if attn_bias is not None:
+            attn_weights = attn_weights + attn_bias
+
+        attn_probs = F.softmax(attn_weights, dim=-1)
+        attn_probs = F.dropout(attn_probs, p=self.dropout, training=self.training)
+
         attn = torch.bmm(attn_probs, v)
-            
+
         attn = attn.transpose(0, 1).contiguous().view(n_node, n_graph, embed_dim)
-        # with profiler.record_function("OUT PROJ"):
         attn = self.out_proj(attn)
-        return attn
+        
+        return attn, approx_error
 
 
 class Graphormer3DEncoderLayer(nn.Module):
@@ -109,7 +136,7 @@ class Graphormer3DEncoderLayer(nn.Module):
         
         self.act = getattr(F, act)
 
-        self.self_attn = SelfMultiheadAttention(
+        self.self_attn = DSPSelfMultiheadAttention(
             self.embedding_dim,
             num_attention_heads,
             dropout=attention_dropout,
@@ -127,7 +154,7 @@ class Graphormer3DEncoderLayer(nn.Module):
     ):
         residual = x
         x = self.self_attn_layer_norm(x)
-        x = self.self_attn(
+        x, approx_err = self.self_attn(
             query=x,
             attn_bias=attn_bias,
         )
@@ -141,7 +168,7 @@ class Graphormer3DEncoderLayer(nn.Module):
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = residual + x
-        return x
+        return x, approx_err
 
 @torch.jit.script
 def gaussian(x, mean, std):
@@ -242,14 +269,12 @@ class NodeTaskHead(nn.Module):
         delta_pos: Tensor,
     ) -> Tensor:
         bsz, n_node, _ = query.size()
-    # with profiler.record_function("FORCE HEAD IN PROJ"):
         q = (
             self.q_proj(query).view(bsz, n_node, self.num_heads, -1).transpose(1, 2)
             * self.scaling
         )
         k = self.k_proj(query).view(bsz, n_node, self.num_heads, -1).transpose(1, 2)
         v = self.v_proj(query).view(bsz, n_node, self.num_heads, -1).transpose(1, 2)
-    # with profiler.record_function("FORCE HEAD ATTN PROBS"):
         attn = q @ k.transpose(-1, -2)  # [bsz, head, n, n]
         attn_probs = softmax_dropout(
             attn.view(-1, n_node, n_node) + attn_bias, 0.0, self.training
@@ -258,12 +283,8 @@ class NodeTaskHead(nn.Module):
             attn_probs
         )  # [bsz, head, n, n, 3]
         rot_attn_probs = rot_attn_probs.permute(0, 1, 4, 2, 3)
-        
-    # with profiler.record_function("FORCE HEAD APPLY ATTN"):
         x = rot_attn_probs @ v.unsqueeze(2)  # [bsz, head , 3, n, d]
         x = x.permute(0, 3, 2, 1, 4).contiguous().view(bsz, n_node, 3, -1)
-        
-    # with profiler.record_function("FORCE HEAD OUT PROJ"):
         f1 = self.force_proj1(x[:, :, 0, :]).view(bsz, n_node, 1)
         f2 = self.force_proj2(x[:, :, 1, :]).view(bsz, n_node, 1)
         f3 = self.force_proj3(x[:, :, 2, :]).view(bsz, n_node, 1)
@@ -271,7 +292,7 @@ class NodeTaskHead(nn.Module):
         return cur_force
 
 
-@registry.register_model("graphormer_force")
+@registry.register_model("graphormer_dsp")
 class Graphormer3D_Force(BaseModel):
     def __init__(
         self,
@@ -329,8 +350,7 @@ class Graphormer3D_Force(BaseModel):
 
         K = self.n_kernel
 
-        # self.gbf: Callable[[Tensor, Tensor], Tensor] = GaussianLayer(K, self.edge_types)
-        self.gbf = GaussianSmearing(cutoff_lower=0.0, cutoff_upper=8.0, num_rbf=K)
+        self.gbf: Callable[[Tensor, Tensor], Tensor] = GaussianLayer(K, self.edge_types)
         self.bias_proj: Callable[[Tensor], Tensor] = NonLinear(
             K, self.n_attn_heads, act=act
         )
@@ -349,15 +369,16 @@ class Graphormer3D_Force(BaseModel):
         out = self._forward(data)
         output["output"] = out[0]
         output["pos_grad"] = out[1]
+        
+        if self.training:
+            output["reg"] = out[2]
                   
         return output 
     
     @conditional_grad(torch.enable_grad())
     def _forward(self, data: TorchGeoBatch):
         device = data.pos.device
-        
-        # with profiler.record_function("PBC EXPANSION"):
-        batch: Batch = Batch.from_batch(data.to("cpu"), pbc={'num_offsets': 2}).to(device)
+        batch: Batch = Batch.from_batch(data, pbc={'num_offsets': 2}).to(device)
         data = data.to(device)
                 
         atoms, pos, real_mask = (
@@ -367,20 +388,16 @@ class Graphormer3D_Force(BaseModel):
         )
         padding_mask = atoms == 0
 
-        # with profiler.record_function("DIST COMPUTATION"):
         n_graph, n_node = atoms.size()
         delta_pos = pos.unsqueeze(1) - pos.unsqueeze(2)
         dist: Tensor = delta_pos.norm(dim=-1)
         delta_pos /= dist.unsqueeze(-1) + 1e-5
 
-        # with profiler.record_function("GBF COMPUTATION"):
+        edge_type = atoms.view(
+            n_graph, n_node, 1
+        ) * self.atom_types + atoms.view(n_graph, 1, n_node)
 
-            # edge_type = atoms.view(
-            #     n_graph, n_node, 1
-            # ) * self.atom_types + atoms.view(n_graph, 1, n_node)
-
-            # gbf_feature = self.gbf(dist, edge_type)
-        gbf_feature = self.gbf(dist)
+        gbf_feature = self.gbf(dist, edge_type)
             
         edge_features = gbf_feature.masked_fill(
             padding_mask.unsqueeze(1).unsqueeze(-1), 0.0
@@ -404,10 +421,12 @@ class Graphormer3D_Force(BaseModel):
             padding_mask.unsqueeze(1).unsqueeze(2), float("-inf")
         )
 
+        total_approx_error = 0.0
         graph_attn_bias = graph_attn_bias.view(-1, n_node, n_node)
         for _ in range(self.n_blocks):
             for enc_layer in self.layers:
-                output = enc_layer(output, attn_bias=graph_attn_bias)
+                output, approx_err = enc_layer(output, attn_bias=graph_attn_bias)
+                total_approx_error += approx_err
 
         output = self.final_ln(output)
         output = output.transpose(0, 1)
@@ -426,4 +445,4 @@ class Graphormer3D_Force(BaseModel):
         expanded_mask = node_target_mask.unsqueeze(-1).expand_as(node_output)
         force_output = node_output[expanded_mask.bool()].reshape(-1, 3)
 
-        return eng_output[:, None], force_output
+        return eng_output[:, None], force_output, total_approx_error / n_graph

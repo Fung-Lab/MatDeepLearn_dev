@@ -393,23 +393,24 @@ class BaseTrainer(ABC):
         data_loader = [{} for _ in range(model_config["model_ensemble"])]
     
         batch_size = optim_config.get("batch_size")
+        collate_method = dataset_config.get("collate_method", "default")
         
         for i in range(model_config["model_ensemble"]):
             if dataset.get("train"):
                 data_loader[i]["train_loader"] = get_dataloader(
-                    dataset["train"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=sampler
+                    dataset["train"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=sampler, collate_method=collate_method
                 )
             if dataset.get("val"):
                 data_loader[i]["val_loader"] = get_dataloader(
-                    dataset["val"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
+                    dataset["val"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, collate_method=collate_method
                 )
             if dataset.get("test"):
                 data_loader[i]["test_loader"] = get_dataloader(
-                    dataset["test"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None
+                    dataset["test"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, collate_method=collate_method
             )
             if run_mode == "predict" and dataset.get("predict"):
                 data_loader[i]["predict_loader"] = get_dataloader(
-                    dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, shuffle=True
+                    dataset["predict"], batch_size=batch_size, num_workers=dataset_config.get("num_workers", 0), sampler=None, shuffle=True, collate_method=collate_method
             )
 
         return data_loader

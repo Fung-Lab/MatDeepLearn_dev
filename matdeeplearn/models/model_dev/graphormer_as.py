@@ -1,7 +1,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-from typing import Callable, Tuple
+import math
+from typing import Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -12,16 +13,15 @@ import torch.autograd.profiler as profiler
 from torch_geometric.data import Batch as TorchGeoBatch
 
 from matdeeplearn.common.registry import registry
-from matdeeplearn.models.utils import GaussianSmearing
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
+from matdeeplearn.models.utils import GaussianSmearing
 from matdeeplearn.preprocessor.pbc_transform import Batch, Data
-from .adaptive_span import AdaptiveSpan
+from matdeeplearn.models.model_dev.adaptive_span import AdaptiveSpan
 
 torch._C._jit_set_profiling_mode(False)
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_override_can_fuse_on_cpu(True)
 torch._C._jit_override_can_fuse_on_gpu(True)
-
 
 @torch.jit.script
 def softmax_dropout(input, dropout_prob: float, is_training: bool):
@@ -36,6 +36,7 @@ class SelfMultiheadAttention(nn.Module):
         dropout=0.0,
         bias=True,
         scaling_factor=1,
+        adaptive_span_params=None
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -53,34 +54,69 @@ class SelfMultiheadAttention(nn.Module):
             embed_dim, embed_dim * 3, bias=bias
         )
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        
+        if adaptive_span_params is not None:
+            self.adaptive_span = AdaptiveSpan(
+                nb_heads=num_heads,
+                **adaptive_span_params
+            )
+        else:
+            self.adaptive_span = None
+
+    def head_reshape(self, x):
+        K = self.num_heads
+        D = self.head_dim
+        x = x.view(x.size()[:-1] + (K, D))  # B x (M+L) x K x D
+        x = x.transpose(1, 2).contiguous()  # B x K x (M+L) x D
+        x = x.view(-1, x.size(-2), x.size(-1))  # B_K x (M+L) x D
+        return x
 
     def forward(
         self,
         query: Tensor,
         attn_bias: Tensor = None,
     ) -> Tensor:
+        if self.adaptive_span is not None:
+            self.adaptive_span.clamp_param()
+        
         n_node, n_graph, embed_dim = query.size()
         
         # with profiler.record_function("IN PROJ"):
         q, k, v = self.in_proj(query).chunk(3, dim=-1)
+        
+        # _shape = (-1, n_graph * self.num_heads, self.head_dim)
+        # q = q.contiguous().view(_shape).transpose(0, 1) * self.scaling
+        # k = k.contiguous().view(_shape).transpose(0, 1)
+        # v = v.contiguous().view(_shape).transpose(0, 1)
 
-        _shape = (-1, n_graph * self.num_heads, self.head_dim)
-        q = q.contiguous().view(_shape).transpose(0, 1) * self.scaling
-        k = k.contiguous().view(_shape).transpose(0, 1)
-        v = v.contiguous().view(_shape).transpose(0, 1)
+        q = self.head_reshape(q) * self.scaling
+        k = self.head_reshape(k)
+        v = self.head_reshape(v)
+        
+        # with profiler.record_function("ATTN SPAN COMPUTE"):
+        if self.adaptive_span is not None:
+            # [optional] trim out memory to reduce unnecessary computation
+            k, v, _, attn_bias = self.adaptive_span.trim_memory(
+                q, k, v, key_pe=None, attn_bias=attn_bias
+            )
 
         # with profiler.record_function("ATTN PROBS"):
-        attn_weights = torch.bmm(q, k.transpose(1, 2)) + attn_bias
-        attn_probs = softmax_dropout(attn_weights, self.dropout, self.training)
+        attn_weights = torch.matmul(q, k.transpose(-1, -2)) * self.scaling + attn_bias
+        attn_probs = F.softmax(attn_weights, dim=-1)
 
+        if self.adaptive_span is not None:
+            # trim attention lengths according to the learned span
+            attn_probs = self.adaptive_span(attn_probs) 
+        
+        attn_probs = F.dropout(attn_probs, p=self.dropout, training=self.training)
+        
         # with profiler.record_function("APPLY ATTN"):
         attn = torch.bmm(attn_probs, v)
-            
         attn = attn.transpose(0, 1).contiguous().view(n_node, n_graph, embed_dim)
+        
         # with profiler.record_function("OUT PROJ"):
         attn = self.out_proj(attn)
         return attn
-
 
 class Graphormer3DEncoderLayer(nn.Module):
     """
@@ -96,6 +132,7 @@ class Graphormer3DEncoderLayer(nn.Module):
         attention_dropout: float = 0.1,
         activation_dropout: float = 0.1,
         act: str="gelu",
+        adaptive_span_params: dict = None
     ) -> None:
         super().__init__()
 
@@ -113,6 +150,7 @@ class Graphormer3DEncoderLayer(nn.Module):
             self.embedding_dim,
             num_attention_heads,
             dropout=attention_dropout,
+            adaptive_span_params=adaptive_span_params
         )
         # layer norm associated with the self attention layer
         self.self_attn_layer_norm = nn.LayerNorm(self.embedding_dim)
@@ -213,6 +251,7 @@ class NodeTaskHead(nn.Module):
         self,
         embed_dim: int,
         num_heads: int,
+        adaptive_span_params: dict = None
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -254,9 +293,11 @@ class NodeTaskHead(nn.Module):
         attn_probs = softmax_dropout(
             attn.view(-1, n_node, n_node) + attn_bias, 0.0, self.training
         ).view(bsz, self.num_heads, n_node, n_node)
+
         rot_attn_probs = attn_probs.unsqueeze(-1) * delta_pos.unsqueeze(1).type_as(
             attn_probs
         )  # [bsz, head, n, n, 3]
+        
         rot_attn_probs = rot_attn_probs.permute(0, 1, 4, 2, 3)
         
     # with profiler.record_function("FORCE HEAD APPLY ATTN"):
@@ -271,8 +312,8 @@ class NodeTaskHead(nn.Module):
         return cur_force
 
 
-@registry.register_model("graphormer_force")
-class Graphormer3D_Force(BaseModel):
+@registry.register_model("graphormer_as")
+class Graphormer3D_Force_AS(BaseModel):
     def __init__(
         self,
         atom_types=20,
@@ -289,7 +330,7 @@ class Graphormer3D_Force(BaseModel):
         act='gelu',
         **kwargs,
     ):
-        super(Graphormer3D_Force, self).__init__(**kwargs)
+        super(Graphormer3D_Force_AS, self).__init__(**kwargs)
         self.atom_types = atom_types
         self.edge_types = atom_types ** 2
         self.n_blocks = n_blocks
@@ -302,6 +343,14 @@ class Graphormer3D_Force(BaseModel):
         self.attn_dropout = attn_dropout
         self.act_dropout = act_dropout
         self.n_kernel = n_kernel
+        
+        adaptive_span_params = {
+            "attn_span": 256,
+            "adapt_span_loss": 2e-6,
+            "adapt_span_ramp": 32,
+            "adapt_span_init": 0.0,
+            "adapt_span_cache": True
+        }
         
         self.atom_encoder = nn.Embedding(
             self.atom_types, self.emb_dim, padding_idx=0
@@ -316,6 +365,7 @@ class Graphormer3D_Force(BaseModel):
                     attention_dropout=self.attn_dropout,
                     activation_dropout=self.act_dropout,
                     act=act,
+                    adaptive_span_params=adaptive_span_params
                 )
                 for _ in range(self.n_layers)
             ]
@@ -328,15 +378,14 @@ class Graphormer3D_Force(BaseModel):
         )
 
         K = self.n_kernel
-
-        # self.gbf: Callable[[Tensor, Tensor], Tensor] = GaussianLayer(K, self.edge_types)
-        self.gbf = GaussianSmearing(cutoff_lower=0.0, cutoff_upper=8.0, num_rbf=K)
+        self.gbf: Callable[[Tensor, Tensor], Tensor] = GaussianLayer(K, self.edge_types)
+        # self.gbf = GaussianSmearing(cutoff_lower=0.0, cutoff_upper=8.0, num_rbf=K)
         self.bias_proj: Callable[[Tensor], Tensor] = NonLinear(
             K, self.n_attn_heads, act=act
         )
         self.edge_proj: Callable[[Tensor], Tensor] = nn.Linear(K, self.emb_dim)
         self.node_proc: Callable[[Tensor, Tensor, Tensor], Tensor] = NodeTaskHead(
-            self.emb_dim, self.n_attn_heads
+            self.emb_dim, self.n_attn_heads, adaptive_span_params=adaptive_span_params
         )
         
     @property
@@ -353,17 +402,11 @@ class Graphormer3D_Force(BaseModel):
         return output 
     
     @conditional_grad(torch.enable_grad())
-    def _forward(self, data: TorchGeoBatch):
-        device = data.pos.device
-        
-        # with profiler.record_function("PBC EXPANSION"):
-        batch: Batch = Batch.from_batch(data.to("cpu"), pbc={'num_offsets': 2}).to(device)
-        data = data.to(device)
-                
+    def _forward(self, data: TorchGeoBatch):        
         atoms, pos, real_mask = (
-            batch.atoms,
-            batch.pos,
-            batch.real_mask,
+            data.atoms,
+            data.pos,
+            data.real_mask,
         )
         padding_mask = atoms == 0
 
@@ -375,12 +418,12 @@ class Graphormer3D_Force(BaseModel):
 
         # with profiler.record_function("GBF COMPUTATION"):
 
-            # edge_type = atoms.view(
-            #     n_graph, n_node, 1
-            # ) * self.atom_types + atoms.view(n_graph, 1, n_node)
+        edge_type = atoms.view(
+            n_graph, n_node, 1
+        ) * self.atom_types + atoms.view(n_graph, 1, n_node)
 
-            # gbf_feature = self.gbf(dist, edge_type)
-        gbf_feature = self.gbf(dist)
+        gbf_feature = self.gbf(dist, edge_type)
+        # gbf_feature = self.gbf(dist)
             
         edge_features = gbf_feature.masked_fill(
             padding_mask.unsqueeze(1).unsqueeze(-1), 0.0
@@ -423,7 +466,9 @@ class Graphormer3D_Force(BaseModel):
         node_output = self.node_proc(output, graph_attn_bias, delta_pos)
 
         node_target_mask = output_mask
-        expanded_mask = node_target_mask.unsqueeze(-1).expand_as(node_output)
-        force_output = node_output[expanded_mask.bool()].reshape(-1, 3)
+        # force_output = node_output[expanded_mask.bool()].reshape(-1, 3)
+        force_output = torch.cat([
+            node_output[i, node_target_mask[i].expand_as(node_target_mask[i])]
+        for i in range(node_target_mask.size(0))])
 
         return eng_output[:, None], force_output

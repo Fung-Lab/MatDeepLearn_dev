@@ -1,8 +1,13 @@
-import torch
+import math, random, numbers
+
+import torch, torch_geometric
+from torch_geometric.data import Data as TorchGeoData
+from torch_geometric.transforms import LinearTransformation
 from torch_sparse import coalesce
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.helpers import compute_bond_angles
+from matdeeplearn.preprocessor.pbc_transform import Data
 
 """
 here resides the transform classes needed for data processing
@@ -99,6 +104,29 @@ class ToFloat(object):
         data.edge_attr_lg = data.edge_attr_lg.float()
 
         return data
+    
+@registry.register_transform("TransformerPBC")
+class TransformerPBC(object):
+    """
+    Convert non-int attributes to float
+    """
+    def __init__(self, num_offsets=2):
+        self.num_offsets = num_offsets
+
+    def __call__(self, data):
+        dt = Data.from_torch_geometric_data(data, pbc={"num_offsets": self.num_offsets})
+        new_data = TorchGeoData()
+        for key, value in dt.__dict__.items():
+            setattr(new_data, key, value)
+        new_data.z = data.z
+        new_data.y = data.y
+        new_data.structure_id = data.structure_id
+        
+        # for attr in ["pos", "natoms", "real_mask", "forces"]:
+        #     if hasattr(new_data, attr):
+        #         setattr(new_data, attr, getattr(new_data, attr).unsqueeze(0))
+        return new_data
+
 class RandomRotate(object):
     r"""Rotates node positions around a specific axis by a randomly sampled
     factor within a given interval.

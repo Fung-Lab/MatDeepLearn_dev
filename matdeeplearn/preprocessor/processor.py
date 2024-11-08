@@ -20,6 +20,7 @@ from matdeeplearn.preprocessor.helpers import (
     get_cutoff_distance_matrix,
     calculate_edges_master,
 )
+from matdeeplearn.preprocessor.pbc_transform import Data as PBCData, Batch as PBCBatch
 
 
 def from_config(dataset_config):
@@ -396,7 +397,7 @@ class DataProcessor:
             logging.info("Processing device: {}".format(self.device))
     
             dict_structures = self.src_check()
-            data_list["full"] = self.get_data_list(dict_structures)
+            data_list["full"] = self.get_data_list(dict_structures)            
             data, slices = InMemoryDataset.collate(data_list["full"])
     
             if save:
@@ -507,8 +508,9 @@ class DataProcessor:
         composition = Compose(transforms_list)
 
         # apply transforms
-        for data in data_list:
-            composition(data)
+        for i, data in enumerate(data_list):
+            transformed_data = composition(data)
+            data_list[i] = transformed_data
 
         clean_up(data_list, ["edge_descriptor"])
 

@@ -8,7 +8,7 @@ from torch_geometric.transforms import Compose
 
 from matdeeplearn.common.registry import registry
 from matdeeplearn.preprocessor.datasets import LargeStructureDataset, StructureDataset
-
+from matdeeplearn.preprocessor.pbc_transform import Batch
 
 # train test split
 def dataset_split(
@@ -118,7 +118,7 @@ def get_dataset(
 
 
 def get_dataloader(
-    dataset, batch_size: int, num_workers: int = 8, sampler=None, shuffle=True
+    dataset, batch_size: int, num_workers: int = 8, sampler=None, shuffle=True, collate_method=None
 ):
     """
     Returns a single dataloader for a given dataset
@@ -160,4 +160,8 @@ def get_dataloader(
             pin_memory=True,
             sampler=sampler,
         )
+        
+    if collate_method == "transformer":
+        loader.collate_fn = Batch.from_datalist
+        
     return loader

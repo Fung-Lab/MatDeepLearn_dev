@@ -497,6 +497,12 @@ class PropertyTrainer(BaseTrainer):
                     self.epoch_time,
                 )
             )
+            # for layer in self.model[0].layers:
+            #     print(
+            #         layer.self_attn.adaptive_span._mask.current_val.mean().item(),
+            #         layer.self_attn.adaptive_span.get_current_max_span(),
+            #         layer.self_attn.adaptive_span.get_current_avg_span()
+            #     )
 
 
     def _load_task(self):
