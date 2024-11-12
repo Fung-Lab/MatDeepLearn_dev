@@ -40,7 +40,7 @@ class Runner:  # submitit.helpers.Checkpointable):
             
             torch.cuda.reset_peak_memory_stats(device=None)
             self.task.run()
-            print(f"Memory Used on GPU {torch.cuda.current_device()}: {torch.cuda.max_memory_allocated(device=None) * 1e-9} GB")
+            print(f"Memory Used on GPU {torch.cuda.current_device()}: {torch.cuda.max_memory_allocated(device=None) / (1024 ** 3)} GB")
             
             toc = time.perf_counter()
             toc_ptime = time.process_time()

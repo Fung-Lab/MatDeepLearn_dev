@@ -113,25 +113,25 @@ class TorchMD_ET(BaseModel):
         assert pool_order in ['early', 'late'], f"{pool_order} is currently not supported"
         self.pool_order = pool_order
         self.output_dim = output_dim
-        cutoff_lower = 0
+        self.cutoff_lower = 0
 
         act_class = act_class_mapping[activation]
 
         self.embedding = nn.Embedding(self.max_z, hidden_channels)
 
         self.distance = Distance(
-            cutoff_lower,
+            self.cutoff_lower,
             self.cutoff_radius,
             max_num_neighbors=max_num_neighbors,
             return_vecs=True,
             loop=True,
         )
         self.distance_expansion = rbf_class_mapping[rbf_type](
-            cutoff_lower, self.cutoff_radius, num_rbf, trainable_rbf
+            self.cutoff_lower, self.cutoff_radius, num_rbf, trainable_rbf
         )
         self.neighbor_embedding = (
             NeighborEmbedding(
-                hidden_channels, num_rbf, cutoff_lower, self.cutoff_radius, self.max_z
+                hidden_channels, num_rbf, self.cutoff_lower, self.cutoff_radius, self.max_z
             ).jittable()
             if neighbor_embedding
             else None
@@ -146,7 +146,7 @@ class TorchMD_ET(BaseModel):
                 num_heads,
                 act_class,
                 attn_activation,
-                cutoff_lower,
+                self.cutoff_lower,
                 self.cutoff_radius,
                 aggr,
             ).jittable()
@@ -295,7 +295,7 @@ class TorchMD_ET(BaseModel):
             f"num_heads={self.num_heads}, "
             f"distance_influence={self.distance_influence}, "
             f"cutoff_lower={self.cutoff_lower}, "
-            f"self.cutoff_radius={self.self.cutoff_radius})"
+            f"self.cutoff_radius={self.cutoff_radius})"
         )
     @property
     def target_attr(self):

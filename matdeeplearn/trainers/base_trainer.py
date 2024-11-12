@@ -24,6 +24,8 @@ from matdeeplearn.models.base_model import BaseModel
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.modules.scheduler import LRScheduler
 
+from matdeeplearn.modules.deepspeed_scheduler import DeepSpeedLRScheduler
+
 from torch.distributed.fsdp import (
    FullyShardedDataParallel,
    ShardingStrategy,
@@ -33,6 +35,8 @@ from torch.distributed.fsdp import (
 # from torch.distributed.fsdp.wrap import (
 #    default_auto_wrap_policy,
 # )
+
+import deepspeed
 
 @registry.register_trainer("base")
 class BaseTrainer(ABC):
@@ -158,6 +162,8 @@ class BaseTrainer(ABC):
             local_rank = rank % num_gpus_per_node # local_rank = rank - gpus_per_node * (rank // gpus_per_node)
             master_addr = os.environ['MASTER_ADDR']
             master_port = os.environ['MASTER_PORT']
+
+            os.environ['LOCAL_RANK'] = str(local_rank)
             
             print(f"Hello from rank {rank} of {world_size} where there are" \
                   f" {num_gpus_per_node} allocated GPUs per node.", flush=True)
@@ -191,8 +197,77 @@ class BaseTrainer(ABC):
             config["task"]["run_mode"],
             config["model"]
         ) if "src" in config["dataset"] else None
-
         scheduler = cls._load_scheduler(config["optim"]["scheduler"], optimizer)
+
+        print(f"Scheduler Loaded: {scheduler}")
+
+        if config["task"]["use_zero"]:
+            # Config deepspeed
+            print(f"Optimizer info: {config['optim']['optimizer']['optimizer_type']} {config['optim']['lr']}")
+
+            ds_config = {
+                "train_batch_size": int(config["optim"]["batch_size"] * world_size),
+                "train_micro_batch_size_per_gpu": int(config["optim"]["batch_size"]),
+                "gradient_accumulation_steps": 1,
+                "optimizer": {
+                    "type": config["optim"]["optimizer"]["optimizer_type"],
+                    "params": {
+                        "lr": float(config["optim"]["lr"]),
+                        "weight_decay": float(config["optim"]["optimizer"].get("weight_decay", 0)),
+                        # "set_grad_none": True,
+                    },
+                },
+                # "scheduler": {
+                #     "type": config["optim"]["scheduler"]["scheduler_type"],
+                #     "params": {
+                #         "mode": config["optim"]["scheduler"]["scheduler_args"].get("mode", "min"),
+                #         "patience": config["optim"]["scheduler"]["scheduler_args"].get("patience", 10),
+                #         "factor": config["optim"]["scheduler"]["scheduler_args"].get("factor", 0.8),
+                #         "threshold": config["optim"]["scheduler"]["scheduler_args"].get("threshold", 2e-4),
+                #     },
+                # },
+                "scheduler": {
+                    "type": "WarmupLR",
+                    "params": {
+                        "warmup_min_lr": 0,
+                        "warmup_max_lr": 0.001,
+                        "warmup_num_steps": 1000
+                    }
+                },
+                "fp16": {
+                    "enabled": False,
+                },
+                "zero_optimization": {
+                    "stage": config["task"]["zero_stage"],
+                    # "offload_optimizer": {
+                    #     "device": "cpu",
+                    # },
+                    "contiguous_gradients" : False,
+                    "overlap_comm": False,
+                },
+            }
+
+            deepspeed_model_list = []
+            deepspeed_optimizer_list = []
+            deepspeed_scheduler_list = []
+
+            for mod, optim, sched in zip(model, optimizer, scheduler):
+                ds_model, ds_optimizer, _, ds_scheduler = deepspeed.initialize(
+                    model=mod,
+                    model_parameters=mod.parameters(),
+                    # optimizer=optim,
+                    # lr_scheduler=sched,
+                    config=ds_config,
+                )
+
+                deepspeed_model_list.append(ds_model)
+                deepspeed_optimizer_list.append(ds_optimizer)
+                deepspeed_scheduler_list.append(DeepSpeedLRScheduler(ds_optimizer, "WarmupLR", ds_scheduler))
+
+            model = deepspeed_model_list
+            optimizer = deepspeed_optimizer_list
+            scheduler = deepspeed_scheduler_list
+
         loss = cls._load_loss(config["optim"]["loss"])
         max_epochs = config["optim"]["max_epochs"]
         clip_grad_norm = config["optim"].get("clip_grad_norm", None)
@@ -387,7 +462,9 @@ class BaseTrainer(ABC):
                 return nonwrapped_numel >= min_num_params
             
             if config["task"]["parallel"]:
-                if config["task"]["use_fsdp"]:
+                if config["task"]["use_zero"]:
+                    pass
+                elif config["task"]["use_fsdp"]:
                     model = FullyShardedDataParallel(
                         model,
                         process_group=None,

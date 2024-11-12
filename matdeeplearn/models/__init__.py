@@ -1,6 +1,7 @@
-__all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "TorchMD_ET_Early", "GemNetT", "EquiformerV2_OC20"]
+__all__ = ["BaseModel", "Linear", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "TorchMD_ET_Early", "GemNetT", "EquiformerV2_OC20"]
 
 from .base_model import BaseModel
+from .linear import Linear
 from .cgcnn import CGCNN
 from .mpnn import MPNN
 from .schnet import SchNet

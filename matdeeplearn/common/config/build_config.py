@@ -106,6 +106,11 @@ def build_config(args, args_override):
         config["task"]["seed"] = args.seed
 
     config["task"]["use_fsdp"] = True if args.use_fsdp == "True" else False
+    config["task"]["use_zero"] = True if args.use_zero == "True" else False
+    
+    if args.zero_stage is not None:
+        assert args.zero_stage in [0, 1, 2, 3], "Invalid zero stage."
+        config["task"]["zero_stage"] = int(args.zero_stage)
 
     config["model"]["dim1"] = args.dim1
     config["model"]["dim2"] = args.dim2

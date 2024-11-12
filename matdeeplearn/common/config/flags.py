@@ -130,6 +130,22 @@ class Flags:
         )
 
         self.parser.add_argument(
+            "--use_zero",
+            required=False,
+            default="False",
+            type=str,
+            help="Use Deepspeed ZeRO for distributed training",
+        )
+
+        self.parser.add_argument(
+            "--zero_stage",
+            required=False,
+            default=0,
+            type=int,
+            help="Deepspeed ZeRO stage for distributed training",
+        )
+
+        self.parser.add_argument(
             "--dim1",
             required=False,
             default=100,

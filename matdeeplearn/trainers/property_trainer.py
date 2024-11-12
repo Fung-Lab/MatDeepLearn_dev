@@ -13,6 +13,10 @@ from matdeeplearn.common.registry import registry
 from matdeeplearn.modules.evaluator import Evaluator
 from matdeeplearn.trainers.base_trainer import BaseTrainer
 
+import deepspeed
+import torch.profiler as profiler
+import wandb
+import psutil
 
 @registry.register_trainer("property")
 class PropertyTrainer(BaseTrainer):
@@ -66,6 +70,17 @@ class PropertyTrainer(BaseTrainer):
             # preserve_rng_state,
         )
 
+    def log_memory_usage(self, step, rank):
+        """Logs GPU and CPU memory usage for a specific step."""
+        cpu_memory = psutil.virtual_memory().used / (1024 ** 3)
+        gpu_allocated = torch.cuda.memory_allocated(rank) / (1024 ** 3)
+        gpu_reserved = torch.cuda.memory_reserved(rank) / (1024 ** 3)
+
+        # Print or log the memory stats
+        print(f"Step {step}: CPU Memory: {cpu_memory:.2f} GB, "
+            f"GPU {rank} Memory Allocated: {gpu_allocated:.2f} GB, "
+            f"GPU {rank} Memory Reserved: {gpu_reserved:.2f} GB")
+
     def train(self):
         # Start training over epochs loop
         # Calculate start_epoch from step instead of loading the epoch number
@@ -96,6 +111,19 @@ class PropertyTrainer(BaseTrainer):
         # print("Module list:")
         # print(self.model)
 
+        profiler_schedule = profiler.schedule(wait=1, warmup=1, active=3, repeat=2)
+
+        profiler_options = {
+            'activities': [
+                profiler.ProfilerActivity.CPU,
+                profiler.ProfilerActivity.CUDA,
+            ],
+            'schedule': profiler_schedule,
+            'on_trace_ready': profiler.tensorboard_trace_handler('./tensorboard_results'),
+            'profile_memory': True,
+            'with_stack': False
+        }
+
         for epoch in range(start_epoch, end_epoch):            
             epoch_start_time = time.time()
             if self.train_sampler:
@@ -109,32 +137,40 @@ class PropertyTrainer(BaseTrainer):
             
             #for i in range(skip_steps, len(self.train_loader)):
             pbar = tqdm(range(0, len(self.data_loader[0]["train_loader"])), disable=not self.batch_tqdm)
-            for i in pbar:                                
-                #self.epoch = epoch + (i + 1) / len(self.train_loader)
-                #self.step = epoch * len(self.train_loader) + i + 1
-                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024)) 
-                batch = []
-                for n, mod in enumerate(self.model):
-                    mod.train()
-                    batch.append(next(train_loader_iter[n]).to(self.rank))
-                # Get a batch of train data
-                # batch = next(train_loader_iter).to(self.rank) 
-                # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
-                # Compute forward, loss, backward    
-                with autocast(enabled=self.use_amp):
-                    out_list = self._forward(batch)                                            
-                    loss = self._compute_loss(out_list, batch) 
-                #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))                                               
-                grad_norm = []
-                for i in range(len(self.model)):
-                    grad_norm.append(self._backward(loss[i], i))
-                pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(torch.mean(torch.stack(loss)).item(), torch.mean(torch.stack(grad_norm)).item()))
-                # Compute metrics
-                # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
-                #  keep option to log metrics per epoch  
-                for n in range(len(self.model)):
-                    _metrics[n] = self._compute_metrics(out_list[n], batch[n], _metrics[n])
-                    self.metrics[n] = self.evaluator.update("loss", loss[n].item(), out_list[n]["output"].shape[0], _metrics[n])
+            
+            with profiler.profile(**profiler_options) as prof:
+                for i in pbar:                                
+                    #self.epoch = epoch + (i + 1) / len(self.train_loader)
+                    #self.step = epoch * len(self.train_loader) + i + 1
+                    #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024)) 
+                    batch = []
+                    for n, mod in enumerate(self.model):
+                        mod.train()
+                        batch.append(next(train_loader_iter[n]).to(self.rank))
+                    # Get a batch of train data
+                    # batch = next(train_loader_iter).to(self.rank) 
+                    # print(epoch, i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024), torch.sum(batch.n_atoms))          
+                    # Compute forward, loss, backward    
+                    with autocast(enabled=self.use_amp):
+                        out_list = self._forward(batch)                                            
+                        loss = self._compute_loss(out_list, batch) 
+                    #print(i, torch.cuda.memory_allocated() / (1024 * 1024), torch.cuda.memory_cached() / (1024 * 1024))  
+
+                    self.log_memory_usage(step=i+1, rank=self.rank)
+
+                    grad_norm = []
+                    for j in range(len(self.model)):
+                        grad_norm.append(self._backward(loss[j], j))
+
+                    pbar.set_description("Batch Loss {:.4f}, grad norm {:.4f}".format(torch.mean(torch.stack(loss)).item(), torch.mean(torch.stack(grad_norm)).item()))
+                    # Compute metrics
+                    # TODO: revert _metrics to be empty per batch, so metrics are logged per batch, not per epoch
+                    #  keep option to log metrics per epoch  
+                    for n in range(len(self.model)):
+                        _metrics[n] = self._compute_metrics(out_list[n], batch[n], _metrics[n])
+                        self.metrics[n] = self.evaluator.update("loss", loss[n].item(), out_list[n]["output"].shape[0], _metrics[n])
+                    
+                    prof.step()
 
             self.epoch = epoch + 1
 
@@ -177,8 +213,9 @@ class PropertyTrainer(BaseTrainer):
                                 self.update_best_model(metric[i], i, write_model=True, write_csv=True)
                             else:
                                 self.update_best_model(metric[i], i, write_model=False, write_csv=True)
-                    
-                self._scheduler_step()    
+                
+                if not isinstance(self.model[i], deepspeed.DeepSpeedEngine):
+                    self._scheduler_step()    
 
             torch.cuda.empty_cache()        
         
@@ -483,15 +520,23 @@ class PropertyTrainer(BaseTrainer):
         return loss
 
     def _backward(self, loss, index=None):
-        self.optimizer[index].zero_grad(set_to_none=True)
-        self.scaler.scale(loss).backward()
+        if isinstance(self.model[index], deepspeed.DeepSpeedEngine):
+            self.model[index].backward(loss)
+        else:
+            self.optimizer[index].zero_grad(set_to_none=True)
+            self.scaler.scale(loss).backward()
+        
         if self.clip_grad_norm:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.model[index].parameters(),
                 max_norm=self.clip_grad_norm,
             )
-        self.scaler.step(self.optimizer[index])
-        self.scaler.update()
+
+        if isinstance(self.model[index], deepspeed.DeepSpeedEngine):
+            self.model[index].step()
+        else:
+            self.scaler.step(self.optimizer[index])
+            self.scaler.update()
             
         return grad_norm
 
@@ -527,7 +572,6 @@ class PropertyTrainer(BaseTrainer):
         else:
             val_loss = [torch.tensor(i[type(self.loss_fn).__name__]["metric"]) for i in val_metrics]
             val_loss = torch.mean(torch.stack(val_loss)).item()
-            lr = self.scheduler[0].lr
             logging.info(
                 "Epoch: {:04d}, Learning Rate: {:.6f}, Training Error: {:.5f}, Val Error: {:.5f}, Time per epoch (s): {:.5f}".format(
                     int(self.epoch - 1),
