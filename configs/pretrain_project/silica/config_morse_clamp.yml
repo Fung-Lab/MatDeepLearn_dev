@@ -2,7 +2,7 @@ trainer: hybrid
 ?
 task:
   run_mode: train
-  identifier: silica_morse_clamp
+  identifier: silica_morse_no_clamp
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -52,7 +52,7 @@ model:
   with_exp_coefs: False
   # method to combine atomic parameters: average (default), Berthelot
   combination_method: average
-  clamped_params: {'D': 0.5, 'alphas': 0.5, 'rm': 0.5}
+  clamped_params: {} #{'D': 0.5, 'alphas': 0.5, 'rm': 0.5}
 ?
 optim:
   max_epochs: 200
@@ -68,7 +68,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 128
+  batch_size: 32
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -78,10 +78,10 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
-  name: mp_forces
+  name: silica
   processed: True
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
   src: data/Silica/original/data.json
@@ -107,7 +107,7 @@ dataset:
   additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
-  verbose: True
+  verbose: False
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:

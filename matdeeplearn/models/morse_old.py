@@ -57,11 +57,11 @@ class Morse_Old(BaseModel):
         self.D = ParameterList([Parameter(D_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.base_atomic_energy = ParameterList([Parameter(base_atomic_energy_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
         
-        for name, param in zip(
-            ("rm", "alpha", "D", "base_atomic_energy"),
-            (self.rm[0], self.alphas[0], self.D[0], self.base_atomic_energy[0]),
-        ):
-            print(name, ":", param.data)
+        # for name, param in zip(
+        #     ("rm", "alpha", "D", "base_atomic_energy"),
+        #     (self.rm[0], self.alphas[0], self.D[0], self.base_atomic_energy[0]),
+        # ):
+        #     print(name, ":", param.data)
 
         self.distance_expansion = GaussianSmearing(0.0, self.cutoff_radius, self.edge_dim, 0.2)
 

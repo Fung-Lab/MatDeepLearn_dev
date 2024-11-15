@@ -1,7 +1,7 @@
 __all__ = ["BaseModel", "CGCNN", "MPNN", "SchNet", "TorchMD_ET", "TorchMD_ET_Early",
            "Morse", "Morse_Old", "LJ", "GatedTorchMD_ET_Early", "Graphormer3D",
-           "Graphormer3D_Force", "Geomformer", "Graphormer3D_AS", "Graphormer3D_Force_AS", "Graphormer3D_Force_SparseAttn",
-           "MobileCGCNN"]
+           "Graphormer3D_Force", "Geomformer", "Graphormer3D_AS", "Graphormer3D_Force_AS",
+           "Graphormer3D_Force_SparseAttn", "MobileCGCNN", "EAM"]
 
 from .base_model import BaseModel
 from .cgcnn import CGCNN
@@ -20,3 +20,4 @@ from .model_dev.graphormer import Graphormer3D_Force
 from .model_dev.graphormer_as import Graphormer3D_Force_AS
 from .model_dev.graphormer_sparse_attn import Graphormer3D_Force_SparseAttn
 from .model_dev.mobile_cgcnn import MobileCGCNN
+from .eam import EAM

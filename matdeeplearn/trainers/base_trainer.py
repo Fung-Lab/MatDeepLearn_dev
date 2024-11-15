@@ -669,22 +669,22 @@ class BaseTrainer(ABC):
                 model_state[x][name].copy_(param)
             logging.info("Loaded pre-trained model with success.")
             if load_training_state == True:
-                if checkpoint.get("optimizer"): 
-                    self.optimizer[x].load_state_dict(checkpoint["optimizer"])
-                if checkpoint.get("scheduler"):     
-                    self.scheduler[x].scheduler.load_state_dict(checkpoint["scheduler"])
+                if load_state[x].get("optimizer"): 
+                    self.optimizer[x].load_state_dict(load_state[x]["optimizer"])
+                if load_state[x].get("scheduler"):     
+                    self.scheduler[x].scheduler.load_state_dict(load_state[x]["scheduler"])
                     self.scheduler[x].update_lr()
-                    #if checkpoint.get("epoch"): 
-                    #   self.epoch = checkpoint["epoch"]
-                    #if checkpoint.get("step"): 
-                    #    self.step = checkpoint["step"]
-                    #if checkpoint.get("best_metric"): 
-                    #    self.best_metric = checkpoint["best_metric"]
-                if checkpoint.get("seed"): 
-                    seed = checkpoint["seed"]
+                    #if load_state.get("epoch"): 
+                    #   self.epoch = load_state["epoch"]
+                    #if load_state.get("step"): 
+                    #    self.step = load_state["step"]
+                    #if load_state.get("best_metric"): 
+                    #    self.best_metric = load_state["best_metric"]
+                if load_state[x].get("seed"): 
+                    seed = load_state[x]["seed"]
                     self.set_seed(seed)
-                if checkpoint.get("scaler"):
-                    self.scaler.load_state_dict(checkpoint["scaler"])
+                if load_state[x].get("scaler"):
+                    self.scaler.load_state_dict(load_state[x]["scaler"])
 
     @staticmethod
     def set_seed(seed):
