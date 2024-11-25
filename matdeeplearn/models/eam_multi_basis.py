@@ -42,12 +42,14 @@ class MorsePotential(nn.Module):
         return morse_out.reshape(-1, 1)
     
 class EAMEmbedding(nn.Module):
-    def __init__(self, cutoff_radius):
+    def __init__(self, cutoff_radius, n_exp_basis):
         super(EAMEmbedding, self).__init__()
+        self.n_exp_basis = n_exp_basis
         self.cutoff_radius = cutoff_radius
 
     def electron_density(self, r, A, beta):
-        return A * torch.exp(-beta * r)
+        # print(beta[:, 0].shape)
+        return (A * torch.exp(-beta * r.unsqueeze(-1))).sum(dim=1)
     
     def embedding_function(self, rho, B, rho0):
         return B * (rho - rho0)**2
@@ -63,15 +65,16 @@ class EAMEmbedding(nn.Module):
         eam_out = scatter_add(E_embed, index=data.batch, dim_size=len(data))        
         return eam_out.reshape(-1, 1)
 
-@registry.register_model("EAM")
-class EAM(BaseModel):
+@registry.register_model("EAM_Basis")
+class EAM_Basis(BaseModel):
     def __init__(
         self,
         **kwargs
     ):
-        super(EAM, self).__init__(**kwargs)
+        super(EAM_Basis, self).__init__(**kwargs)
         self.combination_method = kwargs.get('combination_method', 'average')
         self.with_coefs = kwargs.get("with_coefs", False)
+        self.n_exp_basis = kwargs.get("n_exp_basis", 10)
         
         param_init = kwargs.get("param_init", {})
         rm_init = param_init.get("rm", 1.0)
@@ -86,14 +89,14 @@ class EAM(BaseModel):
         self.rm = ParameterList([Parameter(rm_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0') 
         self.alphas = ParameterList([Parameter(alphas_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.D = ParameterList([Parameter(D_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.A = ParameterList([Parameter(A_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
-        self.beta = ParameterList([Parameter(beta_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.A = ParameterList([Parameter(A_init * torch.ones(self.n_exp_basis,), requires_grad=True) for _ in range(100)]).to('cuda:0')
+        self.beta = ParameterList([Parameter(beta_init * torch.ones(self.n_exp_basis,), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.B = ParameterList([Parameter(B_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
         self.rho0 = ParameterList([Parameter(rho0_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
         # self.base_atomic_energy = ParameterList([Parameter(base_atomic_energy_init * torch.ones(1,), requires_grad=True) for _ in range(100)]).to('cuda:0')
 
         self.morse = MorsePotential(self.cutoff_radius)
-        self.eam_density = EAMEmbedding(self.cutoff_radius)
+        self.eam_density = EAMEmbedding(self.cutoff_radius, self.n_exp_basis)
 
     @property
     def target_attr(self):
@@ -137,8 +140,8 @@ class EAM(BaseModel):
         atomic_rm = torch.zeros((len(self.rm), 1)).to('cuda:0')
         atomic_D = torch.zeros((len(self.D), 1)).to('cuda:0')
         atomic_alphas = torch.zeros((len(self.alphas), 1)).to('cuda:0')
-        atomic_A = torch.zeros((len(self.A), 1)).to('cuda:0')
-        atomic_beta = torch.zeros((len(self.beta), 1)).to('cuda:0')
+        atomic_A = torch.zeros((len(self.A), self.n_exp_basis)).to('cuda:0')
+        atomic_beta = torch.zeros((len(self.beta), self.n_exp_basis)).to('cuda:0')
         atomic_B = torch.zeros((len(self.B), 1)).to('cuda:0')
         atomic_rho0 = torch.zeros((len(self.rho0), 1)).to('cuda:0')
         # base_atomic_energy = torch.zeros((len(self.base_atomic_energy), 1)).to('cuda:0')

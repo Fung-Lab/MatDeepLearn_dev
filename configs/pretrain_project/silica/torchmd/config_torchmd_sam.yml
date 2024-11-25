@@ -1,25 +1,25 @@
-trainer: property
+trainer: sam
 
 task:
   run_mode: train
-  identifier: silica_torchmd
+  identifier: silica_torchmd_sam
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: results/2024-09-18-15-13-37-414-silica_torchmd/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 1
+  output_frequency: 0
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 1
+  model_save_frequency: 0
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: True  
@@ -50,9 +50,10 @@ model:
   gradient: True
 
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
   lr: 0.00005
+  rho: 0.005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
     #loss_type: "TorchLossWrapper"
@@ -63,7 +64,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 4
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -73,7 +74,7 @@ optim:
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: False
+  batch_tqdm: True
   
 dataset:
   name: silica_data
@@ -84,7 +85,7 @@ dataset:
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: /net/csefiles/coc-fung-cluster/Qianyu/data/Silica/original/
+  pt_path: data/Silica/original/
   # Either "node" or "graph"
   prediction_level: graph
   

@@ -67,7 +67,6 @@ class SamTrainer(BaseTrainer):
         trainer_cls = super().from_config(config)
         # print(dir(trainer_cls))
         
-        
         optim_config = config["optim"]
         optim_list = []
         for i in range(len(trainer_cls.model)):
