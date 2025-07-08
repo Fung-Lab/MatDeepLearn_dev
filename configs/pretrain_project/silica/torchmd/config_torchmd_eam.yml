@@ -2,7 +2,7 @@ trainer: property
 
 task:
   run_mode: train
-  identifier: 10%_silica_torchmd
+  identifier: 10%_silica_torchmd_eam
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -15,7 +15,7 @@ task:
   # Path to the checkpoint.pt file
   checkpoint_path: results/2024-09-18-15-13-37-414-silica_torchmd/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
-  write_output: [train, val, test]
+  write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
@@ -25,8 +25,12 @@ task:
   use_amp: True  
 
 model:
-  name: torchmd_etEarly
-  # model attributes
+  name: TorchMD_EAM
+  load_trained_eam: results/eam/silica/2025-05-24-22-02-58-339-silica_eam_10%/checkpoint_0/best_checkpoint.pt
+  eam_args:
+    atom_types: ['Si', 'O']
+    init_mode: covalent_radius
+    freeze_params: []  # model attributes  # model attributes
   hidden_channels: 128
   num_layers: 8
   num_rbf: 50

@@ -1,8 +1,9 @@
 trainer: property
+
 ?
 task:
-  run_mode: finetune
-  identifier: cgcnn_finetune_unphysical_0.15_0.75_5_aug
+  run_mode: train
+  identifier: cgcnn_mpsubset
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +14,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-08-08-19-37-57-715-pretrain_cgcnn_mp_0_0.6_5_aug/checkpoint_0/best_checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -43,26 +44,26 @@ model:
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 ?
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.0005
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    #loss_type: "TorchLossWrapper"
-    #loss_args: {loss_fn: l1_loss}
+    # loss_type: "TorchLossWrapper"
+    # loss_args: {loss_fn: l1_loss}
     loss_type: ForceStressLoss
     loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: "ForceLoss"
+    # loss_args: {weight_energy: 0.01, weight_force: 50.}
   clip_grad_norm: 10
          
-  batch_size: 64
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -75,15 +76,15 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: perturbed_mp_data
-  processed: True
+  name: mpsubset
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/mp_forces/data.json
+  src: data/Li-O-P-Mn-Subset/train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/mp_forces/
+  pt_path: data/Li-O-P-Mn-Subset/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -101,7 +102,7 @@ dataset:
   additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
-  verbose: True
+  verbose: False
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
@@ -131,5 +132,5 @@ dataset:
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  val_ratio: 0.1
+  test_ratio: 0.0

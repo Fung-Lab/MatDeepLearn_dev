@@ -1,11 +1,10 @@
 trainer: property
+
 ?
 task:
   run_mode: train
-  identifier: graphormer_autodiff
+  identifier: cgcnn_eam_si
   parallel: False
-  # world_size: 2
-  # rank: 0
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
@@ -15,79 +14,81 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: False
   # Path to the checkpoint.pt file
-  checkpoint_path: /net/csefiles/coc-fung-cluster/Qianyu/stable_md/MatDeepLearn_dev/results/2024-09-23-00-03-48-578-graphormer_si_autodiff_all_dropout_0.2/checkpoint_0/checkpoint.pt
+  checkpoint_path:
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
-  use_amp: True  
+  use_amp: False  
 ?
 model:
-  name: graphormer3d 
-  atom_types: 100
-  n_layers: 6
-  # model attributes
-  # dim1: 100
-  # dim2: 150
-  # pre_fc_count: 1
-  # gc_count: 4
-  # post_fc_count: 3
-  # pool: global_add_pool
-  # pool_order: late
-  # batch_norm: False
-  # batch_track_stats: True
-  # act: silu
-  # dropout_rate: 0.0
+  name: CGCNN_EAM
+  load_trained_eam: results/eam/silica/2025-05-24-20-39-09-444-silica_eam/checkpoint_0/best_checkpoint.pt
+  eam_args:
+    atom_types: ['Si', 'O']
+    init_mode: covalent_radius
+    freeze_params: []  # model attributes
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: global_add_pool
+  pool_order: late
+  batch_norm: False
+  batch_track_stats: True
+  act: silu
+  dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
-  # otf_edge_index: True 
-  # # Compute edge attributes on the fly in the model forward
-  # otf_edge_attr: True  
-  # # Compute node attributes on the fly in the model forward
-  # otf_node_attr: False
+  otf_edge_index: True 
+  # Compute edge attributes on the fly in the model forward
+  otf_edge_attr: True  
+  # Compute node attributes on the fly in the model forward
+  otf_node_attr: True
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
 ?
 optim:
-  max_epochs: 400
+  max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.00005
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    #loss_type: "TorchLossWrapper"
-    #loss_args: {loss_fn: l1_loss}
+    # loss_type: "TorchLossWrapper"
+    # loss_args: {loss_fn: l1_loss}
     loss_type: ForceStressLoss
     loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
     # loss_type: "ForceLoss"
-    # loss_args: {weight_energy: 0.01, weight_force: 50.0}
+    # loss_args: {weight_energy: 0.01, weight_force: 50.}
   clip_grad_norm: 10
          
-  batch_size: 1
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
   scheduler:
     scheduler_type: ReduceLROnPlateau
-    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.0000001, threshold: 0.0002}
+    scheduler_args: {mode: min, factor: 0.8, patience: 10, min_lr: 0.00001, threshold: 0.0002}
   #Training print out frequency (print per n number of epochs)
   verbosity: 1
   # tdqm progress bar per batch in the epoch
-  batch_tqdm: True
+  batch_tqdm: False
   
 dataset:
-  name: mp
-  processed: True
+  name: silica
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: /net/csefiles/coc-fung-cluster/Qianyu/data/mp_forces/data.json
+  src: data/Silica/original/train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: /net/csefiles/coc-fung-cluster/Qianyu/data/mp_forces/
+  pt_path: data/Silica/original/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -134,6 +135,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.009
-  val_ratio: 0.0005
-  test_ratio: 0.0005
+  train_ratio: 0.9
+  val_ratio: 0.05
+  test_ratio: 0.05

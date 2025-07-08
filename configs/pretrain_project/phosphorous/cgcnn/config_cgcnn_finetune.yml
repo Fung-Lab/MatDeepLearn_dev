@@ -1,31 +1,32 @@
 trainer: property
+
 ?
 task:
-  run_mode: train
-  identifier: eam_basis
+  run_mode: finetune
+  identifier: P_cgcnn_lowlr_5aug_lr_0_001_finetune
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: False
+  continue_job: True
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: False
+  load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path:
+  checkpoint_path: results/2025-05-23-18-49-31-804-P_cgcnn_2pairs_1.0_5aug_low_lr_pretrain/checkpoint_0/best_checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
-  output_frequency: 0
+  output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
-  model_save_frequency: 0
+  model_save_frequency: 1
   # Specify if labels are provided for the predict task
   # labels: True
   use_amp: False  
 ?
 model:
-  name: EAM_Basis
+  name: CGCNN 
   # model attributes
   dim1: 100
   dim2: 150
@@ -43,32 +44,26 @@ model:
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  # whether to include coefficients on the 12 and 6 term for lj
-  with_coefs: False
-  with_exp_coefs: False
-  # method to combine atomic parameters: average (default), Berthelot
-  combination_method: average
-  clamped_params: {} #{'D': 0.5, 'alphas': 0.5, 'rm': 0.5}
 ?
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.002
+  lr: 0.001
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    #loss_type: "TorchLossWrapper"
-    #loss_args: {loss_fn: l1_loss}
-    loss_type: ForceStressLoss
-    loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
-    #loss_type: "ForceLoss"
-    #loss_args: {weight_energy: 1.0, weight_force: 1.0}
+    # loss_type: "TorchLossWrapper"
+    # loss_args: {loss_fn: l1_loss}
+    # loss_type: ForceStressLoss
+    # loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
+    loss_type: "ForceLoss"
+    loss_args: {weight_energy: 0.01, weight_force: 50.}
   clip_grad_norm: 10
          
-  batch_size: 32
+  batch_size: 16
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -82,14 +77,14 @@ optim:
   
 dataset:
   name: silica
-  processed: True
+  processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/Silica/original/data.json
+  src: data/p/train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica/original/
+  pt_path: data/p/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -103,11 +98,11 @@ dataset:
       otf: True # Optional parameter, default is False
   # Format of data files (limit to those supported by ASE: https://wiki.fysik.dtu.dk/ase/ase/io/io.html)
   data_format: json
-  #additional_attributes: [forces]
-  additional_attributes: [forces, stress]
+  additional_attributes: [forces]
+  # additional_attributes: [forces, stress]
   #additional_attributes:
   # Print out processing info
-  verbose: False
+  verbose: True
   # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
@@ -137,5 +132,5 @@ dataset:
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  val_ratio: 0.1
+  test_ratio: 0.

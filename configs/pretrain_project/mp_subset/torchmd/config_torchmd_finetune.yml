@@ -1,8 +1,8 @@
 trainer: property
 
 task:
-  run_mode: train
-  identifier: silica_torchmd_2aug_finetune_small_lr
+  run_mode: finetune
+  identifier: mp_subset_torchmd_2pairs_25aug_1_linspace_perturb_0.5_finetune
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,9 +13,9 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2024-08-17-17-04-24-380-silica_torchmd_2aug_finetune_small_lr/checkpoint_0/checkpoint.pt
+  checkpoint_path: results/2025-06-08-23-16-36-016-mp_subset_torchmd_2pairs_25aug_1_linspace_perturb_0.5_pretrain/checkpoint_0/best_checkpoint.pt
   # E.g. [train, val, test]
-  write_output: [val, test]
+  write_output: [train, val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
@@ -33,8 +33,8 @@ model:
   activation: "silu"
   attn_activation: "silu"
   num_heads: 8
-  num_post_layers: 1
-  post_hidden_channels: 64
+  num_post_layers: 2
+  post_hidden_channels: 128
   pool: "global_add_pool"
   pool_order: "late"
   aggr: "add"
@@ -44,7 +44,7 @@ model:
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: False
+  otf_node_attr: True
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
@@ -52,18 +52,20 @@ model:
 optim:
   max_epochs: 200
   max_checkpoint_epochs: 0
-  lr: 0.00001
+  lr: 0.00005
+  # rho: 0.00001
+
   # Either custom or from torch.nn.functional library. If from torch, loss_type is TorchLossWrapper
   loss:
-    #loss_type: "TorchLossWrapper"
-    #loss_args: {loss_fn: l1_loss}
+    # loss_type: "TorchLossWrapper"
+    # loss_args: {loss_fn: l1_loss}
     loss_type: ForceStressLoss
     loss_args: {weight_energy: 0.01, weight_force: 50.0, weight_stress: 50.0}
     #loss_type: "ForceLoss"
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 8
+  batch_size: 4
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -76,15 +78,15 @@ optim:
   batch_tqdm: False
   
 dataset:
-  name: silica_data
+  name: mpsubset
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/Silica/original/data.json
+  src: data/Li-O-P-Mn-Subset/train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
   # Path to save processed data.pt file
-  pt_path: data/Silica/original/
+  pt_path: data/Li-O-P-Mn-Subset/
   # Either "node" or "graph"
   prediction_level: graph
   
@@ -131,6 +133,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  train_ratio: 0.095
+  val_ratio: 0.005
+  test_ratio: 0.0
