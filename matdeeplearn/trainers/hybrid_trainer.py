@@ -461,7 +461,7 @@ class HybridTrainer(BaseTrainer):
         
         for model in self.model:
             for name, param in model.named_parameters():
-                param_base_name = name.split('.')[0]
+                param_base_name = name.split('.')[-2]
                 if param_base_name in self.clamped_params.keys():
                     clamp_value = self.clamped_params[param_base_name]
                     param.data.clamp_(min=clamp_value)

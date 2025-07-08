@@ -1,107 +1,19 @@
-from typing import Optional, Union
-
 import torch
-from torch import nn, Tensor
-
 import torch.nn.functional as F
-from torch.nn import BatchNorm1d, Linear, Sequential, Parameter
-
 import torch_geometric
-from torch_geometric.nn import MessagePassing
-from torch_geometric.nn.inits import glorot, zeros
+from torch.nn import BatchNorm1d
 from torch_geometric.nn import (
     CGConv,
     Set2Set,
-    global_add_pool,
-    global_max_pool,
-    global_mean_pool,
-    LayerNorm,
 )
-from torch_scatter import scatter, scatter_add, scatter_max, scatter_mean
-from torch_geometric.typing import Adj, OptTensor, PairTensor
 
+from matdeeplearn.models.eam_interaction import EAM_Interaction
 from matdeeplearn.common.registry import registry
 from matdeeplearn.models.base_model import BaseModel, conditional_grad
 from matdeeplearn.preprocessor.helpers import GaussianSmearing, node_rep_one_hot
 
-
-class MobileCGConv(MessagePassing):
-    def __init__(self, in_channels: int, out_channels: int, 
-                 edge_dim: Optional[int] = None,
-                 aggr: str = 'add',
-                 groups: int = 4,
-                 **kwargs):
-        super().__init__(aggr=aggr, **kwargs)
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.groups = groups
-        self.edge_dim = edge_dim
-        
-        # Calculate dimensions for grouped processing
-        self.group_channels = in_channels // groups
-        
-        # Input dimension for neural networks
-        input_dim = 2 * self.group_channels  # x_i + x_j
-        if edge_dim is not None:
-            input_dim += edge_dim
-            
-        # Create group-wise neural networks for interaction and state
-        self.lin_f = Linear(input_dim, self.group_channels)
-        self.lin_s = Linear(input_dim, self.group_channels)
-        
-        # Layer normalization
-        self.norm = LayerNorm(out_channels)
-        
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        self.lin_f.reset_parameters()
-        self.lin_s.reset_parameters()
-
-    def forward(self, x: Union[Tensor, PairTensor], edge_index: Adj,
-                edge_attr: OptTensor = None) -> Tensor:
-        if isinstance(x, Tensor):
-            x = (x, x)
-            
-        # Store residual
-        residual = x[1]
-        
-        # Message passing
-        out = self.propagate(edge_index, x=x, edge_attr=edge_attr)
-        
-        # Normalize
-        out = self.norm(out)
-        
-        # Residual connection
-        out = out + residual
-        
-        return out
-
-    def message(self, x_i: Tensor, x_j: Tensor, edge_attr: OptTensor) -> Tensor:
-        # Split into groups
-        x_i = x_i.view(-1, self.groups, self.group_channels)
-        x_j = x_j.view(-1, self.groups, self.group_channels)
-        
-        # Process each group
-        messages = []
-        for g in range(self.groups):
-            if edge_attr is None:
-                z = torch.cat([x_i[:, g], x_j[:, g]], dim=-1)
-            else:
-                # For each group, concatenate the full edge features
-                z = torch.cat([x_i[:, g], x_j[:, g], edge_attr], dim=-1)
-            
-            # Apply interaction and state networks (following CGCNN)
-            messages.append(self.lin_f(z).sigmoid() * F.softplus(self.lin_s(z)))
-        
-        # Combine group messages
-        out = torch.stack(messages, dim=1)
-        return out.view(-1, self.out_channels)
-    
-
-@registry.register_model("MobileCGCNN")
-class MobileCGCNN(BaseModel):
+@registry.register_model("CGCNN_EAM")
+class CGCNN(BaseModel):
     def __init__(
         self,
         node_dim,
@@ -118,9 +30,12 @@ class MobileCGCNN(BaseModel):
         batch_track_stats=True,
         act="relu",
         dropout_rate=0.0,
+        eam_args=None,
+        load_trained_eam=None,
+        freeze_eam=False,
         **kwargs
     ):
-        super(MobileCGCNN, self).__init__(**kwargs)
+        super(CGCNN, self).__init__(**kwargs)
 
         self.batch_track_stats = batch_track_stats
         self.batch_norm = batch_norm
@@ -159,6 +74,15 @@ class MobileCGCNN(BaseModel):
             self.set2set = Set2Set(self.output_dim, processing_steps=3, num_layers=1)
             # workaround for doubled dimension by set2set; if late pooling not recommended to use set2set
             self.lin_out_2 = torch.nn.Linear(self.output_dim * 2, self.output_dim)
+            
+        if eam_args is None:
+            raise ValueError("EAM args must be provided")
+        self.eam_potential = EAM_Interaction(**eam_args)
+        if load_trained_eam is not None:
+            self.eam_potential.load_state_dict(torch.load(load_trained_eam)['state_dict'])
+        if freeze_eam:
+            for param in self.eam_potential.parameters():
+                param.requires_grad = False
 
     @property
     def target_attr(self):
@@ -183,8 +107,8 @@ class MobileCGCNN(BaseModel):
         conv_list = torch.nn.ModuleList()
         bn_list = torch.nn.ModuleList()
         for i in range(self.gc_count):
-            conv = MobileCGConv(
-                self.gc_dim, self.gc_dim, self.edge_dim, aggr="mean"#, batch_norm=False
+            conv = CGConv(
+                self.gc_dim, self.edge_dim, aggr="mean", batch_norm=False
             )
             conv_list.append(conv)
             # Track running stats set to false can prevent some instabilities; this causes other issues with different val/test performance from loader size?
@@ -301,7 +225,7 @@ class MobileCGCNN(BaseModel):
                 out = getattr(F, self.act)(out)
             out = self.lin_out(out)                
                      
-        return out   
+        return out + self.eam_potential.potential(data)
         
         
     def forward(self, data):
