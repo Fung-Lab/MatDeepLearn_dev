@@ -1,0 +1,17 @@
+simulation_type: NVT
+timestep: 2
+temperature: 2000
+calculator_config_path: configs/calculator/Silica/cgcnn/config_cgcnn.yml
+total_steps: 5000
+metrics: ["min_dist"]
+save_traj_dir: sim_results/silica/tmp/cgcnn_2000K_NVT
+
+
+device: cuda:0
+
+# alarms:
+#   energy_diff: 0.4
+#   rdf_diff: 2
+#   min_dist: 1.3
+#   max_dist: 2.5
+  

@@ -189,3 +189,7 @@ log*
 
 # data
 data/
+sim_results/
+my_scripts/
+data_scripts/
+simulation/*.ipynb

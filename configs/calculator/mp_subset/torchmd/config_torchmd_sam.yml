@@ -1,0 +1,49 @@
+trainer: property
+
+task:
+  checkpoint_path: results/mp_subset/torchmd_10%/2025-04-15-19-48-38-870-torchmd_sam_mp_subset/checkpoint_0/best_checkpoint.pt
+
+model:
+  name: torchmd_etEarly
+  # model attributes
+  hidden_channels: 128
+  num_layers: 8
+  num_rbf: 50
+  activation: "silu"
+  attn_activation: "silu"
+  num_heads: 8
+  num_post_layers: 2
+  post_hidden_channels: 128
+  pool: "global_add_pool"
+  pool_order: "late"
+  aggr: "add"
+  dropout_rate: 0.0
+  # Compute edge indices on the fly in the model forward
+  otf_edge_index: True 
+  # Compute edge attributes on the fly in the model forward
+  otf_edge_attr: True  
+  # Compute node attributes on the fly in the model forward
+  otf_node_attr: True
+  model_ensemble: 1
+  # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
+  gradient: True
+  
+dataset:
+  # Index of target column in targets.csv
+  # graph specific settings
+  preprocess_params:
+    # one of mdl (minimum image convention), ocp (all neighbors included)
+    edge_calc_method: ocp 
+    # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
+    preprocess_node_features: False
+    cutoff_radius : 8.0
+    n_neighbors : 250
+    num_offsets: 2
+    # dimension of node attributes
+    node_dim : 100
+    # dimension of edge attributes
+    edge_dim : 50
+    self_loop: True
+    # Method of obtaining atom dictionary: available: (onehot)
+    node_representation: onehot    
+    all_neighbors: True
