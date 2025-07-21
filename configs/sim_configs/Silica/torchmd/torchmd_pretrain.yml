@@ -3,7 +3,7 @@ timestep: 2
 temperature: 2000
 calculator_config_path: configs/calculator/Silica/torchmd/config_torchmd_pretrain.yml
 total_steps: 5000
-metrics: []
+metrics: ['min_dist']
 save_traj_dir: sim_results/silica/tmp/torchmd_pretrain_2000K_NVT
 # additional_args:
 #   friction: 0.001

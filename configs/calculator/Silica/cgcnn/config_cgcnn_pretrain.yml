@@ -1,6 +1,6 @@
 task:
   # Path to the checkpoint.pt file. The model used in the calculator will load parameters from this file.
-  checkpoint_path: results/silica/cgcnn/2025-05-21-11-55-31-987-cgcnn_silica_5aug_finetune/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: results/silica/test/2025-07-18-07-26-17-312-cgcnn_silica_5aug_finetune/checkpoint_0/best_checkpoint.pt
 
 model:
   # Model used by the calculator

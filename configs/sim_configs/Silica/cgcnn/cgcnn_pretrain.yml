@@ -1,10 +1,10 @@
-simulation_type: NVT
+simulation_type: NPT
 timestep: 2
 temperature: 2000
 calculator_config_path: configs/calculator/Silica/cgcnn/config_cgcnn_pretrain.yml
 total_steps: 5000
 metrics: ["min_dist"]
-save_traj_dir: sim_results/silica/tmp/cgcnn_pretrain_2000K_NVT
+save_traj_dir: sim_results/silica/tmp/cgcnn_pretrain_2000K_NPT
 
 # log_console: False
 # save_metrics_per: 100_000
