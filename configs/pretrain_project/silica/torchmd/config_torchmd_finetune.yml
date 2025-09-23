@@ -2,7 +2,7 @@ trainer: property
 
 task:
   run_mode: finetune
-  identifier: 10%_silica_torchmd_5aug_1.0_finetune
+  identifier: 10%_silica_torchmd_10aug_finetune
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
@@ -13,7 +13,7 @@ task:
   # spefcify if the training state is loaded: epochs, learning rate, etc
   load_training_state: True
   # Path to the checkpoint.pt file
-  checkpoint_path: results/2025-05-19-12-19-30-697-10%_silica_torchmd_4pairs_1.0_5aug_pretrain/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: results/2025-08-15-13-10-18-239-10%_silica_torchmd_10aug_pretrain/checkpoint_0/best_checkpoint.pt
   # E.g. [train, val, test]
   write_output: [val, test]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
@@ -79,7 +79,7 @@ dataset:
   name: mpsubset
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/Silica/original/train_val_data.json
+  src: data/Silica/original/10%_train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
@@ -131,6 +131,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.09
-  val_ratio: 0.01
+  train_ratio: 0.9
+  val_ratio: 0.1
   test_ratio: 0.0

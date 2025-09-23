@@ -49,6 +49,8 @@ def parse_args():
     parser.add_argument('--dataset', type=str,
                         choices=['Silica', 'P', 'mp_subset'],
                         help='Dataset to use')
+    parser.add_argument('--config_path', type=str, required=True,
+                        help='Path to the configuration file for the calculator')
     parser.add_argument('--train_results_dir', type=str, required=False,
                         help='Directory containing training results CSV files')
     
@@ -58,18 +60,15 @@ def parse_args():
 def setup_dataset_paths(dataset: str) -> tuple[str, str, tuple[str, ...]]:
     if dataset == "Silica":
         original_data_path = "data/Silica/original/data.json"
-        calculator_path = 'configs/calculator/Silica/potential_only/config_eam_interaction.yml'
         calculated_properties = ('energy', 'forces', 'stress')
     elif dataset == "P":
         original_data_path = "data/p/train_val_data.json"
-        calculator_path = 'configs/calculator/phosphorous/potential_only/config_eam_interaction.yml'
         calculated_properties = ('energy', 'forces')
     elif dataset == 'mp_subset':
         original_data_path = "data/Li-O-P-Mn-Subset/data.json"
-        calculator_path = 'configs/calculator/mp_subset/potential_only/config_eam_interaction.yml'
         calculated_properties = ('energy', 'forces', 'stress')
     
-    return original_data_path, calculator_path, calculated_properties
+    return original_data_path, calculated_properties
 
 
 def load_and_filter_structures(original_data_path: str, train_results_dir: str) -> list[dict[str, Any]]:
@@ -255,7 +254,8 @@ def main():
     np.random.seed(args.seed)
     
     # Setup dataset paths
-    original_data_path, calculator_path, calculated_properties = setup_dataset_paths(args.dataset)
+    original_data_path, calculated_properties = setup_dataset_paths(args.dataset)
+    calculator_path = args.config_path
     
     # Load and filter structures
     structures = load_and_filter_structures(original_data_path, args.train_results_dir)
@@ -362,7 +362,6 @@ def main():
     
     if structures_to_write:
         energies = np.array([s['y'] for s in structures_to_write])
-        force_magnitudes = np.array([np.linalg.norm(s['forces']) for s in structures_to_write])
         
         print_structure_statistics(structures_to_write, "Augmented Structure")
         print_energy_statistics(energies, "Augmented Energy")

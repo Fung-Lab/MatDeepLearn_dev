@@ -3,16 +3,16 @@ trainer: sam
 ?
 task:
   run_mode: finetune
-  identifier: cgcnn_silica_5aug_sam_finetune
+  identifier: cgcnn_silica_sam
   parallel: False
   # If seed is not set, then it will be random every time
   seed: 12345678
   # Defaults to run directory if not specified
   save_dir: 
   # continue from a previous job
-  continue_job: True
+  continue_job: False
   # spefcify if the training state is loaded: epochs, learning rate, etc
-  load_training_state: True
+  load_training_state: False
   # Path to the checkpoint.pt file
   checkpoint_path: results/pretrained_models/silica/silica_cgcnn_4pairs_1_5aug/checkpoint_0/best_checkpoint.pt
   # E.g. [train, val, test]
@@ -80,7 +80,7 @@ dataset:
   name: silica
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/Silica/original/data.json
+  src: data/Silica/original/train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
@@ -133,5 +133,5 @@ dataset:
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
   train_ratio: 0.9
-  val_ratio: 0.05
-  test_ratio: 0.05
+  val_ratio: 0.1
+  test_ratio: 0.0

@@ -1,7 +1,7 @@
 trainer: property
 
 task:
-  checkpoint_path: results/silica/test/2025-07-18-12-24-37-593-10%_silica_torchmd_5aug_finetune/checkpoint_0/best_checkpoint.pt
+  checkpoint_path: results/2025-08-10-04-43-05-708-10%_silica_torchmd_10aug_pretrain/checkpoint_0/best_checkpoint.pt
 
 model:
   name: torchmd_etEarly

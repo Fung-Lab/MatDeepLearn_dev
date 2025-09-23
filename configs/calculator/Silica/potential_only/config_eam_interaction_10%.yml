@@ -1,42 +1,46 @@
-trainer: property
-
 task:
-  checkpoint_path: results/2025-08-15-13-10-18-239-10%_silica_torchmd_10aug_pretrain/checkpoint_0/best_checkpoint.pt
-
+  checkpoint_path: results/2025-08-18-12-20-28-850-silica_eam_10%/checkpoint_0/best_checkpoint.pt
+?
 model:
-  name: torchmd_etEarly
+  name: EAM_Interaction
   # model attributes
-  hidden_channels: 128
-  num_layers: 8
-  num_rbf: 50
-  activation: "silu"
-  attn_activation: "silu"
-  num_heads: 8
-  num_post_layers: 2
-  post_hidden_channels: 128
-  pool: "global_add_pool"
-  pool_order: "late"
-  aggr: "add"
+  dim1: 100
+  dim2: 150
+  pre_fc_count: 1
+  gc_count: 4
+  post_fc_count: 3
+  pool: global_add_pool
+  pool_order: late
+  batch_norm: False
+  batch_track_stats: True
+  act: silu
   dropout_rate: 0.0
   # Compute edge indices on the fly in the model forward
   otf_edge_index: True 
   # Compute edge attributes on the fly in the model forward
   otf_edge_attr: True  
   # Compute node attributes on the fly in the model forward
-  otf_node_attr: True
+  otf_node_attr: False
   model_ensemble: 1
   # compute gradients w.r.t to positions and cell, requires otf_edge_attr=True      
   gradient: True
-  
+  n_exp_basis: 10
+  atom_types: ['Si', 'O']
+  init_mode: covalent_radius
+  # clamped_params: {'rm': 2, 'alphas': 0.5, 'D': 0.5, 'rho0': 0.5, 'B': 0.5, 'A': 0.5}
+
 dataset:
-  # Index of target column in targets.csv
   # graph specific settings
   preprocess_params:
     # one of mdl (minimum image convention), ocp (all neighbors included)
     edge_calc_method: ocp 
+    # determine if edges are computed, if false, then they need to be computed on the fly   
+    preprocess_edges: False
+    # determine if edge attributes are computed during processing, if false, then they need to be computed on the fly   
+    preprocess_edge_features: False
     # determine if node attributes are computed during processing, if false, then they need to be computed on the fly   
-    preprocess_node_features: False
-    cutoff_radius : 8.0
+    preprocess_node_features: True
+    cutoff_radius : 8
     n_neighbors : 250
     num_offsets: 2
     # dimension of node attributes
