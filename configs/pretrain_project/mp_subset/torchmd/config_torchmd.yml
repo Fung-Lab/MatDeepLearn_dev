@@ -15,7 +15,7 @@ task:
   # Path to the checkpoint.pt file
   checkpoint_path: results/2024-09-18-15-13-37-414-silica_torchmd/checkpoint_0/checkpoint.pt
   # E.g. [train, val, test]
-  write_output: [train, val, test]
+  write_output: [train, val]
   # Frequency of writing to file; 0 denotes writing only at the end, 1 denotes writing every time
   output_frequency: 1
   # Frequency of saving model .pt file; 0 denotes saving only at the end, 1 denotes saving every time, -1 denotes never saving; this controls both checkpoint and best_checkpoint
@@ -65,7 +65,7 @@ optim:
     #loss_args: {weight_energy: 1.0, weight_force: 1.0}
   clip_grad_norm: 10
          
-  batch_size: 4
+  batch_size: 8
   optimizer:
     optimizer_type: AdamW
     optimizer_args: {}
@@ -81,7 +81,7 @@ dataset:
   name: mpsubset
   processed: False
   # Path to data files - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path, predict: predict_path}
-  src: data/Li-O-P-Mn-Subset/data.json
+  src: data/Li-O-P-Mn-Subset/train_val_data.json
   # Path to target file within data_path - this can either be in the form of a string denoting a single path or a dictionary of {train: train_path, val: val_path, test: test_path} or left blank when the dataset is a single json file
   # Example: target_path: "data/test_data/raw_graph_scalar/targets.csv"
   target_path: 
@@ -133,6 +133,6 @@ dataset:
   # Where the dataset is loaded; either "cpu" or "cuda"
   dataset_device: cpu
   # Ratios for train/val/test split out of a total of less than 1
-  train_ratio: 0.095
-  val_ratio: 0.005
+  train_ratio: 0.95
+  val_ratio: 0.05
   test_ratio: 0.0
